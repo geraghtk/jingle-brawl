@@ -238,6 +238,18 @@
             color: #92400e;
         }
 
+        .stat.chips {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+
+        .stat.wrapped {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #7dd3fc;
+            color: #0369a1;
+        }
+
         .stat-icon {
             font-size: 1rem;
         }
@@ -285,6 +297,16 @@
 
         .card-title-icon {
             font-size: 0.9rem;
+        }
+
+        .chip-recommendation {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #991b1b;
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            padding: 0.35rem 0.7rem;
+            border-radius: 8px;
+            border: 1px solid #fca5a5;
         }
 
         /* Form elements */
@@ -490,6 +512,52 @@
 
         .gift-card.misfit-owner:hover {
             border-color: var(--accent-gold);
+        }
+
+        .gift-card.wrapped-placeholder {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px dashed #7dd3fc;
+            opacity: 0.7;
+        }
+
+        .gift-card.wrapped-placeholder:hover {
+            opacity: 1;
+            border-color: #0ea5e9;
+        }
+
+        .wrapped-number {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: #0ea5e9;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.2rem 0.5rem;
+            border-radius: 8px;
+        }
+
+        .wrapped-content {
+            text-align: center;
+            padding: 1.5rem 1rem;
+        }
+
+        .wrapped-icon {
+            font-size: 3rem;
+            margin-bottom: 0.75rem;
+            filter: grayscale(30%);
+        }
+
+        .wrapped-text {
+            color: #0369a1;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .wrapped-subtext {
+            color: #64748b;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
         }
 
         .misfit-queue-badge {
@@ -761,6 +829,33 @@
             background: rgba(220, 38, 38, 0.05);
         }
 
+        /* Disabled gift card */
+        .card.gifts-card.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+            background: #f5f5f5;
+        }
+
+        .card.gifts-card.disabled .card-title {
+            text-decoration: line-through;
+        }
+
+        .all-gifts-opened {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            color: var(--accent-green-dark);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .all-gifts-opened .check-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
         /* Medallion colors */
         .naughty-0 { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
         .naughty-1 { background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%); }
@@ -820,15 +915,25 @@
 
     <div class="container">
         <div class="stats-bar">
-            <div class="stat gifts">
-                <span class="stat-icon">🎁</span>
-                <span>Gifts</span>
-                <span class="stat-value" id="gift-count">0</span>
-            </div>
             <div class="stat players">
                 <span class="stat-icon">👥</span>
                 <span>Players</span>
                 <span class="stat-value" id="player-count">0</span>
+            </div>
+            <div class="stat chips">
+                <span class="stat-icon">🪙</span>
+                <span>Chips Each</span>
+                <span class="stat-value" id="chip-count">10</span>
+            </div>
+            <div class="stat wrapped">
+                <span class="stat-icon">🎀</span>
+                <span>Wrapped</span>
+                <span class="stat-value" id="wrapped-count">0</span>
+            </div>
+            <div class="stat gifts">
+                <span class="stat-icon">🎁</span>
+                <span>Opened</span>
+                <span class="stat-value" id="gift-count">0</span>
             </div>
             <div class="stat misfit">
                 <span class="stat-icon">🧸</span>
@@ -841,6 +946,7 @@
         <div class="card players-card">
             <div class="card-header">
                 <span class="card-title"><span class="card-title-icon">👥</span> Players</span>
+                <span class="chip-recommendation" id="chip-recommendation"></span>
             </div>
             <div class="input-group" style="margin-bottom: 1rem;">
                 <input type="text" id="player-name" placeholder="Add player name..." onkeypress="if(event.key==='Enter')addPlayer()">
@@ -1004,9 +1110,24 @@
         }
 
         function render() {
-            document.getElementById('gift-count').textContent = gifts.length;
-            document.getElementById('player-count').textContent = players.length;
+            const openedGifts = gifts.length;
+            const totalPlayers = players.length;
+            const wrappedGifts = Math.max(0, totalPlayers - openedGifts);
+            const recommendedChips = totalPlayers > 10 ? 12 : 10;
+            
+            document.getElementById('gift-count').textContent = openedGifts;
+            document.getElementById('player-count').textContent = totalPlayers;
+            document.getElementById('wrapped-count').textContent = wrappedGifts;
+            document.getElementById('chip-count').textContent = totalPlayers > 0 ? recommendedChips : '-';
             document.getElementById('misfit-count').textContent = gifts.filter(g => g.owner === 'Misfit Pile').length;
+            
+            // Update chip recommendation text
+            const chipRec = document.getElementById('chip-recommendation');
+            if (totalPlayers > 0) {
+                chipRec.innerHTML = `🪙 Give each player <strong>${recommendedChips}</strong> chips`;
+            } else {
+                chipRec.innerHTML = '';
+            }
 
             const misfitCount = gifts.filter(g => g.owner === 'Misfit Pile').length;
             const playerChips = document.getElementById('player-chips');
@@ -1027,13 +1148,46 @@
             `;
             document.getElementById('gift-owner').innerHTML = ownerOptions;
 
+            // Handle disabled state for gift form when all gifts are opened
+            const giftCard = document.querySelector('.card.gifts-card');
+            const allGiftsOpened = totalPlayers > 0 && openedGifts >= totalPlayers;
+            
+            if (allGiftsOpened) {
+                giftCard.classList.add('disabled');
+                giftCard.innerHTML = `
+                    <div class="card-header">
+                        <span class="card-title"><span class="card-title-icon">🎁</span> Open New Gift</span>
+                    </div>
+                    <div class="all-gifts-opened">
+                        <div class="check-icon">✅</div>
+                        All ${totalPlayers} gifts have been opened!<br>
+                        <small style="font-weight: 500; opacity: 0.8;">Proceed to duels and trades.</small>
+                    </div>
+                `;
+            } else {
+                giftCard.classList.remove('disabled');
+                giftCard.innerHTML = `
+                    <div class="card-header">
+                        <span class="card-title"><span class="card-title-icon">🎁</span> Open New Gift</span>
+                    </div>
+                    <div class="add-gift-form">
+                        <input type="text" id="gift-name" placeholder="Gift description..." onkeypress="if(event.key==='Enter')addGift()">
+                        <select id="gift-owner">
+                            ${ownerOptions}
+                        </select>
+                        <button class="btn btn-primary" onclick="addGift()">🎁 Add Gift</button>
+                    </div>
+                `;
+            }
+
             const giftsGrid = document.getElementById('gifts-grid');
             
-            if (gifts.length === 0) {
+            // Show empty state only if no players
+            if (totalPlayers === 0) {
                 giftsGrid.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-icon">🎁</div>
-                        <p>No gifts opened yet.<br>Add players and start unwrapping!</p>
+                        <div class="empty-icon">👥</div>
+                        <p>Add players to get started!<br>Each player needs one gift.</p>
                     </div>
                 `;
                 return;
@@ -1108,6 +1262,24 @@
                     </div>
                 `;
             }).join('');
+
+            // Add placeholder cards for wrapped gifts
+            if (wrappedGifts > 0) {
+                const placeholders = [];
+                for (let i = 1; i <= wrappedGifts; i++) {
+                    placeholders.push(`
+                        <div class="gift-card wrapped-placeholder">
+                            <span class="wrapped-number">#${openedGifts + i}</span>
+                            <div class="wrapped-content">
+                                <div class="wrapped-icon">🎁</div>
+                                <div class="wrapped-text">Wrapped Gift</div>
+                                <div class="wrapped-subtext">Waiting to be opened...</div>
+                            </div>
+                        </div>
+                    `);
+                }
+                giftsGrid.innerHTML += placeholders.join('');
+            }
         }
 
         function createSnow() {
