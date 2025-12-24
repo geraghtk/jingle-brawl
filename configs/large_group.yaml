@@ -1,0 +1,31 @@
+# Jingle Brawl Configuration - Large Groups (10+ players)
+# =======================================================
+# Optimized settings for large player counts
+
+NUM_PLAYERS: 15
+NUM_GIFTS: 15
+INITIAL_CHIPS: 12                 # Optimal per sweep (12 for large groups)
+
+SANTA_TAX_RULE: FLAT_1
+LOSER_DIVIDEND_RULE: ANY_LOSER
+ENDGAME_POT_RULE: WINNER_TAKES
+YIELD_RULE: ALLOWED
+VOLUNTARY_CHALLENGE_RULE: ENABLED
+REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS
+REPRISAL_TARGETS_MISFITS: true
+
+MIN_COST_MODE: LINEAR
+NAUGHTY_LEVEL_CAP: 99
+DUEL_MODEL: FAIR_COIN
+
+# Gift values - CORRELATED creates realistic "bad gifts nobody wants"
+GIFT_VALUE_DIST: UNIFORM
+GIFT_VALUE_MODEL: CORRELATED
+TASTE_VARIANCE: 2.0
+
+# Sealed bid limits - sensible defaults (no artificial constraints)
+SEALED_BID_MIN: 1
+SEALED_BID_MAX: null
+
+SEED: null
+

@@ -1,0 +1,52 @@
+# Jingle Brawl Configuration - Parameter Sweep
+# =============================================
+# Configuration for comprehensive parameter studies
+
+# Base configuration
+base:
+  NUM_GIFTS: 7  # Matches player count
+  YIELD_RULE: ALLOWED
+  VOLUNTARY_CHALLENGE_RULE: ENABLED
+  REPRISAL_TARGETS_MISFITS: true
+  NAUGHTY_LEVEL_CAP: 99
+  DUEL_MODEL: FAIR_COIN
+  GIFT_VALUE_DIST: UNIFORM
+  SEED: null
+
+# Parameter sweep ranges
+sweeps:
+  # Player counts to test
+  NUM_PLAYERS: [3, 4, 5, 6, 7, 8, 9, 10]
+  
+  # Starting chips variations
+  INITIAL_CHIPS: [6, 8, 10, 12]
+  
+  # Santa Tax variations
+  SANTA_TAX_RULE:
+    - FLAT_1      # Standard: pot >= 3 → tax = 1
+    - NONE        # No tax
+    
+  # Dividend variations
+  LOSER_DIVIDEND_RULE:
+    - ANY_LOSER       # Challenger OR Defender gets +1
+    - DEFENDER_ONLY   # Only defender gets +1
+    - NONE            # No dividend
+    
+  # Reprisal variations
+  REPRISAL_TRIGGER_RULE:
+    - ANY_DEFENDER_LOSS  # Defender loses → reprisal
+    - VOLUNTARY_ONLY     # Only after voluntary challenge
+    - DISABLED           # No reprisals
+
+  # Min cost formula variations
+  MIN_COST_MODE:
+    - LINEAR       # cost = 1 + naughty
+    - STEEP        # cost = 2 + naughty
+    - FLAT         # cost = 1 always
+
+# Simulation settings
+simulation:
+  games_per_config: 1000
+  parallel_workers: 8
+  output_format: json  # json, csv, parquet
+

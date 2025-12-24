@@ -1,0 +1,34 @@
+# Jingle Brawl Configuration - Skill-Based Duels
+# ==============================================
+# Alternative duel resolution using player skill
+
+NUM_PLAYERS: 7
+NUM_GIFTS: 7
+INITIAL_CHIPS: 8
+
+SANTA_TAX_RULE: FLAT_1
+LOSER_DIVIDEND_RULE: ANY_LOSER
+ENDGAME_POT_RULE: WINNER_TAKES
+YIELD_RULE: ALLOWED
+VOLUNTARY_CHALLENGE_RULE: ENABLED
+REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS
+REPRISAL_TARGETS_MISFITS: true
+
+MIN_COST_MODE: LINEAR
+NAUGHTY_LEVEL_CAP: 99
+
+# Skill-weighted duel resolution
+# Win probability = logistic(skill_attacker - skill_defender + noise)
+DUEL_MODEL: SKILL_WEIGHTED
+
+# Gift values - CORRELATED creates realistic "bad gifts nobody wants"
+GIFT_VALUE_DIST: UNIFORM
+GIFT_VALUE_MODEL: CORRELATED
+TASTE_VARIANCE: 2.0
+
+# Sealed bid limits - sensible defaults (no artificial constraints)
+SEALED_BID_MIN: 1
+SEALED_BID_MAX: null
+
+SEED: 42  # Fixed seed for reproducibility
+

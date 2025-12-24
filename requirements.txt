@@ -1,0 +1,27 @@
+# Jingle Brawl Optimization Environment
+# =====================================
+
+# Core dependencies
+numpy>=1.20.0
+
+# Configuration (for YAML config files)
+pyyaml>=6.0
+
+# Deep RL (optional but recommended)
+torch>=2.0.0
+
+# Analysis & Visualization (optional)
+pandas>=1.3.0
+matplotlib>=3.4.0
+
+# To install:
+# python -m venv venv
+# source venv/bin/activate  (or venv\Scripts\activate on Windows)
+# pip install -r requirements.txt
+#
+# CLI Usage:
+#   python jingle_brawl_env.py demo              # Run demo game
+#   python jingle_brawl_env.py simulate -n 1000  # Run 1000 games
+#   python jingle_brawl_env.py stress            # Run stress tests
+#   python jingle_brawl_env.py sweep --config configs/sweep.yaml
+

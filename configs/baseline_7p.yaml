@@ -1,0 +1,42 @@
+# Jingle Brawl Configuration - Baseline 7 Players
+# ================================================
+# Standard configuration matching Jingle Brawl V2 rules
+
+# Game setup
+NUM_PLAYERS: 7
+NUM_GIFTS: 7
+INITIAL_CHIPS: 10                 # V2: "10 chips for ≤10 players, 12 for larger groups"
+
+# Economy rules
+SANTA_TAX_RULE: FLAT_1           # V2: "If pot ≥3, 1 chip tax"
+LOSER_DIVIDEND_RULE: ANY_LOSER   # V2: "Challenger OR Defender gets +1"
+ENDGAME_POT_RULE: WINNER_TAKES
+
+# Challenge rules (V2 calls Voluntary Challenge "Grinch's Gambit")
+YIELD_RULE: ALLOWED              # V2: "Yield duel - both pay half, rounded down"
+VOLUNTARY_CHALLENGE_RULE: ENABLED  # V2: "Grinch's Gambit" enabled
+REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS  # V2: "Grinch's Gambit or Duel → Loser gets reprisal"
+REPRISAL_TARGETS_MISFITS: true   # V2: "may challenge any gift, including Misfits"
+REPRISAL_MAX_DEPTH: 2            # V2: "at most one other Reprisal (2 max)"
+
+# Min cost formula (CRITICAL for naughty level protection)
+# LINEAR = 1 + naughty_level (REQUIRED per official rules)
+# This makes high-naughty gifts progressively more expensive to challenge
+MIN_COST_MODE: LINEAR
+NAUGHTY_LEVEL_CAP: 99            # Effectively unlimited
+
+# Duel resolution
+DUEL_MODEL: DEFENDER_ADVANTAGE   # 40/60 defender advantage
+
+# Gift values
+GIFT_VALUE_DIST: UNIFORM         # Random 1-10 base quality distribution
+GIFT_VALUE_MODEL: CORRELATED     # Base quality + personal taste (creates universally bad/good gifts)
+TASTE_VARIANCE: 2.0              # Personal taste varies ±2 from base quality
+
+# Sealed bid limits (only for unwrapped gift bidding, not voluntary/reprisal)
+SEALED_BID_MIN: 1                # Minimum bid to participate (default: 1)
+SEALED_BID_MAX: null             # Maximum bid (null = no limit, use all chips)
+
+# Reproducibility (null = random each run)
+SEED: null
+

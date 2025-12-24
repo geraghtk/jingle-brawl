@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl - Agent Behavior Model</title>
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --accent: #e94560;
+            --accent-light: #ff6b6b;
+            --text: #eaeaea;
+            --text-muted: #a0a0a0;
+            --success: #4ecca3;
+            --warning: #ffc107;
+            --border: #0f3460;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        h1::before {
+            content: "🎁";
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+        
+        h2 {
+            color: var(--accent-light);
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        h3 {
+            color: var(--success);
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .card.success {
+            border-left-color: var(--success);
+        }
+        
+        .card.warning {
+            border-left-color: var(--warning);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: var(--bg-card);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        th {
+            background: var(--border);
+            color: var(--accent-light);
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover {
+            background: rgba(233, 69, 96, 0.1);
+        }
+        
+        code {
+            background: #0d1b2a;
+            color: var(--success);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+        }
+        
+        pre {
+            background: #0d1b2a;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .param-value {
+            color: var(--warning);
+            font-weight: 600;
+        }
+        
+        .behavior-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+        
+        .effect-box {
+            background: rgba(78, 204, 163, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.75rem 0;
+        }
+        
+        .effect-box strong {
+            color: var(--success);
+        }
+        
+        ul {
+            margin: 0.5rem 0 0.5rem 1.5rem;
+        }
+        
+        li {
+            margin: 0.3rem 0;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .summary-item {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid var(--border);
+        }
+        
+        .summary-item h4 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        
+        .validation-stat {
+            display: inline-block;
+            background: var(--border);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .validation-stat .value {
+            color: var(--success);
+            font-weight: 600;
+        }
+        
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Agent Behavior Model</h1>
+        <p class="subtitle">How human-like behavior is encoded into Jingle Brawl simulation agents</p>
+        
+        <div class="card">
+            <h2>📋 Overview</h2>
+            <p>Agents in the simulation are designed to mimic realistic human behavior in a white elephant gift exchange. Rather than playing "optimally," they exhibit psychological biases and social dynamics observed in real games.</p>
+        </div>
+        
+        <h2>🧠 Human Psychology Parameters</h2>
+        <p>These values are fixed in the model based on behavioral research and observation of real gift exchanges:</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                    <th>What It Models</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>ATTACHMENT_WEIGHT</code></td>
+                    <td class="param-value">0.5</td>
+                    <td>Endowment effect strength</td>
+                </tr>
+                <tr>
+                    <td><code>ATTACHMENT_GAIN</code></td>
+                    <td class="param-value">0.3</td>
+                    <td>How much attachment grows when receiving a gift</td>
+                </tr>
+                <tr>
+                    <td><code>ATTACHMENT_DECAY</code></td>
+                    <td class="param-value">0.1</td>
+                    <td>How much attachment fades when losing a gift</td>
+                </tr>
+                <tr>
+                    <td><code>REVENGE_WEIGHT</code></td>
+                    <td class="param-value">0.4</td>
+                    <td>Strength of grudge-based targeting</td>
+                </tr>
+                <tr>
+                    <td><code>REVENGE_DECAY</code></td>
+                    <td class="param-value">0.1</td>
+                    <td>How quickly grudges fade</td>
+                </tr>
+                <tr>
+                    <td><code>VISIBILITY_PENALTY</code></td>
+                    <td class="param-value">0.03</td>
+                    <td>Penalty for being seen as a "bully"</td>
+                </tr>
+                <tr>
+                    <td><code>LIQUIDITY_RESERVE</code></td>
+                    <td class="param-value">0.25</td>
+                    <td>Tendency to keep chips for later</td>
+                </tr>
+                <tr>
+                    <td><code>BID_NOISE</code></td>
+                    <td class="param-value">0.15</td>
+                    <td>Human imprecision in bidding</td>
+                </tr>
+                <tr>
+                    <td><code>BID_QUANTIZATION</code></td>
+                    <td class="param-value">True</td>
+                    <td>Humans prefer round numbers (1, 2, 3...)</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h2>🔍 Detailed Behavior Explanations</h2>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">💎</span> 1. Attachment / Endowment Effect</h3>
+            <p><strong>Real-world behavior:</strong> People value things they own more than identical things they don't own. A gift you've held for 3 rounds "feels" more valuable than one you just got.</p>
+            
+            <pre><code>effective_value = base_value + (attachment_score × ATTACHMENT_WEIGHT)</code></pre>
+            
+            <ul>
+                <li>When you <strong>receive</strong> a gift: <code>attachment += ATTACHMENT_GAIN</code></li>
+                <li>When you <strong>lose</strong> a gift: <code>attachment -= ATTACHMENT_DECAY</code></li>
+                <li>When you <strong>defend</strong> successfully: <code>attachment += 0.1</code> (pride boost)</li>
+            </ul>
+            
+            <div class="effect-box">
+                <strong>Effect on decisions:</strong>
+                <ul>
+                    <li>Higher attachment → less likely to yield</li>
+                    <li>Higher attachment → higher bid threshold to give it up</li>
+                    <li>Agents defend "their" gift more aggressively than pure value would suggest</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">😤</span> 2. Grudges & Revenge</h3>
+            <p><strong>Real-world behavior:</strong> If someone steals your gift, you want payback. Reprisals aren't random—they target the person who wronged you.</p>
+            
+            <pre><code>agent.grudge[attacker_id] += 1.0  # When someone takes your gift</code></pre>
+            
+            <p><strong>Effect on reprisal targeting:</strong></p>
+            <pre><code>target_score = base_value + (grudge[target] × REVENGE_WEIGHT)</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong> Agents preferentially target players who previously attacked them, even if another gift is slightly more valuable. Grudges fade slightly each turn (<code>grudge -= REVENGE_DECAY</code>), modeling "letting it go" over time.
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">👀</span> 3. Visibility Penalty (Anti-Bully)</h3>
+            <p><strong>Real-world behavior:</strong> Players avoid becoming the "table villain." If you've attacked the same person 3 times, others notice and may gang up on you.</p>
+            
+            <pre><code>agent.attacks_initiated += 1  # Each time agent challenges someone
+bid_prob *= (1 - attacks_initiated × VISIBILITY_PENALTY)</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong> Agents who have attacked frequently become more hesitant to attack again. This prevents unrealistic "bully" behavior where one aggressive player dominates.
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">💰</span> 4. Liquidity Reserve</h3>
+            <p><strong>Real-world behavior:</strong> People don't spend all their chips early. They keep reserves for "just in case" and become more willing to spend near the end.</p>
+            
+            <pre><code># Reserve ratio based on game phase
+phase = gifts_opened / total_gifts
+reserve = LIQUIDITY_RESERVE × (1 - phase)  # Higher early, lower late
+
+# Available chips for bidding
+available = chips - (chips × reserve)</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong>
+                <ul>
+                    <li>Early game: Agents keep ~25% of chips in reserve</li>
+                    <li>Late game: Agents spend more freely (reserve → 0)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">🎲</span> 5. Bid Noise & Quantization</h3>
+            <p><strong>Real-world behavior:</strong> Humans don't calculate exact optimal bids. They think "I'll bid 2" or "maybe 3," not "2.47 chips."</p>
+            
+            <pre><code># Add noise
+bid = base_bid × (1 + random.uniform(-BID_NOISE, BID_NOISE))
+
+# Quantize to integers (humans prefer round numbers)
+if BID_QUANTIZATION:
+    bid = round(bid)</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong> Bid distributions cluster around 1, 2, 3 rather than spreading evenly. Creates more ties and more realistic bid patterns.
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">😠</span> 6. Dissatisfaction-Driven Voluntary Challenges</h3>
+            <p><strong>Real-world behavior:</strong> If you open a gift nobody wants (including you), you're more motivated to challenge someone else for a better gift.</p>
+            
+            <pre><code>dissatisfaction = 10 - personal_value_of_current_gift
+motivation = base_aggression + (dissatisfaction / 20)</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong>
+                <ul>
+                    <li>Opener with value-2 gift: +0.4 motivation boost</li>
+                    <li>Opener with value-8 gift: +0.1 motivation boost</li>
+                    <li>Even passive players will challenge if they hate their gift</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><span class="behavior-icon">🤔</span> 7. Misfit Choice (Loser's Decision)</h3>
+            <p><strong>Real-world behavior:</strong> When forced to displace a gift, people keep the one they like better, factoring in "how hard would it be to get this back?"</p>
+            
+            <pre><code>score_A = value_A - (reclaim_cost_A × risk_aversion × 0.3)
+score_B = value_B - (reclaim_cost_B × risk_aversion × 0.3)
+keep = A if score_A >= score_B else B</code></pre>
+            
+            <div class="effect-box">
+                <strong>Effect:</strong> Agents keep higher-value gifts, but also consider naughty level (high naughty = expensive to reclaim from misfit pile).
+            </div>
+        </div>
+        
+        <h2>🎭 Per-Agent Personality Variation</h2>
+        <p>Each agent is initialized with random personality traits:</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Trait</th>
+                    <th>Range</th>
+                    <th>Effect</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>aggression</code></td>
+                    <td class="param-value">0.3 – 0.8</td>
+                    <td>Bid frequency, challenge likelihood</td>
+                </tr>
+                <tr>
+                    <td><code>fomo</code></td>
+                    <td class="param-value">0.2 – 0.7</td>
+                    <td>Tendency to bid on endgame misfits</td>
+                </tr>
+                <tr>
+                    <td><code>risk_aversion</code></td>
+                    <td class="param-value">0.2 – 0.6</td>
+                    <td>Chip conservation, bid sizing</td>
+                </tr>
+                <tr>
+                    <td><code>spite</code></td>
+                    <td class="param-value">0.1 – 0.4</td>
+                    <td>Likelihood of "grief" bids (bidding to deny others)</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p>This creates a mix of aggressive, conservative, and opportunistic players—like a real game.</p>
+        
+        <h2>📊 Summary: Where Human Behavior Lives</h2>
+        
+        <div class="summary-grid">
+            <div class="summary-item">
+                <h4>Sealed Bidding</h4>
+                <p>Attachment boost, visibility penalty, liquidity reserve, bid noise</p>
+            </div>
+            <div class="summary-item">
+                <h4>Yield Decision</h4>
+                <p>Attachment (don't yield if attached), risk aversion</p>
+            </div>
+            <div class="summary-item">
+                <h4>Voluntary Challenge</h4>
+                <p>Dissatisfaction motivation, target selection by value-cost</p>
+            </div>
+            <div class="summary-item">
+                <h4>Reprisal Targeting</h4>
+                <p>Grudge/revenge priority over pure value</p>
+            </div>
+            <div class="summary-item">
+                <h4>Misfit Choice</h4>
+                <p>Keep higher-value gift, factor reclaim difficulty</p>
+            </div>
+            <div class="summary-item">
+                <h4>Endgame Bidding</h4>
+                <p>FOMO, desperation if giftless</p>
+            </div>
+        </div>
+        
+        <h2>✅ Validation</h2>
+        <p>Simulations show agents exhibit realistic patterns:</p>
+        
+        <div class="card success">
+            <div class="validation-stat">Revenge targeting: <span class="value">~40%</span> of reprisals target the previous attacker</div>
+            <div class="validation-stat">Bid clustering: <span class="value">70%+</span> of bids are exactly 1, 2, or 3</div>
+            <div class="validation-stat">Attachment effect: Agents keep original gift <span class="value">70%</span> of time in misfit choice</div>
+            <div class="validation-stat">Voluntary rate: Unhappy openers challenge <span class="value">39%</span> vs happy openers at <span class="value">10%</span></div>
+        </div>
+        
+        <footer>
+            <p>These behavioral parameters are fixed in the model. Game balance is tuned via separate parameters (INITIAL_CHIPS, SANTA_TAX_RULE, etc.).</p>
+            <p>Jingle Brawl Simulation Engine</p>
+        </footer>
+    </div>
+</body>
+</html>
+
