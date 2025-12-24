@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl Gift Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --snow: #f8fafc;
+            --frost: #e2e8f0;
+            --pine: #166534;
+            --pine-dark: #14532d;
+            --holly: #dc2626;
+            --holly-dark: #b91c1c;
+            --gold: #f59e0b;
+            --midnight: #1e293b;
+            --card-bg: #ffffff;
+            --naughty-0: #22c55e;
+            --naughty-1: #84cc16;
+            --naughty-2: #eab308;
+            --naughty-3: #f97316;
+            --naughty-4: #ef4444;
+            --naughty-5: #dc2626;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1e293b 100%);
+            min-height: 100vh;
+            color: var(--midnight);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Snowflakes */
+        .snowflakes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .snowflake {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1rem;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.3; }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2.5rem;
+            color: var(--snow);
+            text-shadow: 3px 3px 0 var(--holly), 5px 5px 10px rgba(0,0,0,0.3);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--frost);
+            font-size: 1.1rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            color: var(--snow);
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat span {
+            color: var(--gold);
+            font-size: 1.2rem;
+        }
+
+        /* Add gift form */
+        .add-gift-section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .add-gift-section h2 {
+            font-family: 'Fredoka One', cursive;
+            color: var(--pine);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--midnight);
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 2px solid var(--frost);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--pine);
+            box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.2);
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--pine) 0%, var(--pine-dark) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(22, 101, 52, 0.4);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px rgba(22, 101, 52, 0.5);
+        }
+
+        .btn-add {
+            align-self: flex-end;
+            padding: 0.7rem 2rem;
+        }
+
+        /* Player management */
+        .players-section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .players-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .players-header h2 {
+            font-family: 'Fredoka One', cursive;
+            color: var(--pine);
+            font-size: 1.3rem;
+        }
+
+        .player-input-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .player-input-row input {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--frost);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .player-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .player-chip {
+            background: linear-gradient(135deg, var(--pine) 0%, var(--pine-dark) 100%);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .player-chip.misfit {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+
+        .player-chip button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.7rem;
+            line-height: 1;
+        }
+
+        .player-chip button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Gift cards */
+        .gifts-section h2 {
+            font-family: 'Fredoka One', cursive;
+            color: var(--snow);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .gift-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gift-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+        }
+
+        .gift-card::before {
+            content: '🎁';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 4rem;
+            opacity: 0.1;
+        }
+
+        .gift-card.misfit-owner::before {
+            content: '🧸';
+        }
+
+        .gift-name {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.2rem;
+            color: var(--midnight);
+            margin-bottom: 0.5rem;
+        }
+
+        .gift-owner {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .gift-owner select {
+            flex: 1;
+            padding: 0.5rem;
+            border: 2px solid var(--frost);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .gift-owner select:focus {
+            outline: none;
+            border-color: var(--pine);
+        }
+
+        .naughty-level {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--frost);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+        }
+
+        .naughty-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .naughty-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .naughty-text {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .naughty-text strong {
+            display: block;
+            color: var(--midnight);
+            font-size: 1rem;
+        }
+
+        .btn-naughty {
+            background: linear-gradient(135deg, var(--holly) 0%, var(--holly-dark) 100%);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn-naughty:hover {
+            box-shadow: 0 5px 15px rgba(220, 38, 38, 0.5);
+        }
+
+        .gift-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--frost);
+        }
+
+        .btn-delete {
+            background: transparent;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+        }
+
+        .btn-delete:hover {
+            color: var(--holly);
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--frost);
+        }
+
+        .empty-state .emoji {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        /* Reset button */
+        .reset-section {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .btn-reset {
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.9rem;
+        }
+
+        .btn-reset:hover {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .form-row { flex-direction: column; }
+            .btn-add { width: 100%; }
+            .stats-bar { gap: 1rem; }
+            .stat { padding: 0.5rem 1rem; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="snowflakes" id="snowflakes"></div>
+    
+    <div class="container">
+        <header>
+            <h1>🎄 Jingle Brawl Tracker 🎄</h1>
+            <p class="subtitle">Track gifts, owners, and naughty levels</p>
+        </header>
+
+        <div class="stats-bar">
+            <div class="stat">Gifts: <span id="gift-count">0</span></div>
+            <div class="stat">Players: <span id="player-count">0</span></div>
+            <div class="stat">In Misfit Pile: <span id="misfit-count">0</span></div>
+        </div>
+
+        <!-- Players Section -->
+        <div class="players-section">
+            <div class="players-header">
+                <h2>🎅 Players</h2>
+            </div>
+            <div class="player-input-row">
+                <input type="text" id="player-name" placeholder="Enter player name..." onkeypress="if(event.key==='Enter')addPlayer()">
+                <button class="btn btn-primary" onclick="addPlayer()">Add</button>
+            </div>
+            <div class="player-chips" id="player-chips">
+                <div class="player-chip misfit">
+                    <span>🧸 Misfit Pile</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Gift Section -->
+        <div class="add-gift-section">
+            <h2>🎁 Open a New Gift</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="gift-name">Gift Description</label>
+                    <input type="text" id="gift-name" placeholder="e.g., Fancy Candle Set" onkeypress="if(event.key==='Enter')addGift()">
+                </div>
+                <div class="form-group">
+                    <label for="gift-owner">Opened By</label>
+                    <select id="gift-owner">
+                        <option value="">Select player...</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary btn-add" onclick="addGift()">🎁 Add Gift</button>
+            </div>
+        </div>
+
+        <!-- Gifts Section -->
+        <div class="gifts-section">
+            <h2>📦 Active Gifts</h2>
+            <div class="gifts-grid" id="gifts-grid">
+                <div class="empty-state">
+                    <div class="emoji">🎁</div>
+                    <p>No gifts opened yet.<br>Add players and start unwrapping!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="reset-section">
+            <button class="btn btn-reset" onclick="resetGame()">🔄 Reset Game</button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let players = [];
+        let gifts = [];
+
+        // Load from localStorage
+        function loadState() {
+            const savedPlayers = localStorage.getItem('jingleBrawl_players');
+            const savedGifts = localStorage.getItem('jingleBrawl_gifts');
+            if (savedPlayers) players = JSON.parse(savedPlayers);
+            if (savedGifts) gifts = JSON.parse(savedGifts);
+        }
+
+        // Save to localStorage
+        function saveState() {
+            localStorage.setItem('jingleBrawl_players', JSON.stringify(players));
+            localStorage.setItem('jingleBrawl_gifts', JSON.stringify(gifts));
+        }
+
+        // Add player
+        function addPlayer() {
+            const input = document.getElementById('player-name');
+            const name = input.value.trim();
+            if (!name) return;
+            if (players.includes(name)) {
+                alert('Player already exists!');
+                return;
+            }
+            players.push(name);
+            input.value = '';
+            saveState();
+            render();
+        }
+
+        // Remove player
+        function removePlayer(name) {
+            if (gifts.some(g => g.owner === name)) {
+                alert('Cannot remove player who owns gifts. Transfer gifts first.');
+                return;
+            }
+            players = players.filter(p => p !== name);
+            saveState();
+            render();
+        }
+
+        // Add gift
+        function addGift() {
+            const nameInput = document.getElementById('gift-name');
+            const ownerSelect = document.getElementById('gift-owner');
+            
+            const name = nameInput.value.trim();
+            const owner = ownerSelect.value;
+            
+            if (!name) {
+                alert('Please enter a gift description');
+                return;
+            }
+            if (!owner) {
+                alert('Please select who opened the gift');
+                return;
+            }
+            
+            gifts.push({
+                id: Date.now(),
+                name: name,
+                owner: owner,
+                naughtyLevel: 0
+            });
+            
+            nameInput.value = '';
+            ownerSelect.value = '';
+            saveState();
+            render();
+        }
+
+        // Update gift owner
+        function updateOwner(giftId, newOwner) {
+            const gift = gifts.find(g => g.id === giftId);
+            if (gift) {
+                gift.owner = newOwner;
+                saveState();
+                render();
+            }
+        }
+
+        // Increase naughty level
+        function increaseNaughty(giftId) {
+            const gift = gifts.find(g => g.id === giftId);
+            if (gift) {
+                gift.naughtyLevel++;
+                saveState();
+                render();
+            }
+        }
+
+        // Delete gift
+        function deleteGift(giftId) {
+            if (confirm('Remove this gift from the game?')) {
+                gifts = gifts.filter(g => g.id !== giftId);
+                saveState();
+                render();
+            }
+        }
+
+        // Reset game
+        function resetGame() {
+            if (confirm('Reset the entire game? This will clear all players and gifts.')) {
+                players = [];
+                gifts = [];
+                saveState();
+                render();
+            }
+        }
+
+        // Get naughty color
+        function getNaughtyColor(level) {
+            const colors = [
+                '#22c55e', // 0 - green
+                '#84cc16', // 1 - lime
+                '#eab308', // 2 - yellow
+                '#f97316', // 3 - orange
+                '#ef4444', // 4 - red
+                '#dc2626', // 5 - dark red
+            ];
+            return colors[Math.min(level, colors.length - 1)];
+        }
+
+        // Render everything
+        function render() {
+            // Update stats
+            document.getElementById('gift-count').textContent = gifts.length;
+            document.getElementById('player-count').textContent = players.length;
+            document.getElementById('misfit-count').textContent = gifts.filter(g => g.owner === 'Misfit Pile').length;
+
+            // Render player chips
+            const playerChips = document.getElementById('player-chips');
+            playerChips.innerHTML = `
+                <div class="player-chip misfit">
+                    <span>🧸 Misfit Pile</span>
+                </div>
+            ` + players.map(p => `
+                <div class="player-chip">
+                    <span>${p}</span>
+                    <button onclick="removePlayer('${p}')" title="Remove player">×</button>
+                </div>
+            `).join('');
+
+            // Render owner dropdowns
+            const ownerOptions = `
+                <option value="">Select player...</option>
+                ${players.map(p => `<option value="${p}">${p}</option>`).join('')}
+            `;
+            document.getElementById('gift-owner').innerHTML = ownerOptions;
+
+            // Render gifts
+            const giftsGrid = document.getElementById('gifts-grid');
+            
+            if (gifts.length === 0) {
+                giftsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="emoji">🎁</div>
+                        <p>No gifts opened yet.<br>Add players and start unwrapping!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            giftsGrid.innerHTML = gifts.map(gift => {
+                const isMisfit = gift.owner === 'Misfit Pile';
+                const ownerSelectOptions = `
+                    <option value="Misfit Pile" ${gift.owner === 'Misfit Pile' ? 'selected' : ''}>🧸 Misfit Pile</option>
+                    ${players.map(p => `
+                        <option value="${p}" ${gift.owner === p ? 'selected' : ''}>${p}</option>
+                    `).join('')}
+                `;
+                
+                return `
+                    <div class="gift-card ${isMisfit ? 'misfit-owner' : ''}">
+                        <div class="gift-name">${gift.name}</div>
+                        <div class="gift-owner">
+                            <span>Owner:</span>
+                            <select onchange="updateOwner(${gift.id}, this.value)">
+                                ${ownerSelectOptions}
+                            </select>
+                        </div>
+                        <div class="naughty-level">
+                            <div class="naughty-info">
+                                <div class="naughty-badge" style="background: ${getNaughtyColor(gift.naughtyLevel)}">
+                                    ${gift.naughtyLevel}
+                                </div>
+                                <div class="naughty-text">
+                                    <strong>Naughty Level</strong>
+                                    Min Cost: ${gift.naughtyLevel + 1} chip${gift.naughtyLevel > 0 ? 's' : ''}
+                                </div>
+                            </div>
+                            <button class="btn btn-naughty" onclick="increaseNaughty(${gift.id})" title="Increase naughty level">
+                                +1
+                            </button>
+                        </div>
+                        <div class="gift-actions">
+                            <button class="btn btn-delete" onclick="deleteGift(${gift.id})">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Create snowflakes
+        function createSnowflakes() {
+            const container = document.getElementById('snowflakes');
+            const flakes = ['❄', '❅', '❆', '✻', '✼'];
+            
+            for (let i = 0; i < 30; i++) {
+                const flake = document.createElement('div');
+                flake.className = 'snowflake';
+                flake.textContent = flakes[Math.floor(Math.random() * flakes.length)];
+                flake.style.left = Math.random() * 100 + '%';
+                flake.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                flake.style.animationDelay = Math.random() * 10 + 's';
+                flake.style.fontSize = (Math.random() * 0.8 + 0.5) + 'rem';
+                container.appendChild(flake);
+            }
+        }
+
+        // Initialize
+        loadState();
+        render();
+        createSnowflakes();
+    </script>
+</body>
+</html>
+
