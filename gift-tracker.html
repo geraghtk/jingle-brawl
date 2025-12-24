@@ -492,6 +492,24 @@
             border-color: var(--accent-gold);
         }
 
+        .misfit-queue-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+            border: 2px solid white;
+        }
+
+        .gift-card {
+            position: relative;
+        }
+
         .gift-header {
             display: flex;
             justify-content: space-between;
@@ -931,9 +949,14 @@
         function updateOwner(giftId, newOwner) {
             const gift = gifts.find(g => g.id === giftId);
             if (gift) {
-                // Reset naughty level when moving to Misfit Pile
+                // When moving to Misfit Pile: reset naughty level and record entry time
                 if (newOwner === 'Misfit Pile' && gift.owner !== 'Misfit Pile') {
                     gift.naughtyLevel = 0;
+                    gift.misfitEntryTime = Date.now();
+                }
+                // When leaving Misfit Pile: clear entry time
+                if (newOwner !== 'Misfit Pile' && gift.owner === 'Misfit Pile') {
+                    gift.misfitEntryTime = null;
                 }
                 gift.owner = newOwner;
                 saveState();
@@ -985,10 +1008,11 @@
             document.getElementById('player-count').textContent = players.length;
             document.getElementById('misfit-count').textContent = gifts.filter(g => g.owner === 'Misfit Pile').length;
 
+            const misfitCount = gifts.filter(g => g.owner === 'Misfit Pile').length;
             const playerChips = document.getElementById('player-chips');
             playerChips.innerHTML = `
                 <div class="player-chip misfit">
-                    <span>🧸 Misfit Pile</span>
+                    <span>🧸 Misfit Pile ${misfitCount > 0 ? `(${misfitCount})` : ''}</span>
                 </div>
             ` + players.map(p => `
                 <div class="player-chip">
@@ -1015,8 +1039,27 @@
                 return;
             }
 
-            giftsGrid.innerHTML = gifts.map(gift => {
+            // Sort misfit gifts by entry time (FIFO) and calculate queue positions
+            const misfitGifts = gifts.filter(g => g.owner === 'Misfit Pile')
+                .sort((a, b) => (a.misfitEntryTime || 0) - (b.misfitEntryTime || 0));
+            const misfitQueueMap = new Map();
+            misfitGifts.forEach((g, idx) => misfitQueueMap.set(g.id, idx + 1));
+
+            // Sort gifts: player-owned first, then misfits in queue order
+            const sortedGifts = [...gifts].sort((a, b) => {
+                const aIsMisfit = a.owner === 'Misfit Pile';
+                const bIsMisfit = b.owner === 'Misfit Pile';
+                if (aIsMisfit && !bIsMisfit) return 1;  // Misfits at end
+                if (!aIsMisfit && bIsMisfit) return -1;
+                if (aIsMisfit && bIsMisfit) {
+                    return (a.misfitEntryTime || 0) - (b.misfitEntryTime || 0);  // FIFO order
+                }
+                return 0;  // Keep original order for player-owned
+            });
+
+            giftsGrid.innerHTML = sortedGifts.map(gift => {
                 const isMisfit = gift.owner === 'Misfit Pile';
+                const queuePosition = misfitQueueMap.get(gift.id);
                 const ownerSelectOptions = `
                     <option value="Misfit Pile" ${gift.owner === 'Misfit Pile' ? 'selected' : ''}>🧸 Misfit Pile</option>
                     ${players.map(p => `
@@ -1026,6 +1069,7 @@
                 
                 return `
                     <div class="gift-card ${isMisfit ? 'misfit-owner' : 'player-owner'}">
+                        ${isMisfit ? `<div class="misfit-queue-badge">#${queuePosition} in queue</div>` : ''}
                         <div class="gift-header">
                             <div class="gift-name">${gift.name}</div>
                             <span class="gift-icon">${isMisfit ? '🧸' : '🎁'}</span>
