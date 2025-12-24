@@ -281,6 +281,3 @@ Notes
 **A:** You get... nothing. You lost the Misfit gift to someone more desperate than you. Your name goes back in the bag where you’ll get another attempt.   
 If there are no other names in the bag, you immediately pick the last remaining gift. Since you are the only one left, you claim the gift automatically. However, this counts as 'Opening' a gift, so other players may still initiate a **Sealed Bid** to challenge you for it.
 
-**Q: If I win a "Grinch's Gambit" (Direct Challenge), do I get the Loser's Dividend?**  
-**A:** No. The Loser's Dividend is for the Loser. If you win, you get the gift. If you lose the Gambit, then you get the Dividend (and a Reprisal\!).
-
