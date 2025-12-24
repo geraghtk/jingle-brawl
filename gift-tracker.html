@@ -196,6 +196,37 @@
             color: var(--accent-gold);
         }
 
+        .header-rules-link {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .header-rules-link:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 640px) {
+            .header-rules-link {
+                position: static;
+                margin-top: 1rem;
+            }
+        }
+
         /* Stats Bar */
         .stats-bar {
             display: flex;
@@ -690,6 +721,7 @@
             font-weight: 900;
             font-size: 1.3rem;
             color: white;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* Default green */
             box-shadow: 
                 0 3px 10px rgba(0, 0, 0, 0.25),
                 inset 0 2px 4px rgba(255, 255, 255, 0.3),
@@ -829,6 +861,141 @@
             background: rgba(220, 38, 38, 0.05);
         }
 
+        /* Quick Reference Panel */
+        .quick-ref-panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-top: 2rem;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .quick-ref-toggle {
+            width: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            border: none;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 700;
+            transition: all 0.15s ease;
+        }
+
+        .quick-ref-toggle:hover {
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+        }
+
+        .quick-ref-toggle span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quick-ref-toggle .toggle-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.8rem;
+        }
+
+        .quick-ref-toggle.open .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .quick-ref-content {
+            display: none;
+            padding: 1.5rem;
+            background: var(--bg-card);
+        }
+
+        .quick-ref-content.open {
+            display: block;
+        }
+
+        .quick-ref-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .ref-section {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            border-left: 4px solid var(--accent-green);
+        }
+
+        .ref-section.warning {
+            border-left-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        }
+
+        .ref-section.info {
+            border-left-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+
+        .ref-section h4 {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .ref-section ul {
+            margin: 0;
+            padding-left: 1.2rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .ref-section li {
+            margin-bottom: 0.3rem;
+        }
+
+        .ref-section strong {
+            color: var(--text-primary);
+        }
+
+        .formula-box {
+            background: #1a1a2e;
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 0.75rem;
+        }
+
+        .quick-ref-footer {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .btn-rules {
+            background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dark) 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            font-weight: 700;
+            box-shadow: 0 3px 10px rgba(45, 106, 79, 0.25);
+        }
+
+        .btn-rules:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 16px rgba(45, 106, 79, 0.35);
+        }
+
         /* Disabled gift card */
         .card.gifts-card.disabled {
             opacity: 0.6;
@@ -856,13 +1023,13 @@
             margin-bottom: 0.25rem;
         }
 
-        /* Medallion colors */
-        .naughty-0 { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .naughty-1 { background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%); }
-        .naughty-2 { background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); }
-        .naughty-3 { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
-        .naughty-4 { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-        .naughty-5 { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+        /* Medallion colors - specific to medallion-body for proper cascade */
+        .medallion-body.naughty-0 { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
+        .medallion-body.naughty-1 { background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%) !important; }
+        .medallion-body.naughty-2 { background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%) !important; }
+        .medallion-body.naughty-3 { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important; }
+        .medallion-body.naughty-4 { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; }
+        .medallion-body.naughty-5 { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important; }
 
         /* Snow */
         .snow-container {
@@ -898,6 +1065,7 @@
     
     <div class="header-wrap">
         <header>
+            <a href="rules.html" class="header-rules-link">📖 Full Rules</a>
             <div class="logo">
                 <div class="logo-title">
                     <span class="title-emoji">🎄</span>
@@ -982,6 +1150,77 @@
             <div class="empty-state">
                 <div class="empty-icon">🎁</div>
                 <p>No gifts opened yet.<br>Add players and start unwrapping!</p>
+            </div>
+        </div>
+
+        <!-- Quick Reference Panel -->
+        <div class="quick-ref-panel">
+            <button class="quick-ref-toggle" onclick="toggleQuickRef()">
+                <span>📖 Quick Reference (Player Aid)</span>
+                <span class="toggle-icon">▼</span>
+            </button>
+            <div class="quick-ref-content" id="quick-ref-content">
+                <div class="quick-ref-grid">
+                    <div class="ref-section">
+                        <h4>💰 Minimum Cost</h4>
+                        <ul>
+                            <li>For Grinch's Gambit, Reprisals & Steals</li>
+                            <li>Pay to the Bank (no pot created)</li>
+                        </ul>
+                        <div class="formula-box">Cost = 1 + Naughty Level</div>
+                    </div>
+                    
+                    <div class="ref-section warning">
+                        <h4>🎁 Swap Algorithm</h4>
+                        <ul>
+                            <li><strong>Winner</strong> takes contested gift</li>
+                            <li>Winner's old gift → Loser</li>
+                            <li>If Loser has 2 gifts → choose one for Misfit</li>
+                            <li>Gift to Misfit resets to <strong>Naughty 0</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="ref-section info">
+                        <h4>🦌 Reindeer Reprisal</h4>
+                        <ul>
+                            <li>Triggers when you <strong>LOSE</strong> a duel</li>
+                            <li>Challenge any gift <em>(except the one you just lost)</em></li>
+                            <li>Max 2 chained reprisals</li>
+                            <li>Pay Minimum Cost to Bank</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="ref-section">
+                        <h4>🏦 Santa Tax</h4>
+                        <ul>
+                            <li>Applies to sealed bid pots of <strong>3+ chips</strong></li>
+                            <li>1 chip → Bank (tax)</li>
+                            <li>Rest → Winner</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="ref-section warning">
+                        <h4>💸 Loser's Dividend</h4>
+                        <ul>
+                            <li>Lose a duel? Get <strong>+1 chip</strong> from Bank</li>
+                            <li><em>Exception: No dividend for misfit, yield, or tie-break duels</em></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="ref-section info">
+                        <h4>🎰 Endgame (Misfit Lottery)</h4>
+                        <ul>
+                            <li>Giftless players enter one by one</li>
+                            <li>Draw oldest Misfit (FIFO)</li>
+                            <li><strong>Path A:</strong> Steal from any player</li>
+                            <li><strong>Path B:</strong> Auction the Misfit</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="quick-ref-footer">
+                    <a href="rules.html" class="btn btn-rules">📜 View Full Rules</a>
+                </div>
             </div>
         </div>
 
@@ -1142,15 +1381,14 @@
                 </div>
             `).join('');
 
+            // Handle disabled state for gift form when all gifts are opened
+            const giftCard = document.querySelector('.card.gifts-card');
+            const allGiftsOpened = totalPlayers > 0 && openedGifts >= totalPlayers;
+            
             const ownerOptions = `
                 <option value="">Select opener...</option>
                 ${players.map(p => `<option value="${p}">${p}</option>`).join('')}
             `;
-            document.getElementById('gift-owner').innerHTML = ownerOptions;
-
-            // Handle disabled state for gift form when all gifts are opened
-            const giftCard = document.querySelector('.card.gifts-card');
-            const allGiftsOpened = totalPlayers > 0 && openedGifts >= totalPlayers;
             
             if (allGiftsOpened) {
                 giftCard.classList.add('disabled');
@@ -1298,6 +1536,13 @@
                 flake.style.animationDelay = -(Math.random() * duration) + 's';
                 container.appendChild(flake);
             }
+        }
+
+        function toggleQuickRef() {
+            const toggle = document.querySelector('.quick-ref-toggle');
+            const content = document.getElementById('quick-ref-content');
+            toggle.classList.toggle('open');
+            content.classList.toggle('open');
         }
 
         loadState();

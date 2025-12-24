@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl Rules</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fafafa;
+            --bg-card: #ffffff;
+            --accent-red: #c41e3a;
+            --accent-red-dark: #a01830;
+            --accent-green: #2d6a4f;
+            --accent-green-dark: #1b4332;
+            --accent-green-light: #d8f3dc;
+            --accent-gold: #d4a574;
+            --accent-gold-light: #fef3c7;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a4a5a;
+            --text-muted: #6a6a7a;
+            --border: #e8e8ec;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            padding: 3rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(196, 30, 58, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(45, 106, 79, 0.15) 0%, transparent 50%);
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .logo-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-title .brawl { color: var(--accent-gold); }
+
+        .logo-subtitle {
+            color: rgba(255,255,255,0.6);
+            font-size: 1rem;
+            font-style: italic;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+
+        .back-link:hover { color: white; }
+
+        /* Navigation */
+        .nav {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .nav a:hover {
+            background: var(--accent-green-light);
+            color: var(--accent-green-dark);
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Sections */
+        section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
+        }
+
+        h2 {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        h2 .icon { font-size: 1.25rem; }
+
+        h3 {
+            font-size: 1.1rem;
+            color: var(--accent-green-dark);
+            margin: 1.5rem 0 0.75rem;
+            font-weight: 700;
+        }
+
+        h4 {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin: 1rem 0 0.5rem;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        ul, ol {
+            margin: 0 0 1rem 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        li { margin-bottom: 0.5rem; }
+
+        /* Highlight boxes */
+        .highlight {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+        }
+
+        .highlight.warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-color: #fcd34d;
+        }
+
+        .highlight.info {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #7dd3fc;
+        }
+
+        .highlight strong {
+            color: var(--text-primary);
+        }
+
+        /* Formula box */
+        .formula {
+            background: #1a1a2e;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 1rem;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        /* Term definitions */
+        .term {
+            display: inline-block;
+            background: var(--accent-gold-light);
+            color: #92400e;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        /* Quick reference table */
+        .quick-ref {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .quick-ref-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-green);
+        }
+
+        .quick-ref-item .label {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .quick-ref-item .value {
+            color: var(--accent-green-dark);
+            font-weight: 700;
+        }
+
+        /* Steps */
+        .steps {
+            counter-reset: step;
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .steps li {
+            position: relative;
+            padding-left: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2rem;
+            height: 2rem;
+            background: var(--accent-green);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .footer a {
+            color: var(--accent-green);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+
+        /* Mobile */
+        @media (max-width: 640px) {
+            .header { padding: 2rem 1rem; }
+            .logo-title { font-size: 2rem; }
+            section { padding: 1.5rem; }
+            h2 { font-size: 1.3rem; }
+            .nav a { font-size: 0.75rem; padding: 0.3rem 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="gift-tracker.html" class="back-link">← Back to Tracker</a>
+        <div class="header-content">
+            <h1 class="logo-title">🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+            <p class="logo-subtitle">A game of high stakes, low blows, and questionable gifts.</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#setup">Setup</a>
+            <a href="#economy">Economy</a>
+            <a href="#main-game">Main Game</a>
+            <a href="#special">Special Actions</a>
+            <a href="#endgame">Endgame</a>
+            <a href="#costs">Costs</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Setup -->
+        <section id="setup">
+            <h2><span class="icon">🎄</span> Setup</h2>
+            <ol class="steps">
+                <li><strong>Distribute Chips:</strong> Give each player <span class="term">10 chips</span> (or 12 for groups larger than 10)</li>
+                <li><strong>Draw Bag:</strong> Put all player names in the <span class="term">Santa Sack</span></li>
+                <li><strong>Head Elf:</strong> Choose the organizer as the first Head Elf</li>
+                <li><strong>Duel Methods:</strong> Agree on how duels will be resolved (coin flip, rock-paper-scissors, etc.)</li>
+            </ol>
+        </section>
+
+        <!-- Economy -->
+        <section id="economy">
+            <h2><span class="icon">🪙</span> The Economy</h2>
+            
+            <h3>Jingle Chips</h3>
+            <p>Your currency for bidding and challenging. You need chips to attack but defending is always free!</p>
+            
+            <h3>North Pole Fund (Bank)</h3>
+            <p>Collects all costs and taxes. Also pays out Loser's Dividends.</p>
+            
+            <h3>Santa Tax</h3>
+            <div class="highlight">
+                <strong>If a Duel Pot is 3+ chips:</strong><br>
+                1 chip → Bank (tax)<br>
+                Rest → Winner
+            </div>
+            
+            <h3>Loser's Dividend</h3>
+            <div class="highlight info">
+                <strong>When you LOSE a duel:</strong> Immediately receive +1 chip from the Bank<br>
+                <em>Exception: No dividend for misfit, yield, or tie-break duels</em>
+            </div>
+
+            <h3>Naughty Level</h3>
+            <p>Each gift has a Naughty Level starting at 0. It increases by +1 every time that gift is involved in a duel. Naughty Level determines the <span class="term">Minimum Cost</span> to challenge for that gift.</p>
+        </section>
+
+        <!-- Main Game -->
+        <section id="main-game">
+            <h2><span class="icon">🎁</span> Phase 1: Main Game</h2>
+            <p><em>Continue while wrapped gifts remain.</em></p>
+
+            <h3>1. Unwrap</h3>
+            <ul>
+                <li>Head Elf draws a name from the bag</li>
+                <li>That player (the <span class="term">Opener</span>) opens one gift</li>
+                <li>Gift starts at Naughty Level 0</li>
+            </ul>
+
+            <h3>2. Sealed Bidding</h3>
+            <ul>
+                <li>Everyone <em>except</em> the Opener may bid (chips hidden in hand)</li>
+                <li>Reveal simultaneously</li>
+            </ul>
+            
+            <div class="highlight warning">
+                <strong>If nobody bids:</strong> Opener keeps the gift OR can use <em>Grinch's Gambit</em>
+            </div>
+            
+            <p><strong>If bids exist:</strong> Highest bidder becomes Challenger 1. Second-highest becomes Challenger 2. Ties → tie-break duel.</p>
+
+            <h3>3. The Duel</h3>
+            <p>Challenger 1 vs Opener (by default). <strong>The Defender chooses the duel method.</strong></p>
+            
+            <h4>Yielding</h4>
+            <p>If there's a Challenger 2, the Opener can <span class="term">Yield</span> (step aside). The duel becomes C1 vs C2.</p>
+            
+            <h4>Pot & Payout</h4>
+            <div class="quick-ref">
+                <div class="quick-ref-item">
+                    <span class="label">Normal Duel (C1 vs Opener)</span>
+                    <span class="value">C1 pays full bid to pot</span>
+                </div>
+                <div class="quick-ref-item">
+                    <span class="label">Yield Duel (C1 vs C2)</span>
+                    <span class="value">Both pay half (rounded down)</span>
+                </div>
+            </div>
+
+            <h3>4. Swap Algorithm</h3>
+            <ol class="steps">
+                <li><strong>Winner</strong> takes the contested gift</li>
+                <li>If winner had a gift, it goes to the <strong>Loser</strong></li>
+                <li>If loser now has 2 gifts, they <strong>choose</strong> which one goes to the Misfit Pile</li>
+                <li>That gift's Naughty Level <strong>resets to 0</strong></li>
+                <li>Whoever's gift went to Misfits becomes the new <strong>Head Elf</strong></li>
+            </ol>
+
+            <h3>5. Bag Maintenance</h3>
+            <ul>
+                <li>Win a gift by challenging? Your name is <strong>removed</strong> from the bag</li>
+                <li>End up giftless? Your name is <strong>added</strong> back to the bag</li>
+            </ul>
+        </section>
+
+        <!-- Special Actions -->
+        <section id="special">
+            <h2><span class="icon">⚡</span> Special Actions</h2>
+
+            <h3>Grinch's Gambit</h3>
+            <p><em>"Why settle when you can steal..."</em></p>
+            <div class="highlight">
+                <strong>When nobody bids on your opened gift:</strong><br>
+                Pay the Minimum Cost to challenge <em>anyone</em> for their gift.<br>
+                This is a direct challenge — no pot is created.
+            </div>
+
+            <h3>Reindeer Reprisal</h3>
+            <p><em>"Because reindeer kick back..."</em></p>
+            <div class="highlight warning">
+                <strong>When you LOSE a Grinch's Gambit or Sealed Bid Duel:</strong><br>
+                You may immediately challenge any gift (except the one you just lost the duel for).<br>
+                Pay the Minimum Cost to the Bank.<br>
+                <em>A Reprisal can trigger one more Reprisal (max 2 chain).</em>
+            </div>
+        </section>
+
+        <!-- Endgame -->
+        <section id="endgame">
+            <h2><span class="icon">🧸</span> Phase 2: Misfit Lottery (Endgame)</h2>
+            <p><em>Starts when all gifts are opened but names remain in the bag.</em></p>
+            
+            <p>Giftless players enter one-by-one. The Head Elf draws the <strong>oldest Misfit</strong> (FIFO) as the target.</p>
+
+            <h3>Path A: The Steal</h3>
+            <ul>
+                <li>Challenge any player for their gift</li>
+                <li>Pay the Minimum Cost</li>
+                <li><strong>Win:</strong> Take their gift; they get the Misfit</li>
+                <li><strong>Lose:</strong> You get the Misfit</li>
+            </ul>
+
+            <h3>Path B: The Auction</h3>
+            <p>Open bidding on the Misfit to everyone.</p>
+            
+            <h4>No Bids?</h4>
+            <ul>
+                <li>Duel any player you choose</li>
+                <li><strong>Win:</strong> Get Misfit for FREE</li>
+                <li><strong>Lose:</strong> Get Misfit + pay 1 chip to that player</li>
+            </ul>
+            
+            <h4>Bids Exist?</h4>
+            <ul>
+                <li>Duel the highest bidder</li>
+                <li>Winner gets Misfit + pot (minus tax)</li>
+                <li>If bidder wins and was giftless: Active player goes back in bag</li>
+            </ul>
+            
+            <div class="highlight info">
+                <strong>Note:</strong> No Loser's Dividend in any Endgame duel!
+            </div>
+        </section>
+
+        <!-- Costs -->
+        <section id="costs">
+            <h2><span class="icon">💰</span> Minimum Cost Reference</h2>
+            <p>For Grinch's Gambit, Reprisals, and Endgame Steals:</p>
+            
+            <div class="formula">Minimum Cost = 1 + Naughty Level</div>
+            
+            <div class="quick-ref">
+                <div class="quick-ref-item">
+                    <span class="label">Naughty Level 0</span>
+                    <span class="value">1 chip</span>
+                </div>
+                <div class="quick-ref-item">
+                    <span class="label">Naughty Level 1</span>
+                    <span class="value">2 chips</span>
+                </div>
+                <div class="quick-ref-item">
+                    <span class="label">Naughty Level 2</span>
+                    <span class="value">3 chips</span>
+                </div>
+                <div class="quick-ref-item">
+                    <span class="label">Naughty Level 3</span>
+                    <span class="value">4 chips</span>
+                </div>
+                <div class="quick-ref-item">
+                    <span class="label">Naughty Level 5</span>
+                    <span class="value">6 chips</span>
+                </div>
+            </div>
+            
+            <div class="highlight">
+                <strong>Remember:</strong><br>
+                • Defending is always FREE<br>
+                • Naughty Level +1 after every duel involving that gift<br>
+                • When a gift goes to Misfit Pile, Naughty Level resets to 0
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>🎄 <a href="gift-tracker.html">Open Gift Tracker</a> • <a href="JingleBrawlV2.html">Full Rules Document</a> 🎄</p>
+    </footer>
+</body>
+</html>
+
