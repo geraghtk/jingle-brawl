@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl - Quick Reference</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fafafa;
+            --bg-card: #ffffff;
+            --accent-red: #c41e3a;
+            --accent-red-dark: #a01830;
+            --accent-green: #2d6a4f;
+            --accent-green-light: #d8f3dc;
+            --accent-gold: #d4a574;
+            --accent-gold-light: #fef3c7;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a4a5a;
+            --slate: #475569;
+            --slate-light: #94a3b8;
+            --border: #e8e8ec;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .header-wrap {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            padding: 2.5rem 1rem 3rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-wrap::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(196, 30, 58, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(45, 106, 79, 0.15) 0%, transparent 50%);
+        }
+
+        .header-wrap::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.3), transparent);
+        }
+
+        header {
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .logo-title .brawl {
+            color: var(--accent-gold);
+        }
+
+        .logo-tagline {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.5);
+            font-style: italic;
+            margin-top: 0.5rem;
+        }
+
+        .logo-tagline span {
+            color: var(--accent-gold);
+        }
+
+        .logo-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 700;
+            margin-top: 0.75rem;
+            padding: 0.4rem 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-link:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .quick-ref-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .ref-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-left: 4px solid var(--slate-light);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--slate-light);
+        }
+
+        .ref-section.warning {
+            border-left-color: var(--accent-gold);
+            background: linear-gradient(135deg, var(--accent-gold-light) 0%, white 100%);
+        }
+
+        .ref-section.info {
+            border-left-color: var(--accent-green);
+            background: linear-gradient(135deg, var(--accent-green-light) 0%, white 100%);
+        }
+
+        .ref-section.danger {
+            border-left-color: var(--accent-red);
+            background: linear-gradient(135deg, #fef2f2 0%, white 100%);
+        }
+
+        .ref-section h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #1f2937;
+        }
+
+        .ref-section h3 .emoji {
+            font-size: 1.5rem;
+        }
+
+        .ref-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .ref-section li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            line-height: 1.5;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .ref-section li:last-child {
+            border-bottom: none;
+        }
+
+        .ref-section li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: var(--slate-light);
+            font-weight: bold;
+        }
+
+        .ref-section li strong {
+            color: var(--accent-red-dark);
+        }
+
+        .ref-section li em {
+            color: var(--slate);
+            font-size: 0.9rem;
+        }
+
+        .formula-box {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .tagline {
+            font-style: italic;
+            color: var(--slate);
+            margin-top: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .cost-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .cost-table th,
+        .cost-table td {
+            padding: 0.75rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .cost-table th {
+            background: #f8fafc;
+            font-weight: 700;
+            color: var(--slate);
+        }
+
+        .cost-table td {
+            font-weight: 600;
+        }
+
+        .cost-table tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--slate);
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: var(--accent-red);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .print-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+        }
+
+        .print-btn:hover {
+            background: var(--accent-green-dark);
+            transform: translateY(-2px);
+        }
+
+        @media print {
+            .header-wrap {
+                background: white !important;
+                color: black !important;
+                padding: 1rem;
+            }
+            .logo-title, .logo-subtitle {
+                color: black !important;
+                text-shadow: none !important;
+            }
+            .nav-links, .print-btn, .footer {
+                display: none !important;
+            }
+            .ref-section {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            body {
+                background: white !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .logo-title {
+                font-size: 1.8rem;
+            }
+            .quick-ref-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header-wrap">
+        <header>
+            <div class="logo-title">
+                <span>🎄</span>
+                <span>Jingle</span>
+                <span class="brawl">Brawl</span>
+                <span>🥊</span>
+            </div>
+            <div class="logo-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
+            <div class="logo-subtitle">Quick Reference Card</div>
+            <nav class="nav-links">
+                <a href="gift-tracker.html" class="nav-link">🎁 Gift Tracker</a>
+                <a href="rules.html" class="nav-link">📖 Full Rules</a>
+            </nav>
+        </header>
+    </div>
+
+    <div class="container">
+        <div class="quick-ref-grid">
+            <div class="ref-section warning">
+                <h3><span class="emoji">😈</span> Grinch's Gambit</h3>
+                <ul>
+                    <li>Triggers when <strong>nobody bids</strong> on your opened gift</li>
+                    <li>Keep the gift <strong>OR</strong> challenge anyone!</li>
+                    <li>Pay Minimum Cost to Bank</li>
+                </ul>
+                <p class="tagline">"Why settle when you can steal..."</p>
+            </div>
+
+            <div class="ref-section info">
+                <h3><span class="emoji">🦌</span> Reindeer Reprisal</h3>
+                <ul>
+                    <li>Triggers when you <strong>LOSE</strong> a duel</li>
+                    <li>Challenge any gift <em>(except the one you just lost)</em></li>
+                    <li>Max 2 chained reprisals</li>
+                    <li>Pay Minimum Cost to Bank</li>
+                </ul>
+                <p class="tagline">"Because reindeer kick back..."</p>
+            </div>
+
+            <div class="ref-section">
+                <h3><span class="emoji">💰</span> Minimum Cost</h3>
+                <ul>
+                    <li>For Grinch's Gambit, Reprisals & Steals</li>
+                    <li>Pay to the Bank (no pot created)</li>
+                    <li>Defending is always <strong>FREE</strong></li>
+                </ul>
+                <div class="formula-box">Cost = 1 + Naughty Level</div>
+            </div>
+
+            <div class="ref-section">
+                <h3><span class="emoji">🎁</span> Swap Algorithm</h3>
+                <ul>
+                    <li><strong>Winner</strong> takes contested gift</li>
+                    <li>Winner's old gift → Loser</li>
+                    <li>If Loser has 2 gifts → choose one for Misfit</li>
+                    <li>Gift to Misfit resets to <strong>Naughty 0</strong></li>
+                    <li>Player who loses gift to Misfit → new <strong>Head Elf</strong></li>
+                </ul>
+            </div>
+
+            <div class="ref-section danger">
+                <h3><span class="emoji">🏦</span> Santa Tax</h3>
+                <ul>
+                    <li>Applies to sealed bid pots of <strong>3+ chips</strong></li>
+                    <li>1 chip → Bank (tax)</li>
+                    <li>Rest → Winner</li>
+                </ul>
+            </div>
+
+            <div class="ref-section warning">
+                <h3><span class="emoji">💸</span> Loser's Dividend</h3>
+                <ul>
+                    <li>Lose a duel? Get <strong>+1 chip</strong> from Bank</li>
+                    <li><em>Exception: No dividend for misfit, yield, or tie-break duels</em></li>
+                </ul>
+            </div>
+
+            <div class="ref-section info">
+                <h3><span class="emoji">🎰</span> Endgame (Misfit Lottery)</h3>
+                <ul>
+                    <li>Giftless players enter one by one</li>
+                    <li>Draw oldest Misfit (FIFO)</li>
+                    <li><strong>Path A:</strong> Steal from any player (pay cost)</li>
+                    <li><strong>Path B:</strong> Auction the Misfit</li>
+                    <li>No Loser's Dividend in endgame</li>
+                </ul>
+            </div>
+
+            <div class="ref-section">
+                <h3><span class="emoji">🎯</span> Yield Duels</h3>
+                <ul>
+                    <li>Opener can <strong>yield</strong> if there's a 2nd bidder</li>
+                    <li>Duel becomes Challenger 1 vs Challenger 2</li>
+                    <li>Both pay <strong>half their bid</strong> (rounded down)</li>
+                    <li>Opener's name goes back in Draw Bag</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; color: var(--slate);">📊 Quick Cost Reference</h3>
+            <table class="cost-table" style="max-width: 400px; margin: 0 auto;">
+                <thead>
+                    <tr>
+                        <th>Naughty Level</th>
+                        <th>Minimum Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>0 (Fresh)</td><td>1 chip</td></tr>
+                    <tr><td>1</td><td>2 chips</td></tr>
+                    <tr><td>2</td><td>3 chips</td></tr>
+                    <tr><td>3</td><td>4 chips</td></tr>
+                    <tr><td>4</td><td>5 chips</td></tr>
+                    <tr><td>5+</td><td>6+ chips</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; color: var(--slate);">🪙 Starting Chips</h3>
+            <table class="cost-table" style="max-width: 400px; margin: 0 auto;">
+                <thead>
+                    <tr>
+                        <th>Players</th>
+                        <th>Chips Each</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Up to 10</td><td>10 chips</td></tr>
+                    <tr><td>11+</td><td>12 chips</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="print-btn" onclick="window.print()">
+                🖨️ Print This Card
+            </button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><em>A game of high stakes, low blows, and questionable gifts.</em></p>
+        <p style="margin-top: 0.5rem;">
+            <a href="rules.html">📖 Read Full Rules</a> • 
+            <a href="gift-tracker.html">🎁 Open Gift Tracker</a>
+        </p>
+    </div>
+</body>
+</html>

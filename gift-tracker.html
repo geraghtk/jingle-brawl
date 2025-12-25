@@ -179,9 +179,7 @@
         }
 
         .header-tagline {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: 0.5rem;
         }
 
         .header-tagline p {
@@ -196,10 +194,26 @@
             color: var(--accent-gold);
         }
 
-        .header-rules-link {
+        .logo-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 700;
+            margin-top: 0.75rem;
+            padding: 0.4rem 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .header-nav {
             position: absolute;
             top: 1rem;
             right: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .header-nav-link {
             background: rgba(255,255,255,0.1);
             color: rgba(255,255,255,0.85);
             text-decoration: none;
@@ -214,15 +228,16 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .header-rules-link:hover {
+        .header-nav-link:hover {
             background: rgba(255,255,255,0.2);
             color: white;
             transform: translateY(-1px);
         }
 
         @media (max-width: 640px) {
-            .header-rules-link {
+            .header-nav {
                 position: static;
+                justify-content: center;
                 margin-top: 1rem;
             }
         }
@@ -1065,7 +1080,10 @@
     
     <div class="header-wrap">
         <header>
-            <a href="rules.html" class="header-rules-link">📖 Full Rules</a>
+            <div class="header-nav">
+                <a href="quick-reference.html" class="header-nav-link">📋 Quick Ref</a>
+                <a href="rules.html" class="header-nav-link">📖 Full Rules</a>
+            </div>
             <div class="logo">
                 <div class="logo-title">
                     <span class="title-emoji">🎄</span>
@@ -1073,11 +1091,11 @@
                     <span class="brawl-text">Brawl</span>
                     <span class="title-emoji">🥊</span>
                 </div>
-                <div class="logo-subtitle">Gift Tracker</div>
             </div>
             <div class="header-tagline">
                 <p>A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
             </div>
+            <div class="logo-subtitle">Gift Tracker</div>
         </header>
     </div>
 
@@ -1153,77 +1171,24 @@
             </div>
         </div>
 
-        <!-- Quick Reference Panel -->
-        <div class="quick-ref-panel">
-            <button class="quick-ref-toggle" onclick="toggleQuickRef()">
-                <span>📖 Quick Reference (Player Aid)</span>
-                <span class="toggle-icon">▼</span>
-            </button>
-            <div class="quick-ref-content" id="quick-ref-content">
-                <div class="quick-ref-grid">
-                    <div class="ref-section warning">
-                        <h4>😈 Grinch's Gambit</h4>
-                        <ul>
-                            <li>Triggers when <strong>nobody bids</strong> on your opened gift</li>
-                            <li>Keep the gift <strong>OR</strong> challenge anyone!</li>
-                            <li>Pay Minimum Cost to Bank</li>
-                            <li><em>"Why settle when you can steal..."</em></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="ref-section info">
-                        <h4>🦌 Reindeer Reprisal</h4>
-                        <ul>
-                            <li>Triggers when you <strong>LOSE</strong> a duel</li>
-                            <li>Challenge any gift <em>(except the one you just lost)</em></li>
-                            <li>Max 2 chained reprisals</li>
-                            <li>Pay Minimum Cost to Bank</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="ref-section">
-                        <h4>💰 Minimum Cost</h4>
-                        <ul>
-                            <li>For Grinch's Gambit, Reprisals & Steals</li>
-                            <li>Pay to the Bank (no pot created)</li>
-                        </ul>
-                        <div class="formula-box">Cost = 1 + Naughty Level</div>
-                    </div>
-                    
-                    <div class="ref-section">
-                        <h4>🎁 Swap Algorithm</h4>
-                        <ul>
-                            <li><strong>Winner</strong> takes contested gift</li>
-                            <li>Winner's old gift → Loser</li>
-                            <li>If Loser has 2 gifts → choose one for Misfit</li>
-                            <li>Gift to Misfit resets to <strong>Naughty 0</strong></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="ref-section warning">
-                        <h4>🏦 Santa Tax & Dividend</h4>
-                        <ul>
-                            <li><strong>Santa Tax:</strong> Pots of 3+ chips → 1 chip to Bank</li>
-                            <li><strong>Loser's Dividend:</strong> Lose a duel? Get +1 chip</li>
-                            <li><em>No dividend for misfit, yield, or tie-break duels</em></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="ref-section info">
-                        <h4>🎰 Endgame (Misfit Lottery)</h4>
-                        <ul>
-                            <li>Giftless players enter one by one</li>
-                            <li>Draw oldest Misfit (FIFO)</li>
-                            <li><strong>Path A:</strong> Steal from any player</li>
-                            <li><strong>Path B:</strong> Auction the Misfit</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="quick-ref-footer">
-                    <a href="rules.html" class="btn btn-rules">📜 View Full Rules</a>
-                </div>
-            </div>
+        <!-- Rules Links -->
+        <div class="rules-links">
+            <a href="quick-reference.html" class="rules-link quick-ref-link">
+                <span class="link-icon">📋</span>
+                <span class="link-text">
+                    <strong>Quick Reference</strong>
+                    <small>Printable player aid card</small>
+                </span>
+                <span class="link-arrow">→</span>
+            </a>
+            <a href="rules.html" class="rules-link full-rules-link">
+                <span class="link-icon">📖</span>
+                <span class="link-text">
+                    <strong>Full Rules</strong>
+                    <small>Complete game rules</small>
+                </span>
+                <span class="link-arrow">→</span>
+            </a>
         </div>
 
         <div class="footer">
