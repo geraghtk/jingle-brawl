@@ -547,18 +547,55 @@
 
             <div class="sidebar">
                 <!-- Game Controls -->
-                <div class="card">
+                <div class="card" id="controls-card">
                     <div class="card-title">🎮 Controls</div>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <button class="btn btn-gold" onclick="startBidding()" id="btn-start-bidding" disabled>
-                            📦 Open New Gift
+                    
+                    <!-- Lobby Controls -->
+                    <div id="lobby-controls" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button class="btn btn-primary" onclick="startGame()" id="btn-start-game" disabled style="font-size: 1.1rem; padding: 1.25rem;">
+                            🎄 Start Game
                         </button>
-                        <button class="btn btn-secondary" onclick="showAddGiftModal()">
-                            ➕ Add Gift Manually
+                        <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin-top: 0.5rem;">
+                            Need at least 2 players to start
+                        </p>
+                    </div>
+
+                    <!-- Game Controls (shown after game starts) -->
+                    <div id="game-controls" class="hidden" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button class="btn btn-gold" onclick="drawNextPlayer()" id="btn-draw-player" style="font-size: 1.1rem; padding: 1.25rem;">
+                            🎅 Draw from Santa's Sack
                         </button>
-                        <button class="btn btn-secondary" onclick="startEndgame()" id="btn-endgame" disabled>
-                            🎰 Start Endgame
-                        </button>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                            <button class="btn btn-secondary" onclick="showAddGiftModal()" style="flex: 1;">
+                                ➕ Add Gift
+                            </button>
+                            <button class="btn btn-secondary" onclick="startEndgame()" id="btn-endgame" disabled style="flex: 1;">
+                                🎰 Endgame
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Game Stats -->
+                <div class="card" id="stats-card">
+                    <div class="card-title">📊 Game Stats</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-gold);" id="stat-wrapped">0</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Wrapped</div>
+                        </div>
+                        <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-green);" id="stat-opened">0</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Opened</div>
+                        </div>
+                        <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-blue);" id="stat-in-bag">0</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">In Bag</div>
+                        </div>
+                        <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-red);" id="stat-misfit">0</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Misfit</div>
+                        </div>
                     </div>
                 </div>
 
@@ -709,9 +746,13 @@
                 return;
             }
 
+            // Calculate who's in the bag (no gift)
+            const playersInBag = players.filter(([id, p]) => !p.giftId);
+
             container.innerHTML = players.map(([id, player]) => {
                 const isActive = gameState.currentTurn?.activePlayerId === id;
                 const hasGift = player.giftId != null;
+                const inBag = !hasGift;
                 const chipsDisplay = gameState.settings.publicChips ? 
                     `<div class="chips">🪙 ${player.chips}</div>` : '';
                 
@@ -719,10 +760,30 @@
                     <div class="player-card ${isActive ? 'active' : ''} ${hasGift ? 'has-gift' : ''}">
                         <div class="name">${player.name}</div>
                         ${chipsDisplay}
-                        ${hasGift ? `<div class="gift-indicator">🎁 Has gift</div>` : ''}
+                        ${hasGift ? `<div class="gift-indicator">🎁 Has gift</div>` : 
+                                   `<div class="gift-indicator" style="color: var(--accent-blue);">📥 In bag</div>`}
                     </div>
                 `;
             }).join('');
+
+            // Update stats
+            updateStats();
+        }
+
+        // Update game stats
+        function updateStats() {
+            const players = Object.entries(gameState.players);
+            const gifts = Object.entries(gameState.gifts);
+            
+            const playersInBag = players.filter(([id, p]) => !p.giftId).length;
+            const wrappedGifts = Math.max(0, players.length - gifts.length);
+            const openedGifts = gifts.filter(([id, g]) => g.ownerId !== 'misfit').length;
+            const misfitGifts = gifts.filter(([id, g]) => g.ownerId === 'misfit').length;
+
+            document.getElementById('stat-wrapped').textContent = wrappedGifts;
+            document.getElementById('stat-opened').textContent = openedGifts;
+            document.getElementById('stat-in-bag').textContent = playersInBag;
+            document.getElementById('stat-misfit').textContent = misfitGifts;
         }
 
         // Render gifts
@@ -781,12 +842,47 @@
             const qrContainer = document.getElementById('qr-container');
 
             if (!turn) {
-                phaseBadge.textContent = 'LOBBY';
-                phaseBadge.className = 'phase-badge';
-                currentAction.textContent = 'Waiting for players to join...';
-                actionDetails.textContent = 'Share the room code or scan the QR code.';
+                // No active turn
+                if (gameState.phase === 'lobby') {
+                    phaseBadge.textContent = 'LOBBY';
+                    phaseBadge.className = 'phase-badge';
+                    currentAction.textContent = 'Waiting for players to join...';
+                    actionDetails.textContent = 'Share the room code or scan the QR code below.';
+                    qrContainer.classList.remove('hidden');
+                } else if (gameState.phase === 'main') {
+                    const players = Object.entries(gameState.players);
+                    const gifts = Object.entries(gameState.gifts);
+                    const playersInBag = players.filter(([id, p]) => !p.giftId).length;
+                    const wrappedGifts = Math.max(0, players.length - gifts.length);
+                    
+                    phaseBadge.textContent = 'READY';
+                    phaseBadge.className = 'phase-badge bidding';
+                    
+                    if (wrappedGifts > 0 && playersInBag > 0) {
+                        currentAction.textContent = '🎅 Ready to draw!';
+                        actionDetails.textContent = `${playersInBag} player${playersInBag > 1 ? 's' : ''} in the bag, ${wrappedGifts} gift${wrappedGifts > 1 ? 's' : ''} to open.`;
+                    } else if (wrappedGifts === 0 && playersInBag > 0) {
+                        currentAction.textContent = '🎰 All gifts opened!';
+                        actionDetails.textContent = `${playersInBag} player${playersInBag > 1 ? 's' : ''} still need gifts. Start the Endgame!`;
+                    } else {
+                        currentAction.textContent = '✅ Everyone has a gift!';
+                        actionDetails.textContent = 'The game is complete, or you can continue with more rounds.';
+                    }
+                    qrContainer.classList.add('hidden');
+                } else if (gameState.phase === 'endgame') {
+                    phaseBadge.textContent = 'ENDGAME';
+                    phaseBadge.className = 'phase-badge duel';
+                    currentAction.textContent = '🎰 Misfit Lottery';
+                    actionDetails.textContent = 'Giftless players compete for misfit gifts!';
+                    qrContainer.classList.add('hidden');
+                } else {
+                    phaseBadge.textContent = 'ENDED';
+                    phaseBadge.className = 'phase-badge';
+                    currentAction.textContent = '🎄 Game Over!';
+                    actionDetails.textContent = 'Thanks for playing Jingle Brawl!';
+                    qrContainer.classList.add('hidden');
+                }
                 bidsContainer.classList.add('hidden');
-                qrContainer.classList.remove('hidden');
                 actionButtons.innerHTML = '';
                 return;
             }
@@ -911,12 +1007,87 @@
         function updateControls() {
             const playerCount = Object.keys(gameState.players).length;
             const giftCount = Object.keys(gameState.gifts).length;
+            const playersInBag = Object.entries(gameState.players).filter(([id, p]) => !p.giftId).length;
+            const wrappedGifts = Math.max(0, playerCount - giftCount);
             
-            document.getElementById('btn-start-bidding').disabled = playerCount < 2 || gameState.phase === 'endgame';
-            document.getElementById('btn-endgame').disabled = giftCount === 0 || gameState.phase === 'endgame';
+            // Lobby phase controls
+            if (gameState.phase === 'lobby') {
+                document.getElementById('lobby-controls').classList.remove('hidden');
+                document.getElementById('game-controls').classList.add('hidden');
+                document.getElementById('btn-start-game').disabled = playerCount < 2;
+            } else {
+                document.getElementById('lobby-controls').classList.add('hidden');
+                document.getElementById('game-controls').classList.remove('hidden');
+                
+                // Draw button - only enabled when no turn is active and there are wrapped gifts
+                const drawBtn = document.getElementById('btn-draw-player');
+                const canDraw = !gameState.currentTurn && wrappedGifts > 0 && playersInBag > 0;
+                drawBtn.disabled = !canDraw;
+                
+                // Endgame button - enabled when all gifts opened but players still in bag
+                document.getElementById('btn-endgame').disabled = 
+                    wrappedGifts > 0 || playersInBag === 0 || gameState.phase === 'endgame';
+            }
+            
+            updateStats();
         }
 
-        // Start bidding for new gift
+        // Start the game (transition from lobby)
+        async function startGame() {
+            const playerCount = Object.keys(gameState.players).length;
+            if (playerCount < 2) {
+                alert('Need at least 2 players to start!');
+                return;
+            }
+
+            await db.ref(`games/${gameState.roomCode}/phase`).set('main');
+            addEvent('🎄 Game started! Let the chaos begin!', 'gift');
+        }
+
+        // Draw next player from the bag
+        async function drawNextPlayer() {
+            const players = Object.entries(gameState.players);
+            const playersInBag = players.filter(([id, p]) => !p.giftId);
+            
+            if (playersInBag.length === 0) {
+                alert('No players left in the bag!');
+                return;
+            }
+
+            // Randomly select a player
+            const selectedPlayer = playersInBag[Math.floor(Math.random() * playersInBag.length)];
+            const [playerId, player] = selectedPlayer;
+
+            // Prompt for gift name
+            const giftName = prompt(`🎅 ${player.name} was drawn!\n\nEnter the gift they're opening:`);
+            if (!giftName) return;
+
+            // Create gift and start bidding
+            const giftId = 'gift_' + Date.now();
+            await db.ref(`games/${gameState.roomCode}/gifts/${giftId}`).set({
+                name: giftName,
+                naughtyLevel: 0,
+                ownerId: playerId,
+                createdAt: Date.now()
+            });
+
+            // Update player's gift
+            await db.ref(`games/${gameState.roomCode}/players/${playerId}/giftId`).set(giftId);
+
+            // Set current turn to bidding
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'bidding',
+                activePlayerId: playerId,
+                openerId: playerId,
+                giftId: giftId,
+                bids: {}
+            });
+
+            addEvent(`🎅 ${player.name} drawn from the bag!`, 'gift');
+            addEvent(`📦 Opened "${giftName}" - Bidding is open!`, 'gift');
+        }
+
+        // Start bidding for new gift (legacy - now use drawNextPlayer)
         async function startBidding() {
             const players = Object.entries(gameState.players);
             if (players.length < 2) {

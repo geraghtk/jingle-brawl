@@ -732,7 +732,17 @@
 
             // Phase
             db.ref(`games/${roomCode}/phase`).on('value', (snapshot) => {
+                const oldPhase = gameState.phase;
                 gameState.phase = snapshot.val() || 'lobby';
+                
+                // Notify player when game starts
+                if (oldPhase === 'lobby' && gameState.phase === 'main') {
+                    showToast('🎄 Game started!');
+                    vibrate();
+                }
+                
+                // Update UI when phase changes
+                handleTurnChange();
             });
         }
 
@@ -752,13 +762,46 @@
             document.getElementById('submit-bid-btn').disabled = false;
 
             if (!turn) {
-                // Waiting state
+                // No active turn - show game state
                 statusCard.classList.remove('hidden');
-                statusCard.innerHTML = `
-                    <div class="status-icon">⏳</div>
-                    <div class="status-title">Waiting...</div>
-                    <div class="status-desc">The host will start the next action.</div>
-                `;
+                
+                if (gameState.phase === 'lobby') {
+                    const playerCount = Object.keys(gameState.players).length;
+                    statusCard.innerHTML = `
+                        <div class="status-icon">🎄</div>
+                        <div class="status-title">Welcome to Jingle Brawl!</div>
+                        <div class="status-desc">${playerCount} player${playerCount !== 1 ? 's' : ''} joined. Waiting for host to start the game...</div>
+                    `;
+                } else if (gameState.phase === 'main') {
+                    const hasGift = playerState.giftId != null;
+                    if (hasGift) {
+                        statusCard.innerHTML = `
+                            <div class="status-icon">✅</div>
+                            <div class="status-title">You have a gift!</div>
+                            <div class="status-desc">Watch the main screen. Someone might challenge you!</div>
+                        `;
+                    } else {
+                        statusCard.classList.add('active');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎅</div>
+                            <div class="status-title">You're in the bag!</div>
+                            <div class="status-desc">Waiting to be drawn... Watch the main screen!</div>
+                        `;
+                    }
+                } else if (gameState.phase === 'endgame') {
+                    statusCard.classList.add('active');
+                    statusCard.innerHTML = `
+                        <div class="status-icon">🎰</div>
+                        <div class="status-title">Misfit Lottery!</div>
+                        <div class="status-desc">Endgame is active. Watch the main screen!</div>
+                    `;
+                } else {
+                    statusCard.innerHTML = `
+                        <div class="status-icon">🎄</div>
+                        <div class="status-title">Game Over!</div>
+                        <div class="status-desc">Thanks for playing Jingle Brawl!</div>
+                    `;
+                }
                 return;
             }
 
