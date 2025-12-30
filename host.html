@@ -1098,16 +1098,34 @@
                         const tiedBidders = sorted.filter(([,b]) => b.amount === highestAmount);
                         
                         if (tiedBidders.length >= 2) {
-                            // Multiple people tied for top bid
+                            // Multiple people tied for top bid - Opener can YIELD before tiebreaker
+                            const c1Id = tiedBidders[0][0];
+                            const c2Id = tiedBidders[1][0];
+                            const c1Name = gameState.players[c1Id]?.name;
+                            const c2Name = gameState.players[c2Id]?.name;
+                            
                             if (tiedBidders.length === 2) {
-                                actionDetails.textContent = `TIE! ${gameState.players[tiedBidders[0][0]]?.name} & ${gameState.players[tiedBidders[1][0]]?.name} both bid ${highestAmount}`;
+                                actionDetails.innerHTML = `
+                                    <strong style="color: var(--accent-gold);">TIE!</strong> ${c1Name} & ${c2Name} both bid ${highestAmount}.<br>
+                                    <span style="color: var(--text-muted);">Opener can fight the tiebreaker winner, or yield to let them fight each other.</span>
+                                `;
                                 actionButtons.innerHTML = `
-                                    <button class="btn btn-gold" onclick="startTiebreaker('${tiedBidders[0][0]}', '${tiedBidders[1][0]}')">⚔️ Tiebreaker Duel!</button>
+                                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                        <button class="btn btn-primary" onclick="startTiebreaker('${c1Id}', '${c2Id}')">
+                                            ⚔️ Tiebreaker → Winner vs Opener
+                                        </button>
+                                        <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
+                                            🏃 Opener Yields → ${c1Name} vs ${c2Name}
+                                        </button>
+                                    </div>
                                 `;
                             } else {
-                                // More than 2 tied - show all and offer random selection
+                                // More than 2 tied - need to select 2 first
                                 const tiedNames = tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
-                                actionDetails.textContent = `${tiedBidders.length}-WAY TIE at ${highestAmount} chips: ${tiedNames}`;
+                                actionDetails.innerHTML = `
+                                    <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedNames}<br>
+                                    <span style="color: var(--text-muted);">First, randomly select 2 for the tiebreaker.</span>
+                                `;
                                 actionButtons.innerHTML = `
                                     <button class="btn btn-gold" onclick="randomTiebreaker()">🎲 Random Select 2 for Tiebreaker</button>
                                 `;
@@ -1719,6 +1737,8 @@
         }
 
         // Record tiebreaker winner (special handling)
+        // Note: Yield decision was already made BEFORE tiebreaker
+        // If we're here, opener chose to fight the winner
         async function recordTiebreakerWinner(winnerId) {
             const turn = gameState.currentTurn;
             const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
@@ -1726,90 +1746,9 @@
             // Winner becomes the challenger, no dividend for loser
             addEvent(`${gameState.players[winnerId]?.name} wins the tiebreaker!`, 'duel');
             
-            // Check if there's a potential yield target (third highest bidder or the loser of tiebreak)
-            const allBids = Object.entries(turn.bids || {})
-                .filter(([id, b]) => b.amount > 0 && id !== winnerId)
-                .sort(([,a], [,b]) => b.amount - a.amount);
-            
-            // The yield target should be the loser of the tiebreak (they had same bid as winner)
-            // or the next highest bidder
-            const potentialYieldTarget = loserId; // Tiebreak loser is a valid yield target
-            
-            if (potentialYieldTarget && potentialYieldTarget !== turn.openerId) {
-                // Show modal asking if opener wants to yield
-                showTiebreakerYieldOption(winnerId, potentialYieldTarget);
-            } else {
-                // No yield option, proceed directly to duel
-                await startDuel(winnerId, turn.openerId);
-            }
-        }
-
-        // Show yield option after tiebreaker
-        function showTiebreakerYieldOption(challengerId, potentialYieldTargetId) {
-            const turn = gameState.currentTurn;
-            const challenger = gameState.players[challengerId];
-            const opener = gameState.players[turn.openerId];
-            const yieldTarget = gameState.players[potentialYieldTargetId];
-            
-            const modal = document.getElementById('modal-content');
-            modal.innerHTML = `
-                <h2>🏃 Opener's Choice</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                    <strong>${challenger.name}</strong> won the tiebreaker and will challenge <strong>${opener.name}</strong> for the gift.
-                </p>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    ${opener.name} can fight or <strong>Yield</strong> (step aside) to let ${challenger.name} fight ${yieldTarget.name} instead.
-                </p>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <button class="btn btn-primary" onclick="closeModal(); startDuel('${challengerId}', '${turn.openerId}')">
-                        ⚔️ ${opener.name} Fights!
-                    </button>
-                    <button class="btn btn-gold" onclick="closeModal(); openerYieldsAfterTiebreak('${challengerId}', '${potentialYieldTargetId}')">
-                        🏃 ${opener.name} Yields to ${yieldTarget.name}
-                    </button>
-                </div>
-            `;
-            document.getElementById('modal-overlay').classList.add('active');
-        }
-
-        // Opener yields after tiebreak - yield duel between challenger and tiebreak loser
-        async function openerYieldsAfterTiebreak(challengerId, yieldTargetId) {
-            const turn = gameState.currentTurn;
-            const opener = gameState.players[turn.openerId];
-            const challenger = gameState.players[challengerId];
-            const yieldTarget = gameState.players[yieldTargetId];
-            
-            const bid1 = turn.tiebreakerBids?.[challengerId] || turn.bids[challengerId]?.amount || 0;
-            const bid2 = turn.tiebreakerBids?.[yieldTargetId] || turn.bids[yieldTargetId]?.amount || 0;
-            
-            // Yield duel: both pay half their bids (rounded up)
-            const c1Half = Math.ceil(bid1 / 2);
-            const c2Half = Math.ceil(bid2 / 2);
-            
-            // Deduct from both
-            await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`)
-                .set(challenger.chips - c1Half);
-            await db.ref(`games/${gameState.roomCode}/players/${yieldTargetId}/chips`)
-                .set(yieldTarget.chips - c2Half);
-            
-            // Calculate pot
-            let pot = c1Half + c2Half;
-            if (pot >= GAME_CONFIG.santaTaxThreshold) {
-                pot -= 1;
-                addEvent('Santa Tax: 1 chip to the Bank', 'bid');
-            }
-            
-            addEvent(`🏃 ${opener.name} yields! ${challenger.name} vs ${yieldTarget.name}`, 'duel');
-            
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                phase: 'duel',
-                challengerId: challengerId,
-                defenderId: yieldTargetId,
-                pot: pot,
-                isYieldDuel: true,
-                yieldingOpener: turn.openerId,
-                isTiebreak: false
-            });
+            // Proceed directly to duel: Winner vs Opener
+            // (Yield decision was already made before tiebreaker started)
+            await startDuel(winnerId, turn.openerId);
         }
 
         // Random selection of 2 from multiple tied bidders
@@ -1838,20 +1777,21 @@
         async function openerYields(challenger1Id, challenger2Id) {
             const turn = gameState.currentTurn;
             const opener = gameState.players[turn.openerId];
+            const c1 = gameState.players[challenger1Id];
+            const c2 = gameState.players[challenger2Id];
             const bid1 = turn.bids[challenger1Id]?.amount || 0;
             const bid2 = turn.bids[challenger2Id]?.amount || 0;
 
-            // Both pay half their bids
-            const pay1 = Math.floor(bid1 / 2);
-            const pay2 = Math.floor(bid2 / 2);
+            // Both pay half their bids (rounded UP per rules)
+            const pay1 = Math.ceil(bid1 / 2);
+            const pay2 = Math.ceil(bid2 / 2);
 
             await db.ref(`games/${gameState.roomCode}/players/${challenger1Id}/chips`)
-                .set(gameState.players[challenger1Id].chips - pay1);
+                .set(c1.chips - pay1);
             await db.ref(`games/${gameState.roomCode}/players/${challenger2Id}/chips`)
-                .set(gameState.players[challenger2Id].chips - pay2);
+                .set(c2.chips - pay2);
 
-            // Opener goes back in bag (loses gift claim)
-            await db.ref(`games/${gameState.roomCode}/players/${turn.openerId}/giftId`).set(null);
+            addEvent(`${c1.name} pays ${pay1}, ${c2.name} pays ${pay2} (half bids, rounded up)`, 'bid');
 
             let pot = pay1 + pay2;
             if (pot >= GAME_CONFIG.santaTaxThreshold) {
@@ -1864,10 +1804,11 @@
                 challengerId: challenger1Id,
                 defenderId: challenger2Id,
                 pot: pot,
-                isYieldDuel: true
+                isYieldDuel: true,
+                yieldingOpener: turn.openerId
             });
 
-            addEvent(`${opener.name} yields! ${gameState.players[challenger1Id]?.name} vs ${gameState.players[challenger2Id]?.name}`, 'duel');
+            addEvent(`🏃 ${opener.name} yields! ${c1.name} vs ${c2.name} for the gift!`, 'duel');
         }
 
         // Add event to log
