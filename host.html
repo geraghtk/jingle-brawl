@@ -624,6 +624,38 @@
                     </div>
                 </div>
 
+                <!-- Debug Mode Panel -->
+                <div class="card" id="debug-panel" style="border: 2px dashed var(--accent-gold);">
+                    <div class="card-title">🤖 Debug Mode</div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="number" id="bot-count" value="5" min="1" max="15" 
+                                   style="width: 60px; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card-hover); color: white;">
+                            <button class="btn btn-primary" onclick="addBotPlayers()" style="flex: 1;">
+                                ➕ Add Bots
+                            </button>
+                        </div>
+                        <select id="bot-strategy" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card-hover); color: white;">
+                            <option value="mixed">Mixed Strategies</option>
+                            <option value="aggressive">All Aggressive</option>
+                            <option value="conservative">All Conservative</option>
+                            <option value="random">All Random</option>
+                        </select>
+                        <button class="btn btn-gold" onclick="runBotAutoPilot()" id="btn-auto-pilot">
+                            🚀 Run Auto-Pilot
+                        </button>
+                        <button class="btn btn-secondary" onclick="botBidAll()" id="btn-bot-bid" style="display: none;">
+                            💰 Bots Submit Bids
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearBots()">
+                            🧹 Remove All Bots
+                        </button>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 0.25rem;">
+                            Auto-pilot will simulate full game with bots
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Quick Actions -->
                 <div class="card">
                     <div class="card-title">⚡ Quick Actions</div>
@@ -1966,6 +1998,335 @@
         document.getElementById('modal-overlay').addEventListener('click', (e) => {
             if (e.target.id === 'modal-overlay') closeModal();
         });
+
+        // =====================
+        // DEBUG MODE FUNCTIONS
+        // =====================
+        
+        const BOT_NAMES = [
+            'Alice 🤖', 'Bob 🤖', 'Charlie 🤖', 'Diana 🤖', 'Eve 🤖', 
+            'Frank 🤖', 'Grace 🤖', 'Henry 🤖', 'Ivy 🤖', 'Jack 🤖',
+            'Kate 🤖', 'Leo 🤖', 'Maya 🤖', 'Noah 🤖', 'Olivia 🤖'
+        ];
+
+        let autoPilotRunning = false;
+        let autoPilotInterval = null;
+
+        // Add bot players
+        async function addBotPlayers() {
+            const count = parseInt(document.getElementById('bot-count').value);
+            const strategy = document.getElementById('bot-strategy').value;
+            const playerCount = Object.keys(gameState.players).length;
+            const existingBots = Object.keys(gameState.players).filter(id => id.startsWith('bot_')).length;
+            
+            // Get starting chips based on total players
+            const chips = GAME_CONFIG.getStartingChips(playerCount + count);
+
+            for (let i = 0; i < count && (existingBots + i) < BOT_NAMES.length; i++) {
+                const botId = `bot_${existingBots + i}_${Date.now()}`;
+                const botStrategy = strategy === 'mixed' ? 
+                    ['aggressive', 'conservative', 'random'][Math.floor(Math.random() * 3)] : strategy;
+                
+                await db.ref(`games/${gameState.roomCode}/players/${botId}`).set({
+                    name: BOT_NAMES[existingBots + i],
+                    chips: chips,
+                    giftId: null,
+                    connected: true,
+                    isBot: true,
+                    botStrategy: botStrategy,
+                    joinedAt: Date.now()
+                });
+                
+                addEvent(`${BOT_NAMES[existingBots + i]} joined (${botStrategy})`, 'gift');
+            }
+
+            // Update all existing players chips to match if we changed player count significantly
+            if (count > 0) {
+                const newChips = GAME_CONFIG.getStartingChips(Object.keys(gameState.players).length + count);
+                for (const [id, player] of Object.entries(gameState.players)) {
+                    if (player.chips === GAME_CONFIG.getStartingChips(playerCount)) {
+                        await db.ref(`games/${gameState.roomCode}/players/${id}/chips`).set(newChips);
+                    }
+                }
+            }
+        }
+
+        // Clear all bots
+        async function clearBots() {
+            const botIds = Object.keys(gameState.players).filter(id => 
+                id.startsWith('bot_') || gameState.players[id].isBot
+            );
+            
+            for (const botId of botIds) {
+                await db.ref(`games/${gameState.roomCode}/players/${botId}`).remove();
+            }
+            
+            addEvent(`Removed ${botIds.length} bots`, 'gift');
+        }
+
+        // Calculate bot bid based on strategy
+        function calculateBotBid(player, giftNaughtyLevel = 0) {
+            const maxBid = player.chips;
+            if (maxBid <= 0) return 0;
+
+            const minCost = GAME_CONFIG.getMinCost(giftNaughtyLevel);
+            const strategy = player.botStrategy || 'random';
+            
+            switch (strategy) {
+                case 'aggressive':
+                    // 80% chance to bid, higher amounts
+                    if (Math.random() < 0.8) {
+                        return Math.min(maxBid, Math.floor(Math.random() * 4) + minCost);
+                    }
+                    return 0;
+
+                case 'conservative':
+                    // 25% chance to bid, lower amounts
+                    if (Math.random() < 0.25) {
+                        return Math.min(maxBid, minCost);
+                    }
+                    return 0;
+
+                case 'random':
+                default:
+                    // 50% chance to bid
+                    if (Math.random() < 0.5) {
+                        return Math.min(maxBid, Math.floor(Math.random() * (maxBid - minCost + 1)) + minCost);
+                    }
+                    return 0;
+            }
+        }
+
+        // Have all bots submit bids
+        async function botBidAll() {
+            const turn = gameState.currentTurn;
+            if (!turn || turn.phase !== 'bidding') {
+                addEvent('Not in bidding phase', 'gift');
+                return;
+            }
+
+            const bots = Object.entries(gameState.players).filter(([id, p]) => 
+                (id.startsWith('bot_') || p.isBot) && id !== turn.openerId
+            );
+
+            for (const [botId, bot] of bots) {
+                // Check if bot already bid
+                if (turn.bids && turn.bids[botId]) continue;
+                
+                const bid = calculateBotBid(bot, 0);
+                if (bid > 0) {
+                    await db.ref(`games/${gameState.roomCode}/currentTurn/bids/${botId}`).set({
+                        amount: bid,
+                        submittedAt: Date.now()
+                    });
+                    addEvent(`${bot.name} bids ${bid}`, 'bid');
+                }
+            }
+        }
+
+        // Run auto-pilot mode
+        async function runBotAutoPilot() {
+            if (autoPilotRunning) {
+                stopAutoPilot();
+                return;
+            }
+
+            autoPilotRunning = true;
+            document.getElementById('btn-auto-pilot').textContent = '⏹️ Stop Auto-Pilot';
+            document.getElementById('btn-auto-pilot').classList.add('btn-danger');
+            document.getElementById('btn-auto-pilot').classList.remove('btn-gold');
+            
+            addEvent('🤖 Auto-pilot engaged!', 'gift');
+            
+            // Auto-pilot loop
+            runAutoPilotStep();
+        }
+
+        function stopAutoPilot() {
+            autoPilotRunning = false;
+            if (autoPilotInterval) {
+                clearTimeout(autoPilotInterval);
+                autoPilotInterval = null;
+            }
+            document.getElementById('btn-auto-pilot').textContent = '🚀 Run Auto-Pilot';
+            document.getElementById('btn-auto-pilot').classList.remove('btn-danger');
+            document.getElementById('btn-auto-pilot').classList.add('btn-gold');
+            addEvent('🤖 Auto-pilot stopped', 'gift');
+        }
+
+        async function runAutoPilotStep() {
+            if (!autoPilotRunning) return;
+            
+            const turn = gameState.currentTurn;
+            const phase = gameState.phase;
+            
+            // Main game logic
+            if (phase === 'lobby') {
+                if (Object.keys(gameState.players).length >= 2) {
+                    await startGame();
+                }
+                autoPilotInterval = setTimeout(runAutoPilotStep, 1500);
+                return;
+            }
+
+            if (phase === 'main') {
+                if (!turn) {
+                    // Need to draw a player
+                    const playersInBag = Object.entries(gameState.players).filter(([id, p]) => !p.giftId);
+                    const giftsCount = Object.keys(gameState.gifts).length;
+                    const wrappedLeft = Object.keys(gameState.players).length - giftsCount;
+                    
+                    if (playersInBag.length > 0 && wrappedLeft > 0) {
+                        await drawNextPlayer();
+                    } else if (playersInBag.length > 0) {
+                        // Start endgame
+                        await startEndgame();
+                    } else {
+                        // Game complete
+                        addEvent('🎄 All players have gifts! Game complete!', 'gift');
+                        stopAutoPilot();
+                        return;
+                    }
+                } else if (turn.phase === 'bidding') {
+                    // Have bots bid
+                    await botBidAll();
+                    // Wait a bit then reveal
+                    autoPilotInterval = setTimeout(async () => {
+                        await revealBids();
+                        runAutoPilotStep();
+                    }, 1000);
+                    return;
+                } else if (turn.phase === 'reveal') {
+                    // Process reveal automatically
+                    const bids = Object.entries(turn.bids || {}).filter(([, b]) => b.amount > 0);
+                    if (bids.length === 0) {
+                        // No bids - opener keeps gift
+                        await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                    } else {
+                        // Start duel with highest bidder
+                        bids.sort(([, a], [, b]) => b.amount - a.amount);
+                        const [challengerId] = bids[0];
+                        await startDuelWithChallenger(challengerId);
+                    }
+                } else if (turn.phase === 'duel') {
+                    // Resolve duel randomly
+                    const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                    await recordDuelWinner(winnerId);
+                } else if (turn.phase === 'reprisal') {
+                    // Bot decides to use or skip reprisal
+                    const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+                    if (reprisalPlayer?.isBot && Math.random() < 0.6) {
+                        // Find a target
+                        const targets = Object.entries(gameState.gifts)
+                            .filter(([id]) => id !== turn.excludedGiftId);
+                        if (targets.length > 0 && reprisalPlayer.chips >= 1) {
+                            const [targetGiftId, targetGift] = targets[Math.floor(Math.random() * targets.length)];
+                            await executeReprisal(targetGiftId);
+                        } else {
+                            await skipReprisal();
+                        }
+                    } else {
+                        await skipReprisal();
+                    }
+                }
+            }
+
+            if (phase === 'endgame') {
+                // Handle endgame auto-pilot
+                if (!turn) {
+                    const playersInBag = Object.entries(gameState.players).filter(([id, p]) => !p.giftId);
+                    if (playersInBag.length > 0) {
+                        await drawEndgamePlayer();
+                    } else {
+                        addEvent('🎄 Endgame complete!', 'gift');
+                        stopAutoPilot();
+                        return;
+                    }
+                } else if (turn.phase === 'endgame_choice') {
+                    // Bot randomly chooses steal or auction
+                    if (Math.random() < 0.5) {
+                        // Try to steal
+                        const targets = Object.entries(gameState.players)
+                            .filter(([id, p]) => p.giftId && id !== turn.activePlayerId);
+                        if (targets.length > 0) {
+                            const [targetId] = targets[Math.floor(Math.random() * targets.length)];
+                            const targetGiftId = gameState.players[targetId].giftId;
+                            await executeEndgameSteal(targetGiftId);
+                        } else {
+                            await showEndgameAuction();
+                        }
+                    } else {
+                        await showEndgameAuction();
+                    }
+                } else if (turn.phase === 'endgame_auction') {
+                    await botBidAll();
+                    autoPilotInterval = setTimeout(async () => {
+                        await resolveEndgameAuction();
+                        runAutoPilotStep();
+                    }, 1000);
+                    return;
+                } else if (turn.phase === 'duel') {
+                    const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                    await recordDuelWinner(winnerId);
+                }
+            }
+
+            autoPilotInterval = setTimeout(runAutoPilotStep, 1500);
+        }
+
+        // Helper to skip reprisal
+        async function skipReprisal() {
+            addEvent(`${gameState.players[gameState.currentTurn.reprisalPlayerId]?.name} skips reprisal`, 'duel');
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+        }
+
+        // Helper to execute reprisal
+        async function executeReprisal(targetGiftId) {
+            const turn = gameState.currentTurn;
+            const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel);
+            
+            // Pay cost
+            await db.ref(`games/${gameState.roomCode}/players/${turn.reprisalPlayerId}/chips`)
+                .set(reprisalPlayer.chips - cost);
+            
+            // Increase naughty level
+            await db.ref(`games/${gameState.roomCode}/gifts/${targetGiftId}/naughtyLevel`)
+                .set((targetGift.naughtyLevel || 0) + 1);
+            
+            addEvent(`🦌 ${reprisalPlayer.name} uses Reprisal on "${targetGift.name}"!`, 'duel');
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.reprisalPlayerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetGiftId,
+                pot: 0,
+                isReprisal: true,
+                reprisalDepth: (turn.reprisalDepth || 0) + 1
+            });
+        }
+
+        // Helper to resolve endgame auction
+        async function resolveEndgameAuction() {
+            const turn = gameState.currentTurn;
+            const bids = Object.entries(turn.bids || {}).filter(([, b]) => b.amount > 0);
+            
+            if (bids.length === 0) {
+                // No bids - show defender choice (pick random for auto-pilot)
+                const others = Object.entries(gameState.players)
+                    .filter(([id]) => id !== turn.activePlayerId);
+                if (others.length > 0) {
+                    const [defenderId] = others[Math.floor(Math.random() * others.length)];
+                    await executeNoBidsDuel(defenderId);
+                }
+            } else {
+                bids.sort(([, a], [, b]) => b.amount - a.amount);
+                const [bidderId] = bids[0];
+                await startEndgameAuctionDuel(bidderId);
+            }
+        }
     </script>
 </body>
 </html>
