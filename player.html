@@ -1297,6 +1297,49 @@
                     }
                     break;
 
+                case 'yield_choice':
+                    // After random selection from 3+ tie, opener chooses fight or yield
+                    statusCard.classList.remove('hidden');
+                    if (amOpener) {
+                        statusCard.classList.add('your-turn');
+                        const selC1Name = gameState.players[turn.selectedC1]?.name;
+                        const selC2Name = gameState.players[turn.selectedC2]?.name;
+                        const selBidAmount = turn.bids[turn.selectedC1]?.amount || 0;
+                        
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎲</div>
+                            <div class="status-title">${selC1Name} & ${selC2Name} Selected!</div>
+                            <div class="status-desc">Both bid ${selBidAmount} chips. Your choice!</div>
+                            <div class="help-box warning">
+                                <div class="help-title">🏃 Fight or Yield?</div>
+                                <div class="help-content">
+                                    <strong>Fight:</strong> They duel for the right to challenge YOU.<br>
+                                    <strong>Yield:</strong> They fight each other for your gift directly.
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                <button class="btn btn-primary" onclick="openerChooseFight('${turn.selectedC1}', '${turn.selectedC2}', true)">
+                                    ⚔️ Fight! (Tiebreaker first)
+                                </button>
+                                <button class="btn btn-gold" onclick="openerChooseYield('${turn.selectedC1}', '${turn.selectedC2}')">
+                                    🏃 Yield! (${selC1Name} vs ${selC2Name})
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // Not opener - show waiting
+                        statusCard.classList.add('active');
+                        const selC1Name = gameState.players[turn.selectedC1]?.name;
+                        const selC2Name = gameState.players[turn.selectedC2]?.name;
+                        const openerName = gameState.players[turn.openerId]?.name;
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎲</div>
+                            <div class="status-title">${selC1Name} & ${selC2Name} Selected!</div>
+                            <div class="status-desc">Waiting for ${openerName} to choose: Fight or Yield?</div>
+                        `;
+                    }
+                    break;
+
                 case 'duel':
                     statusCard.classList.remove('hidden');
                     const gift = gameState.gifts[turn.giftId];

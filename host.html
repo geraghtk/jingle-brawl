@@ -1325,6 +1325,39 @@
                     `;
                     break;
 
+                case 'yield_choice':
+                    // After random selection from 3+ way tie, ask opener about yield
+                    phaseBadge.textContent = '🎲 SELECTED';
+                    phaseBadge.className = 'phase-badge reveal';
+                    const selC1 = gameState.players[turn.selectedC1];
+                    const selC2 = gameState.players[turn.selectedC2];
+                    const selOpener = gameState.players[turn.openerId];
+                    const selBidAmount = turn.bids[turn.selectedC1]?.amount || 0;
+                    currentAction.textContent = `${selC1?.name} & ${selC2?.name} Selected!`;
+                    actionDetails.innerHTML = `
+                        Both bid ${selBidAmount} chips.<br>
+                        <span style="color: var(--accent-green);">⏳ Waiting for ${selOpener?.name} to choose: Fight or Yield?</span>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Opener...</div>
+                            <div style="font-size: 0.85rem;">${selOpener?.name} is choosing on their device</div>
+                        </div>
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                <button class="btn btn-primary" onclick="startTiebreaker('${turn.selectedC1}', '${turn.selectedC2}')">
+                                    ⚔️ Tiebreaker → Winner vs Opener
+                                </button>
+                                <button class="btn btn-gold" onclick="openerYields('${turn.selectedC1}', '${turn.selectedC2}')">
+                                    🏃 Opener Yields → ${selC1?.name} vs ${selC2?.name}
+                                </button>
+                            </div>
+                        </details>
+                    `;
+                    break;
+
                 default:
                     phaseBadge.textContent = gameState.phase.toUpperCase();
                     bidsContainer.classList.add('hidden');
@@ -1854,6 +1887,7 @@
         }
 
         // Random selection of 2 from multiple tied bidders
+        // After selection, show yield option to opener (don't go straight to tiebreaker!)
         async function randomTiebreaker() {
             const turn = gameState.currentTurn;
             const bids = Object.entries(turn.bids || {})
@@ -1872,7 +1906,12 @@
             
             addEvent(`🎲 Randomly selected: ${gameState.players[player1Id]?.name} & ${gameState.players[player2Id]?.name}`, 'bid');
             
-            await startTiebreaker(player1Id, player2Id);
+            // Store selected players and show yield option (don't start tiebreaker yet!)
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'yield_choice',
+                selectedC1: player1Id,
+                selectedC2: player2Id
+            });
         }
 
         // Opener yields
