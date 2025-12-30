@@ -367,8 +367,9 @@
             color: var(--text-muted);
         }
 
-        .bid-card.winner { border: 2px solid var(--accent-green); }
+        .bid-card.winner { border: 2px solid var(--accent-green); background: rgba(34, 197, 94, 0.1); }
         .bid-card.second { border: 2px solid var(--accent-blue); }
+        .bid-card.tied { border: 2px solid var(--accent-gold); background: rgba(245, 158, 11, 0.1); }
 
         /* Sidebar */
         .sidebar { display: flex; flex-direction: column; gap: 1rem; }
@@ -1077,7 +1078,7 @@
                         // Check for tie
                         // Find ALL tied bidders at highest amount
                         const highestAmount = highest[1].amount;
-                        const tiedBidders = bids.filter(([,b]) => b.amount === highestAmount);
+                        const tiedBidders = sorted.filter(([,b]) => b.amount === highestAmount);
                         
                         if (tiedBidders.length >= 2) {
                             // Multiple people tied for top bid
@@ -1209,8 +1210,23 @@
             const container = document.getElementById('bids-grid');
             const bidEntries = Object.entries(bids || {});
             
-            if (bidEntries.length === 0) {
-                container.innerHTML = '<div style="color: var(--text-muted);">No bids yet...</div>';
+            // Count players who can bid (everyone except opener)
+            const turn = gameState.currentTurn;
+            const eligibleBidders = Object.keys(gameState.players).filter(id => id !== turn?.openerId);
+            const submittedCount = bidEntries.length;
+            
+            if (bidEntries.length === 0 && !revealed) {
+                container.innerHTML = `
+                    <div style="color: var(--text-muted); text-align: center; padding: 1rem;">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯 Waiting for bids...</div>
+                        <div>0 / ${eligibleBidders.length} players have submitted</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (bidEntries.length === 0 && revealed) {
+                container.innerHTML = '<div style="color: var(--text-muted);">No bids received</div>';
                 return;
             }
 
@@ -1218,17 +1234,25 @@
             if (revealed) {
                 bidEntries.sort(([,a], [,b]) => b.amount - a.amount);
             }
+            
+            // Header showing bid count during bidding
+            const header = !revealed ? `
+                <div style="grid-column: 1 / -1; text-align: center; color: var(--accent-green); font-weight: 600; margin-bottom: 0.5rem;">
+                    ✅ ${submittedCount} / ${eligibleBidders.length} bids locked in
+                </div>
+            ` : '';
 
-            container.innerHTML = bidEntries.map(([playerId, bid], index) => {
+            container.innerHTML = header + bidEntries.map(([playerId, bid], index) => {
                 const player = gameState.players[playerId];
                 const isWinner = revealed && index === 0 && bid.amount > 0;
                 const isSecond = revealed && index === 1 && bid.amount > 0;
+                const isTied = revealed && index > 0 && bid.amount === bidEntries[0][1].amount;
                 
                 return `
-                    <div class="bid-card ${isWinner ? 'winner' : ''} ${isSecond ? 'second' : ''}">
+                    <div class="bid-card ${isWinner ? 'winner' : ''} ${isSecond ? 'second' : ''} ${isTied ? 'tied' : ''}">
                         <div class="bidder">${player?.name || 'Unknown'}</div>
-                        <div class="bid-amount ${!revealed ? 'hidden' : ''}">
-                            ${revealed ? (bid.amount > 0 ? bid.amount : '0') : '?'}
+                        <div class="bid-amount">
+                            ${revealed ? (bid.amount > 0 ? `${bid.amount} 🪙` : 'Pass') : '🔒 Locked'}
                         </div>
                     </div>
                 `;

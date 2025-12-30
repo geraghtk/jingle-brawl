@@ -999,13 +999,26 @@
             const bidPanel = document.getElementById('bid-panel');
             const actionCard = document.getElementById('action-card');
 
-            // Reset states
+            // Check if player has already submitted a bid for this turn
+            const myExistingBid = turn?.bids?.[playerState.playerId];
+            const stillInBiddingPhase = turn?.phase === 'bidding';
+            
+            // Reset states (but preserve bid if already submitted in bidding phase)
             bidPanel.classList.add('hidden');
             actionCard.classList.add('hidden');
             statusCard.classList.remove('active', 'your-turn');
-            bidSubmitted = false;
-            document.getElementById('bid-status').classList.add('hidden');
-            document.getElementById('submit-bid-btn').disabled = false;
+            
+            // Only reset bid status if we're NOT in an active bidding phase with a submitted bid
+            if (!stillInBiddingPhase || !myExistingBid) {
+                bidSubmitted = false;
+                document.getElementById('bid-status').classList.add('hidden');
+                document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
+                document.getElementById('submit-bid-btn').disabled = false;
+            } else if (myExistingBid) {
+                // Player has already bid - show their locked bid
+                bidSubmitted = true;
+                currentBid = myExistingBid.amount;
+            }
 
             if (!turn) {
                 // No active turn - show game state
@@ -1130,7 +1143,35 @@
                             </div>
                         `;
                         updateBidSliderMax();
-                        setBid(0);
+                        
+                        // Check if player already has a bid locked in
+                        const existingBid = turn.bids?.[playerState.playerId];
+                        if (existingBid) {
+                            // Show locked bid status
+                            currentBid = existingBid.amount;
+                            bidSubmitted = true;
+                            document.getElementById('bid-slider').value = currentBid;
+                            document.getElementById('bid-amount-display').textContent = currentBid;
+                            document.getElementById('bid-status').classList.remove('hidden');
+                            document.getElementById('bid-status').classList.add('submitted');
+                            document.getElementById('bid-status').innerHTML = `
+                                <div style="text-align: center;">
+                                    <div style="font-size: 2rem; font-weight: 800; color: var(--accent-gold);">
+                                        ${currentBid > 0 ? `🎯 ${currentBid} chips` : '👋 Pass'}
+                                    </div>
+                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.5rem 0;">
+                                        Bid locked in! Waiting for reveal...
+                                    </div>
+                                    <button class="btn btn-secondary" onclick="changeBid()" style="margin-top: 0.5rem; font-size: 0.85rem;">
+                                        🔄 Change Bid
+                                    </button>
+                                </div>
+                            `;
+                            document.getElementById('submit-bid-btn').textContent = '✅ Bid Submitted';
+                            document.getElementById('submit-bid-btn').disabled = true;
+                        } else {
+                            setBid(0);
+                        }
                     }
                     break;
 
