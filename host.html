@@ -178,9 +178,15 @@
             border-radius: 12px;
             display: inline-block;
             margin-top: 1rem;
+            text-align: center;
         }
 
-        .qr-section canvas { display: block; }
+        .qr-section canvas { 
+            display: block; 
+            margin: 0 auto;
+            min-width: 200px;
+            min-height: 200px;
+        }
 
         .join-url {
             color: var(--text-muted);
@@ -715,14 +721,7 @@
             document.getElementById('room-code-display').textContent = roomCode;
 
             // Regenerate QR code
-            const playerUrl = `${window.location.origin}${window.location.pathname.replace('host.html', 'player.html')}?room=${roomCode}`;
-            document.getElementById('join-url').textContent = playerUrl;
-            
-            QRCode.toCanvas(document.getElementById('qr-code'), playerUrl, {
-                width: 200,
-                margin: 2,
-                color: { dark: '#1a1a2e', light: '#ffffff' }
-            });
+            generateQRCode(roomCode);
 
             addEvent('Host reconnected!', 'gift');
         }
@@ -778,16 +777,33 @@
             document.getElementById('room-code-display').textContent = roomCode;
 
             // Generate QR code
+            generateQRCode(roomCode);
+
+            addEvent('Game created! Room code: ' + roomCode, 'gift');
+        }
+
+        // Generate QR code helper
+        function generateQRCode(roomCode) {
             const playerUrl = `${window.location.origin}${window.location.pathname.replace('host.html', 'player.html')}?room=${roomCode}`;
             document.getElementById('join-url').textContent = playerUrl;
             
-            QRCode.toCanvas(document.getElementById('qr-code'), playerUrl, {
-                width: 200,
-                margin: 2,
-                color: { dark: '#1a1a2e', light: '#ffffff' }
-            });
-
-            addEvent('Game created! Room code: ' + roomCode, 'gift');
+            const canvas = document.getElementById('qr-code');
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(canvas, playerUrl, {
+                    width: 200,
+                    margin: 2,
+                    color: { dark: '#1a1a2e', light: '#ffffff' }
+                }, function(error) {
+                    if (error) {
+                        console.error('QR Code error:', error);
+                        // Fallback: show URL prominently
+                        canvas.style.display = 'none';
+                    }
+                });
+            } else {
+                console.warn('QRCode library not loaded');
+                canvas.style.display = 'none';
+            }
         }
 
         // Setup Firebase listeners
@@ -1009,33 +1025,52 @@
                         const sorted = bidders.sort(([,a], [,b]) => b.amount - a.amount);
                         const highest = sorted[0];
                         const second = sorted[1];
-                        actionDetails.textContent = `Highest bid: ${gameState.players[highest[0]]?.name} (${highest[1].amount} chips)`;
                         
-                        if (second && turn.openerId !== highest[0]) {
+                        // Check for tie
+                        if (second && highest[1].amount === second[1].amount) {
+                            actionDetails.textContent = `TIE! ${gameState.players[highest[0]]?.name} & ${gameState.players[second[0]]?.name} both bid ${highest[1].amount}`;
                             actionButtons.innerHTML = `
-                                <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Duel: ${gameState.players[highest[0]]?.name} vs Opener</button>
-                                <button class="btn btn-secondary" onclick="openerYields('${highest[0]}', '${second[0]}')">🏃 Opener Yields</button>
+                                <button class="btn btn-gold" onclick="startTiebreaker('${highest[0]}', '${second[0]}')">⚔️ Tiebreaker Duel!</button>
                             `;
                         } else {
-                            actionButtons.innerHTML = `
-                                <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Start Duel</button>
-                            `;
+                            actionDetails.textContent = `Highest bid: ${gameState.players[highest[0]]?.name} (${highest[1].amount} chips)`;
+                            
+                            if (second && turn.openerId !== highest[0]) {
+                                actionButtons.innerHTML = `
+                                    <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Duel: ${gameState.players[highest[0]]?.name} vs Opener</button>
+                                    <button class="btn btn-secondary" onclick="openerYields('${highest[0]}', '${second[0]}')">🏃 Opener Yields</button>
+                                `;
+                            } else {
+                                actionButtons.innerHTML = `
+                                    <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Start Duel</button>
+                                `;
+                            }
                         }
                     }
                     break;
 
                 case 'duel':
-                    phaseBadge.textContent = '⚔️ DUEL';
+                    phaseBadge.textContent = turn.isTiebreak ? '⚖️ TIEBREAK' : '⚔️ DUEL';
                     phaseBadge.className = 'phase-badge duel';
                     const challenger = gameState.players[turn.challengerId];
                     const defender = gameState.players[turn.defenderId];
                     currentAction.textContent = `${challenger?.name} vs ${defender?.name}`;
-                    actionDetails.textContent = `Fighting for: "${gift?.name}"`;
+                    actionDetails.textContent = turn.isTiebreak ? 
+                        'Winner becomes the Challenger!' : 
+                        `Fighting for: "${gift?.name}"`;
                     bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = `
-                        <button class="btn btn-primary" onclick="recordDuelWinner('${turn.challengerId}')">🏆 ${challenger?.name} Wins</button>
-                        <button class="btn btn-secondary" onclick="recordDuelWinner('${turn.defenderId}')">🏆 ${defender?.name} Wins</button>
-                    `;
+                    
+                    if (turn.isTiebreak) {
+                        actionButtons.innerHTML = `
+                            <button class="btn btn-primary" onclick="recordTiebreakerWinner('${turn.challengerId}')">🏆 ${challenger?.name} Wins</button>
+                            <button class="btn btn-secondary" onclick="recordTiebreakerWinner('${turn.defenderId}')">🏆 ${defender?.name} Wins</button>
+                        `;
+                    } else {
+                        actionButtons.innerHTML = `
+                            <button class="btn btn-primary" onclick="recordDuelWinner('${turn.challengerId}')">🏆 ${challenger?.name} Wins</button>
+                            <button class="btn btn-secondary" onclick="recordDuelWinner('${turn.defenderId}')">🏆 ${defender?.name} Wins</button>
+                        `;
+                    }
                     break;
 
                 case 'reprisal':
@@ -1049,6 +1084,55 @@
                         <button class="btn btn-gold" onclick="showReprisalTargets()">🎯 Choose Target</button>
                         <button class="btn btn-secondary" onclick="skipReprisal()">⏭️ Skip Reprisal</button>
                     `;
+                    break;
+
+                case 'endgame_choice':
+                    phaseBadge.textContent = '🎰 ENDGAME';
+                    phaseBadge.className = 'phase-badge duel';
+                    const endgamePlayer = gameState.players[turn.activePlayerId];
+                    currentAction.textContent = `${endgamePlayer?.name}'s Misfit Lottery Turn`;
+                    actionDetails.textContent = `Target: "${turn.misfitName}"`;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-primary" onclick="showEndgameStealOptions()">🎯 Path A: Steal a Gift</button>
+                        <button class="btn btn-gold" onclick="startEndgameAuction()">🎰 Path B: Auction for Misfit</button>
+                    `;
+                    break;
+
+                case 'endgame_bidding':
+                    phaseBadge.textContent = '🎰 AUCTION';
+                    phaseBadge.className = 'phase-badge bidding';
+                    currentAction.textContent = `Auction for "${turn.misfitName}"`;
+                    actionDetails.textContent = 'Everyone can bid! Active player duels highest bidder.';
+                    renderBids(turn.bids, false);
+                    bidsContainer.classList.remove('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-gold" onclick="revealEndgameAuctionBids()">👁️ Reveal Bids</button>
+                        <button class="btn btn-secondary" onclick="skipEndgameAuction()">⏭️ No Bids</button>
+                    `;
+                    break;
+
+                case 'endgame_reveal':
+                    phaseBadge.textContent = '👁️ REVEAL';
+                    phaseBadge.className = 'phase-badge reveal';
+                    currentAction.textContent = 'Auction Bids Revealed!';
+                    renderBids(turn.bids, true);
+                    bidsContainer.classList.remove('hidden');
+                    
+                    const auctionBids = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
+                    if (auctionBids.length === 0) {
+                        actionDetails.textContent = 'No bids! Active player chooses a defender.';
+                        actionButtons.innerHTML = `
+                            <button class="btn btn-primary" onclick="showDefenderChoice()">🎯 Choose Defender</button>
+                        `;
+                    } else {
+                        const sortedBids = auctionBids.sort(([,a], [,b]) => b.amount - a.amount);
+                        const highestBidder = sortedBids[0][0];
+                        actionDetails.textContent = `Highest: ${gameState.players[highestBidder]?.name} (${sortedBids[0][1].amount} chips)`;
+                        actionButtons.innerHTML = `
+                            <button class="btn btn-primary" onclick="startEndgameAuctionDuel('${highestBidder}')">⚔️ Duel Highest Bidder</button>
+                        `;
+                    }
                     break;
 
                 default:
@@ -1335,14 +1419,24 @@
             addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
 
             // Check for reprisal opportunity
-            if (!turn.isYieldDuel) {
+            // No reprisal for: yield duels, misfit duels, or if max depth reached
+            const currentDepth = turn.reprisalDepth || 0;
+            const canReprisal = !turn.isYieldDuel && 
+                               !turn.isMisfitDuel && 
+                               currentDepth < GAME_CONFIG.maxReprisalDepth;
+
+            if (canReprisal) {
                 await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
                     phase: 'reprisal',
                     reprisalPlayerId: loserId,
                     excludedGiftId: turn.giftId,
-                    reprisalDepth: (turn.reprisalDepth || 0) + 1
+                    reprisalDepth: currentDepth + 1
                 });
+                addEvent(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
             } else {
+                if (currentDepth >= GAME_CONFIG.maxReprisalDepth) {
+                    addEvent('Max reprisal chain reached!', 'duel');
+                }
                 await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
             }
         }
@@ -1483,6 +1577,38 @@
             addEvent(`😈 ${opener.name} uses Grinch's Gambit on "${targetGift.name}"!`, 'duel');
         }
 
+        // Tiebreaker duel (no pot, winner becomes challenger)
+        async function startTiebreaker(player1Id, player2Id) {
+            const turn = gameState.currentTurn;
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'duel',
+                challengerId: player1Id,
+                defenderId: player2Id,
+                pot: 0,
+                isTiebreak: true,
+                tiebreakerBids: {
+                    [player1Id]: turn.bids[player1Id]?.amount || 0,
+                    [player2Id]: turn.bids[player2Id]?.amount || 0
+                }
+            });
+
+            addEvent(`⚔️ Tiebreaker: ${gameState.players[player1Id]?.name} vs ${gameState.players[player2Id]?.name}!`, 'duel');
+        }
+
+        // Record tiebreaker winner (special handling)
+        async function recordTiebreakerWinner(winnerId) {
+            const turn = gameState.currentTurn;
+            const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
+            
+            // Winner becomes the challenger, no dividend for loser
+            addEvent(`${gameState.players[winnerId]?.name} wins the tiebreaker!`, 'duel');
+            
+            // Now start the real duel
+            const winnerBid = turn.tiebreakerBids[winnerId];
+            await startDuel(winnerId, turn.openerId);
+        }
+
         // Opener yields
         async function openerYields(challenger1Id, challenger2Id) {
             const turn = gameState.currentTurn;
@@ -1592,6 +1718,205 @@
         async function startEndgame() {
             await db.ref(`games/${gameState.roomCode}/phase`).set('endgame');
             addEvent('🎰 Endgame: Misfit Lottery begins!', 'gift');
+            
+            // Draw first giftless player
+            setTimeout(() => drawEndgamePlayer(), 500);
+        }
+
+        // Draw next player for endgame
+        async function drawEndgamePlayer() {
+            const players = Object.entries(gameState.players);
+            const giftless = players.filter(([id, p]) => !p.giftId);
+            
+            if (giftless.length === 0) {
+                addEvent('🎄 Everyone has a gift! Game complete!', 'gift');
+                await db.ref(`games/${gameState.roomCode}/phase`).set('ended');
+                return;
+            }
+
+            // Get top misfit (oldest in pile)
+            const misfits = Object.entries(gameState.gifts)
+                .filter(([id, g]) => g.ownerId === 'misfit')
+                .sort((a, b) => (a[1].misfitOrder || 0) - (b[1].misfitOrder || 0));
+            
+            if (misfits.length === 0) {
+                addEvent('⚠️ No misfits left but players still giftless!', 'gift');
+                return;
+            }
+
+            const [misfitId, misfitGift] = misfits[0];
+            const activePlayer = giftless[Math.floor(Math.random() * giftless.length)];
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'endgame_choice',
+                activePlayerId: activePlayer[0],
+                misfitId: misfitId,
+                misfitName: misfitGift.name,
+                bids: {}
+            });
+
+            addEvent(`🎅 ${activePlayer[1].name} drawn! Target: "${misfitGift.name}"`, 'gift');
+        }
+
+        // Path A: Show steal options
+        function showEndgameStealOptions() {
+            const turn = gameState.currentTurn;
+            const activePlayer = gameState.players[turn.activePlayerId];
+            const playerGifts = Object.entries(gameState.gifts).filter(([id, g]) => 
+                g.ownerId !== 'misfit' && g.ownerId !== turn.activePlayerId
+            );
+
+            if (playerGifts.length === 0) {
+                alert('No player gifts to steal! Use Path B.');
+                return;
+            }
+
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>🎯 Path A: Steal a Gift</h2>
+                <p style="color: var(--text-secondary);">${activePlayer?.name} challenges a player. Loser takes the misfit.</p>
+                <div class="options">
+                    ${playerGifts.map(([id, gift]) => {
+                        const owner = gameState.players[gift.ownerId]?.name || 'Unknown';
+                        const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+                        return `
+                            <div class="option-btn" onclick="executeEndgameSteal('${id}')">
+                                <div class="option-title">${gift.name}</div>
+                                <div class="option-desc">Owner: ${owner} • Cost: ${cost} chip${cost > 1 ? 's' : ''}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="closeModal()" style="margin-top: 1rem;">Cancel</button>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Execute Path A steal
+        async function executeEndgameSteal(targetGiftId) {
+            closeModal();
+            const turn = gameState.currentTurn;
+            const activePlayer = gameState.players[turn.activePlayerId];
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel);
+
+            if (activePlayer.chips < cost) {
+                alert(`Not enough chips! Need ${cost}, have ${activePlayer.chips}`);
+                return;
+            }
+
+            // Deduct cost (paid to bank)
+            await db.ref(`games/${gameState.roomCode}/players/${turn.activePlayerId}/chips`)
+                .set(activePlayer.chips - cost);
+
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.activePlayerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetGiftId,
+                misfitId: turn.misfitId,
+                pot: 0,
+                isEndgameSteal: true
+            });
+
+            addEvent(`🎯 ${activePlayer.name} challenges ${gameState.players[targetGift.ownerId]?.name} for "${targetGift.name}"!`, 'duel');
+        }
+
+        // Path B: Start auction for misfit
+        async function startEndgameAuction() {
+            const turn = gameState.currentTurn;
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'endgame_bidding',
+                bids: {}
+            });
+
+            addEvent(`🎰 Auction for "${turn.misfitName}" - Everyone can bid!`, 'bid');
+        }
+
+        // Reveal endgame auction bids
+        async function revealEndgameAuctionBids() {
+            await db.ref(`games/${gameState.roomCode}/currentTurn/phase`).set('endgame_reveal');
+            addEvent('Bids revealed!', 'bid');
+        }
+
+        // Skip endgame auction (no bids)
+        async function skipEndgameAuction() {
+            await db.ref(`games/${gameState.roomCode}/currentTurn/phase`).set('endgame_reveal');
+            await db.ref(`games/${gameState.roomCode}/currentTurn/bids`).set({});
+            addEvent('No bids - Active player chooses defender', 'bid');
+        }
+
+        // Handle no-bids scenario (choose defender)
+        function showDefenderChoice() {
+            const turn = gameState.currentTurn;
+            const activePlayer = gameState.players[turn.activePlayerId];
+            const otherPlayers = Object.entries(gameState.players)
+                .filter(([id]) => id !== turn.activePlayerId);
+
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>🎯 Choose Your Defender</h2>
+                <p style="color: var(--text-secondary);">${activePlayer?.name} picks someone to duel. Win = free misfit. Lose = pay 1 chip toll.</p>
+                <div class="options">
+                    ${otherPlayers.map(([id, player]) => `
+                        <div class="option-btn" onclick="executeNoBidsDuel('${id}')">
+                            <div class="option-title">${player.name}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="closeModal()" style="margin-top: 1rem;">Cancel</button>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Execute no-bids duel  
+        async function executeNoBidsDuel(defenderId) {
+            closeModal();
+            const turn = gameState.currentTurn;
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.activePlayerId,
+                defenderId: defenderId,
+                giftId: turn.misfitId,
+                misfitName: turn.misfitName,
+                pot: 0,
+                isNoBidsDuel: true
+            });
+
+            addEvent(`⚔️ ${gameState.players[turn.activePlayerId]?.name} vs ${gameState.players[defenderId]?.name} for the misfit!`, 'duel');
+        }
+
+        // Start duel with highest bidder for endgame auction
+        async function startEndgameAuctionDuel(bidderId) {
+            const turn = gameState.currentTurn;
+            const bid = turn.bids[bidderId]?.amount || 0;
+            const bidder = gameState.players[bidderId];
+            
+            // Deduct bid from bidder
+            await db.ref(`games/${gameState.roomCode}/players/${bidderId}/chips`).set(bidder.chips - bid);
+
+            // Calculate pot with santa tax
+            let pot = bid;
+            if (pot >= GAME_CONFIG.santaTaxThreshold) {
+                pot -= 1;
+                addEvent('Santa Tax: 1 chip to the Bank', 'bid');
+            }
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.activePlayerId,
+                defenderId: bidderId,
+                giftId: turn.misfitId,
+                misfitName: turn.misfitName,
+                pot: pot,
+                isEndgameAuction: true,
+                bidderHadGift: !!gameState.players[bidderId].giftId,
+                bidderOldGift: gameState.players[bidderId].giftId
+            });
+
+            addEvent(`⚔️ ${gameState.players[turn.activePlayerId]?.name} vs ${bidder.name} for "${turn.misfitName}"!`, 'duel');
         }
 
         // End game

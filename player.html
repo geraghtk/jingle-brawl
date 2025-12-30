@@ -282,6 +282,135 @@
             color: var(--text-secondary);
         }
 
+        /* Help/Tip Box */
+        .help-box {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .help-box .help-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .help-box .help-content {
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .help-box .help-content strong {
+            color: var(--accent-gold);
+        }
+
+        .help-box.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .help-box.warning .help-title {
+            color: var(--accent-gold);
+        }
+
+        .help-box.success {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .help-box.success .help-title {
+            color: var(--accent-green);
+        }
+
+        .rule-chip {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            margin: 0.25rem 0.25rem 0.25rem 0;
+        }
+
+        /* Action Options */
+        .action-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .action-option {
+            background: var(--bg-card-hover);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-option:hover:not(.disabled) {
+            border-color: var(--accent-gold);
+            transform: translateY(-2px);
+        }
+
+        .action-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-option.misfit {
+            border-color: var(--accent-green);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .action-option .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-option .option-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .action-option .naughty-badge {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        .action-option .option-desc {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-option .option-cost {
+            font-weight: 600;
+            color: var(--accent-gold);
+            font-size: 0.9rem;
+        }
+
+        .action-option .option-cost.cant-afford {
+            color: var(--accent-red);
+        }
+
+        .action-option .option-cost span {
+            font-weight: 400;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
         /* Bid Panel */
         .bid-panel {
             background: linear-gradient(135deg, #3d3d1e 0%, var(--bg-card) 100%);
@@ -306,6 +435,16 @@
             font-size: 1.25rem;
             font-weight: 700;
             margin-top: 0.25rem;
+        }
+
+        .bid-panel .gift-being-bid .opener-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .bid-panel .bid-help {
+            margin-top: 1rem;
         }
 
         .bid-slider-container {
@@ -547,8 +686,9 @@
             <!-- Bid Panel -->
             <div class="card bid-panel hidden" id="bid-panel">
                 <div class="gift-being-bid">
-                    <div class="label">Gift up for grabs</div>
+                    <div class="label">🎁 Gift up for grabs</div>
                     <div class="name" id="bid-gift-name">Mystery Gift</div>
+                    <div class="opener-info" id="bid-opener-info"></div>
                 </div>
                 
                 <div class="bid-slider-container">
@@ -574,6 +714,10 @@
                 <div class="bid-status hidden" id="bid-status">
                     <span>✅ Bid submitted! Waiting for reveal...</span>
                 </div>
+
+                <div class="bid-help" id="bid-help-text">
+                    <!-- Dynamic help content -->
+                </div>
             </div>
 
             <!-- Action Required -->
@@ -584,6 +728,9 @@
                 </div>
                 <div id="action-desc" style="color: var(--text-secondary); font-size: 0.9rem;">
                     Choose an action below.
+                </div>
+                <div id="action-help">
+                    <!-- Dynamic help content -->
                 </div>
                 <div class="action-options" id="action-options">
                     <!-- Dynamic content -->
@@ -869,7 +1016,15 @@
                     statusCard.innerHTML = `
                         <div class="status-icon">🎄</div>
                         <div class="status-title">Welcome to Jingle Brawl!</div>
-                        <div class="status-desc">${playerCount} player${playerCount !== 1 ? 's' : ''} joined. Waiting for host to start the game...</div>
+                        <div class="status-desc">${playerCount} player${playerCount !== 1 ? 's' : ''} joined. Waiting for host to start...</div>
+                        <div class="help-box">
+                            <div class="help-title">💡 Quick Overview</div>
+                            <div class="help-content">
+                                <strong>Goal:</strong> Get the best gift!<br>
+                                <strong>How:</strong> Bid chips to challenge for gifts you want.<br>
+                                <strong>Win duels</strong> to take gifts from others!
+                            </div>
+                        </div>
                     `;
                 } else if (gameState.phase === 'main') {
                     const hasGift = playerState.giftId != null;
@@ -877,22 +1032,44 @@
                         statusCard.innerHTML = `
                             <div class="status-icon">✅</div>
                             <div class="status-title">You have a gift!</div>
-                            <div class="status-desc">Watch the main screen. Someone might challenge you!</div>
+                            <div class="status-desc">Watch the main screen - someone might challenge you!</div>
+                            <div class="help-box success">
+                                <div class="help-title">🛡️ Defending is FREE</div>
+                                <div class="help-content">
+                                    If challenged, you <strong>don't pay anything</strong> to defend.<br>
+                                    If you lose, you get <strong>+1 chip</strong> (Loser's Dividend) and a <strong>Reprisal</strong> chance!
+                                </div>
+                            </div>
                         `;
                     } else {
                         statusCard.classList.add('active');
                         statusCard.innerHTML = `
                             <div class="status-icon">🎅</div>
                             <div class="status-title">You're in the bag!</div>
-                            <div class="status-desc">Waiting to be drawn... Watch the main screen!</div>
+                            <div class="status-desc">Waiting to be drawn to open a gift...</div>
+                            <div class="help-box">
+                                <div class="help-title">💡 What happens next?</div>
+                                <div class="help-content">
+                                    When drawn, you'll open a gift. Others can <strong>bid chips</strong> to challenge you for it.<br>
+                                    No bids? Use <strong>Grinch's Gambit</strong> to steal someone else's gift!
+                                </div>
+                            </div>
                         `;
                     }
                 } else if (gameState.phase === 'endgame') {
+                    const hasGift = playerState.giftId != null;
                     statusCard.classList.add('active');
                     statusCard.innerHTML = `
                         <div class="status-icon">🎰</div>
                         <div class="status-title">Misfit Lottery!</div>
-                        <div class="status-desc">Endgame is active. Watch the main screen!</div>
+                        <div class="status-desc">${hasGift ? 'You have a gift! Watch for auction opportunities.' : 'You need a gift - watch for your turn!'}</div>
+                        <div class="help-box warning">
+                            <div class="help-title">🎪 Endgame Rules</div>
+                            <div class="help-content">
+                                <strong>Path A:</strong> Giftless player can steal any player's gift (loser takes misfit)<br>
+                                <strong>Path B:</strong> Auction for misfit - anyone can bid!
+                            </div>
+                        </div>
                     `;
                 } else {
                     statusCard.innerHTML = `
@@ -913,22 +1090,45 @@
             switch (turn.phase) {
                 case 'bidding':
                     if (amOpener) {
-                        // I'm the opener - show waiting status
+                        // I'm the opener - show waiting status with guidance
                         statusCard.classList.remove('hidden');
                         statusCard.classList.add('your-turn');
                         const gift = gameState.gifts[turn.giftId];
                         statusCard.innerHTML = `
                             <div class="status-icon">🎁</div>
-                            <div class="status-title">You opened a gift!</div>
-                            <div class="status-desc">"${gift?.name || 'Mystery Gift'}" - Waiting for others to bid...</div>
+                            <div class="status-title">You opened "${gift?.name || 'a gift'}"!</div>
+                            <div class="status-desc">Waiting for others to bid...</div>
+                            <div class="help-box warning">
+                                <div class="help-title">⏳ What's happening?</div>
+                                <div class="help-content">
+                                    Others are deciding if they want to <strong>challenge you</strong> for this gift.<br><br>
+                                    <strong>If someone bids:</strong> Highest bidder fights you in a duel.<br>
+                                    <strong>If no one bids:</strong> You keep it OR use <strong>Grinch's Gambit</strong> to steal someone else's gift!
+                                </div>
+                            </div>
                         `;
                         vibrate();
                     } else {
-                        // Show bid panel
+                        // Show bid panel with enhanced guidance
                         statusCard.classList.add('hidden');
                         bidPanel.classList.remove('hidden');
                         const gift = gameState.gifts[turn.giftId];
+                        const opener = gameState.players[turn.openerId];
                         document.getElementById('bid-gift-name').textContent = gift?.name || 'Mystery Gift';
+                        document.getElementById('bid-opener-info').innerHTML = `
+                            Opened by <strong>${opener?.name || 'Player'}</strong>
+                        `;
+                        document.getElementById('bid-help-text').innerHTML = `
+                            <div class="help-title">💡 Bidding Guide</div>
+                            <div class="help-content">
+                                <strong>Bid 0 (Pass):</strong> Don't challenge for this gift.<br>
+                                <strong>Bid chips:</strong> Highest bidder fights the opener!<br>
+                                <strong>If you win:</strong> You get the gift + keep remaining pot.<br>
+                                <strong>If you lose:</strong> You get +1 chip back (Loser's Dividend).
+                                <div class="rule-chip">🎯 Winner takes pot minus Santa Tax</div>
+                                <div class="rule-chip">💰 Santa Tax = 1 chip if pot ≥ 3</div>
+                            </div>
+                        `;
                         updateBidSliderMax();
                         setBid(0);
                     }
@@ -937,24 +1137,53 @@
                 case 'reveal':
                     statusCard.classList.remove('hidden');
                     statusCard.classList.add('active');
+                    const revealBids = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
+                    const myBid = turn.bids?.[playerState.playerId]?.amount || 0;
                     statusCard.innerHTML = `
                         <div class="status-icon">👁️</div>
                         <div class="status-title">Bids Revealed!</div>
-                        <div class="status-desc">Watch the main screen for results...</div>
+                        <div class="status-desc">
+                            ${revealBids.length === 0 ? 'No bids! Opener decides next...' : 
+                              `${revealBids.length} bid${revealBids.length > 1 ? 's' : ''} placed. ${myBid > 0 ? `Your bid: ${myBid}` : ''}`}
+                        </div>
+                        ${revealBids.length === 0 ? `
+                            <div class="help-box">
+                                <div class="help-title">😈 Grinch's Gambit</div>
+                                <div class="help-content">
+                                    When no one bids, the opener can either <strong>keep their gift</strong> or pay the <strong>Minimum Cost</strong> to challenge anyone else's gift!
+                                </div>
+                            </div>
+                        ` : ''}
                     `;
                     break;
 
                 case 'duel':
                     statusCard.classList.remove('hidden');
+                    const gift = gameState.gifts[turn.giftId];
                     if (amChallenger || amDefender) {
                         statusCard.classList.add('your-turn');
                         const opponent = amChallenger ? 
                             gameState.players[turn.defenderId]?.name : 
                             gameState.players[turn.challengerId]?.name;
+                        const isDefending = amDefender;
                         statusCard.innerHTML = `
                             <div class="status-icon">⚔️</div>
                             <div class="status-title">DUEL TIME!</div>
-                            <div class="status-desc">You're fighting ${opponent || 'Unknown'}!</div>
+                            <div class="status-desc">You're ${isDefending ? 'defending against' : 'challenging'} ${opponent || 'Unknown'}!</div>
+                            <div class="help-box ${isDefending ? 'success' : 'warning'}">
+                                <div class="help-title">${isDefending ? '🛡️ You\'re Defending!' : '⚔️ You\'re the Challenger!'}</div>
+                                <div class="help-content">
+                                    ${isDefending ? `
+                                        <strong>Defending is FREE</strong> - you don't pay anything!<br>
+                                        <strong>If you win:</strong> Keep your gift + win the pot.<br>
+                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                    ` : `
+                                        You've paid your bid into the pot.<br>
+                                        <strong>If you win:</strong> Take the gift + pot (minus Santa Tax).<br>
+                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                    `}
+                                </div>
+                            </div>
                         `;
                         vibrate();
                     } else {
@@ -964,28 +1193,104 @@
                         statusCard.innerHTML = `
                             <div class="status-icon">👀</div>
                             <div class="status-title">Duel in Progress</div>
-                            <div class="status-desc">${c} vs ${d}</div>
+                            <div class="status-desc">${c} vs ${d} for "${gift?.name || 'the gift'}"</div>
+                            <div class="help-box">
+                                <div class="help-title">📋 Duel Rules</div>
+                                <div class="help-content">
+                                    The <strong>Defender chooses the duel method</strong>.<br>
+                                    Loser gets <strong>+1 chip</strong> and a <strong>Reprisal</strong> opportunity!
+                                </div>
+                            </div>
                         `;
                     }
                     break;
 
                 case 'reprisal':
                     if (turn.reprisalPlayerId === playerState.playerId) {
-                        // Show reprisal options
+                        // Show reprisal options with enhanced guidance
                         statusCard.classList.add('hidden');
                         actionCard.classList.remove('hidden');
                         document.getElementById('action-title').textContent = '🦌 Reindeer Reprisal!';
-                        document.getElementById('action-desc').textContent = 'You can challenge any gift (except the one you just lost).';
+                        document.getElementById('action-desc').innerHTML = `
+                            You lost the duel but get a <strong>revenge chance</strong>!<br>
+                            Challenge any gift (except "${gameState.gifts[turn.excludedGiftId]?.name || 'the one you lost'}").
+                        `;
+                        document.getElementById('action-help').innerHTML = `
+                            <div class="help-box warning">
+                                <div class="help-title">💡 Reprisal Tips</div>
+                                <div class="help-content">
+                                    <strong>Cost:</strong> Pay Minimum Cost (1 + Naughty Level) to the Bank.<br>
+                                    <strong>Misfits:</strong> You can claim unclaimed Misfit gifts too!<br>
+                                    <strong>Chain limit:</strong> Max ${GAME_CONFIG.maxReprisalDepth} chained reprisals.
+                                </div>
+                            </div>
+                        `;
                         renderReprisalOptions();
                         vibrate();
                     } else {
                         statusCard.classList.remove('hidden');
                         statusCard.classList.add('active');
                         const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+                        const isTarget = Object.values(gameState.gifts).some(g => 
+                            g.ownerId === playerState.playerId
+                        );
                         statusCard.innerHTML = `
                             <div class="status-icon">🦌</div>
-                            <div class="status-title">Reprisal!</div>
+                            <div class="status-title">Reindeer Reprisal!</div>
                             <div class="status-desc">${reprisalPlayer?.name || 'Player'} is choosing a target...</div>
+                            ${isTarget ? `
+                                <div class="help-box warning">
+                                    <div class="help-title">⚠️ You could be targeted!</div>
+                                    <div class="help-content">
+                                        ${reprisalPlayer?.name} can challenge <strong>your gift</strong>. If they do, you'll defend (for free)!
+                                    </div>
+                                </div>
+                            ` : ''}
+                        `;
+                    }
+                    break;
+
+                case 'endgame_choice':
+                case 'endgame_bidding':
+                case 'endgame_reveal':
+                    const isActive = turn.activePlayerId === playerState.playerId;
+                    statusCard.classList.remove('hidden');
+                    if (isActive) {
+                        statusCard.classList.add('your-turn');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎰</div>
+                            <div class="status-title">Your Misfit Lottery Turn!</div>
+                            <div class="status-desc">Target: "${turn.misfitName}"</div>
+                            <div class="help-box warning">
+                                <div class="help-title">🎯 Your Options</div>
+                                <div class="help-content">
+                                    <strong>Path A - Steal:</strong> Challenge any player's gift. Loser takes the misfit.<br>
+                                    <strong>Path B - Auction:</strong> Let everyone bid on the misfit. You duel the highest bidder.
+                                </div>
+                            </div>
+                        `;
+                    } else if (turn.phase === 'endgame_bidding') {
+                        bidPanel.classList.remove('hidden');
+                        statusCard.classList.add('hidden');
+                        document.getElementById('bid-gift-name').textContent = turn.misfitName || 'Misfit Gift';
+                        document.getElementById('bid-opener-info').innerHTML = `<strong>🎰 Misfit Auction!</strong>`;
+                        document.getElementById('bid-help-text').innerHTML = `
+                            <div class="help-title">💡 Auction Rules</div>
+                            <div class="help-content">
+                                <strong>Anyone can bid</strong> - even players with gifts!<br>
+                                Highest bidder duels the active player for this misfit.<br>
+                                <strong>Winner gets the misfit.</strong> If bidder wins and had a gift, active player may get it.
+                            </div>
+                        `;
+                        updateBidSliderMax();
+                        setBid(0);
+                    } else {
+                        statusCard.classList.add('active');
+                        const activePlayer = gameState.players[turn.activePlayerId];
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎰</div>
+                            <div class="status-title">Misfit Lottery</div>
+                            <div class="status-desc">${activePlayer?.name}'s turn for "${turn.misfitName}"</div>
                         `;
                     }
                     break;
@@ -1082,6 +1387,14 @@
             const availableGifts = Object.entries(gameState.gifts)
                 .filter(([id]) => id !== turn.excludedGiftId);
 
+            // Sort by type (player gifts first, then misfits) and then by cost
+            availableGifts.sort(([,a], [,b]) => {
+                const aIsMisfit = a.ownerId === 'misfit';
+                const bIsMisfit = b.ownerId === 'misfit';
+                if (aIsMisfit !== bIsMisfit) return aIsMisfit ? 1 : -1;
+                return GAME_CONFIG.getMinCost(a.naughtyLevel) - GAME_CONFIG.getMinCost(b.naughtyLevel);
+            });
+
             if (availableGifts.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: var(--text-secondary); padding: 1rem;">
@@ -1091,24 +1404,49 @@
                 `;
                 return;
             }
+            
+            const canAfford = availableGifts.filter(([,g]) => 
+                playerState.chips >= GAME_CONFIG.getMinCost(g.naughtyLevel)
+            );
+            
+            if (canAfford.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--accent-gold); padding: 1rem;">
+                        😢 Not enough chips! You need at least ${Math.min(...availableGifts.map(([,g]) => GAME_CONFIG.getMinCost(g.naughtyLevel)))} chip(s).
+                    </div>
+                    <button class="btn btn-secondary" onclick="skipReprisal()">Skip Reprisal</button>
+                `;
+                return;
+            }
 
             container.innerHTML = availableGifts.map(([id, gift]) => {
-                const owner = gift.ownerId === 'misfit' ? '🧸 Misfit Pile' : 
+                const isMisfit = gift.ownerId === 'misfit';
+                const owner = isMisfit ? '🧸 Misfit Pile' : 
                     gameState.players[gift.ownerId]?.name || 'Unknown';
                 const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
-                const canAfford = playerState.chips >= cost;
+                const canAffordThis = playerState.chips >= cost;
+                const naughtyBadge = gift.naughtyLevel > 0 ? 
+                    `<span class="naughty-badge">😈 ${gift.naughtyLevel}</span>` : '';
 
                 return `
-                    <div class="action-option ${!canAfford ? 'disabled' : ''}" 
-                         onclick="${canAfford ? `selectReprisalTarget('${id}')` : ''}">
-                        <div class="option-title">${gift.name}</div>
-                        <div class="option-desc">Owner: ${owner}</div>
-                        <div class="option-cost">${canAfford ? `Cost: ${cost} chips` : `Need ${cost} chips (you have ${playerState.chips})`}</div>
+                    <div class="action-option ${!canAffordThis ? 'disabled' : ''} ${isMisfit ? 'misfit' : ''}" 
+                         onclick="${canAffordThis ? `selectReprisalTarget('${id}')` : ''}">
+                        <div class="option-header">
+                            <div class="option-title">${gift.name}</div>
+                            ${naughtyBadge}
+                        </div>
+                        <div class="option-desc">
+                            ${isMisfit ? '🎯 Auto-claim (no duel!)' : `⚔️ Duel ${owner}`}
+                        </div>
+                        <div class="option-cost ${canAffordThis ? '' : 'cant-afford'}">
+                            💰 ${cost} chip${cost > 1 ? 's' : ''}
+                            ${!canAffordThis ? `<span>(need ${cost - playerState.chips} more)</span>` : ''}
+                        </div>
                     </div>
                 `;
             }).join('') + `
-                <button class="btn btn-secondary" onclick="skipReprisal()" style="margin-top: 0.5rem;">
-                    ⏭️ Skip Reprisal
+                <button class="btn btn-secondary" onclick="skipReprisal()" style="margin-top: 1rem;">
+                    ⏭️ Skip Reprisal (Keep what you have)
                 </button>
             `;
         }
