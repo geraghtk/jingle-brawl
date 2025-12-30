@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jingle Brawl - Player</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1e2746;
+            --bg-card-hover: #253052;
+            --accent-red: #c41e3a;
+            --accent-green: #22c55e;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-muted: rgba(255,255,255,0.4);
+            --border: rgba(255,255,255,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 1rem;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Join Screen */
+        .join-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .join-screen h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .join-screen h1 .brawl { color: var(--accent-gold); }
+
+        .join-screen .tagline {
+            color: var(--text-muted);
+            font-style: italic;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .join-screen .tagline span { color: var(--accent-gold); }
+
+        .join-form {
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .join-form input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .join-form input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .join-form input.room-code-input {
+            font-size: 1.5rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover { background: #16a34a; }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-gold {
+            background: var(--accent-gold);
+            color: #000;
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Game Screen */
+        .game-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .player-name {
+            font-weight: 700;
+        }
+
+        .chip-count {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 700;
+            color: var(--accent-gold);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Status Card */
+        .status-card {
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+
+        .status-card.active {
+            background: linear-gradient(135deg, #1e3a5f 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-blue);
+            animation: glow 2s infinite;
+        }
+
+        .status-card.your-turn {
+            background: linear-gradient(135deg, #3d1e1e 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-gold);
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.5); }
+        }
+
+        .status-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Your Gift */
+        .gift-display {
+            background: linear-gradient(135deg, #1e4620 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-green);
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .gift-display .gift-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .gift-display .gift-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .gift-display .naughty-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: rgba(255,255,255,0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Bid Panel */
+        .bid-panel {
+            background: linear-gradient(135deg, #3d3d1e 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-gold);
+        }
+
+        .bid-panel .gift-being-bid {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .bid-panel .gift-being-bid .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .bid-panel .gift-being-bid .name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        .bid-slider-container {
+            padding: 1rem 0;
+        }
+
+        .bid-amount-display {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .bid-amount-display .amount {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent-gold);
+        }
+
+        .bid-amount-display .label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .bid-slider {
+            width: 100%;
+            height: 50px;
+            -webkit-appearance: none;
+            background: var(--bg-card-hover);
+            border-radius: 25px;
+            outline: none;
+            margin-bottom: 1rem;
+        }
+
+        .bid-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 50px;
+            height: 50px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .bid-slider::-moz-range-thumb {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .bid-quick-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .bid-quick-buttons button {
+            flex: 1;
+            padding: 0.75rem;
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bid-quick-buttons button:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-gold);
+        }
+
+        .bid-quick-buttons button.selected {
+            background: var(--accent-gold);
+            color: #000;
+            border-color: var(--accent-gold);
+        }
+
+        .bid-status {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .bid-status.submitted {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid var(--accent-green);
+        }
+
+        /* Action Required */
+        .action-card {
+            background: linear-gradient(135deg, #3d1e1e 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-red);
+        }
+
+        .action-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .action-option {
+            padding: 1rem;
+            background: var(--bg-card-hover);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .action-option:hover {
+            border-color: var(--accent-gold);
+        }
+
+        .action-option .option-title {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .action-option .option-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .action-option .option-cost {
+            font-size: 0.85rem;
+            color: var(--accent-gold);
+            margin-top: 0.25rem;
+        }
+
+        /* Other Players */
+        .players-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .player-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-card-hover);
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .player-chip.has-gift {
+            border: 1px solid var(--accent-green);
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+            animation: slideUp 0.3s ease;
+        }
+
+        .toast.show { display: block; }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        /* Vibration feedback for important actions */
+        .vibrate { animation: shake 0.3s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Join Screen -->
+        <div id="join-screen" class="join-screen">
+            <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+            <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
+            
+            <div class="join-form">
+                <input type="text" id="room-code-input" class="room-code-input" placeholder="ROOM" maxlength="4" autocomplete="off">
+                <input type="text" id="player-name-input" placeholder="Your name" autocomplete="off">
+                <button class="btn btn-primary" onclick="joinGame()">🎮 Join Game</button>
+            </div>
+
+            <p style="margin-top: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+                Ask the host for the room code
+            </p>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="game-screen hidden">
+            <!-- Header -->
+            <div class="header">
+                <div class="player-info">
+                    <div class="player-avatar">🎅</div>
+                    <div class="player-name" id="display-name">Player</div>
+                </div>
+                <div class="chip-count">
+                    <span>🪙</span>
+                    <span id="chip-display">10</span>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="card status-card" id="status-card">
+                <div class="status-icon">⏳</div>
+                <div class="status-title">Waiting for game to start...</div>
+                <div class="status-desc">The host will start when everyone is ready.</div>
+            </div>
+
+            <!-- Your Gift -->
+            <div class="card gift-display hidden" id="your-gift-card">
+                <div class="card-title">🎁 Your Gift</div>
+                <div class="gift-icon">🎁</div>
+                <div class="gift-name" id="your-gift-name">No gift yet</div>
+                <div class="naughty-level">😈 Naughty <span id="your-gift-naughty">0</span></div>
+            </div>
+
+            <!-- Bid Panel -->
+            <div class="card bid-panel hidden" id="bid-panel">
+                <div class="gift-being-bid">
+                    <div class="label">Gift up for grabs</div>
+                    <div class="name" id="bid-gift-name">Mystery Gift</div>
+                </div>
+                
+                <div class="bid-slider-container">
+                    <div class="bid-amount-display">
+                        <div class="amount" id="bid-amount-display">0</div>
+                        <div class="label">chips</div>
+                    </div>
+                    
+                    <input type="range" class="bid-slider" id="bid-slider" min="0" max="10" value="0" oninput="updateBidDisplay()">
+                    
+                    <div class="bid-quick-buttons" id="bid-quick-buttons">
+                        <button onclick="setBid(0)">Pass</button>
+                        <button onclick="setBid(1)">1</button>
+                        <button onclick="setBid(2)">2</button>
+                        <button onclick="setBid(3)">3</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-gold" onclick="submitBid()" id="submit-bid-btn">
+                    🎯 Lock In Bid
+                </button>
+
+                <div class="bid-status hidden" id="bid-status">
+                    <span>✅ Bid submitted! Waiting for reveal...</span>
+                </div>
+            </div>
+
+            <!-- Action Required -->
+            <div class="card action-card hidden" id="action-card">
+                <div class="card-title">⚡ Your Turn!</div>
+                <div id="action-title" style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
+                    Action Required
+                </div>
+                <div id="action-desc" style="color: var(--text-secondary); font-size: 0.9rem;">
+                    Choose an action below.
+                </div>
+                <div class="action-options" id="action-options">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+
+            <!-- Other Players -->
+            <div class="card" id="players-card">
+                <div class="card-title">👥 Players</div>
+                <div class="players-list" id="players-list">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Player state
+        let playerState = {
+            roomCode: null,
+            playerId: null,
+            name: null,
+            chips: 10,
+            giftId: null
+        };
+
+        let gameState = {
+            settings: {},
+            players: {},
+            gifts: {},
+            currentTurn: null,
+            phase: 'lobby'
+        };
+
+        let currentBid = 0;
+        let bidSubmitted = false;
+
+        // Check URL for room code
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const roomCode = params.get('room');
+            if (roomCode) {
+                document.getElementById('room-code-input').value = roomCode.toUpperCase();
+            }
+        });
+
+        // Join game
+        async function joinGame() {
+            const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+            const playerName = document.getElementById('player-name-input').value.trim();
+
+            if (!roomCode || roomCode.length !== 4) {
+                showToast('Please enter a valid 4-letter room code');
+                return;
+            }
+
+            if (!playerName) {
+                showToast('Please enter your name');
+                return;
+            }
+
+            // Check if game exists
+            const gameRef = await db.ref(`games/${roomCode}`).once('value');
+            if (!gameRef.exists()) {
+                showToast('Game not found! Check the room code.');
+                return;
+            }
+
+            const gameData = gameRef.val();
+            const startingChips = GAME_CONFIG.getStartingChips(Object.keys(gameData.players || {}).length + 1);
+
+            // Create player
+            const playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            
+            await db.ref(`games/${roomCode}/players/${playerId}`).set({
+                name: playerName,
+                chips: startingChips,
+                giftId: null,
+                connected: true,
+                joinedAt: Date.now()
+            });
+
+            // Set up disconnect handling
+            db.ref(`games/${roomCode}/players/${playerId}/connected`).onDisconnect().set(false);
+
+            playerState.roomCode = roomCode;
+            playerState.playerId = playerId;
+            playerState.name = playerName;
+            playerState.chips = startingChips;
+
+            // Setup listeners
+            setupListeners(roomCode);
+
+            // Show game screen
+            document.getElementById('join-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('display-name').textContent = playerName;
+            document.getElementById('chip-display').textContent = startingChips;
+
+            showToast('Joined the game! 🎄');
+        }
+
+        // Setup Firebase listeners
+        function setupListeners(roomCode) {
+            // My player data
+            db.ref(`games/${roomCode}/players/${playerState.playerId}`).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    playerState.chips = data.chips;
+                    playerState.giftId = data.giftId;
+                    document.getElementById('chip-display').textContent = data.chips;
+                    updateMyGiftDisplay();
+                    updateBidSliderMax();
+                }
+            });
+
+            // All players
+            db.ref(`games/${roomCode}/players`).on('value', (snapshot) => {
+                gameState.players = snapshot.val() || {};
+                renderPlayers();
+            });
+
+            // All gifts
+            db.ref(`games/${roomCode}/gifts`).on('value', (snapshot) => {
+                gameState.gifts = snapshot.val() || {};
+                updateMyGiftDisplay();
+            });
+
+            // Settings
+            db.ref(`games/${roomCode}/settings`).on('value', (snapshot) => {
+                gameState.settings = snapshot.val() || {};
+            });
+
+            // Current turn
+            db.ref(`games/${roomCode}/currentTurn`).on('value', (snapshot) => {
+                gameState.currentTurn = snapshot.val();
+                handleTurnChange();
+            });
+
+            // Phase
+            db.ref(`games/${roomCode}/phase`).on('value', (snapshot) => {
+                gameState.phase = snapshot.val() || 'lobby';
+            });
+        }
+
+        // Handle turn changes
+        function handleTurnChange() {
+            const turn = gameState.currentTurn;
+            const statusCard = document.getElementById('status-card');
+            const bidPanel = document.getElementById('bid-panel');
+            const actionCard = document.getElementById('action-card');
+
+            // Reset states
+            bidPanel.classList.add('hidden');
+            actionCard.classList.add('hidden');
+            statusCard.classList.remove('active', 'your-turn');
+            bidSubmitted = false;
+            document.getElementById('bid-status').classList.add('hidden');
+            document.getElementById('submit-bid-btn').disabled = false;
+
+            if (!turn) {
+                // Waiting state
+                statusCard.classList.remove('hidden');
+                statusCard.innerHTML = `
+                    <div class="status-icon">⏳</div>
+                    <div class="status-title">Waiting...</div>
+                    <div class="status-desc">The host will start the next action.</div>
+                `;
+                return;
+            }
+
+            const isMyTurn = turn.activePlayerId === playerState.playerId || 
+                             turn.openerId === playerState.playerId;
+            const amOpener = turn.openerId === playerState.playerId;
+            const amChallenger = turn.challengerId === playerState.playerId;
+            const amDefender = turn.defenderId === playerState.playerId;
+
+            switch (turn.phase) {
+                case 'bidding':
+                    if (amOpener) {
+                        // I'm the opener - show waiting status
+                        statusCard.classList.remove('hidden');
+                        statusCard.classList.add('your-turn');
+                        const gift = gameState.gifts[turn.giftId];
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎁</div>
+                            <div class="status-title">You opened a gift!</div>
+                            <div class="status-desc">"${gift?.name || 'Mystery Gift'}" - Waiting for others to bid...</div>
+                        `;
+                        vibrate();
+                    } else {
+                        // Show bid panel
+                        statusCard.classList.add('hidden');
+                        bidPanel.classList.remove('hidden');
+                        const gift = gameState.gifts[turn.giftId];
+                        document.getElementById('bid-gift-name').textContent = gift?.name || 'Mystery Gift';
+                        updateBidSliderMax();
+                        setBid(0);
+                    }
+                    break;
+
+                case 'reveal':
+                    statusCard.classList.remove('hidden');
+                    statusCard.classList.add('active');
+                    statusCard.innerHTML = `
+                        <div class="status-icon">👁️</div>
+                        <div class="status-title">Bids Revealed!</div>
+                        <div class="status-desc">Watch the main screen for results...</div>
+                    `;
+                    break;
+
+                case 'duel':
+                    statusCard.classList.remove('hidden');
+                    if (amChallenger || amDefender) {
+                        statusCard.classList.add('your-turn');
+                        const opponent = amChallenger ? 
+                            gameState.players[turn.defenderId]?.name : 
+                            gameState.players[turn.challengerId]?.name;
+                        statusCard.innerHTML = `
+                            <div class="status-icon">⚔️</div>
+                            <div class="status-title">DUEL TIME!</div>
+                            <div class="status-desc">You're fighting ${opponent || 'Unknown'}!</div>
+                        `;
+                        vibrate();
+                    } else {
+                        statusCard.classList.add('active');
+                        const c = gameState.players[turn.challengerId]?.name;
+                        const d = gameState.players[turn.defenderId]?.name;
+                        statusCard.innerHTML = `
+                            <div class="status-icon">👀</div>
+                            <div class="status-title">Duel in Progress</div>
+                            <div class="status-desc">${c} vs ${d}</div>
+                        `;
+                    }
+                    break;
+
+                case 'reprisal':
+                    if (turn.reprisalPlayerId === playerState.playerId) {
+                        // Show reprisal options
+                        statusCard.classList.add('hidden');
+                        actionCard.classList.remove('hidden');
+                        document.getElementById('action-title').textContent = '🦌 Reindeer Reprisal!';
+                        document.getElementById('action-desc').textContent = 'You can challenge any gift (except the one you just lost).';
+                        renderReprisalOptions();
+                        vibrate();
+                    } else {
+                        statusCard.classList.remove('hidden');
+                        statusCard.classList.add('active');
+                        const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🦌</div>
+                            <div class="status-title">Reprisal!</div>
+                            <div class="status-desc">${reprisalPlayer?.name || 'Player'} is choosing a target...</div>
+                        `;
+                    }
+                    break;
+
+                default:
+                    statusCard.classList.remove('hidden');
+                    statusCard.innerHTML = `
+                        <div class="status-icon">⏳</div>
+                        <div class="status-title">Waiting...</div>
+                        <div class="status-desc">Watch the main screen.</div>
+                    `;
+            }
+        }
+
+        // Update my gift display
+        function updateMyGiftDisplay() {
+            const card = document.getElementById('your-gift-card');
+            if (playerState.giftId && gameState.gifts[playerState.giftId]) {
+                const gift = gameState.gifts[playerState.giftId];
+                card.classList.remove('hidden');
+                document.getElementById('your-gift-name').textContent = gift.name;
+                document.getElementById('your-gift-naughty').textContent = gift.naughtyLevel;
+            } else {
+                card.classList.add('hidden');
+            }
+        }
+
+        // Update bid slider max
+        function updateBidSliderMax() {
+            const slider = document.getElementById('bid-slider');
+            slider.max = playerState.chips;
+            
+            // Update quick buttons
+            const container = document.getElementById('bid-quick-buttons');
+            const maxChips = Math.min(playerState.chips, 5);
+            let buttons = '<button onclick="setBid(0)">Pass</button>';
+            for (let i = 1; i <= maxChips; i++) {
+                buttons += `<button onclick="setBid(${i})">${i}</button>`;
+            }
+            if (playerState.chips > 5) {
+                buttons += `<button onclick="setBid(${playerState.chips})">All (${playerState.chips})</button>`;
+            }
+            container.innerHTML = buttons;
+        }
+
+        // Update bid display
+        function updateBidDisplay() {
+            const slider = document.getElementById('bid-slider');
+            currentBid = parseInt(slider.value);
+            document.getElementById('bid-amount-display').textContent = currentBid;
+            
+            // Update button selection
+            const buttons = document.querySelectorAll('#bid-quick-buttons button');
+            buttons.forEach(btn => {
+                btn.classList.remove('selected');
+                if ((currentBid === 0 && btn.textContent === 'Pass') ||
+                    btn.textContent === currentBid.toString() ||
+                    btn.textContent === `All (${currentBid})`) {
+                    btn.classList.add('selected');
+                }
+            });
+        }
+
+        // Set bid amount
+        function setBid(amount) {
+            currentBid = Math.min(amount, playerState.chips);
+            document.getElementById('bid-slider').value = currentBid;
+            updateBidDisplay();
+        }
+
+        // Submit bid
+        async function submitBid() {
+            if (bidSubmitted) return;
+            
+            bidSubmitted = true;
+            document.getElementById('submit-bid-btn').disabled = true;
+            document.getElementById('bid-status').classList.remove('hidden');
+            document.getElementById('bid-status').classList.add('submitted');
+
+            await db.ref(`games/${playerState.roomCode}/currentTurn/bids/${playerState.playerId}`).set({
+                amount: currentBid,
+                submittedAt: Date.now()
+            });
+
+            showToast(currentBid > 0 ? `Bid ${currentBid} chips! 🎯` : 'Passing on this one 👋');
+            vibrate();
+        }
+
+        // Render reprisal options
+        function renderReprisalOptions() {
+            const turn = gameState.currentTurn;
+            const container = document.getElementById('action-options');
+            
+            const availableGifts = Object.entries(gameState.gifts)
+                .filter(([id]) => id !== turn.excludedGiftId);
+
+            if (availableGifts.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: 1rem;">
+                        No gifts available to challenge
+                    </div>
+                    <button class="btn btn-secondary" onclick="skipReprisal()">Skip Reprisal</button>
+                `;
+                return;
+            }
+
+            container.innerHTML = availableGifts.map(([id, gift]) => {
+                const owner = gift.ownerId === 'misfit' ? '🧸 Misfit Pile' : 
+                    gameState.players[gift.ownerId]?.name || 'Unknown';
+                const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+                const canAfford = playerState.chips >= cost;
+
+                return `
+                    <div class="action-option ${!canAfford ? 'disabled' : ''}" 
+                         onclick="${canAfford ? `selectReprisalTarget('${id}')` : ''}">
+                        <div class="option-title">${gift.name}</div>
+                        <div class="option-desc">Owner: ${owner}</div>
+                        <div class="option-cost">${canAfford ? `Cost: ${cost} chips` : `Need ${cost} chips (you have ${playerState.chips})`}</div>
+                    </div>
+                `;
+            }).join('') + `
+                <button class="btn btn-secondary" onclick="skipReprisal()" style="margin-top: 0.5rem;">
+                    ⏭️ Skip Reprisal
+                </button>
+            `;
+        }
+
+        // Select reprisal target
+        async function selectReprisalTarget(giftId) {
+            const gift = gameState.gifts[giftId];
+            const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+
+            if (playerState.chips < cost) {
+                showToast('Not enough chips!');
+                return;
+            }
+
+            // Deduct cost
+            await db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/chips`)
+                .set(playerState.chips - cost);
+
+            // Notify host via turn update
+            const defenderId = gift.ownerId === 'misfit' ? null : gift.ownerId;
+
+            if (defenderId) {
+                await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                    phase: 'duel',
+                    challengerId: playerState.playerId,
+                    defenderId: defenderId,
+                    giftId: giftId,
+                    pot: 0,
+                    isReprisal: true
+                });
+            } else {
+                // Claim misfit directly
+                await db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/giftId`).set(giftId);
+                await db.ref(`games/${playerState.roomCode}/gifts/${giftId}/ownerId`).set(playerState.playerId);
+                await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
+            }
+
+            showToast('Reprisal initiated! ⚔️');
+        }
+
+        // Skip reprisal
+        async function skipReprisal() {
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
+            showToast('Reprisal skipped');
+        }
+
+        // Render players
+        function renderPlayers() {
+            const container = document.getElementById('players-list');
+            const players = Object.entries(gameState.players)
+                .filter(([id]) => id !== playerState.playerId);
+
+            if (players.length === 0) {
+                container.innerHTML = '<span style="color: var(--text-muted);">Waiting for other players...</span>';
+                return;
+            }
+
+            container.innerHTML = players.map(([id, player]) => {
+                const hasGift = player.giftId != null;
+                const chipsDisplay = gameState.settings.publicChips ? 
+                    ` • 🪙 ${player.chips}` : '';
+                
+                return `
+                    <div class="player-chip ${hasGift ? 'has-gift' : ''}">
+                        <span>${player.name}</span>
+                        ${hasGift ? '<span>🎁</span>' : ''}
+                        ${chipsDisplay}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Show toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Vibrate (if supported)
+        function vibrate() {
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+        }
+
+        // Handle input transforms
+        document.getElementById('room-code-input').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+    </script>
+</body>
+</html>
+

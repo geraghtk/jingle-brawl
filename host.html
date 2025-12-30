@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl - Host</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1e2746;
+            --bg-card-hover: #253052;
+            --accent-red: #c41e3a;
+            --accent-green: #22c55e;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-muted: rgba(255,255,255,0.4);
+            --border: rgba(255,255,255,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .logo .brawl { color: var(--accent-gold); }
+
+        .room-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .room-code {
+            background: var(--accent-gold);
+            color: #000;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: 0.1em;
+        }
+
+        .player-count {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+
+        .main-area { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        /* Setup Screen */
+        .setup-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            text-align: center;
+        }
+
+        .setup-screen h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-screen .tagline {
+            color: var(--text-muted);
+            font-style: italic;
+            margin-bottom: 2rem;
+        }
+
+        .setup-screen .tagline span { color: var(--accent-gold); }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover { background: #16a34a; transform: translateY(-2px); }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover { background: var(--bg-card-hover); }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-gold {
+            background: var(--accent-gold);
+            color: #000;
+        }
+
+        .btn-gold:hover { background: #d97706; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* QR Code */
+        .qr-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        .qr-section canvas { display: block; }
+
+        .join-url {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            word-break: break-all;
+        }
+
+        /* Players Grid */
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .player-card {
+            background: var(--bg-card-hover);
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .player-card.active {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .player-card.has-gift { border-color: var(--accent-green); }
+
+        .player-card .name {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-card .chips {
+            font-size: 0.85rem;
+            color: var(--accent-gold);
+        }
+
+        .player-card .gift-indicator {
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            margin-top: 0.25rem;
+        }
+
+        /* Gifts Grid */
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .gift-card {
+            background: var(--bg-card-hover);
+            padding: 1.25rem;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .gift-card.contested {
+            border-color: var(--accent-gold);
+            animation: pulse 2s infinite;
+        }
+
+        .gift-card.misfit {
+            background: linear-gradient(135deg, #4a3f35 0%, var(--bg-card-hover) 100%);
+            border-color: #92400e;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 20px 5px rgba(245, 158, 11, 0.2); }
+        }
+
+        .gift-card .gift-name {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .gift-card .gift-owner {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .gift-card .naughty-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--accent-red);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+
+        .gift-card .naughty-badge.low { background: var(--accent-green); }
+        .gift-card .naughty-badge.medium { background: var(--accent-gold); color: #000; }
+
+        .gift-card .min-cost {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Current Turn Panel */
+        .turn-panel {
+            background: linear-gradient(135deg, #1e3a5f 0%, var(--bg-card) 100%);
+            border: 2px solid var(--accent-blue);
+        }
+
+        .turn-panel .phase-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .turn-panel .phase-badge.bidding { background: var(--accent-gold); color: #000; }
+        .turn-panel .phase-badge.duel { background: var(--accent-red); }
+        .turn-panel .phase-badge.reveal { background: var(--accent-blue); }
+
+        .turn-panel .current-action {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .turn-panel .action-details {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        /* Bids Display */
+        .bids-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        .bid-card {
+            background: var(--bg-card);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .bid-card .bidder { font-weight: 600; font-size: 0.85rem; }
+
+        .bid-card .bid-amount {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-gold);
+            margin-top: 0.25rem;
+        }
+
+        .bid-card .bid-amount.hidden {
+            color: var(--text-muted);
+        }
+
+        .bid-card.winner { border: 2px solid var(--accent-green); }
+        .bid-card.second { border: 2px solid var(--accent-blue); }
+
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 1rem; }
+
+        .event-log {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event {
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: var(--bg-card-hover);
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .event .time {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .event.duel { border-left: 3px solid var(--accent-red); }
+        .event.bid { border-left: 3px solid var(--accent-gold); }
+        .event.gift { border-left: 3px solid var(--accent-green); }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal h2 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 1rem;
+        }
+
+        .modal .options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .modal .option-btn {
+            padding: 1rem;
+            background: var(--bg-card-hover);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .modal .option-btn:hover {
+            border-color: var(--accent-gold);
+            background: var(--bg-secondary);
+        }
+
+        .modal .option-btn .option-title {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .modal .option-btn .option-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar { order: -1; }
+        }
+
+        @media (max-width: 640px) {
+            .header { flex-direction: column; gap: 1rem; }
+            .container { padding: 1rem; }
+        }
+
+        /* Hide sections */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="setup-screen">
+        <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+        <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
+        
+        <div class="card" style="margin-top: 2rem; max-width: 400px;">
+            <h3 style="margin-bottom: 1rem;">Game Settings</h3>
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="setting-public-chips">
+                    <span>Show everyone's chip counts</span>
+                </label>
+            </div>
+            <button class="btn btn-primary" onclick="createGame()" style="width: 100%;">
+                🎮 Create New Game
+            </button>
+        </div>
+
+        <div style="margin-top: 2rem; color: var(--text-muted);">
+            <a href="gift-tracker.html" style="color: var(--accent-gold);">← Use simple tracker instead</a>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden">
+        <div class="header">
+            <div class="logo">🎄 Jingle <span class="brawl">Brawl</span> 🥊</div>
+            <div class="room-info">
+                <div class="player-count">
+                    <span>👥</span>
+                    <span id="connected-count">0</span> players
+                </div>
+                <div class="room-code" id="room-code-display">----</div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="main-area">
+                <!-- Current Turn Panel -->
+                <div class="card turn-panel" id="turn-panel">
+                    <span class="phase-badge bidding" id="phase-badge">WAITING</span>
+                    <div class="current-action" id="current-action">Waiting for players to join...</div>
+                    <div class="action-details" id="action-details">Share the room code or scan the QR code below.</div>
+                    
+                    <div id="qr-container" class="qr-section">
+                        <canvas id="qr-code"></canvas>
+                        <div class="join-url" id="join-url"></div>
+                    </div>
+
+                    <div id="bids-container" class="hidden">
+                        <div class="card-title">📝 Bids</div>
+                        <div class="bids-grid" id="bids-grid"></div>
+                    </div>
+
+                    <div class="action-buttons" id="action-buttons"></div>
+                </div>
+
+                <!-- Players -->
+                <div class="card">
+                    <div class="card-title">👥 Players</div>
+                    <div class="players-grid" id="players-grid">
+                        <div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;">
+                            Waiting for players to join...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gifts -->
+                <div class="card">
+                    <div class="card-title">🎁 Gifts</div>
+                    <div class="gifts-grid" id="gifts-grid">
+                        <div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;">
+                            No gifts opened yet
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <!-- Game Controls -->
+                <div class="card">
+                    <div class="card-title">🎮 Controls</div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button class="btn btn-gold" onclick="startBidding()" id="btn-start-bidding" disabled>
+                            📦 Open New Gift
+                        </button>
+                        <button class="btn btn-secondary" onclick="showAddGiftModal()">
+                            ➕ Add Gift Manually
+                        </button>
+                        <button class="btn btn-secondary" onclick="startEndgame()" id="btn-endgame" disabled>
+                            🎰 Start Endgame
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="card">
+                    <div class="card-title">📜 Event Log</div>
+                    <div class="event-log" id="event-log">
+                        <div class="event">
+                            <div>Game created! Share the room code with players.</div>
+                            <div class="time">Just now</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-title">⚡ Quick Actions</div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="showRulesQuickRef()">
+                            📋 Quick Reference
+                        </button>
+                        <button class="btn btn-danger" onclick="endGame()">
+                            🚪 End Game
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal" id="modal-content">
+            <!-- Dynamic content -->
+        </div>
+    </div>
+
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+    <script>
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Game State
+        let gameState = {
+            roomCode: null,
+            hostId: null,
+            settings: { publicChips: false },
+            players: {},
+            gifts: {},
+            currentTurn: null,
+            phase: 'lobby' // lobby, main, endgame, ended
+        };
+
+        // Generate room code
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 4; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // Create new game
+        async function createGame() {
+            const roomCode = generateRoomCode();
+            const hostId = 'host_' + Date.now();
+            const publicChips = document.getElementById('setting-public-chips').checked;
+
+            gameState.roomCode = roomCode;
+            gameState.hostId = hostId;
+            gameState.settings.publicChips = publicChips;
+
+            // Create game in Firebase
+            await db.ref(`games/${roomCode}`).set({
+                hostId: hostId,
+                settings: { publicChips },
+                phase: 'lobby',
+                createdAt: Date.now(),
+                players: {},
+                gifts: {},
+                currentTurn: null
+            });
+
+            // Listen for changes
+            setupListeners(roomCode);
+
+            // Show game screen
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('room-code-display').textContent = roomCode;
+
+            // Generate QR code
+            const playerUrl = `${window.location.origin}${window.location.pathname.replace('host.html', 'player.html')}?room=${roomCode}`;
+            document.getElementById('join-url').textContent = playerUrl;
+            
+            QRCode.toCanvas(document.getElementById('qr-code'), playerUrl, {
+                width: 200,
+                margin: 2,
+                color: { dark: '#1a1a2e', light: '#ffffff' }
+            });
+
+            addEvent('Game created! Room code: ' + roomCode, 'gift');
+        }
+
+        // Setup Firebase listeners
+        function setupListeners(roomCode) {
+            // Players
+            db.ref(`games/${roomCode}/players`).on('value', (snapshot) => {
+                gameState.players = snapshot.val() || {};
+                renderPlayers();
+                updateControls();
+            });
+
+            // Gifts
+            db.ref(`games/${roomCode}/gifts`).on('value', (snapshot) => {
+                gameState.gifts = snapshot.val() || {};
+                renderGifts();
+            });
+
+            // Current turn
+            db.ref(`games/${roomCode}/currentTurn`).on('value', (snapshot) => {
+                gameState.currentTurn = snapshot.val();
+                renderTurnPanel();
+            });
+
+            // Phase
+            db.ref(`games/${roomCode}/phase`).on('value', (snapshot) => {
+                gameState.phase = snapshot.val() || 'lobby';
+                updateControls();
+            });
+        }
+
+        // Render players
+        function renderPlayers() {
+            const container = document.getElementById('players-grid');
+            const players = Object.entries(gameState.players);
+            
+            document.getElementById('connected-count').textContent = players.length;
+
+            if (players.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    Waiting for players to join...
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = players.map(([id, player]) => {
+                const isActive = gameState.currentTurn?.activePlayerId === id;
+                const hasGift = player.giftId != null;
+                const chipsDisplay = gameState.settings.publicChips ? 
+                    `<div class="chips">🪙 ${player.chips}</div>` : '';
+                
+                return `
+                    <div class="player-card ${isActive ? 'active' : ''} ${hasGift ? 'has-gift' : ''}">
+                        <div class="name">${player.name}</div>
+                        ${chipsDisplay}
+                        ${hasGift ? `<div class="gift-indicator">🎁 Has gift</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render gifts
+        function renderGifts() {
+            const container = document.getElementById('gifts-grid');
+            const gifts = Object.entries(gameState.gifts);
+
+            if (gifts.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    No gifts opened yet
+                </div>`;
+                return;
+            }
+
+            // Sort: player-owned first, then misfits by order
+            gifts.sort(([,a], [,b]) => {
+                const aIsMisfit = a.ownerId === 'misfit';
+                const bIsMisfit = b.ownerId === 'misfit';
+                if (aIsMisfit && !bIsMisfit) return 1;
+                if (!aIsMisfit && bIsMisfit) return -1;
+                if (aIsMisfit && bIsMisfit) return (a.misfitOrder || 0) - (b.misfitOrder || 0);
+                return 0;
+            });
+
+            container.innerHTML = gifts.map(([id, gift]) => {
+                const isMisfit = gift.ownerId === 'misfit';
+                const isContested = gameState.currentTurn?.giftId === id;
+                const owner = isMisfit ? '🧸 Misfit Pile' : 
+                    (gift.ownerId ? gameState.players[gift.ownerId]?.name || 'Unknown' : 'Unclaimed');
+                
+                const naughtyClass = gift.naughtyLevel === 0 ? 'low' : 
+                    gift.naughtyLevel <= 2 ? 'medium' : '';
+                const minCost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+
+                return `
+                    <div class="gift-card ${isMisfit ? 'misfit' : ''} ${isContested ? 'contested' : ''}">
+                        <div class="gift-name">${gift.name}</div>
+                        <div class="gift-owner">${owner}</div>
+                        <div class="naughty-badge ${naughtyClass}">
+                            😈 Naughty ${gift.naughtyLevel}
+                        </div>
+                        <div class="min-cost">Min cost: ${minCost} chip${minCost > 1 ? 's' : ''}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render turn panel
+        function renderTurnPanel() {
+            const turn = gameState.currentTurn;
+            const phaseBadge = document.getElementById('phase-badge');
+            const currentAction = document.getElementById('current-action');
+            const actionDetails = document.getElementById('action-details');
+            const bidsContainer = document.getElementById('bids-container');
+            const actionButtons = document.getElementById('action-buttons');
+            const qrContainer = document.getElementById('qr-container');
+
+            if (!turn) {
+                phaseBadge.textContent = 'LOBBY';
+                phaseBadge.className = 'phase-badge';
+                currentAction.textContent = 'Waiting for players to join...';
+                actionDetails.textContent = 'Share the room code or scan the QR code.';
+                bidsContainer.classList.add('hidden');
+                qrContainer.classList.remove('hidden');
+                actionButtons.innerHTML = '';
+                return;
+            }
+
+            qrContainer.classList.add('hidden');
+            const activePlayer = gameState.players[turn.activePlayerId];
+            const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
+
+            switch (turn.phase) {
+                case 'bidding':
+                    phaseBadge.textContent = '🎯 BIDDING';
+                    phaseBadge.className = 'phase-badge bidding';
+                    currentAction.textContent = `${activePlayer?.name || 'Player'} opened a gift!`;
+                    actionDetails.textContent = gift ? `"${gift.name}" - Players are placing their bids...` : 'Waiting for bids...';
+                    renderBids(turn.bids, false);
+                    bidsContainer.classList.remove('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-gold" onclick="revealBids()">👁️ Reveal All Bids</button>
+                        <button class="btn btn-secondary" onclick="skipBidding()">⏭️ No Bids (Skip)</button>
+                    `;
+                    break;
+
+                case 'reveal':
+                    phaseBadge.textContent = '👁️ REVEAL';
+                    phaseBadge.className = 'phase-badge reveal';
+                    currentAction.textContent = 'Bids Revealed!';
+                    renderBids(turn.bids, true);
+                    bidsContainer.classList.remove('hidden');
+                    
+                    const bidders = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
+                    if (bidders.length === 0) {
+                        actionDetails.textContent = 'No bids! Opener keeps the gift or can use Grinch\'s Gambit.';
+                        actionButtons.innerHTML = `
+                            <button class="btn btn-primary" onclick="keepGift()">✅ Opener Keeps Gift</button>
+                            <button class="btn btn-gold" onclick="showGambitOptions()">😈 Grinch's Gambit</button>
+                        `;
+                    } else {
+                        const sorted = bidders.sort(([,a], [,b]) => b.amount - a.amount);
+                        const highest = sorted[0];
+                        const second = sorted[1];
+                        actionDetails.textContent = `Highest bid: ${gameState.players[highest[0]]?.name} (${highest[1].amount} chips)`;
+                        
+                        if (second && turn.openerId !== highest[0]) {
+                            actionButtons.innerHTML = `
+                                <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Duel: ${gameState.players[highest[0]]?.name} vs Opener</button>
+                                <button class="btn btn-secondary" onclick="openerYields('${highest[0]}', '${second[0]}')">🏃 Opener Yields</button>
+                            `;
+                        } else {
+                            actionButtons.innerHTML = `
+                                <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Start Duel</button>
+                            `;
+                        }
+                    }
+                    break;
+
+                case 'duel':
+                    phaseBadge.textContent = '⚔️ DUEL';
+                    phaseBadge.className = 'phase-badge duel';
+                    const challenger = gameState.players[turn.challengerId];
+                    const defender = gameState.players[turn.defenderId];
+                    currentAction.textContent = `${challenger?.name} vs ${defender?.name}`;
+                    actionDetails.textContent = `Fighting for: "${gift?.name}"`;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-primary" onclick="recordDuelWinner('${turn.challengerId}')">🏆 ${challenger?.name} Wins</button>
+                        <button class="btn btn-secondary" onclick="recordDuelWinner('${turn.defenderId}')">🏆 ${defender?.name} Wins</button>
+                    `;
+                    break;
+
+                case 'reprisal':
+                    phaseBadge.textContent = '🦌 REPRISAL';
+                    phaseBadge.className = 'phase-badge duel';
+                    const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+                    currentAction.textContent = `${reprisalPlayer?.name} has a Reindeer Reprisal!`;
+                    actionDetails.textContent = 'They can challenge any gift (except the one they just lost).';
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-gold" onclick="showReprisalTargets()">🎯 Choose Target</button>
+                        <button class="btn btn-secondary" onclick="skipReprisal()">⏭️ Skip Reprisal</button>
+                    `;
+                    break;
+
+                default:
+                    phaseBadge.textContent = gameState.phase.toUpperCase();
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+            }
+        }
+
+        // Render bids
+        function renderBids(bids, revealed) {
+            const container = document.getElementById('bids-grid');
+            const bidEntries = Object.entries(bids || {});
+            
+            if (bidEntries.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted);">No bids yet...</div>';
+                return;
+            }
+
+            // Sort by amount if revealed
+            if (revealed) {
+                bidEntries.sort(([,a], [,b]) => b.amount - a.amount);
+            }
+
+            container.innerHTML = bidEntries.map(([playerId, bid], index) => {
+                const player = gameState.players[playerId];
+                const isWinner = revealed && index === 0 && bid.amount > 0;
+                const isSecond = revealed && index === 1 && bid.amount > 0;
+                
+                return `
+                    <div class="bid-card ${isWinner ? 'winner' : ''} ${isSecond ? 'second' : ''}">
+                        <div class="bidder">${player?.name || 'Unknown'}</div>
+                        <div class="bid-amount ${!revealed ? 'hidden' : ''}">
+                            ${revealed ? (bid.amount > 0 ? bid.amount : '0') : '?'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update control buttons
+        function updateControls() {
+            const playerCount = Object.keys(gameState.players).length;
+            const giftCount = Object.keys(gameState.gifts).length;
+            
+            document.getElementById('btn-start-bidding').disabled = playerCount < 2 || gameState.phase === 'endgame';
+            document.getElementById('btn-endgame').disabled = giftCount === 0 || gameState.phase === 'endgame';
+        }
+
+        // Start bidding for new gift
+        async function startBidding() {
+            const players = Object.entries(gameState.players);
+            if (players.length < 2) {
+                alert('Need at least 2 players!');
+                return;
+            }
+
+            // Pick random opener (from players in bag - those without gifts)
+            const eligiblePlayers = players.filter(([id, p]) => !p.giftId);
+            if (eligiblePlayers.length === 0) {
+                alert('All players have gifts! Start the endgame.');
+                return;
+            }
+
+            const opener = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+            const giftName = prompt('Enter gift description:');
+            if (!giftName) return;
+
+            // Create gift
+            const giftId = 'gift_' + Date.now();
+            await db.ref(`games/${gameState.roomCode}/gifts/${giftId}`).set({
+                name: giftName,
+                naughtyLevel: 0,
+                ownerId: opener[0],
+                createdAt: Date.now()
+            });
+
+            // Update player's gift
+            await db.ref(`games/${gameState.roomCode}/players/${opener[0]}/giftId`).set(giftId);
+
+            // Set current turn
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'bidding',
+                activePlayerId: opener[0],
+                openerId: opener[0],
+                giftId: giftId,
+                bids: {}
+            });
+
+            await db.ref(`games/${gameState.roomCode}/phase`).set('main');
+
+            addEvent(`${opener[1].name} opened "${giftName}"`, 'gift');
+        }
+
+        // Reveal all bids
+        async function revealBids() {
+            await db.ref(`games/${gameState.roomCode}/currentTurn/phase`).set('reveal');
+            addEvent('Bids revealed!', 'bid');
+        }
+
+        // Skip bidding (no bids)
+        async function skipBidding() {
+            await db.ref(`games/${gameState.roomCode}/currentTurn/phase`).set('reveal');
+            await db.ref(`games/${gameState.roomCode}/currentTurn/bids`).set({});
+        }
+
+        // Keep gift (no bids scenario)
+        async function keepGift() {
+            const turn = gameState.currentTurn;
+            const opener = gameState.players[turn.openerId];
+            addEvent(`${opener.name} keeps their gift!`, 'gift');
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+        }
+
+        // Start duel
+        async function startDuel(challengerId, defenderId) {
+            const turn = gameState.currentTurn;
+            const bid = turn.bids?.[challengerId]?.amount || 0;
+            
+            // Deduct bid from challenger
+            const challenger = gameState.players[challengerId];
+            await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`).set(challenger.chips - bid);
+
+            // Calculate pot and tax
+            let pot = bid;
+            if (pot >= GAME_CONFIG.santaTaxThreshold) {
+                pot -= 1; // Santa tax
+                addEvent(`Santa Tax: 1 chip to the Bank`, 'bid');
+            }
+
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'duel',
+                challengerId: challengerId,
+                defenderId: defenderId,
+                pot: pot,
+                isYieldDuel: false
+            });
+
+            const challengerName = gameState.players[challengerId]?.name;
+            const defenderName = gameState.players[defenderId]?.name;
+            addEvent(`⚔️ Duel: ${challengerName} vs ${defenderName}`, 'duel');
+        }
+
+        // Record duel winner
+        async function recordDuelWinner(winnerId) {
+            const turn = gameState.currentTurn;
+            const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
+            const gift = gameState.gifts[turn.giftId];
+            const winner = gameState.players[winnerId];
+            const loser = gameState.players[loserId];
+
+            // Give pot to winner
+            if (turn.pot > 0) {
+                await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + turn.pot);
+            }
+
+            // Loser dividend (if not yield/misfit/tiebreak)
+            if (!turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak) {
+                await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
+                addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+            }
+
+            // Increment naughty level
+            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(gift.naughtyLevel + 1);
+
+            // Swap algorithm
+            const winnerOldGiftId = winner.giftId;
+            const loserOldGiftId = loser.giftId;
+
+            // Winner gets contested gift
+            await db.ref(`games/${gameState.roomCode}/players/${winnerId}/giftId`).set(turn.giftId);
+            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/ownerId`).set(winnerId);
+
+            // If winner had a gift, it goes to loser
+            if (winnerOldGiftId && winnerOldGiftId !== turn.giftId) {
+                if (loserOldGiftId && loserOldGiftId !== turn.giftId) {
+                    // Loser had a gift too - one goes to misfit
+                    // For now, winner's old gift goes to loser, loser's original to misfit
+                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
+                    await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                    
+                    // Loser's original goes to misfit
+                    await db.ref(`games/${gameState.roomCode}/gifts/${loserOldGiftId}`).update({
+                        ownerId: 'misfit',
+                        naughtyLevel: 0, // Reset on misfit
+                        misfitOrder: Date.now()
+                    });
+                    addEvent(`${gameState.gifts[loserOldGiftId]?.name} moved to Misfit Pile!`, 'gift');
+                } else {
+                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
+                    await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                }
+            }
+
+            addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
+
+            // Check for reprisal opportunity
+            if (!turn.isYieldDuel) {
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                    phase: 'reprisal',
+                    reprisalPlayerId: loserId,
+                    excludedGiftId: turn.giftId,
+                    reprisalDepth: (turn.reprisalDepth || 0) + 1
+                });
+            } else {
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+            }
+        }
+
+        // Skip reprisal
+        async function skipReprisal() {
+            addEvent('Reprisal skipped', 'duel');
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+        }
+
+        // Show reprisal targets
+        function showReprisalTargets() {
+            const turn = gameState.currentTurn;
+            const gifts = Object.entries(gameState.gifts).filter(([id, g]) => id !== turn.excludedGiftId);
+            
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>🦌 Choose Reprisal Target</h2>
+                <p style="color: var(--text-secondary);">Select a gift to challenge (costs Min Cost to Bank)</p>
+                <div class="options">
+                    ${gifts.map(([id, gift]) => {
+                        const owner = gift.ownerId === 'misfit' ? 'Misfit Pile' : 
+                            gameState.players[gift.ownerId]?.name || 'Unknown';
+                        const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+                        return `
+                            <div class="option-btn" onclick="executeReprisal('${id}')">
+                                <div class="option-title">${gift.name}</div>
+                                <div class="option-desc">Owner: ${owner} • Cost: ${cost} chip${cost > 1 ? 's' : ''}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="closeModal()" style="margin-top: 1rem;">Cancel</button>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Execute reprisal
+        async function executeReprisal(targetGiftId) {
+            closeModal();
+            const turn = gameState.currentTurn;
+            const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel);
+
+            // Check if player can afford
+            if (reprisalPlayer.chips < cost) {
+                alert(`Not enough chips! Need ${cost}, have ${reprisalPlayer.chips}`);
+                return;
+            }
+
+            // Deduct cost
+            await db.ref(`games/${gameState.roomCode}/players/${turn.reprisalPlayerId}/chips`)
+                .set(reprisalPlayer.chips - cost);
+
+            // Determine defender
+            const defenderId = targetGift.ownerId === 'misfit' ? null : targetGift.ownerId;
+
+            if (defenderId) {
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                    phase: 'duel',
+                    challengerId: turn.reprisalPlayerId,
+                    defenderId: defenderId,
+                    giftId: targetGiftId,
+                    pot: 0,
+                    isReprisal: true,
+                    reprisalDepth: turn.reprisalDepth
+                });
+                addEvent(`🦌 ${reprisalPlayer.name} uses Reprisal on "${targetGift.name}"!`, 'duel');
+            } else {
+                // Misfit challenge - auto win
+                await db.ref(`games/${gameState.roomCode}/players/${turn.reprisalPlayerId}/giftId`).set(targetGiftId);
+                await db.ref(`games/${gameState.roomCode}/gifts/${targetGiftId}/ownerId`).set(turn.reprisalPlayerId);
+                addEvent(`${reprisalPlayer.name} claims Misfit "${targetGift.name}"!`, 'gift');
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+            }
+        }
+
+        // Show Gambit options
+        function showGambitOptions() {
+            const turn = gameState.currentTurn;
+            const opener = gameState.players[turn.openerId];
+            const otherGifts = Object.entries(gameState.gifts).filter(([id]) => id !== turn.giftId);
+
+            if (otherGifts.length === 0) {
+                alert('No other gifts to challenge!');
+                return;
+            }
+
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>😈 Grinch's Gambit</h2>
+                <p style="color: var(--text-secondary);">${opener.name} can challenge anyone's gift!</p>
+                <div class="options">
+                    ${otherGifts.map(([id, gift]) => {
+                        const owner = gameState.players[gift.ownerId]?.name || 'Unknown';
+                        const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel);
+                        return `
+                            <div class="option-btn" onclick="executeGambit('${id}')">
+                                <div class="option-title">${gift.name}</div>
+                                <div class="option-desc">Owner: ${owner} • Cost: ${cost} chip${cost > 1 ? 's' : ''}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="closeModal()" style="margin-top: 1rem;">Cancel</button>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Execute Gambit
+        async function executeGambit(targetGiftId) {
+            closeModal();
+            const turn = gameState.currentTurn;
+            const opener = gameState.players[turn.openerId];
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel);
+
+            if (opener.chips < cost) {
+                alert(`Not enough chips! Need ${cost}, have ${opener.chips}`);
+                return;
+            }
+
+            // Deduct cost
+            await db.ref(`games/${gameState.roomCode}/players/${turn.openerId}/chips`)
+                .set(opener.chips - cost);
+
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.openerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetGiftId,
+                originalGiftId: turn.giftId,
+                pot: 0,
+                isGambit: true
+            });
+
+            addEvent(`😈 ${opener.name} uses Grinch's Gambit on "${targetGift.name}"!`, 'duel');
+        }
+
+        // Opener yields
+        async function openerYields(challenger1Id, challenger2Id) {
+            const turn = gameState.currentTurn;
+            const opener = gameState.players[turn.openerId];
+            const bid1 = turn.bids[challenger1Id]?.amount || 0;
+            const bid2 = turn.bids[challenger2Id]?.amount || 0;
+
+            // Both pay half their bids
+            const pay1 = Math.floor(bid1 / 2);
+            const pay2 = Math.floor(bid2 / 2);
+
+            await db.ref(`games/${gameState.roomCode}/players/${challenger1Id}/chips`)
+                .set(gameState.players[challenger1Id].chips - pay1);
+            await db.ref(`games/${gameState.roomCode}/players/${challenger2Id}/chips`)
+                .set(gameState.players[challenger2Id].chips - pay2);
+
+            // Opener goes back in bag (loses gift claim)
+            await db.ref(`games/${gameState.roomCode}/players/${turn.openerId}/giftId`).set(null);
+
+            let pot = pay1 + pay2;
+            if (pot >= GAME_CONFIG.santaTaxThreshold) {
+                pot -= 1;
+                addEvent('Santa Tax: 1 chip to the Bank', 'bid');
+            }
+
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'duel',
+                challengerId: challenger1Id,
+                defenderId: challenger2Id,
+                pot: pot,
+                isYieldDuel: true
+            });
+
+            addEvent(`${opener.name} yields! ${gameState.players[challenger1Id]?.name} vs ${gameState.players[challenger2Id]?.name}`, 'duel');
+        }
+
+        // Add event to log
+        function addEvent(message, type = '') {
+            const log = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            log.innerHTML = `
+                <div class="event ${type}">
+                    <div>${message}</div>
+                    <div class="time">${time}</div>
+                </div>
+            ` + log.innerHTML;
+        }
+
+        // Show add gift modal
+        function showAddGiftModal() {
+            const players = Object.entries(gameState.players);
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>➕ Add Gift Manually</h2>
+                <div style="text-align: left; margin-top: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Gift Name</label>
+                    <input type="text" id="manual-gift-name" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card-hover); color: white;">
+                </div>
+                <div style="text-align: left; margin-top: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Owner</label>
+                    <select id="manual-gift-owner" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card-hover); color: white;">
+                        <option value="misfit">🧸 Misfit Pile</option>
+                        ${players.map(([id, p]) => `<option value="${id}">${p.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button class="btn btn-primary" onclick="addManualGift()">Add Gift</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Add manual gift
+        async function addManualGift() {
+            const name = document.getElementById('manual-gift-name').value.trim();
+            const ownerId = document.getElementById('manual-gift-owner').value;
+            
+            if (!name) {
+                alert('Please enter a gift name');
+                return;
+            }
+
+            const giftId = 'gift_' + Date.now();
+            const giftData = {
+                name: name,
+                naughtyLevel: 0,
+                ownerId: ownerId,
+                createdAt: Date.now()
+            };
+
+            if (ownerId === 'misfit') {
+                giftData.misfitOrder = Date.now();
+            }
+
+            await db.ref(`games/${gameState.roomCode}/gifts/${giftId}`).set(giftData);
+
+            if (ownerId !== 'misfit') {
+                await db.ref(`games/${gameState.roomCode}/players/${ownerId}/giftId`).set(giftId);
+            }
+
+            addEvent(`Added gift: "${name}"`, 'gift');
+            closeModal();
+        }
+
+        // Start endgame
+        async function startEndgame() {
+            await db.ref(`games/${gameState.roomCode}/phase`).set('endgame');
+            addEvent('🎰 Endgame: Misfit Lottery begins!', 'gift');
+        }
+
+        // End game
+        async function endGame() {
+            if (confirm('Are you sure you want to end the game?')) {
+                await db.ref(`games/${gameState.roomCode}/phase`).set('ended');
+                addEvent('Game ended!', 'gift');
+            }
+        }
+
+        // Show quick reference
+        function showRulesQuickRef() {
+            window.open('quick-reference.html', '_blank');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modal-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modal-overlay') closeModal();
+        });
+    </script>
+</body>
+</html>
+
