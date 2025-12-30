@@ -1200,8 +1200,22 @@
                 addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
             }
 
-            // Increment naughty level
-            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(gift.naughtyLevel + 1);
+            // Update naughty level
+            // If this is the first duel (gift was just opened), set naughty level to highest bid
+            // Otherwise, increment by 1
+            let newNaughtyLevel;
+            if (gift.naughtyLevel === 0 && turn.bids) {
+                // First duel - set to highest bid
+                const highestBid = Math.max(...Object.values(turn.bids).map(b => b.amount || 0), 0);
+                newNaughtyLevel = highestBid;
+                if (highestBid > 0) {
+                    addEvent(`🔥 Gift starts at Naughty ${highestBid} (highest bid)`, 'bid');
+                }
+            } else {
+                // Subsequent duels - increment by 1
+                newNaughtyLevel = gift.naughtyLevel + 1;
+            }
+            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(newNaughtyLevel);
 
             // Swap algorithm
             const winnerOldGiftId = winner.giftId;
