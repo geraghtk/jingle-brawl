@@ -1177,25 +1177,124 @@
 
                 case 'reveal':
                     statusCard.classList.remove('hidden');
-                    statusCard.classList.add('active');
                     const revealBids = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
                     const myBid = turn.bids?.[playerState.playerId]?.amount || 0;
-                    statusCard.innerHTML = `
-                        <div class="status-icon">👁️</div>
-                        <div class="status-title">Bids Revealed!</div>
-                        <div class="status-desc">
-                            ${revealBids.length === 0 ? 'No bids! Opener decides next...' : 
-                              `${revealBids.length} bid${revealBids.length > 1 ? 's' : ''} placed. ${myBid > 0 ? `Your bid: ${myBid}` : ''}`}
-                        </div>
-                        ${revealBids.length === 0 ? `
-                            <div class="help-box">
-                                <div class="help-title">😈 Grinch's Gambit</div>
-                                <div class="help-content">
-                                    When no one bids, the opener can either <strong>keep their gift</strong> or pay the <strong>Minimum Cost</strong> to challenge anyone else's gift!
+                    
+                    if (amOpener) {
+                        // Opener sees their options
+                        statusCard.classList.add('your-turn');
+                        
+                        if (revealBids.length === 0) {
+                            // No bids - show Gambit option
+                            statusCard.innerHTML = `
+                                <div class="status-icon">🎁</div>
+                                <div class="status-title">No Challengers!</div>
+                                <div class="status-desc">Nobody bid. You can keep your gift or use Grinch's Gambit!</div>
+                                <div class="help-box success">
+                                    <div class="help-title">Your Options</div>
+                                    <div class="help-content">
+                                        <strong>Keep Gift:</strong> It's yours! Move on to next player.<br>
+                                        <strong>Grinch's Gambit:</strong> Pay the Minimum Cost to challenge anyone else's gift!
+                                    </div>
                                 </div>
+                                <div style="color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
+                                    👆 Host will select your choice on main screen
+                                </div>
+                            `;
+                        } else if (revealBids.length >= 2) {
+                            // Multiple bidders - show yield option!
+                            const sorted = revealBids.sort(([,a], [,b]) => b.amount - a.amount);
+                            const highestBid = sorted[0][1].amount;
+                            const tiedBidders = sorted.filter(([,b]) => b.amount === highestBid);
+                            const c1Name = gameState.players[sorted[0][0]]?.name;
+                            const c2Name = gameState.players[sorted[1][0]]?.name;
+                            
+                            const c1Id = sorted[0][0];
+                            const c2Id = sorted[1][0];
+                            
+                            if (tiedBidders.length >= 2) {
+                                // Tie situation
+                                statusCard.innerHTML = `
+                                    <div class="status-icon">⚖️</div>
+                                    <div class="status-title">TIE! ${c1Name} & ${c2Name}</div>
+                                    <div class="status-desc">Both bid ${highestBid} chips. You decide!</div>
+                                    <div class="help-box warning">
+                                        <div class="help-title">🏃 Fight or Yield?</div>
+                                        <div class="help-content">
+                                            <strong>Fight:</strong> They duel for the right to challenge YOU.<br>
+                                            <strong>Yield:</strong> They fight each other for your gift directly.
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                        <button class="btn btn-primary" onclick="openerChooseFight('${c1Id}', '${c2Id}', true)">
+                                            ⚔️ Fight! (Tiebreaker first)
+                                        </button>
+                                        <button class="btn btn-gold" onclick="openerChooseYield('${c1Id}', '${c2Id}')">
+                                            🏃 Yield! (${c1Name} vs ${c2Name})
+                                        </button>
+                                    </div>
+                                `;
+                            } else {
+                                // Clear winner but has C2
+                                statusCard.innerHTML = `
+                                    <div class="status-icon">⚔️</div>
+                                    <div class="status-title">${c1Name} wants your gift!</div>
+                                    <div class="status-desc">Bid: ${highestBid} chips. Second place: ${c2Name}</div>
+                                    <div class="help-box warning">
+                                        <div class="help-title">🏃 Fight or Yield?</div>
+                                        <div class="help-content">
+                                            <strong>Fight:</strong> Duel ${c1Name}!<br>
+                                            <strong>Yield:</strong> ${c1Name} fights ${c2Name} instead.
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                        <button class="btn btn-primary" onclick="openerChooseFight('${c1Id}', '${c2Id}', false)">
+                                            ⚔️ Fight ${c1Name}!
+                                        </button>
+                                        <button class="btn btn-gold" onclick="openerChooseYield('${c1Id}', '${c2Id}')">
+                                            🏃 Yield! (${c1Name} vs ${c2Name})
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            // Only one bidder - no yield option
+                            const challengerName = gameState.players[revealBids[0][0]]?.name;
+                            statusCard.innerHTML = `
+                                <div class="status-icon">⚔️</div>
+                                <div class="status-title">Duel Time!</div>
+                                <div class="status-desc">${challengerName} bid ${revealBids[0][1].amount} chips to challenge you!</div>
+                                <div class="help-box">
+                                    <div class="help-title">🛡️ Get Ready to Defend!</div>
+                                    <div class="help-content">
+                                        <strong>Defending is FREE</strong> - you don't pay anything!<br>
+                                        <strong>If you win:</strong> Keep your gift + win their bid (minus Santa Tax).<br>
+                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Not opener - just show status
+                        statusCard.classList.add('active');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">👁️</div>
+                            <div class="status-title">Bids Revealed!</div>
+                            <div class="status-desc">
+                                ${revealBids.length === 0 ? 'No bids! Opener decides next...' : 
+                                  `${revealBids.length} bid${revealBids.length > 1 ? 's' : ''} placed. ${myBid > 0 ? `Your bid: ${myBid}` : ''}`}
                             </div>
-                        ` : ''}
-                    `;
+                            ${myBid > 0 ? `
+                                <div class="help-box">
+                                    <div class="help-title">💡 What's Next?</div>
+                                    <div class="help-content">
+                                        If you're the highest bidder, you'll duel the opener!<br>
+                                        If there's a tie, there may be a tiebreaker first.
+                                    </div>
+                                </div>
+                            ` : ''}
+                        `;
+                    }
                     break;
 
                 case 'duel':
@@ -1434,6 +1533,42 @@
 
             showToast(currentBid > 0 ? `Bid ${currentBid} chips! 🎯` : 'Passing on this one 👋');
             vibrate();
+        }
+
+        // Opener chooses to fight (triggers tiebreaker if needed, then duel)
+        async function openerChooseFight(c1Id, c2Id, isTie) {
+            showToast('You chose to FIGHT! 💪');
+            vibrate();
+            
+            if (isTie) {
+                // Start tiebreaker - let host know
+                await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                    openerChoice: 'fight',
+                    phase: 'tiebreaker_pending',
+                    tiebreakerC1: c1Id,
+                    tiebreakerC2: c2Id
+                });
+            } else {
+                // Direct duel - C1 vs opener
+                await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                    openerChoice: 'fight',
+                    phase: 'duel_pending',
+                    challengerId: c1Id
+                });
+            }
+        }
+
+        // Opener chooses to yield (C1 vs C2 directly)
+        async function openerChooseYield(c1Id, c2Id) {
+            showToast('You chose to YIELD! 🏃');
+            vibrate();
+            
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                openerChoice: 'yield',
+                phase: 'yield_pending',
+                yieldC1: c1Id,
+                yieldC2: c2Id
+            });
         }
 
         // Allow changing bid before reveal

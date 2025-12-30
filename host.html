@@ -1252,6 +1252,47 @@
                     }
                     break;
 
+                // New phases for opener's choice from player app
+                case 'tiebreaker_pending':
+                    phaseBadge.textContent = '⚖️ TIEBREAKER';
+                    phaseBadge.className = 'phase-badge duel';
+                    const tbC1 = gameState.players[turn.tiebreakerC1];
+                    const tbC2 = gameState.players[turn.tiebreakerC2];
+                    currentAction.textContent = `Opener chose to FIGHT!`;
+                    actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} for the right to challenge the opener.<br><span style="color: var(--text-muted);">Click to start the tiebreaker duel.</span>`;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-gold" onclick="startTiebreaker('${turn.tiebreakerC1}', '${turn.tiebreakerC2}')">⚔️ Start Tiebreaker Duel!</button>
+                    `;
+                    break;
+
+                case 'duel_pending':
+                    phaseBadge.textContent = '⚔️ DUEL';
+                    phaseBadge.className = 'phase-badge duel';
+                    const duelChallenger = gameState.players[turn.challengerId];
+                    const duelOpener = gameState.players[turn.openerId];
+                    currentAction.textContent = `Opener chose to FIGHT!`;
+                    actionDetails.innerHTML = `${duelChallenger?.name} vs ${duelOpener?.name}<br><span style="color: var(--text-muted);">Click to start the duel.</span>`;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-primary" onclick="startDuel('${turn.challengerId}', '${turn.openerId}')">⚔️ Start Duel!</button>
+                    `;
+                    break;
+
+                case 'yield_pending':
+                    phaseBadge.textContent = '🏃 YIELD';
+                    phaseBadge.className = 'phase-badge reveal';
+                    const yC1 = gameState.players[turn.yieldC1];
+                    const yC2 = gameState.players[turn.yieldC2];
+                    const yOpener = gameState.players[turn.openerId];
+                    currentAction.textContent = `${yOpener?.name} chose to YIELD!`;
+                    actionDetails.innerHTML = `${yC1?.name} vs ${yC2?.name} will fight for the gift directly.<br><span style="color: var(--text-muted);">Click to start the yield duel (both pay half bids).</span>`;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-gold" onclick="openerYields('${turn.yieldC1}', '${turn.yieldC2}')">🏃 Start Yield Duel!</button>
+                    `;
+                    break;
+
                 default:
                     phaseBadge.textContent = gameState.phase.toUpperCase();
                     bidsContainer.classList.add('hidden');
