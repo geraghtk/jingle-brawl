@@ -186,6 +186,11 @@
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            background: #374151 !important;
+            border-color: #4b5563 !important;
+            color: #9ca3af !important;
         }
 
         /* QR Code */
@@ -891,6 +896,7 @@
             db.ref(`games/${roomCode}/currentTurn`).on('value', (snapshot) => {
                 gameState.currentTurn = snapshot.val();
                 renderTurnPanel();
+                updateControls(); // Update button states when turn changes
             });
 
             // Phase
@@ -1103,24 +1109,32 @@
                             const c2Id = tiedBidders[1][0];
                             const c1Name = gameState.players[c1Id]?.name;
                             const c2Name = gameState.players[c2Id]?.name;
+                            const openerName = gameState.players[turn.openerId]?.name;
                             
                             if (tiedBidders.length === 2) {
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">TIE!</strong> ${c1Name} & ${c2Name} both bid ${highestAmount}.<br>
-                                    <span style="color: var(--text-muted);">Opener can fight the tiebreaker winner, or yield to let them fight each other.</span>
+                                    <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
                                 `;
                                 actionButtons.innerHTML = `
-                                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                        <button class="btn btn-primary" onclick="startTiebreaker('${c1Id}', '${c2Id}')">
-                                            ⚔️ Tiebreaker → Winner vs Opener
-                                        </button>
-                                        <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
-                                            🏃 Opener Yields → ${c1Name} vs ${c2Name}
-                                        </button>
+                                    <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Opener...</div>
+                                        <div style="font-size: 0.85rem;">${openerName} is choosing on their device</div>
                                     </div>
+                                    <details style="margin-top: 0.5rem;">
+                                        <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
+                                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                            <button class="btn btn-primary" onclick="startTiebreaker('${c1Id}', '${c2Id}')">
+                                                ⚔️ Tiebreaker → Winner vs Opener
+                                            </button>
+                                            <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
+                                                🏃 Opener Yields → ${c1Name} vs ${c2Name}
+                                            </button>
+                                        </div>
+                                    </details>
                                 `;
                             } else {
-                                // More than 2 tied - need to select 2 first
+                                // More than 2 tied - need to select 2 first (host does this)
                                 const tiedNames = tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedNames}<br>
@@ -1131,14 +1145,32 @@
                                 `;
                             }
                         } else {
-                            actionDetails.textContent = `Highest bid: ${gameState.players[highest[0]]?.name} (${highest[1].amount} chips)`;
+                            const openerName = gameState.players[turn.openerId]?.name;
                             
                             if (second && turn.openerId !== highest[0]) {
+                                // Has C2 - opener can yield, wait for their decision
+                                const c1Name = gameState.players[highest[0]]?.name;
+                                const c2Name = gameState.players[second[0]]?.name;
+                                actionDetails.innerHTML = `
+                                    Highest bid: <strong>${c1Name}</strong> (${highest[1].amount} chips). Second: ${c2Name}<br>
+                                    <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
+                                `;
                                 actionButtons.innerHTML = `
-                                    <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Duel: ${gameState.players[highest[0]]?.name} vs Opener</button>
-                                    <button class="btn btn-secondary" onclick="openerYields('${highest[0]}', '${second[0]}')">🏃 Opener Yields</button>
+                                    <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Opener...</div>
+                                        <div style="font-size: 0.85rem;">${openerName} is choosing on their device</div>
+                                    </div>
+                                    <details style="margin-top: 0.5rem;">
+                                        <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
+                                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                            <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Duel: ${c1Name} vs Opener</button>
+                                            <button class="btn btn-secondary" onclick="openerYields('${highest[0]}', '${second[0]}')">🏃 Opener Yields</button>
+                                        </div>
+                                    </details>
                                 `;
                             } else {
+                                // Only one bidder - no yield option, can proceed directly
+                                actionDetails.textContent = `Highest bid: ${gameState.players[highest[0]]?.name} (${highest[1].amount} chips)`;
                                 actionButtons.innerHTML = `
                                     <button class="btn btn-primary" onclick="startDuel('${highest[0]}', '${turn.openerId}')">⚔️ Start Duel</button>
                                 `;
@@ -1372,12 +1404,41 @@
                 
                 // Draw button - only enabled when no turn is active and there are wrapped gifts
                 const drawBtn = document.getElementById('btn-draw-player');
-                const canDraw = !gameState.currentTurn && wrappedGifts > 0 && playersInBag > 0;
+                const hasTurnActive = !!gameState.currentTurn;
+                const canDraw = !hasTurnActive && wrappedGifts > 0 && playersInBag > 0;
                 drawBtn.disabled = !canDraw;
                 
+                // Update draw button text to show why it's disabled
+                if (hasTurnActive) {
+                    drawBtn.innerHTML = '⏳ Turn in Progress...';
+                    drawBtn.title = 'Complete the current duel/action first';
+                } else if (wrappedGifts === 0) {
+                    drawBtn.innerHTML = '🎁 All Gifts Opened';
+                    drawBtn.title = 'No more wrapped gifts';
+                } else if (playersInBag === 0) {
+                    drawBtn.innerHTML = '👥 Bag Empty';
+                    drawBtn.title = 'All players have gifts';
+                } else {
+                    drawBtn.innerHTML = "🎅 Draw from Santa's Sack";
+                    drawBtn.title = 'Draw a player to open the next gift';
+                }
+                
                 // Endgame button - enabled when all gifts opened but players still in bag
-                document.getElementById('btn-endgame').disabled = 
-                    wrappedGifts > 0 || playersInBag === 0 || gameState.phase === 'endgame';
+                const endgameBtn = document.getElementById('btn-endgame');
+                const canStartEndgame = wrappedGifts === 0 && playersInBag > 0 && gameState.phase !== 'endgame' && !hasTurnActive;
+                endgameBtn.disabled = !canStartEndgame;
+                
+                if (gameState.phase === 'endgame') {
+                    endgameBtn.innerHTML = '🎰 In Endgame';
+                } else if (hasTurnActive) {
+                    endgameBtn.title = 'Complete current turn first';
+                } else if (wrappedGifts > 0) {
+                    endgameBtn.title = 'Open all gifts first';
+                } else if (playersInBag === 0) {
+                    endgameBtn.title = 'All players have gifts';
+                } else {
+                    endgameBtn.title = 'Start the Misfit Lottery';
+                }
             }
             
             updateStats();
