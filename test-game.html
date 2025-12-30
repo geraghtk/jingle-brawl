@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jingle Brawl - Game Tester</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        h1 span { color: var(--accent-gold); }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-primary { background: var(--accent-green); color: white; }
+        .btn-primary:hover { background: #16a34a; }
+        .btn-danger { background: var(--accent-red); color: white; }
+        .btn-gold { background: var(--accent-gold); color: black; }
+        .btn-blue { background: var(--accent-blue); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .config-panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .config-item label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .config-item input, .config-item select {
+            background: var(--bg-primary);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 0.5rem;
+            color: white;
+            font-family: inherit;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .player-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .player-card.active {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+        }
+
+        .player-card.has-gift {
+            border-color: var(--accent-green);
+        }
+
+        .player-card .name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .player-card .stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .player-card .chips {
+            color: var(--accent-gold);
+        }
+
+        .player-card .gift {
+            color: var(--accent-green);
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .player-card .status {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .log-panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-panel h3 {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .log-entry {
+            padding: 0.5rem;
+            border-bottom: 1px solid #334155;
+            font-size: 0.85rem;
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+
+        .log-entry .time {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .log-entry.bid { border-left: 3px solid var(--accent-gold); }
+        .log-entry.duel { border-left: 3px solid var(--accent-red); }
+        .log-entry.gift { border-left: 3px solid var(--accent-green); }
+        .log-entry.system { border-left: 3px solid var(--accent-blue); }
+
+        .game-status {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .game-status .phase {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .game-status .info {
+            color: var(--text-secondary);
+        }
+
+        .gifts-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .gifts-section h3 {
+            margin-bottom: 1rem;
+        }
+
+        .gifts-grid {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .gift-badge {
+            background: linear-gradient(135deg, #1e3a5f 0%, var(--bg-primary) 100%);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .gift-badge .name { font-weight: 600; }
+        .gift-badge .owner { font-size: 0.8rem; color: var(--text-secondary); }
+        .gift-badge .naughty { font-size: 0.75rem; color: var(--accent-red); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎄 Jingle <span>Brawl</span> Tester 🧪</h1>
+        <p class="subtitle">Automated multi-player game simulation</p>
+
+        <div class="config-panel">
+            <div class="config-row">
+                <div class="config-item">
+                    <label>Players:</label>
+                    <input type="number" id="player-count" value="7" min="3" max="20">
+                </div>
+                <div class="config-item">
+                    <label>Bot Speed:</label>
+                    <select id="bot-speed">
+                        <option value="500">Fast (0.5s)</option>
+                        <option value="1500" selected>Normal (1.5s)</option>
+                        <option value="3000">Slow (3s)</option>
+                        <option value="5000">Very Slow (5s)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Bot Strategy:</label>
+                    <select id="bot-strategy">
+                        <option value="random">Random</option>
+                        <option value="aggressive">Aggressive</option>
+                        <option value="conservative">Conservative</option>
+                        <option value="mixed" selected>Mixed</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="createTestGame()" id="btn-create">
+                🎮 Create Test Game
+            </button>
+            <button class="btn btn-gold" onclick="startGame()" id="btn-start" disabled>
+                🚀 Start Game
+            </button>
+            <button class="btn btn-blue" onclick="runAutoPilot()" id="btn-auto" disabled>
+                🤖 Run Auto-Pilot
+            </button>
+            <button class="btn btn-danger" onclick="resetTest()" id="btn-reset" disabled>
+                🔄 Reset
+            </button>
+        </div>
+
+        <div class="game-status" id="game-status">
+            <div class="phase" id="status-phase">Ready to Test</div>
+            <div class="info" id="status-info">Configure settings and click "Create Test Game"</div>
+        </div>
+
+        <div class="gifts-section" id="gifts-section" style="display: none;">
+            <h3>🎁 Gifts</h3>
+            <div class="gifts-grid" id="gifts-grid"></div>
+        </div>
+
+        <div class="grid" id="players-grid"></div>
+
+        <div class="log-panel">
+            <h3>📋 Event Log</h3>
+            <div id="event-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Test state
+        let testState = {
+            roomCode: null,
+            players: {},
+            gifts: {},
+            phase: 'setup',
+            currentTurn: null,
+            autoPilot: false,
+            botSpeed: 1500,
+            botStrategy: 'mixed'
+        };
+
+        const BOT_NAMES = [
+            'Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry',
+            'Ivy', 'Jack', 'Kate', 'Leo', 'Maya', 'Noah', 'Olivia', 'Pete',
+            'Quinn', 'Ruby', 'Sam', 'Tina'
+        ];
+
+        const GIFT_NAMES = [
+            'Ugly Sweater', 'Mystery Box', 'Singing Fish', 'Fuzzy Socks',
+            'Cheese Board', 'Scratch Cards', 'Scented Candle', 'Wine Bottle',
+            'Gift Card', 'Fancy Chocolate', 'Board Game', 'Tech Gadget',
+            'Cozy Blanket', 'Coffee Mug', 'Spa Kit', 'Puzzle Set',
+            'Gourmet Snacks', 'Plant Pot', 'Photo Frame', 'Desk Toy'
+        ];
+
+        // Create test game
+        async function createTestGame() {
+            const playerCount = parseInt(document.getElementById('player-count').value);
+            testState.botSpeed = parseInt(document.getElementById('bot-speed').value);
+            testState.botStrategy = document.getElementById('bot-strategy').value;
+
+            // Generate room code
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+            testState.roomCode = Array.from({length: 4}, () => 
+                chars[Math.floor(Math.random() * chars.length)]
+            ).join('');
+
+            log('Creating test game: ' + testState.roomCode, 'system');
+
+            // Create game in Firebase
+            await db.ref(`games/${testState.roomCode}`).set({
+                hostId: 'test_host',
+                settings: { publicChips: true },
+                phase: 'lobby',
+                createdAt: Date.now(),
+                players: {},
+                gifts: {},
+                currentTurn: null
+            });
+
+            // Add bot players
+            testState.players = {};
+            const shuffledNames = [...BOT_NAMES].sort(() => Math.random() - 0.5);
+            
+            for (let i = 0; i < playerCount; i++) {
+                const playerId = `bot_${i}`;
+                const strategy = testState.botStrategy === 'mixed' ?
+                    ['aggressive', 'conservative', 'random'][Math.floor(Math.random() * 3)] :
+                    testState.botStrategy;
+
+                testState.players[playerId] = {
+                    name: shuffledNames[i],
+                    chips: GAME_CONFIG.getStartingChips(playerCount),
+                    giftId: null,
+                    connected: true,
+                    strategy: strategy,
+                    joinedAt: Date.now()
+                };
+
+                await db.ref(`games/${testState.roomCode}/players/${playerId}`).set(
+                    testState.players[playerId]
+                );
+                
+                log(`${shuffledNames[i]} joined (${strategy})`, 'system');
+            }
+
+            // Setup listeners
+            setupListeners();
+
+            // Update UI
+            document.getElementById('btn-create').disabled = true;
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-reset').disabled = false;
+            updateStatus('Lobby', `${playerCount} players ready. Click "Start Game"!`);
+            renderPlayers();
+        }
+
+        // Setup Firebase listeners
+        function setupListeners() {
+            db.ref(`games/${testState.roomCode}/players`).on('value', (snap) => {
+                testState.players = snap.val() || {};
+                renderPlayers();
+            });
+
+            db.ref(`games/${testState.roomCode}/gifts`).on('value', (snap) => {
+                testState.gifts = snap.val() || {};
+                renderGifts();
+            });
+
+            db.ref(`games/${testState.roomCode}/currentTurn`).on('value', (snap) => {
+                testState.currentTurn = snap.val();
+                renderPlayers();
+                if (testState.autoPilot && testState.currentTurn) {
+                    handleBotTurn();
+                }
+            });
+
+            db.ref(`games/${testState.roomCode}/phase`).on('value', (snap) => {
+                testState.phase = snap.val() || 'lobby';
+                updatePhaseUI();
+            });
+        }
+
+        // Start the game
+        async function startGame() {
+            await db.ref(`games/${testState.roomCode}/phase`).set('main');
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('gifts-section').style.display = 'block';
+            log('🎄 Game started!', 'system');
+            updateStatus('Main Game', 'Draw players and open gifts!');
+            
+            // Auto-draw first player
+            if (testState.autoPilot) {
+                setTimeout(drawNextPlayer, testState.botSpeed);
+            }
+        }
+
+        // Run auto-pilot
+        function runAutoPilot() {
+            testState.autoPilot = true;
+            document.getElementById('btn-auto').textContent = '🤖 Auto-Pilot Running...';
+            document.getElementById('btn-auto').disabled = true;
+            log('🤖 Auto-pilot engaged!', 'system');
+            
+            // Start the game flow
+            drawNextPlayer();
+        }
+
+        // Draw next player
+        async function drawNextPlayer() {
+            const playersInBag = Object.entries(testState.players)
+                .filter(([id, p]) => !p.giftId);
+            const giftCount = Object.keys(testState.gifts).length;
+            const playerCount = Object.keys(testState.players).length;
+            const wrappedGifts = playerCount - giftCount;
+
+            if (playersInBag.length === 0 || wrappedGifts === 0) {
+                // Check for endgame
+                if (playersInBag.length > 0) {
+                    log('🎰 Starting Endgame - Misfit Lottery!', 'system');
+                    await db.ref(`games/${testState.roomCode}/phase`).set('endgame');
+                    // Handle endgame...
+                } else {
+                    log('🎄 Game Complete! Everyone has a gift!', 'system');
+                    updateStatus('Game Over', 'All players have gifts!');
+                    testState.autoPilot = false;
+                }
+                return;
+            }
+
+            // Pick random player
+            const [playerId, player] = playersInBag[Math.floor(Math.random() * playersInBag.length)];
+            
+            // Create gift
+            const giftId = 'gift_' + Date.now();
+            const giftName = GIFT_NAMES[giftCount % GIFT_NAMES.length];
+            
+            await db.ref(`games/${testState.roomCode}/gifts/${giftId}`).set({
+                name: giftName,
+                naughtyLevel: 0,
+                ownerId: playerId,
+                createdAt: Date.now()
+            });
+
+            await db.ref(`games/${testState.roomCode}/players/${playerId}/giftId`).set(giftId);
+
+            log(`🎅 ${player.name} drawn! Opens "${giftName}"`, 'gift');
+
+            // Start bidding phase
+            await db.ref(`games/${testState.roomCode}/currentTurn`).set({
+                phase: 'bidding',
+                activePlayerId: playerId,
+                openerId: playerId,
+                giftId: giftId,
+                bids: {}
+            });
+
+            updateStatus('Bidding', `${player.name} opened "${giftName}" - bots are bidding...`);
+        }
+
+        // Handle bot turn
+        async function handleBotTurn() {
+            const turn = testState.currentTurn;
+            if (!turn) return;
+
+            await new Promise(r => setTimeout(r, testState.botSpeed));
+
+            switch (turn.phase) {
+                case 'bidding':
+                    await handleBotBidding();
+                    break;
+                case 'reveal':
+                    await handleRevealPhase();
+                    break;
+                case 'duel':
+                    await handleDuel();
+                    break;
+                case 'reprisal':
+                    await handleReprisal();
+                    break;
+            }
+        }
+
+        // Handle bot bidding
+        async function handleBotBidding() {
+            const turn = testState.currentTurn;
+            const bids = {};
+
+            for (const [playerId, player] of Object.entries(testState.players)) {
+                if (playerId === turn.openerId) continue; // Opener doesn't bid
+                
+                const bid = calculateBotBid(player);
+                bids[playerId] = { amount: bid, submittedAt: Date.now() };
+                
+                if (bid > 0) {
+                    log(`💰 ${player.name} bids ${bid} chips`, 'bid');
+                }
+            }
+
+            await db.ref(`games/${testState.roomCode}/currentTurn/bids`).set(bids);
+            await db.ref(`games/${testState.roomCode}/currentTurn/phase`).set('reveal');
+        }
+
+        // Calculate bot bid based on strategy
+        function calculateBotBid(player) {
+            const maxBid = player.chips;
+            if (maxBid === 0) return 0;
+
+            switch (player.strategy) {
+                case 'aggressive':
+                    // 70% chance to bid, higher amounts
+                    if (Math.random() < 0.7) {
+                        return Math.floor(Math.random() * maxBid * 0.8) + 1;
+                    }
+                    return 0;
+
+                case 'conservative':
+                    // 30% chance to bid, lower amounts
+                    if (Math.random() < 0.3) {
+                        return Math.floor(Math.random() * Math.min(maxBid, 2)) + 1;
+                    }
+                    return 0;
+
+                case 'random':
+                default:
+                    // 50% chance to bid
+                    if (Math.random() < 0.5) {
+                        return Math.floor(Math.random() * maxBid) + 1;
+                    }
+                    return 0;
+            }
+        }
+
+        // Handle reveal phase
+        async function handleRevealPhase() {
+            const turn = testState.currentTurn;
+            const bids = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
+
+            if (bids.length === 0) {
+                // No bids - opener keeps gift
+                const opener = testState.players[turn.openerId];
+                log(`✅ No bids! ${opener.name} keeps their gift`, 'gift');
+                
+                // Small chance of Grinch's Gambit
+                if (Math.random() < 0.2 && Object.keys(testState.gifts).length > 1) {
+                    log(`😈 ${opener.name} uses Grinch's Gambit!`, 'duel');
+                    // For simplicity, skip Gambit in auto mode
+                }
+                
+                await db.ref(`games/${testState.roomCode}/currentTurn`).set(null);
+                setTimeout(drawNextPlayer, testState.botSpeed);
+            } else {
+                // Start duel with highest bidder
+                bids.sort(([,a], [,b]) => b.amount - a.amount);
+                const [challengerId, challengerBid] = bids[0];
+                const challenger = testState.players[challengerId];
+                const opener = testState.players[turn.openerId];
+
+                // Deduct bid
+                await db.ref(`games/${testState.roomCode}/players/${challengerId}/chips`)
+                    .set(challenger.chips - challengerBid.amount);
+
+                // Calculate pot with santa tax
+                let pot = challengerBid.amount;
+                if (pot >= 3) {
+                    pot -= 1;
+                    log(`🎅 Santa Tax: 1 chip to the Bank`, 'bid');
+                }
+
+                // Set initial naughty level to highest bid
+                await db.ref(`games/${testState.roomCode}/gifts/${turn.giftId}/naughtyLevel`)
+                    .set(challengerBid.amount);
+                log(`🔥 Gift starts at Naughty ${challengerBid.amount}`, 'bid');
+
+                log(`⚔️ Duel: ${challenger.name} (bid ${challengerBid.amount}) vs ${opener.name}`, 'duel');
+
+                await db.ref(`games/${testState.roomCode}/currentTurn`).update({
+                    phase: 'duel',
+                    challengerId: challengerId,
+                    defenderId: turn.openerId,
+                    pot: pot
+                });
+
+                updateStatus('Duel', `${challenger.name} vs ${opener.name}!`);
+            }
+        }
+
+        // Handle duel
+        async function handleDuel() {
+            const turn = testState.currentTurn;
+            const challenger = testState.players[turn.challengerId];
+            const defender = testState.players[turn.defenderId];
+
+            // Random winner (50/50)
+            const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+            const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
+            const winner = testState.players[winnerId];
+            const loser = testState.players[loserId];
+
+            log(`🏆 ${winner.name} wins the duel!`, 'duel');
+
+            // Winner gets pot
+            if (turn.pot > 0) {
+                await db.ref(`games/${testState.roomCode}/players/${winnerId}/chips`)
+                    .set(winner.chips + turn.pot);
+            }
+
+            // Loser dividend
+            await db.ref(`games/${testState.roomCode}/players/${loserId}/chips`)
+                .set(loser.chips + 1);
+            log(`💸 ${loser.name} receives +1 Loser's Dividend`, 'bid');
+
+            // Swap algorithm
+            const gift = testState.gifts[turn.giftId];
+            const winnerOldGift = winner.giftId;
+            const loserOldGift = loser.giftId;
+
+            // Winner gets contested gift
+            await db.ref(`games/${testState.roomCode}/players/${winnerId}/giftId`).set(turn.giftId);
+            await db.ref(`games/${testState.roomCode}/gifts/${turn.giftId}/ownerId`).set(winnerId);
+
+            // Handle gift swaps
+            if (winnerOldGift && winnerOldGift !== turn.giftId) {
+                if (loserOldGift && loserOldGift !== turn.giftId) {
+                    // Misfit creation!
+                    await db.ref(`games/${testState.roomCode}/players/${loserId}/giftId`).set(winnerOldGift);
+                    await db.ref(`games/${testState.roomCode}/gifts/${winnerOldGift}/ownerId`).set(loserId);
+                    
+                    await db.ref(`games/${testState.roomCode}/gifts/${loserOldGift}`).update({
+                        ownerId: 'misfit',
+                        naughtyLevel: 0,
+                        misfitOrder: Date.now()
+                    });
+                    log(`🧸 "${testState.gifts[loserOldGift]?.name}" moved to Misfit Pile!`, 'gift');
+                } else {
+                    await db.ref(`games/${testState.roomCode}/players/${loserId}/giftId`).set(winnerOldGift);
+                    await db.ref(`games/${testState.roomCode}/gifts/${winnerOldGift}/ownerId`).set(loserId);
+                }
+            }
+
+            // Check for reprisal (50% chance bot uses it)
+            if (Math.random() < 0.5) {
+                await db.ref(`games/${testState.roomCode}/currentTurn`).set({
+                    phase: 'reprisal',
+                    reprisalPlayerId: loserId,
+                    excludedGiftId: turn.giftId,
+                    reprisalDepth: 1
+                });
+                log(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
+                updateStatus('Reprisal', `${loser.name} is choosing a target...`);
+            } else {
+                log(`⏭️ ${loser.name} skips reprisal`, 'duel');
+                await db.ref(`games/${testState.roomCode}/currentTurn`).set(null);
+                setTimeout(drawNextPlayer, testState.botSpeed);
+            }
+        }
+
+        // Handle reprisal
+        async function handleReprisal() {
+            const turn = testState.currentTurn;
+            const player = testState.players[turn.reprisalPlayerId];
+            
+            // Find available targets
+            const targets = Object.entries(testState.gifts)
+                .filter(([id, g]) => id !== turn.excludedGiftId && g.ownerId !== 'misfit');
+
+            if (targets.length === 0 || player.chips < 1) {
+                log(`⏭️ ${player.name} has no valid reprisal targets`, 'duel');
+                await db.ref(`games/${testState.roomCode}/currentTurn`).set(null);
+                setTimeout(drawNextPlayer, testState.botSpeed);
+                return;
+            }
+
+            // Pick random target
+            const [targetId, targetGift] = targets[Math.floor(Math.random() * targets.length)];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel);
+
+            if (player.chips < cost) {
+                log(`💸 ${player.name} can't afford reprisal (need ${cost} chips)`, 'duel');
+                await db.ref(`games/${testState.roomCode}/currentTurn`).set(null);
+                setTimeout(drawNextPlayer, testState.botSpeed);
+                return;
+            }
+
+            // Pay cost
+            await db.ref(`games/${testState.roomCode}/players/${turn.reprisalPlayerId}/chips`)
+                .set(player.chips - cost);
+
+            const defender = testState.players[targetGift.ownerId];
+            log(`🦌 ${player.name} uses Reprisal on "${targetGift.name}" (${defender.name})!`, 'duel');
+
+            await db.ref(`games/${testState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.reprisalPlayerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetId,
+                pot: 0,
+                isReprisal: true,
+                reprisalDepth: turn.reprisalDepth
+            });
+
+            updateStatus('Reprisal Duel', `${player.name} vs ${defender.name}!`);
+        }
+
+        // Reset test
+        async function resetTest() {
+            if (testState.roomCode) {
+                await db.ref(`games/${testState.roomCode}`).remove();
+            }
+            testState = {
+                roomCode: null,
+                players: {},
+                gifts: {},
+                phase: 'setup',
+                currentTurn: null,
+                autoPilot: false
+            };
+            
+            document.getElementById('btn-create').disabled = false;
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('btn-auto').disabled = true;
+            document.getElementById('btn-auto').textContent = '🤖 Run Auto-Pilot';
+            document.getElementById('btn-reset').disabled = true;
+            document.getElementById('players-grid').innerHTML = '';
+            document.getElementById('gifts-section').style.display = 'none';
+            document.getElementById('event-log').innerHTML = '';
+            updateStatus('Ready to Test', 'Configure settings and click "Create Test Game"');
+            log('🔄 Test reset', 'system');
+        }
+
+        // Render players
+        function renderPlayers() {
+            const grid = document.getElementById('players-grid');
+            const players = Object.entries(testState.players);
+            
+            grid.innerHTML = players.map(([id, player]) => {
+                const isActive = testState.currentTurn?.activePlayerId === id ||
+                                testState.currentTurn?.openerId === id;
+                const inDuel = testState.currentTurn?.challengerId === id ||
+                              testState.currentTurn?.defenderId === id;
+                const hasGift = player.giftId != null;
+                const gift = hasGift ? testState.gifts[player.giftId] : null;
+
+                return `
+                    <div class="player-card ${isActive || inDuel ? 'active' : ''} ${hasGift ? 'has-gift' : ''}">
+                        <div class="name">${player.name}</div>
+                        <div class="stats">
+                            <span class="chips">🪙 ${player.chips}</span>
+                            <span>${player.strategy}</span>
+                        </div>
+                        ${gift ? `<div class="gift">🎁 ${gift.name} (😈${gift.naughtyLevel})</div>` : ''}
+                        <div class="status">${hasGift ? 'Has gift' : '📥 In bag'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render gifts
+        function renderGifts() {
+            const grid = document.getElementById('gifts-grid');
+            const gifts = Object.entries(testState.gifts);
+
+            grid.innerHTML = gifts.map(([id, gift]) => {
+                const owner = gift.ownerId === 'misfit' ? '🧸 Misfit' :
+                    testState.players[gift.ownerId]?.name || 'Unknown';
+                return `
+                    <div class="gift-badge">
+                        <div class="name">${gift.name}</div>
+                        <div class="owner">${owner}</div>
+                        <div class="naughty">😈 Naughty ${gift.naughtyLevel}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update status
+        function updateStatus(phase, info) {
+            document.getElementById('status-phase').textContent = phase;
+            document.getElementById('status-info').textContent = info;
+        }
+
+        // Update phase UI
+        function updatePhaseUI() {
+            const phaseText = {
+                'lobby': 'Lobby',
+                'main': 'Main Game',
+                'endgame': 'Endgame',
+                'ended': 'Game Over'
+            };
+            document.getElementById('status-phase').textContent = phaseText[testState.phase] || testState.phase;
+        }
+
+        // Log event
+        function log(message, type = '') {
+            const logDiv = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML = `
+                <div class="log-entry ${type}">
+                    <span>${message}</span>
+                    <span class="time">${time}</span>
+                </div>
+            ` + logDiv.innerHTML;
+        }
+    </script>
+</body>
+</html>
+
