@@ -1363,20 +1363,46 @@
 
         // Submit bid
         async function submitBid() {
-            if (bidSubmitted) return;
-            
-            bidSubmitted = true;
-            document.getElementById('submit-bid-btn').disabled = true;
-            document.getElementById('bid-status').classList.remove('hidden');
-            document.getElementById('bid-status').classList.add('submitted');
-
+            // Allow re-submitting to change bid
             await db.ref(`games/${playerState.roomCode}/currentTurn/bids/${playerState.playerId}`).set({
                 amount: currentBid,
                 submittedAt: Date.now()
             });
 
+            // Update UI to show submitted bid with option to change
+            bidSubmitted = true;
+            document.getElementById('bid-status').classList.remove('hidden');
+            document.getElementById('bid-status').classList.add('submitted');
+            document.getElementById('bid-status').innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: var(--accent-gold);">
+                        ${currentBid > 0 ? `🎯 ${currentBid} chips` : '👋 Pass'}
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.5rem 0;">
+                        Bid locked in! Waiting for reveal...
+                    </div>
+                    <button class="btn btn-secondary" onclick="changeBid()" style="margin-top: 0.5rem; font-size: 0.85rem;">
+                        🔄 Change Bid
+                    </button>
+                </div>
+            `;
+            
+            // Keep the bid panel visible but update submit button
+            document.getElementById('submit-bid-btn').textContent = '✅ Bid Submitted';
+            document.getElementById('submit-bid-btn').disabled = true;
+
             showToast(currentBid > 0 ? `Bid ${currentBid} chips! 🎯` : 'Passing on this one 👋');
             vibrate();
+        }
+
+        // Allow changing bid before reveal
+        function changeBid() {
+            bidSubmitted = false;
+            document.getElementById('bid-status').classList.add('hidden');
+            document.getElementById('bid-status').classList.remove('submitted');
+            document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
+            document.getElementById('submit-bid-btn').disabled = false;
+            showToast('You can change your bid now');
         }
 
         // Render reprisal options
