@@ -597,6 +597,11 @@
                     <!-- Dynamic content -->
                 </div>
             </div>
+
+            <!-- Exit Button -->
+            <button class="btn btn-secondary" onclick="exitGame()" style="margin-top: auto; opacity: 0.7;">
+                🚪 Leave Game
+            </button>
         </div>
     </div>
 
@@ -628,14 +633,103 @@
         let currentBid = 0;
         let bidSubmitted = false;
 
-        // Check URL for room code
-        window.addEventListener('load', () => {
+        // Check for existing session or URL room code
+        window.addEventListener('load', async () => {
+            const savedRoom = localStorage.getItem('jingleBrawl_player_room');
+            const savedPlayerId = localStorage.getItem('jingleBrawl_player_id');
+            const savedName = localStorage.getItem('jingleBrawl_player_name');
+            
+            // Check URL for room code first
             const params = new URLSearchParams(window.location.search);
-            const roomCode = params.get('room');
-            if (roomCode) {
-                document.getElementById('room-code-input').value = roomCode.toUpperCase();
+            const urlRoomCode = params.get('room');
+            
+            if (savedRoom && savedPlayerId && savedName) {
+                // Check if game/player still exists
+                const playerRef = await db.ref(`games/${savedRoom}/players/${savedPlayerId}`).once('value');
+                if (playerRef.exists()) {
+                    // Show rejoin prompt
+                    showRejoinPrompt(savedRoom, savedPlayerId, savedName);
+                    return;
+                } else {
+                    // Player/game no longer exists, clear storage
+                    clearSavedSession();
+                }
+            }
+            
+            // Fill in room code from URL if present
+            if (urlRoomCode) {
+                document.getElementById('room-code-input').value = urlRoomCode.toUpperCase();
             }
         });
+
+        // Show rejoin prompt
+        function showRejoinPrompt(roomCode, playerId, playerName) {
+            document.getElementById('join-screen').innerHTML = `
+                <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+                <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
+                
+                <div class="card" style="margin-top: 2rem; max-width: 300px; text-align: center;">
+                    <h3 style="margin-bottom: 0.5rem;">Welcome back, ${playerName}!</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                        Room: <strong style="color: var(--accent-gold);">${roomCode}</strong>
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button class="btn btn-primary" onclick="rejoinGame('${roomCode}', '${playerId}', '${playerName}')">
+                            🔄 Rejoin Game
+                        </button>
+                        <button class="btn btn-secondary" onclick="joinDifferentGame()">
+                            🆕 Join Different Game
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Rejoin existing game
+        async function rejoinGame(roomCode, playerId, playerName) {
+            playerState.roomCode = roomCode;
+            playerState.playerId = playerId;
+            playerState.name = playerName;
+
+            // Mark as connected
+            await db.ref(`games/${roomCode}/players/${playerId}/connected`).set(true);
+            db.ref(`games/${roomCode}/players/${playerId}/connected`).onDisconnect().set(false);
+
+            // Setup listeners
+            setupListeners(roomCode);
+
+            // Show game screen
+            document.getElementById('join-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('display-name').textContent = playerName;
+
+            showToast('Reconnected! 🎄');
+        }
+
+        // Join different game (clear saved session)
+        function joinDifferentGame() {
+            clearSavedSession();
+            location.reload();
+        }
+
+        // Clear saved session
+        function clearSavedSession() {
+            localStorage.removeItem('jingleBrawl_player_room');
+            localStorage.removeItem('jingleBrawl_player_id');
+            localStorage.removeItem('jingleBrawl_player_name');
+        }
+
+        // Exit game
+        function exitGame() {
+            if (confirm('Leave this game?')) {
+                // Mark as disconnected
+                if (playerState.roomCode && playerState.playerId) {
+                    db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/connected`).set(false);
+                }
+                clearSavedSession();
+                location.reload();
+            }
+        }
 
         // Join game
         async function joinGame() {
@@ -680,6 +774,11 @@
             playerState.playerId = playerId;
             playerState.name = playerName;
             playerState.chips = startingChips;
+
+            // Save to localStorage for persistence
+            localStorage.setItem('jingleBrawl_player_room', roomCode);
+            localStorage.setItem('jingleBrawl_player_id', playerId);
+            localStorage.setItem('jingleBrawl_player_name', playerName);
 
             // Setup listeners
             setupListeners(roomCode);

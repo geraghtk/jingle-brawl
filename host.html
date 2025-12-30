@@ -617,8 +617,11 @@
                         <button class="btn btn-secondary" onclick="showRulesQuickRef()">
                             📋 Quick Reference
                         </button>
+                        <button class="btn btn-secondary" onclick="exitGame()">
+                            🚪 Exit Game
+                        </button>
                         <button class="btn btn-danger" onclick="endGame()">
-                            🚪 End Game
+                            ⛔ End Game for All
                         </button>
                     </div>
                 </div>
@@ -652,6 +655,85 @@
             phase: 'lobby' // lobby, main, endgame, ended
         };
 
+        // Check for existing game on load
+        window.addEventListener('load', async () => {
+            const savedRoom = localStorage.getItem('jingleBrawl_host_room');
+            const savedHostId = localStorage.getItem('jingleBrawl_host_id');
+            
+            if (savedRoom && savedHostId) {
+                // Check if game still exists
+                const gameRef = await db.ref(`games/${savedRoom}`).once('value');
+                if (gameRef.exists() && gameRef.val().hostId === savedHostId) {
+                    // Rejoin the game
+                    showRejoinPrompt(savedRoom);
+                } else {
+                    // Game no longer exists, clear storage
+                    localStorage.removeItem('jingleBrawl_host_room');
+                    localStorage.removeItem('jingleBrawl_host_id');
+                }
+            }
+        });
+
+        // Show rejoin prompt
+        function showRejoinPrompt(roomCode) {
+            const modal = document.getElementById('modal-content');
+            modal.innerHTML = `
+                <h2>🎄 Welcome Back!</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    You have an active game: <strong style="color: var(--accent-gold);">${roomCode}</strong>
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <button class="btn btn-primary" onclick="rejoinGame('${roomCode}')" style="width: 100%;">
+                        🔄 Rejoin Game
+                    </button>
+                    <button class="btn btn-secondary" onclick="startFresh()" style="width: 100%;">
+                        🆕 Create New Game
+                    </button>
+                </div>
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        // Rejoin existing game
+        async function rejoinGame(roomCode) {
+            closeModal();
+            const savedHostId = localStorage.getItem('jingleBrawl_host_id');
+            
+            gameState.roomCode = roomCode;
+            gameState.hostId = savedHostId;
+
+            // Get settings
+            const settingsRef = await db.ref(`games/${roomCode}/settings`).once('value');
+            gameState.settings = settingsRef.val() || { publicChips: false };
+
+            // Setup listeners
+            setupListeners(roomCode);
+
+            // Show game screen
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('room-code-display').textContent = roomCode;
+
+            // Regenerate QR code
+            const playerUrl = `${window.location.origin}${window.location.pathname.replace('host.html', 'player.html')}?room=${roomCode}`;
+            document.getElementById('join-url').textContent = playerUrl;
+            
+            QRCode.toCanvas(document.getElementById('qr-code'), playerUrl, {
+                width: 200,
+                margin: 2,
+                color: { dark: '#1a1a2e', light: '#ffffff' }
+            });
+
+            addEvent('Host reconnected!', 'gift');
+        }
+
+        // Start fresh (abandon old game)
+        function startFresh() {
+            closeModal();
+            localStorage.removeItem('jingleBrawl_host_room');
+            localStorage.removeItem('jingleBrawl_host_id');
+        }
+
         // Generate room code
         function generateRoomCode() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -682,6 +764,10 @@
                 gifts: {},
                 currentTurn: null
             });
+
+            // Save to localStorage for persistence
+            localStorage.setItem('jingleBrawl_host_room', roomCode);
+            localStorage.setItem('jingleBrawl_host_id', hostId);
 
             // Listen for changes
             setupListeners(roomCode);
@@ -1513,6 +1599,15 @@
             if (confirm('Are you sure you want to end the game?')) {
                 await db.ref(`games/${gameState.roomCode}/phase`).set('ended');
                 addEvent('Game ended!', 'gift');
+            }
+        }
+
+        // Exit game (return to setup)
+        function exitGame() {
+            if (confirm('Exit this game? You can rejoin later if you refresh.')) {
+                localStorage.removeItem('jingleBrawl_host_room');
+                localStorage.removeItem('jingleBrawl_host_id');
+                location.reload();
             }
         }
 
