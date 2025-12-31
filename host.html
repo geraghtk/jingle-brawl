@@ -1914,10 +1914,11 @@
                 addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
 
                 // Check for reprisal opportunity
-                // No reprisal for: yield duels, misfit duels, or if max depth reached
+                // No reprisal for: yield duels, misfit duels, gambit (attacker's risk), or if max depth reached
                 const currentDepth = turn.reprisalDepth || 0;
                 const canReprisal = !turn.isYieldDuel && 
                                    !turn.isMisfitDuel && 
+                                   !turn.isGambit &&
                                    currentDepth < GAME_CONFIG.maxReprisalDepth;
 
                 if (canReprisal) {
@@ -1949,6 +1950,8 @@
                 } else {
                     if (currentDepth >= GAME_CONFIG.maxReprisalDepth) {
                         addEvent('Max reprisal chain reached!', 'duel');
+                    } else if (turn.isGambit) {
+                        addEvent(`No reprisal for Gambit loss - that's the risk!`, 'duel');
                     }
                     await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
                     
