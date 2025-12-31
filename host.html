@@ -1227,11 +1227,22 @@
                     phaseBadge.className = 'phase-badge duel';
                     const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
                     currentAction.textContent = `${reprisalPlayer?.name} has a Reindeer Reprisal!`;
-                    actionDetails.textContent = 'They can challenge any gift (except the one they just lost).';
+                    actionDetails.innerHTML = `
+                        <span style="color: var(--accent-green);">⏳ Waiting for ${reprisalPlayer?.name} to choose on their device...</span>
+                    `;
                     bidsContainer.classList.add('hidden');
                     actionButtons.innerHTML = `
-                        <button class="btn btn-gold" onclick="showReprisalTargets()">🎯 Choose Target</button>
-                        <button class="btn btn-secondary" onclick="skipReprisal()">⏭️ Skip Reprisal</button>
+                        <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Player...</div>
+                            <div style="font-size: 0.85rem;">${reprisalPlayer?.name} is choosing a target on their device</div>
+                        </div>
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if player can't use phone)</summary>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                <button class="btn btn-gold" onclick="showReprisalTargets()">🎯 Choose Target for Them</button>
+                                <button class="btn btn-secondary" onclick="skipReprisal()">⏭️ Skip Reprisal</button>
+                            </div>
+                        </details>
                     `;
                     break;
 
@@ -1743,13 +1754,31 @@
                                    currentDepth < GAME_CONFIG.maxReprisalDepth;
 
                 if (canReprisal) {
-                    await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
-                        phase: 'reprisal',
-                        reprisalPlayerId: loserId,
-                        excludedGiftId: turn.giftId,
-                        reprisalDepth: currentDepth + 1
-                    });
-                    addEvent(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
+                    // Check if there are valid reprisal targets
+                    const availableGifts = Object.entries(gameState.gifts)
+                        .filter(([id]) => id !== turn.giftId); // Exclude the gift they just lost
+                    
+                    // Check if loser can afford any of them
+                    const loserChips = gameState.players[loserId]?.chips || 0;
+                    const affordableGifts = availableGifts.filter(([, g]) => 
+                        loserChips >= GAME_CONFIG.getMinCost(g.naughtyLevel || 0)
+                    );
+                    
+                    if (availableGifts.length === 0) {
+                        addEvent(`No reprisal targets available - skipping`, 'duel');
+                        await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                    } else if (affordableGifts.length === 0) {
+                        addEvent(`${loser.name} can't afford any targets (${loserChips} chips) - skipping reprisal`, 'duel');
+                        await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                    } else {
+                        await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                            phase: 'reprisal',
+                            reprisalPlayerId: loserId,
+                            excludedGiftId: turn.giftId,
+                            reprisalDepth: currentDepth + 1
+                        });
+                        addEvent(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
+                    }
                 } else {
                     if (currentDepth >= GAME_CONFIG.maxReprisalDepth) {
                         addEvent('Max reprisal chain reached!', 'duel');
