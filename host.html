@@ -1628,91 +1628,111 @@
 
         // Record duel winner
         async function recordDuelWinner(winnerId) {
-            const turn = gameState.currentTurn;
-            const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
-            const gift = gameState.gifts[turn.giftId];
-            const winner = gameState.players[winnerId];
-            const loser = gameState.players[loserId];
-
-            // Give pot to winner
-            if (turn.pot > 0) {
-                await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + turn.pot);
-            }
-
-            // Loser dividend (if not yield/misfit/tiebreak)
-            if (!turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak) {
-                await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
-                addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
-            }
-
-            // Update naughty level
-            // If this is the first duel (gift was just opened), set naughty level to highest bid
-            // Otherwise, increment by 1
-            let newNaughtyLevel;
-            if (gift.naughtyLevel === 0 && turn.bids) {
-                // First duel - set to highest bid
-                const highestBid = Math.max(...Object.values(turn.bids).map(b => b.amount || 0), 0);
-                newNaughtyLevel = highestBid;
-                if (highestBid > 0) {
-                    addEvent(`🔥 Gift starts at Naughty ${highestBid} (highest bid)`, 'bid');
+            try {
+                const turn = gameState.currentTurn;
+                if (!turn) {
+                    console.error('No current turn!');
+                    addEvent('❌ Error: No current turn', 'duel');
+                    return;
                 }
-            } else {
-                // Subsequent duels - increment by 1
-                newNaughtyLevel = gift.naughtyLevel + 1;
-            }
-            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(newNaughtyLevel);
+                
+                const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
+                const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
+                const winner = gameState.players[winnerId];
+                const loser = gameState.players[loserId];
 
-            // Swap algorithm
-            const winnerOldGiftId = winner.giftId;
-            const loserOldGiftId = loser.giftId;
+                if (!winner || !loser) {
+                    console.error('Winner or loser not found!', { winnerId, loserId, winner, loser });
+                    addEvent('❌ Error: Player not found', 'duel');
+                    return;
+                }
 
-            // Winner gets contested gift
-            await db.ref(`games/${gameState.roomCode}/players/${winnerId}/giftId`).set(turn.giftId);
-            await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/ownerId`).set(winnerId);
+                // Give pot to winner
+                if (turn.pot > 0) {
+                    await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + turn.pot);
+                    addEvent(`${winner.name} wins pot of ${turn.pot} chips!`, 'bid');
+                }
 
-            // If winner had a gift, it goes to loser
-            if (winnerOldGiftId && winnerOldGiftId !== turn.giftId) {
-                if (loserOldGiftId && loserOldGiftId !== turn.giftId) {
-                    // Loser had a gift too - one goes to misfit
-                    // For now, winner's old gift goes to loser, loser's original to misfit
-                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
-                    await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
-                    
-                    // Loser's original goes to misfit
-                    await db.ref(`games/${gameState.roomCode}/gifts/${loserOldGiftId}`).update({
-                        ownerId: 'misfit',
-                        naughtyLevel: 0, // Reset on misfit
-                        misfitOrder: Date.now()
+                // Loser dividend (if not yield/misfit/tiebreak)
+                if (!turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak) {
+                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
+                    addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+                }
+
+                // Update naughty level (only if we have a gift)
+                if (gift && turn.giftId) {
+                    let newNaughtyLevel;
+                    if (gift.naughtyLevel === 0 && turn.bids) {
+                        // First duel - set to highest bid
+                        const highestBid = Math.max(...Object.values(turn.bids).map(b => b.amount || 0), 0);
+                        newNaughtyLevel = highestBid;
+                        if (highestBid > 0) {
+                            addEvent(`🔥 Gift starts at Naughty ${highestBid} (highest bid)`, 'bid');
+                        }
+                    } else {
+                        // Subsequent duels - increment by 1
+                        newNaughtyLevel = (gift.naughtyLevel || 0) + 1;
+                    }
+                    await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(newNaughtyLevel);
+                }
+
+                // Swap algorithm - only if there's a gift being contested
+                if (turn.giftId) {
+                    const winnerOldGiftId = winner.giftId;
+                    const loserOldGiftId = loser.giftId;
+
+                    // Winner gets contested gift
+                    await db.ref(`games/${gameState.roomCode}/players/${winnerId}/giftId`).set(turn.giftId);
+                    await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/ownerId`).set(winnerId);
+
+                    // If winner had a gift, it goes to loser
+                    if (winnerOldGiftId && winnerOldGiftId !== turn.giftId) {
+                        if (loserOldGiftId && loserOldGiftId !== turn.giftId) {
+                            // Loser had a gift too - one goes to misfit
+                            // For now, winner's old gift goes to loser, loser's original to misfit
+                            await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
+                            await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                            
+                            // Loser's original goes to misfit
+                            await db.ref(`games/${gameState.roomCode}/gifts/${loserOldGiftId}`).update({
+                                ownerId: 'misfit',
+                                naughtyLevel: 0, // Reset on misfit
+                                misfitOrder: Date.now()
+                            });
+                            addEvent(`${gameState.gifts[loserOldGiftId]?.name} moved to Misfit Pile!`, 'gift');
+                        } else {
+                            await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
+                            await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                        }
+                    }
+                }
+
+                addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
+
+                // Check for reprisal opportunity
+                // No reprisal for: yield duels, misfit duels, or if max depth reached
+                const currentDepth = turn.reprisalDepth || 0;
+                const canReprisal = !turn.isYieldDuel && 
+                                   !turn.isMisfitDuel && 
+                                   currentDepth < GAME_CONFIG.maxReprisalDepth;
+
+                if (canReprisal) {
+                    await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
+                        phase: 'reprisal',
+                        reprisalPlayerId: loserId,
+                        excludedGiftId: turn.giftId,
+                        reprisalDepth: currentDepth + 1
                     });
-                    addEvent(`${gameState.gifts[loserOldGiftId]?.name} moved to Misfit Pile!`, 'gift');
+                    addEvent(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
                 } else {
-                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
-                    await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                    if (currentDepth >= GAME_CONFIG.maxReprisalDepth) {
+                        addEvent('Max reprisal chain reached!', 'duel');
+                    }
+                    await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
                 }
-            }
-
-            addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
-
-            // Check for reprisal opportunity
-            // No reprisal for: yield duels, misfit duels, or if max depth reached
-            const currentDepth = turn.reprisalDepth || 0;
-            const canReprisal = !turn.isYieldDuel && 
-                               !turn.isMisfitDuel && 
-                               currentDepth < GAME_CONFIG.maxReprisalDepth;
-
-            if (canReprisal) {
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
-                    phase: 'reprisal',
-                    reprisalPlayerId: loserId,
-                    excludedGiftId: turn.giftId,
-                    reprisalDepth: currentDepth + 1
-                });
-                addEvent(`🦌 ${loser.name} can use Reindeer Reprisal!`, 'duel');
-            } else {
-                if (currentDepth >= GAME_CONFIG.maxReprisalDepth) {
-                    addEvent('Max reprisal chain reached!', 'duel');
-                }
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+            } catch (error) {
+                console.error('Error in recordDuelWinner:', error);
+                addEvent(`❌ Error: ${error.message}`, 'duel');
             }
         }
 
