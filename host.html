@@ -1707,7 +1707,7 @@
                     if (winnerOldGiftId && winnerOldGiftId !== turn.giftId) {
                         if (loserOldGiftId && loserOldGiftId !== turn.giftId) {
                             // Loser had a gift too - one goes to misfit
-                            // For now, winner's old gift goes to loser, loser's original to misfit
+                            // Winner's old gift goes to loser, loser's original to misfit
                             await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
                             await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
                             
@@ -1719,8 +1719,16 @@
                             });
                             addEvent(`${gameState.gifts[loserOldGiftId]?.name} moved to Misfit Pile!`, 'gift');
                         } else {
+                            // Loser didn't have a different gift - just give them winner's old gift
                             await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(winnerOldGiftId);
                             await db.ref(`games/${gameState.roomCode}/gifts/${winnerOldGiftId}/ownerId`).set(loserId);
+                        }
+                    } else {
+                        // Winner had NO old gift to give - loser becomes giftless!
+                        // Clear loser's giftId if they were holding the contested gift
+                        if (loserOldGiftId === turn.giftId) {
+                            await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(null);
+                            addEvent(`${loser.name} is now giftless!`, 'gift');
                         }
                     }
                 }
