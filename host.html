@@ -1742,6 +1742,16 @@
                             addEvent(`${loser.name} is now giftless!`, 'gift');
                         }
                     }
+                    
+                    // YIELD DUEL: Clear the yielding opener's giftId
+                    // In a yield duel, the opener stepped aside - they no longer have the gift
+                    if (turn.isYieldDuel && turn.yieldingOpener) {
+                        const yieldingOpener = gameState.players[turn.yieldingOpener];
+                        if (yieldingOpener && yieldingOpener.giftId === turn.giftId) {
+                            await db.ref(`games/${gameState.roomCode}/players/${turn.yieldingOpener}/giftId`).set(null);
+                            addEvent(`${yieldingOpener.name} yielded and is now giftless!`, 'gift');
+                        }
+                    }
                 }
 
                 addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
