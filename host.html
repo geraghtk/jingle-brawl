@@ -1705,8 +1705,94 @@
                     await db.ref(`games/${gameState.roomCode}/gifts/${turn.giftId}/naughtyLevel`).set(newNaughtyLevel);
                 }
 
-                // Swap algorithm - only if there's a gift being contested
-                if (turn.giftId) {
+                // === HANDLE ENDGAME DUELS SEPARATELY (different swap rules) ===
+                if (turn.isNoBidsDuel && turn.misfitId) {
+                    // No-Bids Duel: Active player ALWAYS gets the misfit
+                    // Win = free, Lose = pay 1 chip toll to defender
+                    const activePlayerId = turn.challengerId;
+                    const defenderId = turn.defenderId;
+                    const misfit = gameState.gifts[turn.misfitId];
+                    
+                    if (misfit) {
+                        // Active player always gets the misfit
+                        await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/giftId`).set(turn.misfitId);
+                        await db.ref(`games/${gameState.roomCode}/gifts/${turn.misfitId}/ownerId`).set(activePlayerId);
+                        
+                        if (loserId === activePlayerId) {
+                            // Active player lost - pay 1 chip toll to defender
+                            const activePlayer = gameState.players[activePlayerId];
+                            const defender = gameState.players[defenderId];
+                            if (activePlayer && activePlayer.chips >= 1) {
+                                await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/chips`).set(activePlayer.chips - 1);
+                                await db.ref(`games/${gameState.roomCode}/players/${defenderId}/chips`).set((defender?.chips || 0) + 1);
+                                addEvent(`${activePlayer.name} pays 1 chip Misfit Toll to ${defender?.name}`, 'bid');
+                            }
+                            addEvent(`${activePlayer?.name} takes misfit "${turn.misfitName}" (lost duel)`, 'gift');
+                        } else {
+                            // Active player won - gets misfit for free
+                            addEvent(`${gameState.players[activePlayerId]?.name} claims misfit "${turn.misfitName}" for FREE!`, 'gift');
+                        }
+                    }
+                }
+                // Endgame Steal: Standard swap + loser gets the misfit
+                else if (turn.isEndgameSteal && turn.misfitId) {
+                    const activePlayerId = turn.challengerId;
+                    const targetGiftId = turn.giftId;  // The defender's gift being stolen
+                    const misfitId = turn.misfitId;
+                    const misfit = gameState.gifts[misfitId];
+                    
+                    if (winnerId === activePlayerId) {
+                        // Active player wins - they get the defender's gift
+                        await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/giftId`).set(targetGiftId);
+                        await db.ref(`games/${gameState.roomCode}/gifts/${targetGiftId}/ownerId`).set(activePlayerId);
+                        // Defender (loser) takes the misfit
+                        if (misfit) {
+                            await db.ref(`games/${gameState.roomCode}/players/${loserId}/giftId`).set(misfitId);
+                            await db.ref(`games/${gameState.roomCode}/gifts/${misfitId}/ownerId`).set(loserId);
+                            addEvent(`${loser.name} takes misfit "${turn.misfitName}"`, 'gift');
+                        }
+                    } else {
+                        // Active player loses - defender keeps their gift, active takes misfit
+                        if (misfit) {
+                            await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/giftId`).set(misfitId);
+                            await db.ref(`games/${gameState.roomCode}/gifts/${misfitId}/ownerId`).set(activePlayerId);
+                            addEvent(`${gameState.players[activePlayerId]?.name} takes misfit "${turn.misfitName}"`, 'gift');
+                        }
+                    }
+                }
+                // Endgame Auction: Standard swap logic mostly works
+                else if (turn.isEndgameAuction && turn.misfitId) {
+                    const activePlayerId = turn.challengerId;
+                    const bidderId = turn.defenderId;
+                    const misfitId = turn.misfitId;
+                    
+                    if (winnerId === activePlayerId) {
+                        // Active player wins - they get the misfit
+                        await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/giftId`).set(misfitId);
+                        await db.ref(`games/${gameState.roomCode}/gifts/${misfitId}/ownerId`).set(activePlayerId);
+                        addEvent(`${gameState.players[activePlayerId]?.name} wins the misfit!`, 'gift');
+                    } else {
+                        // Bidder wins - they get the misfit
+                        await db.ref(`games/${gameState.roomCode}/players/${bidderId}/giftId`).set(misfitId);
+                        await db.ref(`games/${gameState.roomCode}/gifts/${misfitId}/ownerId`).set(bidderId);
+                        
+                        if (turn.bidderHadGift && turn.bidderOldGift) {
+                            // Bidder had a gift - active player gets it
+                            await db.ref(`games/${gameState.roomCode}/players/${activePlayerId}/giftId`).set(turn.bidderOldGift);
+                            await db.ref(`games/${gameState.roomCode}/gifts/${turn.bidderOldGift}/ownerId`).set(activePlayerId);
+                            addEvent(`${gameState.players[activePlayerId]?.name} gets ${gameState.players[bidderId]?.name}'s old gift`, 'gift');
+                        } else {
+                            // Bidder was giftless - active player gets nothing, must restart
+                            addEvent(`${gameState.players[bidderId]?.name} (was giftless) wins the misfit. ${gameState.players[activePlayerId]?.name} must try again!`, 'gift');
+                            // Clear turn and restart endgame
+                            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                            setTimeout(() => drawEndgamePlayer(), 500);
+                            return; // Skip rest of function
+                        }
+                    }
+                }
+                // === STANDARD SWAP ALGORITHM (Main game duels) ===
+                else if (turn.giftId) {
                     const winnerOldGiftId = winner.giftId;
                     const loserOldGiftId = loser.giftId;
 
@@ -1794,10 +1880,33 @@
                         addEvent('Max reprisal chain reached!', 'duel');
                     }
                     await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                    
+                    // If we're in endgame, continue to next player
+                    if (gameState.phase === 'endgame') {
+                        setTimeout(() => checkEndgameContinue(), 500);
+                    }
                 }
             } catch (error) {
                 console.error('Error in recordDuelWinner:', error);
                 addEvent(`❌ Error: ${error.message}`, 'duel');
+            }
+        }
+        
+        // Check if endgame should continue
+        async function checkEndgameContinue() {
+            // Check if there are still giftless players in the bag
+            const playersInBag = Object.entries(gameState.players)
+                .filter(([,p]) => !p.giftId);
+            const misfits = Object.entries(gameState.gifts)
+                .filter(([,g]) => g.ownerId === 'misfit');
+                
+            if (playersInBag.length > 0 && misfits.length > 0) {
+                // Continue endgame
+                drawEndgamePlayer();
+            } else if (playersInBag.length > 0 && misfits.length === 0) {
+                addEvent('⚠️ No more misfits! Some players remain giftless.', 'gift');
+            } else {
+                addEvent('🎄 All players have gifts! Endgame complete.', 'gift');
             }
         }
 
@@ -2224,8 +2333,10 @@
                 defenderId: targetGift.ownerId,
                 giftId: targetGiftId,
                 misfitId: turn.misfitId,
+                misfitName: turn.misfitName,
                 pot: 0,
-                isEndgameSteal: true
+                isEndgameSteal: true,
+                isMisfitDuel: true  // No dividend, no reprisal
             });
 
             addEvent(`🎯 ${activePlayer.name} challenges ${gameState.players[targetGift.ownerId]?.name} for "${targetGift.name}"!`, 'duel');
@@ -2289,9 +2400,11 @@
                 challengerId: turn.activePlayerId,
                 defenderId: defenderId,
                 giftId: turn.misfitId,
+                misfitId: turn.misfitId,
                 misfitName: turn.misfitName,
                 pot: 0,
-                isNoBidsDuel: true
+                isNoBidsDuel: true,
+                isMisfitDuel: true  // No dividend, no reprisal
             });
 
             addEvent(`⚔️ ${gameState.players[turn.activePlayerId]?.name} vs ${gameState.players[defenderId]?.name} for the misfit!`, 'duel');
@@ -2318,9 +2431,11 @@
                 challengerId: turn.activePlayerId,
                 defenderId: bidderId,
                 giftId: turn.misfitId,
+                misfitId: turn.misfitId,
                 misfitName: turn.misfitName,
                 pot: pot,
                 isEndgameAuction: true,
+                isMisfitDuel: true,  // No dividend, no reprisal
                 bidderHadGift: !!gameState.players[bidderId].giftId,
                 bidderOldGift: gameState.players[bidderId].giftId
             });
