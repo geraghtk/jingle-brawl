@@ -1599,31 +1599,49 @@
 
         // Start duel
         async function startDuel(challengerId, defenderId) {
-            const turn = gameState.currentTurn;
-            const bid = turn.bids?.[challengerId]?.amount || 0;
-            
-            // Deduct bid from challenger
-            const challenger = gameState.players[challengerId];
-            await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`).set(challenger.chips - bid);
+            try {
+                const turn = gameState.currentTurn;
+                if (!turn) {
+                    console.error('No current turn for startDuel!');
+                    addEvent('❌ Error: No current turn', 'duel');
+                    return;
+                }
+                
+                const bid = turn.bids?.[challengerId]?.amount || 0;
+                
+                // Deduct bid from challenger
+                const challenger = gameState.players[challengerId];
+                if (!challenger) {
+                    console.error('Challenger not found!', challengerId);
+                    addEvent('❌ Error: Challenger not found', 'duel');
+                    return;
+                }
+                
+                await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`).set(challenger.chips - bid);
 
-            // Calculate pot and tax
-            let pot = bid;
-            if (pot >= GAME_CONFIG.santaTaxThreshold) {
-                pot -= 1; // Santa tax
-                addEvent(`Santa Tax: 1 chip to the Bank`, 'bid');
+                // Calculate pot and tax
+                let pot = bid;
+                if (pot >= GAME_CONFIG.santaTaxThreshold) {
+                    pot -= 1; // Santa tax
+                    addEvent(`Santa Tax: 1 chip to the Bank`, 'bid');
+                }
+
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    phase: 'duel',
+                    challengerId: challengerId,
+                    defenderId: defenderId,
+                    pot: pot,
+                    isYieldDuel: false,
+                    isTiebreak: false
+                });
+
+                const challengerName = gameState.players[challengerId]?.name;
+                const defenderName = gameState.players[defenderId]?.name;
+                addEvent(`⚔️ Duel: ${challengerName} vs ${defenderName}`, 'duel');
+            } catch (error) {
+                console.error('Error in startDuel:', error);
+                addEvent(`❌ Error: ${error.message}`, 'duel');
             }
-
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                phase: 'duel',
-                challengerId: challengerId,
-                defenderId: defenderId,
-                pot: pot,
-                isYieldDuel: false
-            });
-
-            const challengerName = gameState.players[challengerId]?.name;
-            const defenderName = gameState.players[defenderId]?.name;
-            addEvent(`⚔️ Duel: ${challengerName} vs ${defenderName}`, 'duel');
         }
 
         // Record duel winner
@@ -1895,15 +1913,32 @@
         // Note: Yield decision was already made BEFORE tiebreaker
         // If we're here, opener chose to fight the winner
         async function recordTiebreakerWinner(winnerId) {
-            const turn = gameState.currentTurn;
-            const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
-            
-            // Winner becomes the challenger, no dividend for loser
-            addEvent(`${gameState.players[winnerId]?.name} wins the tiebreaker!`, 'duel');
-            
-            // Proceed directly to duel: Winner vs Opener
-            // (Yield decision was already made before tiebreaker started)
-            await startDuel(winnerId, turn.openerId);
+            try {
+                const turn = gameState.currentTurn;
+                if (!turn) {
+                    console.error('No current turn for tiebreaker!');
+                    addEvent('❌ Error: No current turn', 'duel');
+                    return;
+                }
+                
+                const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
+                
+                // Winner becomes the challenger, no dividend for loser
+                addEvent(`${gameState.players[winnerId]?.name} wins the tiebreaker!`, 'duel');
+                
+                // Proceed directly to duel: Winner vs Opener
+                // (Yield decision was already made before tiebreaker started)
+                if (!turn.openerId) {
+                    console.error('No opener ID found!', turn);
+                    addEvent('❌ Error: Opener not found', 'duel');
+                    return;
+                }
+                
+                await startDuel(winnerId, turn.openerId);
+            } catch (error) {
+                console.error('Error in recordTiebreakerWinner:', error);
+                addEvent(`❌ Error: ${error.message}`, 'duel');
+            }
         }
 
         // Random selection of 2 from multiple tied bidders
