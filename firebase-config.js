@@ -29,5 +29,8 @@ const GAME_CONFIG = {
     loserDividend: 1,
     
     // Max reprisal chain depth
-    maxReprisalDepth: 2
+    maxReprisalDepth: 2,
+    
+    // Maximum bid amount
+    maxBid: 4
 };

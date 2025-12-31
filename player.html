@@ -697,7 +697,7 @@
                         <div class="label">chips</div>
                     </div>
                     
-                    <input type="range" class="bid-slider" id="bid-slider" min="0" max="10" value="0" oninput="updateBidDisplay()">
+                    <input type="range" class="bid-slider" id="bid-slider" min="0" max="4" value="0" oninput="updateBidDisplay()">
                     
                     <div class="bid-quick-buttons" id="bid-quick-buttons">
                         <button onclick="setBid(0)">Pass</button>
@@ -1607,17 +1607,14 @@
         // Update bid slider max
         function updateBidSliderMax() {
             const slider = document.getElementById('bid-slider');
-            slider.max = playerState.chips;
+            const maxBid = Math.min(playerState.chips, GAME_CONFIG.maxBid);
+            slider.max = maxBid;
             
-            // Update quick buttons
+            // Update quick buttons (up to max bid)
             const container = document.getElementById('bid-quick-buttons');
-            const maxChips = Math.min(playerState.chips, 5);
             let buttons = '<button onclick="setBid(0)">Pass</button>';
-            for (let i = 1; i <= maxChips; i++) {
+            for (let i = 1; i <= maxBid; i++) {
                 buttons += `<button onclick="setBid(${i})">${i}</button>`;
-            }
-            if (playerState.chips > 5) {
-                buttons += `<button onclick="setBid(${playerState.chips})">All (${playerState.chips})</button>`;
             }
             container.innerHTML = buttons;
         }
