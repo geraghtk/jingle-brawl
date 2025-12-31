@@ -1722,14 +1722,26 @@
                     pot: 0,
                     isReprisal: true
                 });
+                showToast('Reprisal initiated! ⚔️');
             } else {
                 // Claim misfit directly
+                // First, handle player's old gift if they have one
+                const myOldGiftId = gameState.players[playerState.playerId]?.giftId;
+                if (myOldGiftId && myOldGiftId !== giftId) {
+                    // My old gift goes to misfit pile
+                    await db.ref(`games/${playerState.roomCode}/gifts/${myOldGiftId}`).update({
+                        ownerId: 'misfit',
+                        naughtyLevel: 0,
+                        misfitOrder: Date.now()
+                    });
+                }
+                
+                // Now claim the misfit
                 await db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/giftId`).set(giftId);
                 await db.ref(`games/${playerState.roomCode}/gifts/${giftId}/ownerId`).set(playerState.playerId);
                 await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
+                showToast('Misfit claimed! 🧸');
             }
-
-            showToast('Reprisal initiated! ⚔️');
         }
 
         // Skip reprisal

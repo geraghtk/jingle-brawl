@@ -1977,6 +1977,19 @@
                 addEvent(`🦌 ${reprisalPlayer.name} uses Reprisal on "${targetGift.name}"!`, 'duel');
             } else {
                 // Misfit challenge - auto win
+                // First, handle player's old gift if they have one
+                const playerOldGiftId = reprisalPlayer.giftId;
+                if (playerOldGiftId && playerOldGiftId !== targetGiftId) {
+                    // Player had a gift - it goes to misfit pile
+                    await db.ref(`games/${gameState.roomCode}/gifts/${playerOldGiftId}`).update({
+                        ownerId: 'misfit',
+                        naughtyLevel: 0,
+                        misfitOrder: Date.now()
+                    });
+                    addEvent(`${gameState.gifts[playerOldGiftId]?.name} moved to Misfit Pile!`, 'gift');
+                }
+                
+                // Now give them the misfit they claimed
                 await db.ref(`games/${gameState.roomCode}/players/${turn.reprisalPlayerId}/giftId`).set(targetGiftId);
                 await db.ref(`games/${gameState.roomCode}/gifts/${targetGiftId}/ownerId`).set(turn.reprisalPlayerId);
                 addEvent(`${reprisalPlayer.name} claims Misfit "${targetGift.name}"!`, 'gift');
