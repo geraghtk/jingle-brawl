@@ -39,46 +39,87 @@
 | Scenario | Expected Result | Status |
 |----------|-----------------|--------|
 | Challenge player's gift | Standard duel, can chain up to max depth | ✅ OK |
-| Claim misfit (no owner) | Auto-win, no naughty increase, no dividend | ✅ OK |
+| Claim misfit (no owner) | Auto-win, player's old gift → misfit if they had one | ✅ FIXED |
 
-## Endgame Scenarios - NEED FIXES!
+## Endgame Scenarios - ALL FIXED! ✅
 
 ### 6. Endgame Path A: Steal a Gift
 
-| Scenario | Expected Result | Current Behavior | Status |
-|----------|-----------------|------------------|--------|
-| Active WINS | Active gets defender's gift, **Defender takes misfit** | Defender becomes giftless! | ❌ BUG |
-| Active LOSES | **Active takes misfit**, Defender keeps gift | Active stays giftless! | ❌ BUG |
+| Scenario | Expected Result | Status |
+|----------|-----------------|--------|
+| Active WINS | Active gets defender's gift, Defender takes misfit | ✅ FIXED |
+| Active LOSES | Active takes misfit, Defender keeps gift | ✅ FIXED |
+
+**Implementation (lines 1738-1761):**
+```javascript
+if (winnerId === activePlayerId) {
+    // Active wins - gets defender's gift
+    // Defender takes misfit
+} else {
+    // Active loses - takes misfit
+    // Defender keeps their gift
+}
+```
 
 ### 7. Endgame Path B: Auction (With Bids)
 
-| Scenario | Expected Result | Current Behavior | Status |
-|----------|-----------------|------------------|--------|
-| Active WINS | Active gets misfit, Bidder keeps their gift (if any) | ✅ OK (standard swap) | ✅ OK |
-| Bidder WINS, had gift | Bidder gets misfit, Active gets bidder's old gift | ✅ OK (standard swap) | ✅ OK |
-| Bidder WINS, was giftless | Bidder gets misfit, **Active restarts with next misfit** | Active stays giftless, no restart | ❌ BUG |
+| Scenario | Expected Result | Status |
+|----------|-----------------|--------|
+| Active WINS | Active gets misfit | ✅ FIXED |
+| Bidder WINS, had gift | Bidder gets misfit, Active gets bidder's old gift | ✅ FIXED |
+| Bidder WINS, was giftless | Bidder gets misfit, Active restarts with next misfit | ✅ FIXED |
+
+**Implementation (lines 1764-1792):**
+```javascript
+if (winnerId === activePlayerId) {
+    // Active gets misfit
+} else {
+    // Bidder gets misfit
+    if (turn.bidderHadGift) {
+        // Active gets bidder's old gift
+    } else {
+        // Active must restart turn
+        setTimeout(() => drawEndgamePlayer(), 500);
+        return;
+    }
+}
+```
 
 ### 8. Endgame Path B: Auction (No Bids)
 
-| Scenario | Expected Result | Current Behavior | Status |
-|----------|-----------------|------------------|--------|
-| Active WINS | Active gets misfit FREE | ✅ OK | ✅ OK |
-| Active LOSES | **Active gets misfit, pays 1 chip toll to defender** | Active stays giftless! | ❌ BUG |
+| Scenario | Expected Result | Status |
+|----------|-----------------|--------|
+| Active WINS | Active gets misfit FREE | ✅ FIXED |
+| Active LOSES | Active gets misfit, pays 1 chip toll to defender | ✅ FIXED |
 
-## Missing Flags
+**Implementation (lines 1709-1735):**
+```javascript
+// Active player ALWAYS gets the misfit
+if (loserId === activePlayerId) {
+    // Pay 1 chip toll to defender
+} else {
+    // Gets misfit for free
+}
+```
 
-| Flag | Where Set | Where Checked | Issue |
-|------|-----------|---------------|-------|
-| `isMisfitDuel` | Nowhere! | `recordDuelWinner` (dividend/reprisal check) | Never true, misfit duels give dividend when they shouldn't |
-| `isEndgameSteal` | `executeEndgameSteal` | Nowhere! | No special handling |
-| `isEndgameAuction` | `startEndgameAuctionDuel` | Nowhere! | No special handling |
-| `isNoBidsDuel` | `executeNoBidsDuel` | Nowhere! | No special handling |
+## Flags - ALL SET CORRECTLY ✅
 
-## Required Fixes
+| Flag | Where Set | Where Checked | Status |
+|------|-----------|---------------|--------|
+| `isMisfitDuel` | `executeEndgameSteal`, `executeNoBidsDuel`, `startEndgameAuctionDuel` | `recordDuelWinner` (dividend/reprisal check) | ✅ FIXED |
+| `isEndgameSteal` | `executeEndgameSteal` | `recordDuelWinner` | ✅ FIXED |
+| `isEndgameAuction` | `startEndgameAuctionDuel` | `recordDuelWinner` | ✅ FIXED |
+| `isNoBidsDuel` | `executeNoBidsDuel` | `recordDuelWinner` | ✅ FIXED |
 
-1. **Set `isMisfitDuel: true`** for all endgame duels (no dividend, no reprisal for misfit duels)
-2. **Endgame Steal - Active Wins**: Force defender to take the misfit
-3. **Endgame Steal - Active Loses**: Force active player to take the misfit
-4. **Endgame Auction - Bidder Wins + Giftless**: Trigger restart with next misfit
-5. **Endgame No-Bids - Active Loses**: Active takes misfit, pays 1 chip toll to defender
+## Summary
 
+All issues identified in this audit have been **FIXED**:
+
+1. ✅ `isMisfitDuel: true` set for all endgame duels (no dividend, no reprisal)
+2. ✅ Endgame Steal - Active Wins: Defender takes misfit
+3. ✅ Endgame Steal - Active Loses: Active takes misfit
+4. ✅ Endgame Auction - Bidder Wins + Giftless: Triggers restart
+5. ✅ Endgame No-Bids - Active Loses: Active takes misfit, pays 1 chip toll
+6. ✅ Reprisal Misfit Claim: Old gift goes to misfit pile
+
+Last verified: Current commit
