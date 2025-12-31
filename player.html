@@ -1185,7 +1185,11 @@
                         statusCard.classList.add('your-turn');
                         
                         if (revealBids.length === 0) {
-                            // No bids - show Gambit option
+                            // No bids - show Keep/Gambit options
+                            const otherGifts = Object.entries(gameState.gifts)
+                                .filter(([id]) => id !== turn.giftId);
+                            const canGambit = otherGifts.length > 0;
+                            
                             statusCard.innerHTML = `
                                 <div class="status-icon">🎁</div>
                                 <div class="status-title">No Challengers!</div>
@@ -1197,8 +1201,19 @@
                                         <strong>Grinch's Gambit:</strong> Pay the Minimum Cost to challenge anyone else's gift!
                                     </div>
                                 </div>
-                                <div style="color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
-                                    👆 Host will select your choice on main screen
+                                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                    <button class="btn btn-primary" onclick="keepMyGift()">
+                                        🎁 Keep My Gift
+                                    </button>
+                                    ${canGambit ? `
+                                        <button class="btn btn-gold" onclick="showGambitOptions()">
+                                            😈 Grinch's Gambit
+                                        </button>
+                                    ` : `
+                                        <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">
+                                            No other gifts to challenge yet
+                                        </div>
+                                    `}
                                 </div>
                             `;
                         } else if (revealBids.length >= 2) {
@@ -1742,6 +1757,98 @@
                 await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
                 showToast('Misfit claimed! 🧸');
             }
+        }
+
+        // Keep gift (no bids scenario)
+        async function keepMyGift() {
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
+            showToast('Gift kept! 🎁');
+        }
+
+        // Show Gambit options
+        function showGambitOptions() {
+            const turn = gameState.currentTurn;
+            const otherGifts = Object.entries(gameState.gifts)
+                .filter(([id]) => id !== turn.giftId);
+            
+            if (otherGifts.length === 0) {
+                showToast('No other gifts to challenge!');
+                return;
+            }
+            
+            // Show gambit target selection in the status card
+            const statusCard = document.getElementById('status-card');
+            statusCard.innerHTML = `
+                <div class="status-icon">😈</div>
+                <div class="status-title">Grinch's Gambit!</div>
+                <div class="status-desc">Choose a gift to challenge:</div>
+                <div style="max-height: 300px; overflow-y: auto; margin: 1rem 0;">
+                    ${otherGifts.map(([id, gift]) => {
+                        const owner = gameState.players[gift.ownerId]?.name || 'Unknown';
+                        const cost = GAME_CONFIG.getMinCost(gift.naughtyLevel || 0);
+                        const canAfford = playerState.chips >= cost;
+                        const naughtyBadge = gift.naughtyLevel > 0 ? 
+                            `<span style="background: var(--accent-red); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">😈 ${gift.naughtyLevel}</span>` : '';
+                        
+                        return `
+                            <div class="action-option ${!canAfford ? 'disabled' : ''}" 
+                                 onclick="${canAfford ? `executeGambit('${id}')` : ''}"
+                                 style="background: var(--bg-card-hover); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: ${canAfford ? 'pointer' : 'not-allowed'}; opacity: ${canAfford ? 1 : 0.5};">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 600;">${gift.name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Owner: ${owner}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        ${naughtyBadge}
+                                        <div style="font-size: 0.85rem; color: ${canAfford ? 'var(--accent-gold)' : 'var(--accent-red)'};">
+                                            💰 ${cost} chip${cost > 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="cancelGambit()" style="width: 100%;">
+                    ← Cancel
+                </button>
+            `;
+        }
+
+        // Cancel gambit selection
+        function cancelGambit() {
+            // Re-render to go back to Keep/Gambit choice
+            renderPlayerUI();
+        }
+
+        // Execute Gambit
+        async function executeGambit(targetGiftId) {
+            const turn = gameState.currentTurn;
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift.naughtyLevel || 0);
+
+            if (playerState.chips < cost) {
+                showToast('Not enough chips!');
+                return;
+            }
+
+            // Deduct cost
+            await db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/chips`)
+                .set(playerState.chips - cost);
+
+            // Start the duel
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.openerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetGiftId,
+                originalGiftId: turn.giftId,
+                pot: 0,
+                isGambit: true
+            });
+
+            showToast('Gambit initiated! ⚔️');
         }
 
         // Skip reprisal

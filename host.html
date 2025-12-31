@@ -1087,11 +1087,24 @@
                     bidsContainer.classList.remove('hidden');
                     
                     const bidders = Object.entries(turn.bids || {}).filter(([,b]) => b.amount > 0);
+                    const openerName = gameState.players[turn.openerId]?.name;
                     if (bidders.length === 0) {
-                        actionDetails.textContent = 'No bids! Opener keeps the gift or can use Grinch\'s Gambit.';
+                        actionDetails.innerHTML = `
+                            No bids!<br>
+                            <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Keep or Gambit?</span>
+                        `;
                         actionButtons.innerHTML = `
-                            <button class="btn btn-primary" onclick="keepGift()">✅ Opener Keeps Gift</button>
-                            <button class="btn btn-gold" onclick="showGambitOptions()">😈 Grinch's Gambit</button>
+                            <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                                <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Opener...</div>
+                                <div style="font-size: 0.85rem;">${openerName} is choosing on their device</div>
+                            </div>
+                            <details style="margin-top: 0.5rem;">
+                                <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
+                                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                    <button class="btn btn-primary" onclick="keepGift()">✅ Opener Keeps Gift</button>
+                                    <button class="btn btn-gold" onclick="showGambitOptions()">😈 Grinch's Gambit</button>
+                                </div>
+                            </details>
                         `;
                     } else {
                         const sorted = bidders.sort(([,a], [,b]) => b.amount - a.amount);
