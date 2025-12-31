@@ -1449,21 +1449,109 @@
                     break;
 
                 case 'endgame_choice':
-                case 'endgame_bidding':
-                case 'endgame_reveal':
-                    const isActive = turn.activePlayerId === playerState.playerId;
+                    const isActiveChoice = turn.activePlayerId === playerState.playerId;
                     statusCard.classList.remove('hidden');
-                    if (isActive) {
+                    if (isActiveChoice) {
+                        // Active player can choose Path A or Path B
                         statusCard.classList.add('your-turn');
+                        const playersWithGifts = Object.entries(gameState.players)
+                            .filter(([id, p]) => p.giftId && id !== playerState.playerId);
+                        const canSteal = playersWithGifts.length > 0;
+                        
                         statusCard.innerHTML = `
                             <div class="status-icon">🎰</div>
                             <div class="status-title">Your Misfit Lottery Turn!</div>
                             <div class="status-desc">Target: "${turn.misfitName}"</div>
                             <div class="help-box warning">
-                                <div class="help-title">🎯 Your Options</div>
+                                <div class="help-title">🎯 Choose Your Path</div>
                                 <div class="help-content">
                                     <strong>Path A - Steal:</strong> Challenge any player's gift. Loser takes the misfit.<br>
                                     <strong>Path B - Auction:</strong> Let everyone bid on the misfit. You duel the highest bidder.
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                ${canSteal ? `
+                                    <button class="btn btn-primary" onclick="showEndgameStealOptions()">
+                                        🎯 Path A: Steal a Gift
+                                    </button>
+                                ` : `
+                                    <div style="color: var(--text-muted); text-align: center; padding: 0.5rem;">
+                                        No gifts to steal yet
+                                    </div>
+                                `}
+                                <button class="btn btn-gold" onclick="startEndgameAuction()">
+                                    🎰 Path B: Auction for Misfit
+                                </button>
+                            </div>
+                        `;
+                        vibrate();
+                    } else {
+                        statusCard.classList.add('active');
+                        const activePlayerChoice = gameState.players[turn.activePlayerId];
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎰</div>
+                            <div class="status-title">Misfit Lottery</div>
+                            <div class="status-desc">${activePlayerChoice?.name} is choosing their path...</div>
+                        `;
+                    }
+                    break;
+
+                case 'endgame_steal_select':
+                    // Active player is selecting steal target
+                    const isActiveStealing = turn.activePlayerId === playerState.playerId;
+                    statusCard.classList.remove('hidden');
+                    if (isActiveStealing) {
+                        statusCard.classList.add('your-turn');
+                        renderEndgameStealOptions();
+                    } else {
+                        statusCard.classList.add('active');
+                        const stealingPlayer = gameState.players[turn.activePlayerId];
+                        const hasGift = gameState.players[playerState.playerId]?.giftId;
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎯</div>
+                            <div class="status-title">Steal in Progress!</div>
+                            <div class="status-desc">${stealingPlayer?.name} is choosing a gift to steal...</div>
+                            ${hasGift ? `
+                                <div class="help-box warning">
+                                    <div class="help-title">⚠️ You could be targeted!</div>
+                                    <div class="help-content">They might challenge YOUR gift!</div>
+                                </div>
+                            ` : ''}
+                        `;
+                    }
+                    break;
+
+                case 'endgame_nobids':
+                    // No bids on misfit auction - active player chooses defender
+                    const isActiveNoBids = turn.activePlayerId === playerState.playerId;
+                    statusCard.classList.remove('hidden');
+                    if (isActiveNoBids) {
+                        statusCard.classList.add('your-turn');
+                        renderNoBidsDefenderOptions();
+                    } else {
+                        statusCard.classList.add('active');
+                        const noBidsPlayer = gameState.players[turn.activePlayerId];
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎰</div>
+                            <div class="status-title">No Bids!</div>
+                            <div class="status-desc">${noBidsPlayer?.name} is choosing a defender...</div>
+                        `;
+                    }
+                    break;
+
+                case 'endgame_bidding':
+                case 'endgame_reveal':
+                    const isActive = turn.activePlayerId === playerState.playerId;
+                    statusCard.classList.remove('hidden');
+                    if (isActive && turn.phase === 'endgame_bidding') {
+                        statusCard.classList.add('your-turn');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">🎰</div>
+                            <div class="status-title">Auction in Progress!</div>
+                            <div class="status-desc">Others are bidding on "${turn.misfitName}"</div>
+                            <div class="help-box">
+                                <div class="help-content">
+                                    Wait for bids, then you'll duel the highest bidder (or choose a defender if no bids).
                                 </div>
                             </div>
                         `;
@@ -1855,6 +1943,162 @@
         async function skipReprisal() {
             await db.ref(`games/${playerState.roomCode}/currentTurn`).set(null);
             showToast('Reprisal skipped');
+        }
+
+        // ==================== ENDGAME FUNCTIONS ====================
+
+        // Show endgame steal options (Path A)
+        function showEndgameStealOptions() {
+            db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                phase: 'endgame_steal_select'
+            });
+        }
+
+        // Render endgame steal options
+        function renderEndgameStealOptions() {
+            const turn = gameState.currentTurn;
+            const statusCard = document.getElementById('status-card');
+            
+            const playersWithGifts = Object.entries(gameState.players)
+                .filter(([id, p]) => p.giftId && id !== playerState.playerId);
+            
+            statusCard.innerHTML = `
+                <div class="status-icon">🎯</div>
+                <div class="status-title">Path A: Steal a Gift!</div>
+                <div class="status-desc">Choose a gift to challenge. Loser takes "${turn.misfitName}"</div>
+                <div style="max-height: 300px; overflow-y: auto; margin: 1rem 0;">
+                    ${playersWithGifts.map(([id, player]) => {
+                        const gift = gameState.gifts[player.giftId];
+                        const cost = GAME_CONFIG.getMinCost(gift?.naughtyLevel || 0);
+                        const canAfford = playerState.chips >= cost;
+                        const naughtyBadge = gift?.naughtyLevel > 0 ? 
+                            `<span style="background: var(--accent-red); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">😈 ${gift.naughtyLevel}</span>` : '';
+                        
+                        return `
+                            <div class="action-option ${!canAfford ? 'disabled' : ''}" 
+                                 onclick="${canAfford ? `executeEndgameSteal('${player.giftId}')` : ''}"
+                                 style="background: var(--bg-card-hover); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: ${canAfford ? 'pointer' : 'not-allowed'}; opacity: ${canAfford ? 1 : 0.5};">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 600;">${gift?.name || 'Unknown'}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Owner: ${player.name}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        ${naughtyBadge}
+                                        <div style="font-size: 0.85rem; color: ${canAfford ? 'var(--accent-gold)' : 'var(--accent-red)'};">
+                                            💰 ${cost} chip${cost > 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="cancelEndgameSteal()" style="width: 100%;">
+                    ← Back to Path Choice
+                </button>
+            `;
+        }
+
+        // Cancel endgame steal selection
+        async function cancelEndgameSteal() {
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                phase: 'endgame_choice'
+            });
+        }
+
+        // Execute endgame steal (Path A)
+        async function executeEndgameSteal(targetGiftId) {
+            const turn = gameState.currentTurn;
+            const targetGift = gameState.gifts[targetGiftId];
+            const cost = GAME_CONFIG.getMinCost(targetGift?.naughtyLevel || 0);
+
+            if (playerState.chips < cost) {
+                showToast('Not enough chips!');
+                return;
+            }
+
+            // Deduct cost
+            await db.ref(`games/${playerState.roomCode}/players/${playerState.playerId}/chips`)
+                .set(playerState.chips - cost);
+
+            // Start the duel
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.activePlayerId,
+                defenderId: targetGift.ownerId,
+                giftId: targetGiftId,
+                misfitId: turn.misfitId,
+                misfitName: turn.misfitName,
+                pot: 0,
+                isEndgameSteal: true,
+                isMisfitDuel: true
+            });
+
+            showToast('Steal initiated! ⚔️');
+        }
+
+        // Start endgame auction (Path B)
+        async function startEndgameAuction() {
+            const turn = gameState.currentTurn;
+            
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
+                phase: 'endgame_bidding',
+                bids: {}
+            });
+
+            showToast('Auction started! 🎰');
+        }
+
+        // Render no-bids defender options
+        function renderNoBidsDefenderOptions() {
+            const turn = gameState.currentTurn;
+            const statusCard = document.getElementById('status-card');
+            
+            const otherPlayers = Object.entries(gameState.players)
+                .filter(([id]) => id !== playerState.playerId);
+            
+            statusCard.innerHTML = `
+                <div class="status-icon">🎰</div>
+                <div class="status-title">No Bids! Choose Your Challenger</div>
+                <div class="status-desc">Duel someone for "${turn.misfitName}". You get it either way!</div>
+                <div class="help-box">
+                    <div class="help-content">
+                        <strong>Win:</strong> Get misfit FREE!<br>
+                        <strong>Lose:</strong> Get misfit, but pay 1 chip toll to defender.
+                    </div>
+                </div>
+                <div style="max-height: 250px; overflow-y: auto; margin: 1rem 0;">
+                    ${otherPlayers.map(([id, player]) => {
+                        return `
+                            <div class="action-option" 
+                                 onclick="executeNoBidsDuel('${id}')"
+                                 style="background: var(--bg-card-hover); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+                                <div style="font-weight: 600;">⚔️ Challenge ${player.name}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // Execute no-bids duel
+        async function executeNoBidsDuel(defenderId) {
+            const turn = gameState.currentTurn;
+            
+            await db.ref(`games/${playerState.roomCode}/currentTurn`).set({
+                phase: 'duel',
+                challengerId: turn.activePlayerId,
+                defenderId: defenderId,
+                giftId: turn.misfitId,
+                misfitId: turn.misfitId,
+                misfitName: turn.misfitName,
+                pot: 0,
+                isNoBidsDuel: true,
+                isMisfitDuel: true
+            });
+
+            showToast('Duel started! ⚔️');
         }
 
         // Render players
