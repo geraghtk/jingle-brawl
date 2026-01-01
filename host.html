@@ -511,12 +511,73 @@
         
         <div class="card" style="margin-top: 2rem; max-width: 400px;">
             <h3 style="margin-bottom: 1rem;">Game Settings</h3>
+            
+            <!-- Reprisal Depth -->
             <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🦌 Reprisal Chain Depth
+                </label>
+                <select id="setting-reprisal-depth" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="0">None (no reprisals)</option>
+                    <option value="1" selected>Single (no chaining)</option>
+                    <option value="2">Chain once (2 max)</option>
+                    <option value="3">Chain twice (3 max)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    How many times can a reprisal trigger another reprisal?
+                </div>
+            </div>
+            
+            <!-- Max Bid -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🎯 Maximum Bid
+                </label>
+                <select id="setting-max-bid" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="3">3 chips</option>
+                    <option value="4" selected>4 chips</option>
+                    <option value="5">5 chips</option>
+                    <option value="99">Unlimited</option>
+                </select>
+            </div>
+            
+            <!-- Santa Tax (Max Winner Payout) -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🎅 Santa Tax (Max Winner Payout)
+                </label>
+                <select id="setting-max-payout" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="1">1 chip (heavy tax)</option>
+                    <option value="2" selected>2 chips (moderate)</option>
+                    <option value="3">3 chips (light tax)</option>
+                    <option value="99">No tax (winner gets all)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Extra chips go to the North Pole Fund (bank)
+                </div>
+            </div>
+            
+            <!-- Starting Chips -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🪙 Starting Chips
+                </label>
+                <select id="setting-starting-chips" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="8">8 chips</option>
+                    <option value="10" selected>10 chips</option>
+                    <option value="12">12 chips</option>
+                    <option value="15">15 chips</option>
+                </select>
+            </div>
+            
+            <!-- Public Chips -->
+            <div style="margin-bottom: 1.5rem; text-align: left;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                     <input type="checkbox" id="setting-public-chips">
-                    <span>Show everyone's chip counts</span>
+                    <span>👁️ Show everyone's chip counts</span>
                 </label>
             </div>
+            
             <button class="btn btn-primary" onclick="createGame()" style="width: 100%;">
                 🎮 Create New Game
             </button>
@@ -810,16 +871,29 @@
         async function createGame() {
             const roomCode = generateRoomCode();
             const hostId = 'host_' + Date.now();
-            const publicChips = document.getElementById('setting-public-chips').checked;
+            
+            // Read all settings
+            const settings = {
+                publicChips: document.getElementById('setting-public-chips').checked,
+                maxReprisalDepth: parseInt(document.getElementById('setting-reprisal-depth').value),
+                maxBid: parseInt(document.getElementById('setting-max-bid').value),
+                maxWinnerPayout: parseInt(document.getElementById('setting-max-payout').value),
+                startingChips: parseInt(document.getElementById('setting-starting-chips').value)
+            };
 
             gameState.roomCode = roomCode;
             gameState.hostId = hostId;
-            gameState.settings.publicChips = publicChips;
+            gameState.settings = settings;
+            
+            // Update GAME_CONFIG with custom settings
+            GAME_CONFIG.maxReprisalDepth = settings.maxReprisalDepth;
+            GAME_CONFIG.maxBid = settings.maxBid;
+            GAME_CONFIG.maxWinnerPayout = settings.maxWinnerPayout;
 
             // Create game in Firebase
             await db.ref(`games/${roomCode}`).set({
                 hostId: hostId,
-                settings: { publicChips },
+                settings: settings,
                 phase: 'lobby',
                 createdAt: Date.now(),
                 players: {},
@@ -1701,11 +1775,12 @@
                 
                 await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`).set(challenger.chips - bid);
 
-                // Calculate pot and tax
-                let pot = bid;
-                if (pot >= GAME_CONFIG.santaTaxThreshold) {
-                    pot -= 1; // Santa tax
-                    addEvent(`Santa Tax: 1 chip to the Bank`, 'bid');
+                // Calculate pot and tax (winner gets max configured payout)
+                const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
+                let pot = Math.min(bid, maxPayout);
+                const tax = bid - pot;
+                if (tax > 0) {
+                    addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
                 }
 
                 await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -2232,10 +2307,13 @@
 
             addEvent(`${c1.name} pays ${pay1}, ${c2.name} pays ${pay2} (half bids, rounded up)`, 'bid');
 
-            let pot = pay1 + pay2;
-            if (pot >= GAME_CONFIG.santaTaxThreshold) {
-                pot -= 1;
-                addEvent('Santa Tax: 1 chip to the Bank', 'bid');
+            // Calculate pot and tax (winner gets max configured payout)
+            const totalPaid = pay1 + pay2;
+            const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
+            let pot = Math.min(totalPaid, maxPayout);
+            const tax = totalPaid - pot;
+            if (tax > 0) {
+                addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
             }
 
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -2507,10 +2585,12 @@
             await db.ref(`games/${gameState.roomCode}/players/${bidderId}/chips`).set(bidder.chips - bid);
 
             // Calculate pot with santa tax
-            let pot = bid;
-            if (pot >= GAME_CONFIG.santaTaxThreshold) {
-                pot -= 1;
-                addEvent('Santa Tax: 1 chip to the Bank', 'bid');
+            // Calculate pot and tax (winner gets max configured payout)
+            const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
+            let pot = Math.min(bid, maxPayout);
+            const tax = bid - pot;
+            if (tax > 0) {
+                addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
             }
             
             await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
