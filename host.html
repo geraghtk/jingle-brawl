@@ -570,6 +570,53 @@
                 </select>
             </div>
             
+            <!-- Loser Dividend Rule -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🎁 Loser Dividend
+                </label>
+                <select id="setting-loser-dividend" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="everyone">Everyone who loses (+1)</option>
+                    <option value="defenders" selected>Defenders only (+1)</option>
+                    <option value="nobody">Nobody (harsh!)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    "Defenders only" makes attacking riskier
+                </div>
+            </div>
+            
+            <!-- Santa Tax Threshold -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    💰 Santa Tax Threshold
+                </label>
+                <select id="setting-tax-threshold" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="2" selected>2+ chips (tight)</option>
+                    <option value="3">3+ chips (standard)</option>
+                    <option value="4">4+ chips (loose)</option>
+                    <option value="99">Never (no tax)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Lower = more chips go to the bank
+                </div>
+            </div>
+            
+            <!-- Base Challenge Cost -->
+            <div style="margin-bottom: 1rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    ⚔️ Base Challenge Cost
+                </label>
+                <select id="setting-base-cost" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="0">0 + Naughty (free start)</option>
+                    <option value="1" selected>1 + Naughty (standard)</option>
+                    <option value="2">2 + Naughty (expensive)</option>
+                    <option value="3">3 + Naughty (very expensive)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Cost for Gambits, Reprisals & Endgame steals
+                </div>
+            </div>
+            
             <!-- Public Chips -->
             <div style="margin-bottom: 1.5rem; text-align: left;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
@@ -739,6 +786,102 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Host Admin Panel -->
+                <div class="card" id="admin-panel" style="border: 2px solid var(--accent-red);">
+                    <div class="card-title" style="cursor: pointer;" onclick="toggleAdminPanel()">
+                        ⚙️ Host Admin <span id="admin-toggle-icon">▼</span>
+                    </div>
+                    <div id="admin-content" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <!-- Quick Actions -->
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-secondary" onclick="adminSkipPhase()" title="Force skip current phase">
+                                    ⏭️ Skip Phase
+                                </button>
+                                <button class="btn btn-secondary" onclick="adminResetTurn()" title="Reset to waiting state">
+                                    🔄 Reset Turn
+                                </button>
+                                <button class="btn btn-secondary" onclick="adminUndoLast()" title="Undo last action (limited)">
+                                    ↩️ Undo
+                                </button>
+                            </div>
+                            
+                            <!-- Edit Player -->
+                            <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px;">
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">👤 Edit Player</div>
+                                <select id="admin-player-select" style="width: 100%; padding: 0.5rem; border-radius: 6px; margin-bottom: 0.5rem; background: var(--bg-card); color: white; border: 1px solid var(--border);" onchange="adminLoadPlayer()">
+                                    <option value="">Select player...</option>
+                                </select>
+                                <div id="admin-player-controls" style="display: none;">
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; flex: 1;">
+                                            🪙 <input type="number" id="admin-player-chips" min="0" max="99" style="width: 60px; padding: 0.25rem; border-radius: 4px; background: var(--bg-card); color: white; border: 1px solid var(--border);">
+                                        </label>
+                                        <button class="btn btn-primary" onclick="adminSavePlayer()" style="padding: 0.25rem 0.75rem;">
+                                            Save
+                                        </button>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="btn btn-secondary" onclick="adminToggleInBag()" style="flex: 1; font-size: 0.75rem; padding: 0.25rem;">
+                                            🎒 Toggle In Bag
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="adminRemovePlayerGift()" style="flex: 1; font-size: 0.75rem; padding: 0.25rem;">
+                                            🎁 Remove Gift
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Edit Gift -->
+                            <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px;">
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">🎁 Edit Gift</div>
+                                <select id="admin-gift-select" style="width: 100%; padding: 0.5rem; border-radius: 6px; margin-bottom: 0.5rem; background: var(--bg-card); color: white; border: 1px solid var(--border);" onchange="adminLoadGift()">
+                                    <option value="">Select gift...</option>
+                                </select>
+                                <div id="admin-gift-controls" style="display: none;">
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                        <input type="text" id="admin-gift-name" placeholder="Gift name" style="flex: 1; padding: 0.25rem; border-radius: 4px; background: var(--bg-card); color: white; border: 1px solid var(--border);">
+                                        <label style="display: flex; align-items: center; gap: 0.25rem;">
+                                            😈 <input type="number" id="admin-gift-naughty" min="0" max="20" style="width: 50px; padding: 0.25rem; border-radius: 4px; background: var(--bg-card); color: white; border: 1px solid var(--border);">
+                                        </label>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                        <select id="admin-gift-owner" style="flex: 1; padding: 0.25rem; border-radius: 4px; background: var(--bg-card); color: white; border: 1px solid var(--border);">
+                                            <option value="">No owner (Misfit)</option>
+                                        </select>
+                                        <button class="btn btn-primary" onclick="adminSaveGift()" style="padding: 0.25rem 0.75rem;">
+                                            Save
+                                        </button>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="btn btn-secondary" onclick="adminMoveToMisfit()" style="flex: 1; font-size: 0.75rem; padding: 0.25rem;">
+                                            📦 → Misfit Pile
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="adminDeleteGift()" style="flex: 1; font-size: 0.75rem; padding: 0.25rem; background: var(--accent-red);">
+                                            🗑️ Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Gift Manually -->
+                            <div style="background: var(--bg-card-hover); padding: 0.75rem; border-radius: 8px;">
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">➕ Add Gift</div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="admin-new-gift-name" placeholder="Gift name" style="flex: 1; padding: 0.5rem; border-radius: 4px; background: var(--bg-card); color: white; border: 1px solid var(--border);">
+                                    <button class="btn btn-primary" onclick="adminAddGift()">
+                                        Add
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
+                                ⚠️ Use with caution - changes are immediate
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Quick Actions -->
                 <div class="card">
@@ -878,7 +1021,10 @@
                 maxReprisalDepth: parseInt(document.getElementById('setting-reprisal-depth').value),
                 maxBid: parseInt(document.getElementById('setting-max-bid').value),
                 maxWinnerPayout: parseInt(document.getElementById('setting-max-payout').value),
-                startingChips: parseInt(document.getElementById('setting-starting-chips').value)
+                startingChips: parseInt(document.getElementById('setting-starting-chips').value),
+                loserDividendRule: document.getElementById('setting-loser-dividend').value,
+                taxThreshold: parseInt(document.getElementById('setting-tax-threshold').value),
+                baseCost: parseInt(document.getElementById('setting-base-cost').value)
             };
 
             gameState.roomCode = roomCode;
@@ -889,6 +1035,9 @@
             GAME_CONFIG.maxReprisalDepth = settings.maxReprisalDepth;
             GAME_CONFIG.maxBid = settings.maxBid;
             GAME_CONFIG.maxWinnerPayout = settings.maxWinnerPayout;
+            GAME_CONFIG.loserDividendRule = settings.loserDividendRule;
+            GAME_CONFIG.taxThreshold = settings.taxThreshold;
+            GAME_CONFIG.baseCost = settings.baseCost;
 
             // Create game in Firebase
             await db.ref(`games/${roomCode}`).set({
@@ -1775,12 +1924,17 @@
                 
                 await db.ref(`games/${gameState.roomCode}/players/${challengerId}/chips`).set(challenger.chips - bid);
 
-                // Calculate pot and tax (winner gets max configured payout)
+                // Calculate pot and tax (only apply if bid meets threshold)
+                const taxThreshold = gameState.settings?.taxThreshold || GAME_CONFIG.taxThreshold;
                 const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
-                let pot = Math.min(bid, maxPayout);
-                const tax = bid - pot;
-                if (tax > 0) {
-                    addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+                let pot = bid;
+                let tax = 0;
+                if (bid >= taxThreshold) {
+                    pot = Math.min(bid, maxPayout);
+                    tax = bid - pot;
+                    if (tax > 0) {
+                        addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+                    }
                 }
 
                 await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -1828,10 +1982,20 @@
                     addEvent(`${winner.name} wins pot of ${turn.pot} chips!`, 'bid');
                 }
 
-                // Loser dividend (if not yield/misfit/tiebreak)
+                // Loser dividend (if not yield/misfit/tiebreak, based on rule)
                 if (!turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak) {
-                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
-                    addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+                    const dividendRule = gameState.settings?.loserDividendRule || GAME_CONFIG.loserDividendRule;
+                    const isLoserDefender = (loserId === turn.defenderId);
+                    const shouldPayDividend = 
+                        dividendRule === 'everyone' || 
+                        (dividendRule === 'defenders' && isLoserDefender);
+                    
+                    if (shouldPayDividend) {
+                        await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
+                        addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+                    } else if (dividendRule === 'defenders' && !isLoserDefender) {
+                        addEvent(`${loser.name} attacked and lost - no dividend!`, 'bid');
+                    }
                 }
 
                 // Update naughty level (only if we have a gift)
@@ -2307,13 +2471,18 @@
 
             addEvent(`${c1.name} pays ${pay1}, ${c2.name} pays ${pay2} (half bids, rounded up)`, 'bid');
 
-            // Calculate pot and tax (winner gets max configured payout)
+            // Calculate pot and tax (only apply if total meets threshold)
             const totalPaid = pay1 + pay2;
+            const taxThreshold = gameState.settings?.taxThreshold || GAME_CONFIG.taxThreshold;
             const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
-            let pot = Math.min(totalPaid, maxPayout);
-            const tax = totalPaid - pot;
-            if (tax > 0) {
-                addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+            let pot = totalPaid;
+            let tax = 0;
+            if (totalPaid >= taxThreshold) {
+                pot = Math.min(totalPaid, maxPayout);
+                tax = totalPaid - pot;
+                if (tax > 0) {
+                    addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+                }
             }
 
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -2584,13 +2753,17 @@
             // Deduct bid from bidder
             await db.ref(`games/${gameState.roomCode}/players/${bidderId}/chips`).set(bidder.chips - bid);
 
-            // Calculate pot with santa tax
-            // Calculate pot and tax (winner gets max configured payout)
+            // Calculate pot and tax (only apply if bid meets threshold)
+            const taxThreshold = gameState.settings?.taxThreshold || GAME_CONFIG.taxThreshold;
             const maxPayout = gameState.settings?.maxWinnerPayout || GAME_CONFIG.maxWinnerPayout;
-            let pot = Math.min(bid, maxPayout);
-            const tax = bid - pot;
-            if (tax > 0) {
-                addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+            let pot = bid;
+            let tax = 0;
+            if (bid >= taxThreshold) {
+                pot = Math.min(bid, maxPayout);
+                tax = bid - pot;
+                if (tax > 0) {
+                    addEvent(`Santa Tax: ${tax} chip${tax > 1 ? 's' : ''} to the Bank`, 'bid');
+                }
             }
             
             await db.ref(`games/${gameState.roomCode}/currentTurn`).set({
@@ -2706,6 +2879,307 @@
             
             addEvent(`Removed ${botIds.length} bots`, 'gift');
         }
+
+        // ==================== ADMIN PANEL FUNCTIONS ====================
+        
+        function toggleAdminPanel() {
+            const content = document.getElementById('admin-content');
+            const icon = document.getElementById('admin-toggle-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▲';
+                updateAdminDropdowns();
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+        
+        function updateAdminDropdowns() {
+            // Update player dropdown
+            const playerSelect = document.getElementById('admin-player-select');
+            playerSelect.innerHTML = '<option value="">Select player...</option>';
+            Object.entries(gameState.players || {}).forEach(([id, player]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = `${player.name} (🪙${player.chips})`;
+                playerSelect.appendChild(option);
+            });
+            
+            // Update gift dropdown
+            const giftSelect = document.getElementById('admin-gift-select');
+            giftSelect.innerHTML = '<option value="">Select gift...</option>';
+            Object.entries(gameState.gifts || {}).forEach(([id, gift]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                const owner = gift.ownerId ? gameState.players[gift.ownerId]?.name : 'Misfit';
+                option.textContent = `${gift.name} (${owner}, 😈${gift.naughtyLevel || 0})`;
+                giftSelect.appendChild(option);
+            });
+            
+            // Update owner dropdown in gift edit
+            const ownerSelect = document.getElementById('admin-gift-owner');
+            ownerSelect.innerHTML = '<option value="">No owner (Misfit)</option>';
+            Object.entries(gameState.players || {}).forEach(([id, player]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = player.name;
+                ownerSelect.appendChild(option);
+            });
+        }
+        
+        function adminLoadPlayer() {
+            const playerId = document.getElementById('admin-player-select').value;
+            const controls = document.getElementById('admin-player-controls');
+            
+            if (!playerId) {
+                controls.style.display = 'none';
+                return;
+            }
+            
+            const player = gameState.players[playerId];
+            if (!player) return;
+            
+            document.getElementById('admin-player-chips').value = player.chips;
+            controls.style.display = 'block';
+        }
+        
+        async function adminSavePlayer() {
+            const playerId = document.getElementById('admin-player-select').value;
+            if (!playerId) return;
+            
+            const newChips = parseInt(document.getElementById('admin-player-chips').value) || 0;
+            const player = gameState.players[playerId];
+            
+            await db.ref(`games/${gameState.roomCode}/players/${playerId}/chips`).set(newChips);
+            addEvent(`⚙️ Admin: Set ${player.name}'s chips to ${newChips}`, 'gift');
+            updateAdminDropdowns();
+        }
+        
+        async function adminToggleInBag() {
+            const playerId = document.getElementById('admin-player-select').value;
+            if (!playerId) return;
+            
+            const player = gameState.players[playerId];
+            const bag = gameState.bag || [];
+            const isInBag = bag.includes(playerId);
+            
+            let newBag;
+            if (isInBag) {
+                newBag = bag.filter(id => id !== playerId);
+                addEvent(`⚙️ Admin: Removed ${player.name} from bag`, 'gift');
+            } else {
+                newBag = [...bag, playerId];
+                addEvent(`⚙️ Admin: Added ${player.name} to bag`, 'gift');
+            }
+            
+            await db.ref(`games/${gameState.roomCode}/bag`).set(newBag);
+        }
+        
+        async function adminRemovePlayerGift() {
+            const playerId = document.getElementById('admin-player-select').value;
+            if (!playerId) return;
+            
+            const player = gameState.players[playerId];
+            if (!player.giftId) {
+                alert('Player has no gift');
+                return;
+            }
+            
+            // Remove gift association
+            await db.ref(`games/${gameState.roomCode}/players/${playerId}/giftId`).set(null);
+            await db.ref(`games/${gameState.roomCode}/gifts/${player.giftId}/ownerId`).set(null);
+            await db.ref(`games/${gameState.roomCode}/gifts/${player.giftId}/isMisfit`).set(true);
+            
+            addEvent(`⚙️ Admin: Moved ${player.name}'s gift to Misfit pile`, 'gift');
+            updateAdminDropdowns();
+        }
+        
+        function adminLoadGift() {
+            const giftId = document.getElementById('admin-gift-select').value;
+            const controls = document.getElementById('admin-gift-controls');
+            
+            if (!giftId) {
+                controls.style.display = 'none';
+                return;
+            }
+            
+            const gift = gameState.gifts[giftId];
+            if (!gift) return;
+            
+            document.getElementById('admin-gift-name').value = gift.name;
+            document.getElementById('admin-gift-naughty').value = gift.naughtyLevel || 0;
+            document.getElementById('admin-gift-owner').value = gift.ownerId || '';
+            controls.style.display = 'block';
+        }
+        
+        async function adminSaveGift() {
+            const giftId = document.getElementById('admin-gift-select').value;
+            if (!giftId) return;
+            
+            const gift = gameState.gifts[giftId];
+            const newName = document.getElementById('admin-gift-name').value || gift.name;
+            const newNaughty = parseInt(document.getElementById('admin-gift-naughty').value) || 0;
+            const newOwnerId = document.getElementById('admin-gift-owner').value || null;
+            
+            // If owner changed, need to update both old and new owner
+            const oldOwnerId = gift.ownerId;
+            
+            const updates = {};
+            updates[`gifts/${giftId}/name`] = newName;
+            updates[`gifts/${giftId}/naughtyLevel`] = newNaughty;
+            updates[`gifts/${giftId}/ownerId`] = newOwnerId;
+            updates[`gifts/${giftId}/isMisfit`] = !newOwnerId;
+            
+            // Clear old owner's giftId if different
+            if (oldOwnerId && oldOwnerId !== newOwnerId) {
+                updates[`players/${oldOwnerId}/giftId`] = null;
+            }
+            
+            // Set new owner's giftId
+            if (newOwnerId) {
+                // First, remove any existing gift from new owner
+                const newOwner = gameState.players[newOwnerId];
+                if (newOwner?.giftId && newOwner.giftId !== giftId) {
+                    updates[`gifts/${newOwner.giftId}/ownerId`] = null;
+                    updates[`gifts/${newOwner.giftId}/isMisfit`] = true;
+                }
+                updates[`players/${newOwnerId}/giftId`] = giftId;
+            }
+            
+            await db.ref(`games/${gameState.roomCode}`).update(updates);
+            addEvent(`⚙️ Admin: Updated "${newName}" (😈${newNaughty})`, 'gift');
+            updateAdminDropdowns();
+        }
+        
+        async function adminMoveToMisfit() {
+            const giftId = document.getElementById('admin-gift-select').value;
+            if (!giftId) return;
+            
+            const gift = gameState.gifts[giftId];
+            
+            const updates = {};
+            updates[`gifts/${giftId}/ownerId`] = null;
+            updates[`gifts/${giftId}/isMisfit`] = true;
+            
+            if (gift.ownerId) {
+                updates[`players/${gift.ownerId}/giftId`] = null;
+            }
+            
+            await db.ref(`games/${gameState.roomCode}`).update(updates);
+            addEvent(`⚙️ Admin: Moved "${gift.name}" to Misfit pile`, 'gift');
+            updateAdminDropdowns();
+        }
+        
+        async function adminDeleteGift() {
+            const giftId = document.getElementById('admin-gift-select').value;
+            if (!giftId) return;
+            
+            const gift = gameState.gifts[giftId];
+            if (!confirm(`Delete "${gift.name}"? This cannot be undone.`)) return;
+            
+            // Clear owner's giftId if exists
+            if (gift.ownerId) {
+                await db.ref(`games/${gameState.roomCode}/players/${gift.ownerId}/giftId`).set(null);
+            }
+            
+            await db.ref(`games/${gameState.roomCode}/gifts/${giftId}`).remove();
+            addEvent(`⚙️ Admin: Deleted "${gift.name}"`, 'gift');
+            updateAdminDropdowns();
+            document.getElementById('admin-gift-controls').style.display = 'none';
+        }
+        
+        async function adminAddGift() {
+            const name = document.getElementById('admin-new-gift-name').value.trim();
+            if (!name) {
+                alert('Please enter a gift name');
+                return;
+            }
+            
+            const giftId = 'gift_' + Date.now();
+            await db.ref(`games/${gameState.roomCode}/gifts/${giftId}`).set({
+                name: name,
+                naughtyLevel: 0,
+                ownerId: null,
+                isMisfit: true
+            });
+            
+            document.getElementById('admin-new-gift-name').value = '';
+            addEvent(`⚙️ Admin: Added "${name}" to Misfit pile`, 'gift');
+            updateAdminDropdowns();
+        }
+        
+        async function adminSkipPhase() {
+            if (!confirm('Skip current phase? This may cause unexpected state.')) return;
+            
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+            addEvent(`⚙️ Admin: Skipped phase`, 'gift');
+        }
+        
+        async function adminResetTurn() {
+            if (!confirm('Reset current turn? All pending actions will be cleared.')) return;
+            
+            // Clear all bids
+            const bidUpdates = {};
+            Object.keys(gameState.players || {}).forEach(id => {
+                bidUpdates[`players/${id}/currentBid`] = null;
+            });
+            
+            await db.ref(`games/${gameState.roomCode}`).update({
+                currentTurn: null,
+                ...bidUpdates
+            });
+            
+            addEvent(`⚙️ Admin: Reset turn`, 'gift');
+        }
+        
+        // Simple undo - stores last state change
+        let lastStateSnapshot = null;
+        
+        function captureStateSnapshot() {
+            lastStateSnapshot = {
+                players: JSON.parse(JSON.stringify(gameState.players || {})),
+                gifts: JSON.parse(JSON.stringify(gameState.gifts || {})),
+                bag: [...(gameState.bag || [])],
+                timestamp: Date.now()
+            };
+        }
+        
+        async function adminUndoLast() {
+            if (!lastStateSnapshot) {
+                alert('No state to undo. Undo captures state after major actions.');
+                return;
+            }
+            
+            const age = (Date.now() - lastStateSnapshot.timestamp) / 1000;
+            if (!confirm(`Restore state from ${Math.round(age)} seconds ago?`)) return;
+            
+            // Restore players
+            for (const [id, player] of Object.entries(lastStateSnapshot.players)) {
+                await db.ref(`games/${gameState.roomCode}/players/${id}`).set(player);
+            }
+            
+            // Restore gifts
+            for (const [id, gift] of Object.entries(lastStateSnapshot.gifts)) {
+                await db.ref(`games/${gameState.roomCode}/gifts/${id}`).set(gift);
+            }
+            
+            // Restore bag
+            await db.ref(`games/${gameState.roomCode}/bag`).set(lastStateSnapshot.bag);
+            
+            addEvent(`⚙️ Admin: Restored previous state`, 'gift');
+            lastStateSnapshot = null;
+            updateAdminDropdowns();
+        }
+        
+        // Capture state before major actions
+        const originalRecordDuelWinner = recordDuelWinner;
+        recordDuelWinner = async function(...args) {
+            captureStateSnapshot();
+            return originalRecordDuelWinner.apply(this, args);
+        };
+
+        // ==================== END ADMIN PANEL ====================
 
         // Calculate bot bid based on strategy
         function calculateBotBid(player, giftNaughtyLevel = 0) {

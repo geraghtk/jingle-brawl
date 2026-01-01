@@ -968,6 +968,13 @@
             // Settings
             db.ref(`games/${roomCode}/settings`).on('value', (snapshot) => {
                 gameState.settings = snapshot.val() || {};
+                // Apply settings to GAME_CONFIG for cost calculations
+                if (gameState.settings.baseCost !== undefined) {
+                    GAME_CONFIG.baseCost = gameState.settings.baseCost;
+                }
+                if (gameState.settings.maxBid !== undefined) {
+                    GAME_CONFIG.maxBid = gameState.settings.maxBid;
+                }
             });
 
             // Current turn

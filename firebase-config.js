@@ -19,17 +19,28 @@ const GAME_CONFIG = {
     // Starting chips per player (auto-calculated based on player count)
     getStartingChips: (playerCount) => playerCount <= 10 ? 10 : 12,
     
-    // Minimum cost formula
-    getMinCost: (naughtyLevel) => 1 + naughtyLevel,
+    // Base challenge cost (for Gambits, Reprisals, Endgame steals)
+    baseCost: 1,
     
-    // Santa tax threshold
-    santaTaxThreshold: 3,
+    // Minimum cost formula (uses baseCost setting)
+    getMinCost: function(naughtyLevel) { 
+        return (this.baseCost || 1) + naughtyLevel; 
+    },
+    
+    // Max chips winner receives from pot (rest goes to bank as Santa Tax)
+    maxWinnerPayout: 2,
+    
+    // Santa Tax kicks in at this pot size
+    taxThreshold: 2,
     
     // Loser dividend amount
     loserDividend: 1,
     
-    // Max reprisal chain depth
-    maxReprisalDepth: 2,
+    // Who gets loser dividend: 'everyone', 'defenders', 'nobody'
+    loserDividendRule: 'defenders',
+    
+    // Max reprisal chain depth (0=none, 1=single, 2=can chain once)
+    maxReprisalDepth: 1,
     
     // Maximum bid amount
     maxBid: 4
