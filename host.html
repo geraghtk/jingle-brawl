@@ -1107,12 +1107,14 @@
                 gameState.players = snapshot.val() || {};
                 renderPlayers();
                 updateControls();
+                updateAdminDropdowns(); // Keep admin panel in sync
             });
 
             // Gifts
             db.ref(`games/${roomCode}/gifts`).on('value', (snapshot) => {
                 gameState.gifts = snapshot.val() || {};
                 renderGifts();
+                updateAdminDropdowns(); // Keep admin panel in sync
             });
 
             // Current turn
@@ -2896,8 +2898,11 @@
         }
         
         function updateAdminDropdowns() {
-            // Update player dropdown
+            // Safety check - don't run if DOM elements don't exist yet
             const playerSelect = document.getElementById('admin-player-select');
+            if (!playerSelect) return;
+            
+            // Update player dropdown
             playerSelect.innerHTML = '<option value="">Select player...</option>';
             Object.entries(gameState.players || {}).forEach(([id, player]) => {
                 const option = document.createElement('option');
