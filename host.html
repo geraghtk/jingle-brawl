@@ -3930,6 +3930,65 @@
             }
         }
 
+        // Have all bots vote on duel winner
+        async function botVoteAll() {
+            const turn = gameState.currentTurn;
+            if (!turn || turn.phase !== 'duel' || turn.isTiebreak) {
+                return; // Only vote on regular duels, not tiebreakers
+            }
+
+            const bots = Object.entries(gameState.players).filter(([id, p]) => 
+                (id.startsWith('bot_') || p.isBot) && 
+                id !== turn.challengerId && 
+                id !== turn.defenderId // Don't vote if you're in the duel
+            );
+
+            const challenger = gameState.players[turn.challengerId];
+            const defender = gameState.players[turn.defenderId];
+            
+            for (const [botId, bot] of bots) {
+                // Check if bot already voted
+                if (turn.duelVotes && turn.duelVotes[botId]) continue;
+                
+                // Bot voting strategy: Use duel records to make informed decision
+                // If players have duel records, use them; otherwise random
+                const challengerWins = challenger?.duelWins || 0;
+                const challengerLosses = challenger?.duelLosses || 0;
+                const challengerTotal = challengerWins + challengerLosses;
+                const challengerRatio = challengerTotal > 0 ? challengerWins / challengerTotal : 0.5;
+                
+                const defenderWins = defender?.duelWins || 0;
+                const defenderLosses = defender?.duelLosses || 0;
+                const defenderTotal = defenderWins + defenderLosses;
+                const defenderRatio = defenderTotal > 0 ? defenderWins / defenderTotal : 0.5;
+                
+                // Calculate probability based on win ratios, with some randomness
+                // If one player has significantly better record, vote for them more often
+                let voteProbability = 0.5; // Default 50/50
+                if (challengerTotal > 0 || defenderTotal > 0) {
+                    // Weighted probability based on win ratios
+                    const totalRatio = challengerRatio + defenderRatio;
+                    if (totalRatio > 0) {
+                        voteProbability = challengerRatio / totalRatio;
+                    }
+                }
+                
+                // Add some randomness (bots aren't perfect predictors)
+                const adjustedProbability = voteProbability * 0.7 + 0.15; // Scale between 15% and 85%
+                const votedForId = Math.random() < adjustedProbability ? turn.challengerId : turn.defenderId;
+                
+                const vote = {
+                    playerId: botId,
+                    votedFor: votedForId,
+                    timestamp: Date.now()
+                };
+                
+                await db.ref(`games/${gameState.roomCode}/currentTurn/duelVotes/${botId}`).set(vote);
+                const votedForName = gameState.players[votedForId]?.name;
+                addEvent(`🤖 ${bot.name} voted for ${votedForName}`, 'bid');
+            }
+        }
+
         // Run auto-pilot mode
         async function runBotAutoPilot() {
             if (autoPilotRunning) {
@@ -4129,15 +4188,21 @@
                     // Start the pending duel
                     await startDuel(turn.challengerId, turn.defenderId || turn.openerId);
                 } else if (turn.phase === 'duel') {
-                    // Resolve duel randomly
-                    // Check if this is a tiebreaker duel
-                    if (turn.isTiebreak) {
+                    // Have bots vote first (if they haven't already)
+                    if (!turn.isTiebreak) {
+                        await botVoteAll();
+                        // Wait a moment for votes to be recorded, then resolve
+                        autoPilotInterval = setTimeout(async () => {
+                            // Resolve duel randomly
+                            const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                            await recordDuelWinner(winnerId);
+                            runAutoPilotStep();
+                        }, 500);
+                        return;
+                    } else {
+                        // Tiebreaker - no voting, just resolve
                         const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                         await recordTiebreakerWinner(winnerId);
-                    } else {
-                        // Regular duel
-                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
-                        await recordDuelWinner(winnerId);
                     }
                 } else if (turn.phase === 'reprisal') {
                     // Bot decides to use or skip reprisal
@@ -4232,13 +4297,21 @@
                         return;
                     }
                 } else if (turn.phase === 'duel') {
-                    // Check if this is a tiebreaker
-                    if (turn.isTiebreak) {
+                    // Have bots vote first (if they haven't already)
+                    if (!turn.isTiebreak) {
+                        await botVoteAll();
+                        // Wait a moment for votes to be recorded, then resolve
+                        autoPilotInterval = setTimeout(async () => {
+                            // Resolve duel randomly
+                            const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                            await recordDuelWinner(winnerId);
+                            runAutoPilotStep();
+                        }, 500);
+                        return;
+                    } else {
+                        // Tiebreaker - no voting, just resolve
                         const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                         await recordTiebreakerWinner(winnerId);
-                    } else {
-                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
-                        await recordDuelWinner(winnerId);
                     }
                 }
             }
