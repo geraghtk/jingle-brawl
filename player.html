@@ -779,6 +779,8 @@
 
         let currentBid = 0;
         let bidSubmitted = false;
+        let lastTurnId = null; // Track last processed turn to avoid unnecessary UI resets
+        let lastPhase = null; // Track last phase to detect phase changes
 
         // Check for existing session or URL room code
         window.addEventListener('load', async () => {
@@ -945,11 +947,39 @@
             db.ref(`games/${roomCode}/players/${playerState.playerId}`).on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
+                    const chipsChanged = playerState.chips !== data.chips;
                     playerState.chips = data.chips;
                     playerState.giftId = data.giftId;
                     document.getElementById('chip-display').textContent = data.chips;
                     updateMyGiftDisplay();
-                    updateBidSliderMax();
+                    
+                    // Only update slider max if chips changed and we're in bidding phase
+                    // Preserve the slider value if player is adjusting their bid
+                    if (chipsChanged) {
+                        const turn = gameState.currentTurn;
+                        const stillInBiddingPhase = turn?.phase === 'bidding';
+                        const slider = document.getElementById('bid-slider');
+                        
+                        if (stillInBiddingPhase && slider && !bidSubmitted) {
+                            // Preserve current slider value while updating max
+                            const preservedValue = parseInt(slider.value);
+                            updateBidSliderMax();
+                            // Restore preserved value if it's still valid
+                            const maxBid = Math.min(playerState.chips, GAME_CONFIG.maxBid);
+                            if (preservedValue <= maxBid && preservedValue >= 0) {
+                                slider.value = preservedValue;
+                                currentBid = preservedValue;
+                                document.getElementById('bid-amount-display').textContent = preservedValue;
+                            } else {
+                                // Value is now invalid (chips decreased), clamp it
+                                currentBid = Math.min(preservedValue, maxBid);
+                                slider.value = currentBid;
+                                document.getElementById('bid-amount-display').textContent = currentBid;
+                            }
+                        } else {
+                            updateBidSliderMax();
+                        }
+                    }
                 }
             });
 
@@ -1006,26 +1036,59 @@
             const bidPanel = document.getElementById('bid-panel');
             const actionCard = document.getElementById('action-card');
 
+            // Create a unique turn identifier to detect actual turn changes
+            // Use openerId + giftId + phase to identify the same turn
+            const currentTurnId = turn ? `${turn.openerId}_${turn.giftId}_${turn.phase}` : 'none';
+            const currentPhase = turn?.phase || null;
+            const turnChanged = currentTurnId !== lastTurnId;
+            const phaseChanged = currentPhase !== lastPhase;
+            
             // Check if player has already submitted a bid for this turn
             const myExistingBid = turn?.bids?.[playerState.playerId];
             const stillInBiddingPhase = turn?.phase === 'bidding';
+            const wasInBiddingPhase = lastTurnId && lastTurnId.includes('_bidding');
             
-            // Reset states (but preserve bid if already submitted in bidding phase)
-            bidPanel.classList.add('hidden');
-            actionCard.classList.add('hidden');
-            statusCard.classList.remove('active', 'your-turn');
-            
-            // Only reset bid status if we're NOT in an active bidding phase with a submitted bid
-            if (!stillInBiddingPhase || !myExistingBid) {
-                bidSubmitted = false;
-                document.getElementById('bid-status').classList.add('hidden');
-                document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
-                document.getElementById('submit-bid-btn').disabled = false;
-            } else if (myExistingBid) {
-                // Player has already bid - show their locked bid
-                bidSubmitted = true;
-                currentBid = myExistingBid.amount;
+            // Only reset UI states if this is a new turn or phase change
+            // Don't reset if we're still in the same bidding phase (just bid updates)
+            if (turnChanged || phaseChanged) {
+                // Reset states when turn/phase actually changes
+                bidPanel.classList.add('hidden');
+                actionCard.classList.add('hidden');
+                statusCard.classList.remove('active', 'your-turn');
+                
+                // Only reset bid status if we're NOT in an active bidding phase with a submitted bid
+                if (!stillInBiddingPhase || !myExistingBid) {
+                    bidSubmitted = false;
+                    document.getElementById('bid-status').classList.add('hidden');
+                    document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
+                    document.getElementById('submit-bid-btn').disabled = false;
+                } else if (myExistingBid) {
+                    // Player has already bid - show their locked bid
+                    bidSubmitted = true;
+                    currentBid = myExistingBid.amount;
+                }
+            } else {
+                // Same turn, same phase - this is likely just a bid update from another player
+                // Preserve the UI state and slider value - don't reset panels
+                if (stillInBiddingPhase && !bidSubmitted) {
+                    // Player hasn't submitted yet - preserve their slider value
+                    const slider = document.getElementById('bid-slider');
+                    if (slider && bidPanel && !bidPanel.classList.contains('hidden')) {
+                        // Panel is visible, preserve slider value
+                        const savedBidValue = parseInt(slider.value);
+                        if (!isNaN(savedBidValue)) {
+                            currentBid = savedBidValue;
+                            document.getElementById('bid-amount-display').textContent = currentBid;
+                        }
+                    }
+                }
+                // Continue processing to ensure UI is correct, but skip the panel hide/show logic
+                // The switch statement below will handle showing the correct UI
             }
+            
+            // Update last turn ID and phase after processing
+            lastTurnId = currentTurnId;
+            lastPhase = currentPhase;
 
             if (!turn) {
                 // No active turn - show game state
@@ -1130,25 +1193,36 @@
                         vibrate();
                     } else {
                         // Show bid panel with enhanced guidance
-                        statusCard.classList.add('hidden');
-                        bidPanel.classList.remove('hidden');
-                        const gift = gameState.gifts[turn.giftId];
-                        const opener = gameState.players[turn.openerId];
-                        document.getElementById('bid-gift-name').textContent = gift?.name || 'Mystery Gift';
-                        document.getElementById('bid-opener-info').innerHTML = `
-                            Opened by <strong>${opener?.name || 'Player'}</strong>
-                        `;
-                        document.getElementById('bid-help-text').innerHTML = `
-                            <div class="help-title">💡 Bidding Guide</div>
-                            <div class="help-content">
-                                <strong>Bid 0 (Pass):</strong> Don't challenge for this gift.<br>
-                                <strong>Bid chips:</strong> Highest bidder fights the opener!<br>
-                                <strong>If you win:</strong> You get the gift + keep remaining pot.<br>
-                                <strong>If you lose:</strong> You get +1 chip back (Loser's Dividend).
-                                <div class="rule-chip">🎯 Winner takes pot minus Santa Tax</div>
-                                <div class="rule-chip">💰 Santa Tax = 1 chip if pot ≥ 3</div>
-                            </div>
-                        `;
+                        // Only update panel visibility if turn actually changed
+                        if (turnChanged || phaseChanged) {
+                            statusCard.classList.add('hidden');
+                            bidPanel.classList.remove('hidden');
+                            
+                            const gift = gameState.gifts[turn.giftId];
+                            const opener = gameState.players[turn.openerId];
+                            document.getElementById('bid-gift-name').textContent = gift?.name || 'Mystery Gift';
+                            document.getElementById('bid-opener-info').innerHTML = `
+                                Opened by <strong>${opener?.name || 'Player'}</strong>
+                            `;
+                            document.getElementById('bid-help-text').innerHTML = `
+                                <div class="help-title">💡 Bidding Guide</div>
+                                <div class="help-content">
+                                    <strong>Bid 0 (Pass):</strong> Don't challenge for this gift.<br>
+                                    <strong>Bid chips:</strong> Highest bidder fights the opener!<br>
+                                    <strong>If you win:</strong> You get the gift + keep remaining pot.<br>
+                                    <strong>If you lose:</strong> You get +1 chip back (Loser's Dividend).
+                                    <div class="rule-chip">🎯 Winner takes pot minus Santa Tax</div>
+                                    <div class="rule-chip">💰 Santa Tax = 1 chip if pot ≥ 3</div>
+                                </div>
+                            `;
+                        } else {
+                            // Same turn - ensure panel is visible (it should already be, but just in case)
+                            if (bidPanel.classList.contains('hidden')) {
+                                statusCard.classList.add('hidden');
+                                bidPanel.classList.remove('hidden');
+                            }
+                        }
+                        
                         updateBidSliderMax();
                         
                         // Check if player already has a bid locked in
@@ -1177,7 +1251,27 @@
                             document.getElementById('submit-bid-btn').textContent = '✅ Bid Submitted';
                             document.getElementById('submit-bid-btn').disabled = true;
                         } else {
-                            setBid(0);
+                            // Only reset to 0 if this is a new turn (not just a bid update)
+                            // Preserve the current slider value if player is still adjusting
+                            if (turnChanged || phaseChanged) {
+                                setBid(0);
+                            } else {
+                                // Same turn, same phase - preserve current bid value
+                                // This handles the case where another player submits a bid
+                                const slider = document.getElementById('bid-slider');
+                                if (slider && !bidPanel.classList.contains('hidden')) {
+                                    // Panel is visible, preserve slider value
+                                    const preservedBid = parseInt(slider.value);
+                                    if (!isNaN(preservedBid)) {
+                                        currentBid = preservedBid;
+                                        document.getElementById('bid-amount-display').textContent = currentBid;
+                                        updateBidDisplay();
+                                    }
+                                } else {
+                                    // Panel was hidden somehow, initialize with 0
+                                    setBid(0);
+                                }
+                            }
                         }
                     }
                     break;
