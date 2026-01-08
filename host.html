@@ -679,6 +679,29 @@
                     </div>
                 </div>
 
+                <!-- Player Duel Performance (for betting info) -->
+                <div class="card">
+                    <div class="card-title">⚔️ Player Duel Records</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); padding: 0.5rem 1rem; text-align: center;">
+                        Use this info when voting on duel winners
+                    </div>
+                    <div id="player-performance-container" style="padding: 1rem;">
+                        <div style="color: var(--text-muted); text-align: center; padding: 1rem;">
+                            No duels yet
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Betting/Voting Rankings -->
+                <div class="card">
+                    <div class="card-title">🏆 Betting Leaderboard</div>
+                    <div id="voting-leaderboard-container" style="padding: 1rem;">
+                        <div style="color: var(--text-muted); text-align: center; padding: 1rem;">
+                            No votes yet
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Gifts -->
                 <div class="card">
                     <div class="card-title">🎁 Gifts</div>
@@ -1129,6 +1152,14 @@
                 gameState.phase = snapshot.val() || 'lobby';
                 updateControls();
             });
+            
+            // Minigame phase changes (for word guess result)
+            db.ref(`games/${roomCode}/minigame/phase`).on('value', (snapshot) => {
+                const phase = snapshot.val();
+                if (phase === 'word_guess_result') {
+                    handleWordGuessResult();
+                }
+            });
         }
 
         // Render players
@@ -1167,6 +1198,8 @@
 
             // Update stats
             updateStats();
+            updatePlayerPerformance();
+            updateVotingStats();
         }
 
         // Update game stats
@@ -1183,6 +1216,163 @@
             document.getElementById('stat-opened').textContent = openedGifts;
             document.getElementById('stat-in-bag').textContent = playersInBag;
             document.getElementById('stat-misfit').textContent = misfitGifts;
+        }
+
+        // Update player duel performance (actual wins/losses as participant)
+        function updatePlayerPerformance() {
+            const players = Object.entries(gameState.players);
+            const container = document.getElementById('player-performance-container');
+            
+            if (!container) return;
+            
+            // Calculate duel performance for each player
+            const playerStats = players.map(([id, player]) => {
+                const wins = player.duelWins || 0;
+                const losses = player.duelLosses || 0;
+                const total = wins + losses;
+                const ratio = total > 0 ? (wins / total * 100) : 0;
+                
+                return {
+                    id,
+                    name: player.name,
+                    wins,
+                    losses,
+                    total,
+                    ratio: parseFloat(ratio.toFixed(1))
+                };
+            }).filter(p => p.total > 0); // Only show players who have participated in duels
+            
+            if (playerStats.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 1rem;">No duels yet</div>';
+                return;
+            }
+            
+            // Sort by win ratio (descending), then by total duels (more reliable)
+            playerStats.sort((a, b) => {
+                if (Math.abs(b.ratio - a.ratio) > 0.1) {
+                    return b.ratio - a.ratio;
+                }
+                return b.total - a.total;
+            });
+            
+            // Render performance table
+            container.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="text-align: left; padding: 0.5rem;">Player</th>
+                            <th style="text-align: center; padding: 0.5rem;">Wins</th>
+                            <th style="text-align: center; padding: 0.5rem;">Losses</th>
+                            <th style="text-align: center; padding: 0.5rem;">Total</th>
+                            <th style="text-align: center; padding: 0.5rem;">Win %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${playerStats.map(stat => {
+                            const ratioColor = stat.ratio >= 70 ? 'var(--accent-green)' : stat.ratio >= 50 ? 'var(--accent-gold)' : stat.ratio >= 30 ? 'var(--text-secondary)' : 'var(--accent-red)';
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 0.5rem;">${stat.name}</td>
+                                    <td style="text-align: center; padding: 0.5rem; color: var(--accent-green);">${stat.wins}</td>
+                                    <td style="text-align: center; padding: 0.5rem; color: var(--accent-red);">${stat.losses}</td>
+                                    <td style="text-align: center; padding: 0.5rem;">${stat.total}</td>
+                                    <td style="text-align: center; padding: 0.5rem; color: ${ratioColor}; font-weight: 600;">${stat.ratio}%</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Update betting/voting stats display (only for betting performance)
+        function updateVotingStats() {
+            const players = Object.entries(gameState.players);
+            const leaderboardContainer = document.getElementById('voting-leaderboard-container');
+            
+            if (!leaderboardContainer) return;
+            
+            // Calculate stats for each player
+            const playerStats = players.map(([id, player]) => {
+                const wins = player.votingWins || 0;
+                const losses = player.votingLosses || 0;
+                const total = wins + losses;
+                const ratio = total > 0 ? (wins / total * 100) : 0;
+                const score = wins - losses; // Raw score
+                
+                // Weighted score: balances win percentage with participation
+                // Formula: (win_percentage * participation_bonus) + raw_score_bonus
+                // Participation bonus uses logarithmic scaling to reward more votes without over-penalizing fewer votes
+                // Raw score bonus gives slight edge to players with more total correct votes
+                const participationBonus = total > 0 ? Math.log(total + 1) / Math.log(10) : 0; // log base 10, so 1 vote = 0.3, 10 votes = 1.04, 100 votes = 2.0
+                const weightedScore = (ratio * participationBonus) + (score * 0.1); // Win% weighted by participation, plus small score bonus
+                
+                return {
+                    id,
+                    name: player.name,
+                    wins,
+                    losses,
+                    total,
+                    ratio: parseFloat(ratio.toFixed(1)),
+                    score,
+                    weightedScore: parseFloat(weightedScore.toFixed(2))
+                };
+            }).filter(p => p.total > 0); // Only show players who have voted
+            
+            if (playerStats.length === 0) {
+                leaderboardContainer.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 1rem;">No votes yet</div>';
+                return;
+            }
+            
+            // Sort by weighted score (primary), then by win ratio (secondary), then by total votes (tertiary)
+            // This ensures players with high win rates are ranked higher, but those with more votes get a slight boost
+            playerStats.sort((a, b) => {
+                if (Math.abs(b.weightedScore - a.weightedScore) > 0.01) {
+                    return b.weightedScore - a.weightedScore;
+                }
+                // If weighted scores are very close, use win ratio
+                if (Math.abs(b.ratio - a.ratio) > 0.1) {
+                    return b.ratio - a.ratio;
+                }
+                // If win ratios are very close, prefer more total votes (more reliable)
+                return b.total - a.total;
+            });
+            
+            // Render leaderboard
+            leaderboardContainer.innerHTML = `
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem; text-align: center;">
+                    🎁 Best voter gets a mystery prize & Head Elf hat! 🎅<br>
+                    <small style="font-size: 0.75rem; color: var(--text-muted);">Ranked by weighted score (win % × participation)</small>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border);">
+                            <th style="text-align: center; padding: 0.5rem; width: 3rem;">Rank</th>
+                            <th style="text-align: left; padding: 0.5rem;">Player</th>
+                            <th style="text-align: center; padding: 0.5rem;">Win %</th>
+                            <th style="text-align: center; padding: 0.5rem;">Record</th>
+                            <th style="text-align: center; padding: 0.5rem;">Votes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${playerStats.map((stat, index) => {
+                            const rank = index + 1;
+                            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+                            const ratioColor = stat.ratio >= 70 ? 'var(--accent-green)' : stat.ratio >= 50 ? 'var(--accent-gold)' : stat.ratio >= 30 ? 'var(--text-secondary)' : 'var(--accent-red)';
+                            
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border); ${rank === 1 ? 'background: var(--bg-card-hover); font-weight: 600;' : ''}">
+                                    <td style="text-align: center; padding: 0.5rem; font-size: 1.1rem;">${medal}</td>
+                                    <td style="padding: 0.5rem;">${stat.name}${rank === 1 ? ' 👑' : ''}</td>
+                                    <td style="text-align: center; padding: 0.5rem; color: ${ratioColor}; font-weight: 600;">${stat.ratio}%</td>
+                                    <td style="text-align: center; padding: 0.5rem;">${stat.wins}-${stat.losses}</td>
+                                    <td style="text-align: center; padding: 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">${stat.total}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
         }
 
         // Render gifts
@@ -1350,6 +1540,7 @@
                             const openerName = gameState.players[turn.openerId]?.name;
                             
                             if (tiedBidders.length === 2) {
+                                // 2 tied bidders - opener chooses fight (mini-game to pick 1) or yield (direct fight)
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">TIE!</strong> ${c1Name} & ${c2Name} both bid ${highestAmount}.<br>
                                     <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
@@ -1362,8 +1553,8 @@
                                     <details style="margin-top: 0.5rem;">
                                         <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
                                         <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
-                                            <button class="btn btn-primary" onclick="startTiebreaker('${c1Id}', '${c2Id}')">
-                                                ⚔️ Tiebreaker → Winner vs Opener
+                                            <button class="btn btn-primary" onclick="openerChoosesFightForMinigame()">
+                                                ⚔️ Opener Fights → Mini-Game to Pick 1
                                             </button>
                                             <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
                                                 🏃 Opener Yields → ${c1Name} vs ${c2Name}
@@ -1372,14 +1563,28 @@
                                     </details>
                                 `;
                             } else {
-                                // More than 2 tied - need to select 2 first (host does this)
+                                // 3+ tied - opener chooses first, then mini-game if needed
                                 const tiedNames = tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedNames}<br>
-                                    <span style="color: var(--text-muted);">First, randomly select 2 for the tiebreaker.</span>
+                                    <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
                                 `;
                                 actionButtons.innerHTML = `
-                                    <button class="btn btn-gold" onclick="randomTiebreaker()">🎲 Random Select 2 for Tiebreaker</button>
+                                    <div style="text-align: center; color: var(--text-muted); padding: 1rem; background: var(--bg-card-hover); border-radius: 8px; margin-bottom: 0.75rem;">
+                                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">📱 Waiting for Opener...</div>
+                                        <div style="font-size: 0.85rem;">${openerName} is choosing on their device</div>
+                                    </div>
+                                    <details style="margin-top: 0.5rem;">
+                                        <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override</summary>
+                                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                            <button class="btn btn-primary" onclick="openerChoosesFightForMinigame()">
+                                                ⚔️ Opener Fights → Mini-Game to Pick 1
+                                            </button>
+                                            <button class="btn btn-gold" onclick="openerChoosesYieldForMinigame()">
+                                                🏃 Opener Yields → Mini-Game to Pick 2
+                                            </button>
+                                        </div>
+                                    </details>
                                 `;
                             }
                         } else {
@@ -1630,6 +1835,26 @@
                     actionButtons.innerHTML = `
                         <button class="btn btn-gold" onclick="openerYields('${turn.yieldC1}', '${turn.yieldC2}')">🏃 Start Yield Duel!</button>
                     `;
+                    break;
+
+                case 'minigame_counterfeit_canvas':
+                    phaseBadge.textContent = '🎨 MINI-GAME';
+                    phaseBadge.className = 'phase-badge reveal';
+                    
+                    // Get minigame state to show current phase
+                    db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
+                        const minigame = snapshot.val();
+                        if (!minigame) {
+                            currentAction.textContent = 'The Counterfeit Canvas';
+                            actionDetails.innerHTML = 'Loading mini-game...';
+                            return;
+                        }
+                        
+                        updateHostMinigameUI(minigame, turn);
+                    });
+                    
+                    // Initialize host canvas viewer
+                    initHostCanvasViewer();
                     break;
 
                 case 'yield_choice':
@@ -2154,6 +2379,21 @@
 
                 addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
 
+                // Track actual duel performance (when participating as challenger/defender)
+                // Only track for main duels, not tiebreakers
+                if (!turn.isTiebreak) {
+                    // Winner gets a duel win
+                    const winnerDuelWins = (winner.duelWins || 0) + 1;
+                    await db.ref(`games/${gameState.roomCode}/players/${winnerId}/duelWins`).set(winnerDuelWins);
+                    
+                    // Loser gets a duel loss
+                    const loserDuelLosses = (loser.duelLosses || 0) + 1;
+                    await db.ref(`games/${gameState.roomCode}/players/${loserId}/duelLosses`).set(loserDuelLosses);
+                }
+
+                // Process duel votes and update voting stats
+                await processDuelVotes(winnerId, turn);
+
                 // Check for reprisal opportunity
                 // No reprisal for: yield duels, misfit duels, gambit (attacker's risk), or if max depth reached
                 const currentDepth = turn.reprisalDepth || 0;
@@ -2204,6 +2444,38 @@
             } catch (error) {
                 console.error('Error in recordDuelWinner:', error);
                 addEvent(`❌ Error: ${error.message}`, 'duel');
+            }
+        }
+        
+        // Process duel votes and update player voting stats
+        async function processDuelVotes(winnerId, turn) {
+            try {
+                const votes = turn.duelVotes || {};
+                const allPlayerIds = Object.keys(gameState.players);
+                
+                // Process each vote
+                for (const [voterId, vote] of Object.entries(votes)) {
+                    if (!gameState.players[voterId]) continue;
+                    
+                    const player = gameState.players[voterId];
+                    const votedCorrectly = vote.votedFor === winnerId;
+                    
+                    // Initialize voting stats if they don't exist
+                    const votingWins = (player.votingWins || 0) + (votedCorrectly ? 1 : 0);
+                    const votingLosses = (player.votingLosses || 0) + (votedCorrectly ? 0 : 1);
+                    
+                    // Update player stats
+                    await db.ref(`games/${gameState.roomCode}/players/${voterId}`).update({
+                        votingWins: votingWins,
+                        votingLosses: votingLosses
+                    });
+                    
+                    if (votedCorrectly) {
+                        addEvent(`✅ ${player.name} correctly predicted the winner!`, 'bid');
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing duel votes:', error);
             }
         }
         
@@ -2374,9 +2646,69 @@
             addEvent(`😈 ${opener.name} uses Grinch's Gambit on "${targetGift.name}"!`, 'duel');
         }
 
+        // Opener chooses to fight when there are 2+ tied bidders - triggers mini-game
+        async function openerChoosesFightForMinigame() {
+            const turn = gameState.currentTurn;
+            const bids = Object.entries(turn.bids || {})
+                .filter(([,b]) => b.amount > 0)
+                .sort(([,a], [,b]) => b.amount - a.amount);
+            const highestAmount = bids[0][1].amount;
+            const tiedBidders = bids.filter(([,b]) => b.amount === highestAmount);
+            
+            if (tiedBidders.length < 2) {
+                addEvent('❌ Error: Not enough tied bidders', 'bid');
+                return;
+            }
+            
+            // Store that opener chose to fight, and need to pick 1 winner from tied bidders
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                openerChoice: 'fight',
+                minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
+                tiedBidders: tiedBidders.map(([id]) => id)
+            });
+            
+            // Start the mini-game
+            await startCounterfeitCanvasMinigame();
+        }
+
+        // Opener chooses to yield when there are 3+ tied bidders - triggers mini-game
+        async function openerChoosesYieldForMinigame() {
+            const turn = gameState.currentTurn;
+            const bids = Object.entries(turn.bids || {})
+                .filter(([,b]) => b.amount > 0)
+                .sort(([,a], [,b]) => b.amount - a.amount);
+            const highestAmount = bids[0][1].amount;
+            const tiedBidders = bids.filter(([,b]) => b.amount === highestAmount);
+            
+            if (tiedBidders.length < 3) {
+                addEvent('❌ Error: Need 3+ tied bidders for this scenario', 'bid');
+                return;
+            }
+            
+            // Store that opener chose to yield, and need to pick 2 challengers to fight each other
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                openerChoice: 'yield',
+                minigameGoal: 'pick_two', // Need to pick 2 to fight each other
+                tiedBidders: tiedBidders.map(([id]) => id)
+            });
+            
+            // Start the mini-game
+            await startCounterfeitCanvasMinigame();
+        }
+
         // Tiebreaker duel (no pot, winner becomes challenger)
         async function startTiebreaker(player1Id, player2Id) {
             const turn = gameState.currentTurn;
+            
+            // Check if we need mini-game for 3+ tied bidders
+            const tiedBidders = turn.tiedBidders || [];
+            if (tiedBidders.length >= 3) {
+                // Need mini-game to pick 1 winner from tied bidders
+                await openerChoosesFightForMinigame();
+                return;
+            }
+            
+            // For 2 tied bidders, proceed directly with tiebreaker
             
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
                 phase: 'duel',
@@ -2425,37 +2757,389 @@
             }
         }
 
-        // Random selection of 2 from multiple tied bidders
+        // Categories and words for The Counterfeit Canvas
+        const COUNTERFEIT_CANVAS_CATEGORIES = {
+            'Holiday Things': ['Snowman', 'Reindeer', 'Wreath', 'Ornament', 'Stocking', 'Candy Cane', 'Mistletoe', 'Sleigh', 'Gingerbread House', 'Nutcracker'],
+            'Animals': ['Penguin', 'Dolphin', 'Elephant', 'Giraffe', 'Kangaroo', 'Tiger', 'Panda', 'Octopus', 'Butterfly', 'Owl'],
+            'Food': ['Pizza', 'Burger', 'Taco', 'Ice Cream', 'Cake', 'Cookie', 'Sandwich', 'Sushi', 'Donut', 'Pancake'],
+            'Vehicles': ['Car', 'Boat', 'Plane', 'Train', 'Bicycle', 'Motorcycle', 'Helicopter', 'Truck', 'Bus', 'Submarine'],
+            'Buildings': ['House', 'Castle', 'Bridge', 'Tower', 'Temple', 'Church', 'Skyscraper', 'Barn', 'Lighthouse', 'Windmill']
+        };
+
+        // Start The Counterfeit Canvas mini-game to select challengers from tied bidders
+        async function startCounterfeitCanvasMinigame() {
+            const turn = gameState.currentTurn;
+            const tiedBidders = turn.tiedBidders || [];
+            const minigameGoal = turn.minigameGoal || 'pick_one'; // 'pick_one' or 'pick_two'
+            
+            if (tiedBidders.length < 2) {
+                addEvent('❌ Error: Not enough tied bidders for mini-game', 'bid');
+                return;
+            }
+            
+            // Randomly select category and secret word
+            const categories = Object.keys(COUNTERFEIT_CANVAS_CATEGORIES);
+            const category = categories[Math.floor(Math.random() * categories.length)];
+            const words = COUNTERFEIT_CANVAS_CATEGORIES[category];
+            const secretWord = words[Math.floor(Math.random() * words.length)];
+            
+            // Randomly assign Counterfeit role to one of the tied challengers
+            const counterfeitId = tiedBidders[Math.floor(Math.random() * tiedBidders.length)];
+            
+            // Get all player IDs for turn order (all players participate)
+            const allPlayerIds = Object.keys(gameState.players);
+            const playerOrder = [...allPlayerIds].sort(() => Math.random() - 0.5);
+            
+            addEvent(`🎨 Starting The Counterfeit Canvas: ${category} - Secret word: ${secretWord}`, 'bid');
+            
+            // Initialize minigame state in Firebase
+            await db.ref(`games/${gameState.roomCode}/minigame`).set({
+                category: category,
+                secretWord: secretWord,
+                possibleWords: words, // Store all words for word guess phase
+                counterfeitId: counterfeitId,
+                tiedBidders: tiedBidders,
+                minigameGoal: minigameGoal, // 'pick_one' or 'pick_two'
+                strokes: {},
+                clear: null,
+                playerOrder: playerOrder,
+                currentTurnIndex: 0,
+                currentRound: 1,
+                maxRounds: 2,
+                strokeStartTime: Date.now(),
+                strokeDuration: 5000, // 5 seconds per stroke
+                phase: 'role_reveal', // role_reveal, drawing, voting, word_guess, complete
+                startedAt: Date.now()
+            });
+            
+            // Assign roles to each player
+            const roles = {};
+            allPlayerIds.forEach(playerId => {
+                roles[playerId] = {
+                    isCounterfeit: playerId === counterfeitId,
+                    playerId: playerId,
+                    category: category,
+                    secretWord: playerId === counterfeitId ? null : secretWord // Counterfeit sees no word
+                };
+            });
+            
+            await db.ref(`games/${gameState.roomCode}/minigame/roles`).set(roles);
+            
+            // Update turn to minigame phase
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'minigame_counterfeit_canvas',
+                minigameStatus: `Category: ${category}. Role reveal - check your device!`,
+                tiedBidders: tiedBidders
+            });
+            
+            // Start role reveal phase (20 seconds)
+            setTimeout(() => {
+                startDrawingPhase();
+            }, 20000);
+        }
+        
+        // Start the turn-based drawing phase
+        async function startDrawingPhase() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'role_reveal') return;
+            
+            await minigameRef.update({
+                phase: 'drawing',
+                currentRound: 1,
+                currentTurnIndex: 0,
+                strokeStartTime: Date.now()
+            });
+            
+            // Start the turn timer
+            startNextDrawingTurn();
+        }
+        
+        // Move to next player's drawing turn
+        async function startNextDrawingTurn() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'drawing') return;
+            
+            const { playerOrder, currentTurnIndex, currentRound, maxRounds } = minigame;
+            
+            // Check if round is complete
+            if (currentTurnIndex >= playerOrder.length) {
+                // Move to next round or start voting
+                if (currentRound >= maxRounds) {
+                    await startVotingPhase();
+                    return;
+                } else {
+                    await minigameRef.update({
+                        currentRound: currentRound + 1,
+                        currentTurnIndex: 0,
+                        strokeStartTime: Date.now()
+                    });
+                    startNextDrawingTurn();
+                    return;
+                }
+            }
+            
+            const currentPlayerId = playerOrder[currentTurnIndex];
+            
+            await minigameRef.update({
+                currentPlayerId: currentPlayerId,
+                strokeStartTime: Date.now()
+            });
+            
+            // Set timer for 5 seconds
+            setTimeout(async () => {
+                await minigameRef.update({
+                    currentTurnIndex: currentTurnIndex + 1
+                });
+                startNextDrawingTurn();
+            }, 5000);
+        }
+        
+        // Start voting phase
+        async function startVotingPhase() {
+            if (!gameState.roomCode) return;
+            
+            await db.ref(`games/${gameState.roomCode}/minigame`).update({
+                phase: 'voting',
+                votes: {},
+                votingStartTime: Date.now(),
+                votingDuration: 20000 // 20 seconds
+            });
+            
+            // After 20 seconds, process votes
+            setTimeout(() => {
+                processVotingResults();
+            }, 20000);
+        }
+        
+        // Process voting results and determine winners
+        async function processVotingResults() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame) return;
+            
+            const votes = minigame.votes || {};
+            const tiedBidders = minigame.tiedBidders || [];
+            const counterfeitId = minigame.counterfeitId;
+            
+            // Count votes for each tied challenger only
+            const voteCounts = {};
+            tiedBidders.forEach(bidderId => {
+                voteCounts[bidderId] = 0;
+            });
+            
+            Object.values(votes).forEach(vote => {
+                if (vote.targetId && tiedBidders.includes(vote.targetId)) {
+                    voteCounts[vote.targetId] = (voteCounts[vote.targetId] || 0) + 1;
+                }
+            });
+            
+            // Find highest vote count (who was suspected most)
+            const maxVotes = Math.max(...Object.values(voteCounts));
+            const topSuspected = Object.entries(voteCounts)
+                .filter(([id, count]) => count === maxVotes)
+                .map(([id]) => id);
+            
+            const counterfeitWasCaught = topSuspected.includes(minigame.counterfeitId);
+            
+            if (counterfeitWasCaught) {
+                // Counterfeit was caught - they get one guess at the secret word
+                await minigameRef.update({
+                    phase: 'word_guess',
+                    counterfeitWasCaught: true,
+                    wordGuessStartTime: Date.now()
+                });
+                
+                // Show word guess UI (we'll implement this next)
+                // For now, move to word guess phase
+                addEvent(`🕵️ The Counterfeit was caught! They get one guess at the secret word.`, 'bid');
+            } else {
+                // Counterfeit was not caught - determine winners based on goal
+                await determineWinners(minigame, voteCounts, minigame.counterfeitId, false);
+            }
+        }
+        
+        // Determine winners after word guess (or if counterfeit wasn't caught)
+        async function determineWinners(minigame, voteCounts, counterfeitId, counterfeitGuessedCorrectly) {
+            const tiedBidders = minigame.tiedBidders || [];
+            const minigameGoal = minigame.minigameGoal || 'pick_one';
+            
+            let winners = [];
+            
+            // Determine if counterfeit wins:
+            // - If counterfeit wasn't caught: counterfeit wins
+            // - If counterfeit was caught but guessed correctly: counterfeit wins
+            // - If counterfeit was caught and guessed wrong: counterfeit loses
+            const counterfeitWins = !minigame.counterfeitWasCaught || (minigame.counterfeitWasCaught && counterfeitGuessedCorrectly);
+            
+            if (counterfeitWins) {
+                // Counterfeit wins
+                winners.push(counterfeitId);
+                addEvent(`🎉 ${gameState.players[counterfeitId]?.name} (The Counterfeit) wins the mini-game!`, 'bid');
+                
+                if (minigameGoal === 'pick_two') {
+                    // Need second winner - least suspected other challenger
+                    const otherChallengers = tiedBidders.filter(id => id !== counterfeitId);
+                    if (otherChallengers.length > 0) {
+                        const leastSuspected = otherChallengers.reduce((min, id) => {
+                            const minVotes = voteCounts[min] || 0;
+                            const idVotes = voteCounts[id] || 0;
+                            return idVotes < minVotes ? id : min;
+                        }, otherChallengers[0]);
+                        winners.push(leastSuspected);
+                        addEvent(`🎨 ${gameState.players[leastSuspected]?.name} also wins (least suspected).`, 'bid');
+                    }
+                }
+            } else {
+                // Fake loses - winners are real challengers with fewest votes
+                const realChallengers = tiedBidders.filter(id => id !== counterfeitId);
+                const votes = minigame.votes || {};
+                
+                // Sort by votes, then by vote submission time (earliest = least suspected in ties)
+                const sortedByVotes = realChallengers.sort((a, b) => {
+                    const votesA = voteCounts[a] || 0;
+                    const votesB = voteCounts[b] || 0;
+                    if (votesA !== votesB) {
+                        return votesA - votesB; // Fewer votes = better
+                    }
+                    // Tie in votes - use earliest vote submission time
+                    const votesForA = Object.values(votes).filter(v => v.targetId === a);
+                    const votesForB = Object.values(votes).filter(v => v.targetId === b);
+                    const earliestA = votesForA.length > 0 ? Math.min(...votesForA.map(v => v.timestamp || 0)) : 0;
+                    const earliestB = votesForB.length > 0 ? Math.min(...votesForB.map(v => v.timestamp || 0)) : 0;
+                    return earliestA - earliestB; // Earlier vote = less suspected
+                });
+                
+                if (sortedByVotes.length > 0) {
+                    winners.push(sortedByVotes[0]);
+                    addEvent(`🎉 ${gameState.players[sortedByVotes[0]]?.name} wins the mini-game!`, 'bid');
+                    if (minigameGoal === 'pick_two' && sortedByVotes.length >= 2) {
+                        winners.push(sortedByVotes[1]);
+                        addEvent(`🎨 ${gameState.players[sortedByVotes[1]]?.name} also wins (least suspected).`, 'bid');
+                    }
+                }
+            }
+            
+            // Complete mini-game and proceed
+            await completeCounterfeitCanvasMinigame(winners);
+        }
+        
+        // Handle word guess result from counterfeit
+        async function handleWordGuessResult() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'word_guess_result') return;
+            
+            const counterfeitGuessedCorrectly = minigame.counterfeitGuessedCorrectly || false;
+            const counterfeitId = minigame.counterfeitId;
+            const tiedBidders = minigame.tiedBidders || [];
+            const votes = minigame.votes || {};
+            
+            addEvent(`🎯 The Counterfeit (${gameState.players[counterfeitId]?.name}) guessed: "${minigame.counterfeitGuess || 'Unknown'}" - ${counterfeitGuessedCorrectly ? '✅ CORRECT!' : '❌ WRONG!'}`, 'bid');
+            
+            // Count votes
+            const voteCounts = {};
+            tiedBidders.forEach(bidderId => {
+                voteCounts[bidderId] = 0;
+            });
+            
+            Object.values(votes).forEach(vote => {
+                if (vote.targetId && tiedBidders.includes(vote.targetId)) {
+                    voteCounts[vote.targetId] = (voteCounts[vote.targetId] || 0) + 1;
+                }
+            });
+            
+            // Determine winners based on guess result
+            // Pass counterfeitWasCaught = true since we're in word_guess_result phase
+            await determineWinners({...minigame, counterfeitWasCaught: true}, voteCounts, counterfeitId, counterfeitGuessedCorrectly);
+        }
+        
+        
+        // Complete mini-game and proceed with selected winners
+        async function completeCounterfeitCanvasMinigame(winners) {
+            const turn = gameState.currentTurn;
+            const minigameGoal = turn.minigameGoal || 'pick_one';
+            
+            if (winners.length === 0) {
+                addEvent('❌ Error: No winners selected', 'bid');
+                return;
+            }
+            
+            // Clean up minigame data
+            await db.ref(`games/${gameState.roomCode}/minigame`).remove();
+            
+            if (minigameGoal === 'pick_one') {
+                // Opener chose to fight - winner becomes challenger and fights opener directly
+                const winnerId = winners[0];
+                const openerId = turn.openerId;
+                
+                if (!openerId) {
+                    addEvent('❌ Error: No opener found', 'bid');
+                    return;
+                }
+                
+                // Start duel directly: Winner vs Opener (no tiebreaker needed since we picked 1)
+                await startDuel(winnerId, openerId);
+                
+                addEvent(`🎨 Mini-game complete! ${gameState.players[winnerId]?.name} selected as challenger to fight ${gameState.players[openerId]?.name}!`, 'bid');
+            } else {
+                // Opener chose to yield - winners fight each other
+                if (winners.length < 2) {
+                    addEvent('❌ Error: Need 2 winners for yield duel', 'bid');
+                    return;
+                }
+                
+                const [c1Id, c2Id] = winners;
+                
+                // Update turn with the selected challengers and then proceed with yield
+                // We need to pass the bids from the original turn
+                const turnRef = db.ref(`games/${gameState.roomCode}/currentTurn`);
+                const turnSnapshot = await turnRef.once('value');
+                const currentTurn = turnSnapshot.val();
+                
+                // Proceed with yield - opener already yielded, so C1 and C2 fight directly
+                await openerYields(c1Id, c2Id);
+                addEvent(`🎨 Mini-game complete! ${gameState.players[c1Id]?.name} & ${gameState.players[c2Id]?.name} selected to fight.`, 'bid');
+            }
+        }
+
+        // Random selection of 2 from multiple tied bidders (legacy - now uses minigame)
         // After selection, show yield option to opener (don't go straight to tiebreaker!)
         async function randomTiebreaker() {
-            const turn = gameState.currentTurn;
-            const bids = Object.entries(turn.bids || {})
-                .filter(([,b]) => b.amount > 0)
-                .sort(([,a], [,b]) => b.amount - a.amount);
-            
-            const highestAmount = bids[0][1].amount;
-            const tiedBidders = bids.filter(([,b]) => b.amount === highestAmount);
-            
-            // Randomly shuffle and pick first 2
-            const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
-            const selected = shuffled.slice(0, 2);
-            
-            const player1Id = selected[0][0];
-            const player2Id = selected[1][0];
-            
-            addEvent(`🎲 Randomly selected: ${gameState.players[player1Id]?.name} & ${gameState.players[player2Id]?.name}`, 'bid');
-            
-            // Store selected players and show yield option (don't start tiebreaker yet!)
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                phase: 'yield_choice',
-                selectedC1: player1Id,
-                selectedC2: player2Id
-            });
+            // Use minigame instead
+            await startCounterfeitCanvasMinigame();
         }
 
         // Opener yields
         async function openerYields(challenger1Id, challenger2Id) {
             const turn = gameState.currentTurn;
+            const tiedBidders = turn.tiedBidders || [];
+            
+            // Check if we need mini-game (3+ tied bidders and need to pick 2)
+            if (tiedBidders.length >= 3 && turn.openerChoice === 'yield') {
+                // Need mini-game to pick 2 challengers
+                await openerChoosesYieldForMinigame();
+                return;
+            }
+            
+            // For 2 tied bidders, proceed directly with yield duel
             const opener = gameState.players[turn.openerId];
             const c1 = gameState.players[challenger1Id];
             const c2 = gameState.players[challenger2Id];
@@ -3321,19 +4005,140 @@
                 } else if (turn.phase === 'reveal') {
                     // Process reveal automatically
                     const bids = Object.entries(turn.bids || {}).filter(([, b]) => b.amount > 0);
+                    const opener = gameState.players[turn.openerId];
+                    const isOpenerBot = opener?.isBot;
+                    
                     if (bids.length === 0) {
-                        // No bids - opener keeps gift
-                        await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                        // No bids - bot opener chooses keep or gambit
+                        if (isOpenerBot) {
+                            // Bot keeps gift (can implement gambit logic later if needed)
+                            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                        } else {
+                            // Wait for human opener - this will need manual input
+                            autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                            return;
+                        }
                     } else {
-                        // Start duel with highest bidder
+                        // Sort bids to find highest and second highest
                         bids.sort(([, a], [, b]) => b.amount - a.amount);
-                        const [challengerId] = bids[0];
-                        await startDuelWithChallenger(challengerId);
+                        const highest = bids[0];
+                        const second = bids[1];
+                        const highestAmount = highest[1].amount;
+                        
+                        // Check for ties at highest amount
+                        const tiedBidders = bids.filter(([, b]) => b.amount === highestAmount);
+                        
+                        if (tiedBidders.length >= 2) {
+                            // TIE: Need to randomly select 2 and then ask opener to choose
+                            if (tiedBidders.length === 2) {
+                                // Exactly 2 tied - ask opener to choose fight/yield
+                                const [c1Id] = tiedBidders[0];
+                                const [c2Id] = tiedBidders[1];
+                                if (isOpenerBot) {
+                                    // Bot opener randomly chooses fight (70%) or yield (30%)
+                                    if (Math.random() < 0.7) {
+                                        // Fight - start tiebreaker
+                                        await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                                            phase: 'tiebreaker_pending',
+                                            tiebreakerC1: c1Id,
+                                            tiebreakerC2: c2Id
+                                        });
+                                    } else {
+                                        // Yield - C1 vs C2 directly
+                                        await openerYields(c1Id, c2Id);
+                                    }
+                                } else {
+                                    // Human opener - need to show choice UI
+                                    autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                                    return;
+                                }
+                            } else {
+                                // 3+ tied - randomly select 2 first
+                                const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
+                                const selected = shuffled.slice(0, 2);
+                                const [c1Id] = selected[0];
+                                const [c2Id] = selected[1];
+                                
+                                if (isOpenerBot) {
+                                    // Randomly select, then bot chooses
+                                    await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                                        phase: 'yield_choice',
+                                        selectedC1: c1Id,
+                                        selectedC2: c2Id
+                                    });
+                                    // Will be handled in yield_choice phase
+                                } else {
+                                    // Need random selection first
+                                    await randomTiebreaker();
+                                    autoPilotInterval = setTimeout(runAutoPilotStep, 1000);
+                                    return;
+                                }
+                            }
+                        } else if (second && second[1].amount > 0) {
+                            // Multiple bidders (not tied) - opener can yield
+                            const [c1Id] = highest;
+                            const [c2Id] = second;
+                            if (isOpenerBot) {
+                                // Bot opener randomly chooses fight (70%) or yield (30%)
+                                if (Math.random() < 0.7) {
+                                    // Fight - start duel with highest bidder
+                                    await startDuel(c1Id, turn.openerId);
+                                } else {
+                                    // Yield - C1 vs C2
+                                    await openerYields(c1Id, c2Id);
+                                }
+                            } else {
+                                // Human opener needs to choose
+                                autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                                return;
+                            }
+                        } else {
+                            // Only one bidder - proceed directly to duel
+                            const [challengerId] = highest;
+                            await startDuel(challengerId, turn.openerId);
+                        }
                     }
+                } else if (turn.phase === 'yield_choice') {
+                    // Opener needs to choose fight or yield after random selection from 3+ way tie
+                    const opener = gameState.players[turn.openerId];
+                    if (opener?.isBot) {
+                        // Bot opener randomly chooses fight (70%) or yield (30%)
+                        if (Math.random() < 0.7) {
+                            // Fight - start tiebreaker
+                            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                                phase: 'tiebreaker_pending',
+                                tiebreakerC1: turn.selectedC1,
+                                tiebreakerC2: turn.selectedC2
+                            });
+                        } else {
+                            // Yield - C1 vs C2 directly
+                            await openerYields(turn.selectedC1, turn.selectedC2);
+                        }
+                    } else {
+                        // Human opener needs to choose
+                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        return;
+                    }
+                } else if (turn.phase === 'tiebreaker_pending') {
+                    // Start the tiebreaker duel (this sets phase to 'duel' with isTiebreak: true)
+                    await startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2);
+                } else if (turn.phase === 'yield_pending') {
+                    // Start the yield duel
+                    await openerYields(turn.yieldC1, turn.yieldC2);
+                } else if (turn.phase === 'duel_pending') {
+                    // Start the pending duel
+                    await startDuel(turn.challengerId, turn.defenderId || turn.openerId);
                 } else if (turn.phase === 'duel') {
                     // Resolve duel randomly
-                    const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
-                    await recordDuelWinner(winnerId);
+                    // Check if this is a tiebreaker duel
+                    if (turn.isTiebreak) {
+                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                        await recordTiebreakerWinner(winnerId);
+                    } else {
+                        // Regular duel
+                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                        await recordDuelWinner(winnerId);
+                    }
                 } else if (turn.phase === 'reprisal') {
                     // Bot decides to use or skip reprisal
                     const reprisalPlayer = gameState.players[turn.reprisalPlayerId];
@@ -3365,31 +4170,76 @@
                         return;
                     }
                 } else if (turn.phase === 'endgame_choice') {
-                    // Bot randomly chooses steal or auction
-                    if (Math.random() < 0.5) {
-                        // Try to steal
-                        const targets = Object.entries(gameState.players)
-                            .filter(([id, p]) => p.giftId && id !== turn.activePlayerId);
-                        if (targets.length > 0) {
-                            const [targetId] = targets[Math.floor(Math.random() * targets.length)];
-                            const targetGiftId = gameState.players[targetId].giftId;
-                            await executeEndgameSteal(targetGiftId);
+                    // Active player chooses steal or auction
+                    const activePlayer = gameState.players[turn.activePlayerId];
+                    if (activePlayer?.isBot) {
+                        // Bot randomly chooses steal or auction
+                        if (Math.random() < 0.5) {
+                            // Try to steal
+                            const targets = Object.entries(gameState.players)
+                                .filter(([id, p]) => p.giftId && id !== turn.activePlayerId);
+                            if (targets.length > 0) {
+                                const [targetId] = targets[Math.floor(Math.random() * targets.length)];
+                                const targetGiftId = gameState.players[targetId].giftId;
+                                await executeEndgameSteal(targetGiftId);
+                            } else {
+                                await showEndgameAuction();
+                            }
                         } else {
                             await showEndgameAuction();
                         }
                     } else {
-                        await showEndgameAuction();
+                        // Human player needs to choose
+                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        return;
                     }
                 } else if (turn.phase === 'endgame_auction') {
                     await botBidAll();
                     autoPilotInterval = setTimeout(async () => {
-                        await resolveEndgameAuction();
+                        // Check if there are any bids after bots bid
+                        const turnAfterBids = gameState.currentTurn;
+                        const bids = Object.entries(turnAfterBids?.bids || {}).filter(([, b]) => b.amount > 0);
+                        if (bids.length === 0) {
+                            // No bids - go to no-bids phase
+                            await skipEndgameAuction();
+                        } else {
+                            // Reveal bids
+                            await revealEndgameAuctionBids();
+                        }
                         runAutoPilotStep();
                     }, 1000);
                     return;
+                } else if (turn.phase === 'endgame_reveal') {
+                    // Resolve endgame auction after bids revealed
+                    await resolveEndgameAuction();
+                } else if (turn.phase === 'endgame_nobids') {
+                    // Active player needs to choose defender for no-bids duel
+                    const activePlayer = gameState.players[turn.activePlayerId];
+                    if (activePlayer?.isBot) {
+                        // Bot randomly picks a defender
+                        const defenders = Object.entries(gameState.players)
+                            .filter(([id, p]) => p.giftId && id !== turn.activePlayerId);
+                        if (defenders.length > 0) {
+                            const [defenderId] = defenders[Math.floor(Math.random() * defenders.length)];
+                            await executeNoBidsDuel(defenderId);
+                        } else {
+                            // No defenders available - set turn to null
+                            await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
+                        }
+                    } else {
+                        // Human player needs to choose
+                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        return;
+                    }
                 } else if (turn.phase === 'duel') {
-                    const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
-                    await recordDuelWinner(winnerId);
+                    // Check if this is a tiebreaker
+                    if (turn.isTiebreak) {
+                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                        await recordTiebreakerWinner(winnerId);
+                    } else {
+                        const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
+                        await recordDuelWinner(winnerId);
+                    }
                 }
             }
 
@@ -3430,6 +4280,114 @@
             });
         }
 
+        // Update host UI for minigame phases
+        function updateHostMinigameUI(minigame, turn) {
+            const phaseBadge = document.getElementById('turn-phase-badge');
+            const currentAction = document.getElementById('turn-current-action');
+            const actionDetails = document.getElementById('turn-action-details');
+            const actionButtons = document.getElementById('turn-action-buttons');
+            const bidsContainer = document.getElementById('bids-container');
+            
+            if (!phaseBadge || !currentAction || !actionDetails) return;
+            
+            const tiedNames = (turn.tiedBidders || []).map(id => gameState.players[id]?.name).join(', ');
+            const minigameGoal = turn.minigameGoal || 'pick_one';
+            const goalText = minigameGoal === 'pick_one' ? 'Pick 1 winner' : 'Pick 2 winners';
+            
+            switch (minigame.phase) {
+                case 'role_reveal':
+                    phaseBadge.textContent = '🎭 ROLE REVEAL';
+                    currentAction.textContent = 'The Counterfeit Canvas: Role Reveal Phase';
+                    actionDetails.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Players are seeing their roles (Real Artist vs The Counterfeit). The Counterfeit doesn't see the secret word!
+                        </div>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+                    break;
+                    
+                case 'drawing':
+                    const currentPlayerId = minigame.currentPlayerId;
+                    const currentPlayerName = gameState.players[currentPlayerId]?.name || 'Someone';
+                    const round = minigame.currentRound || 1;
+                    phaseBadge.textContent = '✏️ DRAWING';
+                    currentAction.textContent = `${currentPlayerName}'s Turn - Round ${round}`;
+                    actionDetails.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
+                        </div>
+                        <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
+                            <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Turn-based drawing: Each player draws ONE stroke per turn (5 seconds each). ${minigame.maxRounds || 2} rounds total.
+                        </div>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+                    break;
+                    
+                case 'voting':
+                    phaseBadge.textContent = '🗳️ VOTING';
+                    currentAction.textContent = 'Voting Phase - Who is The Counterfeit?';
+                    actionDetails.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}
+                        </div>
+                        <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
+                            <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Everyone is voting for who they think is The Counterfeit. Results will be processed automatically.
+                        </div>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+                    break;
+                    
+                case 'word_guess':
+                    phaseBadge.textContent = '🎯 WORD GUESS';
+                    currentAction.textContent = 'The Counterfeit Caught - Word Guess!';
+                    const counterfeitName = gameState.players[minigame.counterfeitId]?.name || 'Unknown';
+                    actionDetails.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent-red);">The Counterfeit:</strong> ${counterfeitName}<br>
+                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            The Counterfeit was caught! They get one guess at the secret word. Check The Counterfeit's device.
+                        </div>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+                    break;
+                    
+                default:
+                    phaseBadge.textContent = '🎨 MINI-GAME';
+                    currentAction.textContent = 'The Counterfeit Canvas';
+                    actionDetails.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <span style="color: var(--text-secondary);">Mini-game in progress...</span>
+                        </div>
+                    `;
+                    bidsContainer.classList.add('hidden');
+                    actionButtons.innerHTML = '';
+            }
+        }
+
         // Helper to resolve endgame auction
         async function resolveEndgameAuction() {
             const turn = gameState.currentTurn;
@@ -3448,6 +4406,100 @@
                 const [bidderId] = bids[0];
                 await startEndgameAuctionDuel(bidderId);
             }
+        }
+
+        // ============================================================================
+        // MINI-GAME: THE COUNTERFEIT CANVAS - HOST VIEWER
+        // ============================================================================
+        
+        let hostCanvas = null;
+        let hostCtx = null;
+        let hostMinigameListener = null;
+
+        function initHostCanvasViewer() {
+            hostCanvas = document.getElementById('host-drawing-canvas');
+            if (!hostCanvas) return;
+            
+            hostCtx = hostCanvas.getContext('2d');
+            
+            // Set canvas size
+            function resizeHostCanvas() {
+                const container = hostCanvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                hostCanvas.width = rect.width;
+                hostCanvas.height = Math.min(rect.width * 0.75, 400);
+                redrawHostCanvas();
+            }
+            
+            resizeHostCanvas();
+            window.addEventListener('resize', resizeHostCanvas);
+            
+            // Setup Firebase listener
+            if (gameState.roomCode) {
+                setupHostMinigameListener(gameState.roomCode);
+            }
+            
+            // Show end button after a delay
+            setTimeout(() => {
+                const btn = document.getElementById('btn-end-minigame');
+                if (btn) btn.style.display = 'block';
+            }, 5000); // Show after 5 seconds
+        }
+
+        function setupHostMinigameListener(roomCode) {
+            if (hostMinigameListener) {
+                db.ref(`games/${roomCode}/minigame`).off('value', hostMinigameListener);
+            }
+            
+            hostMinigameListener = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
+                const minigameData = snapshot.val();
+                if (!minigameData) return;
+                
+                // Handle clear
+                if (minigameData.clear) {
+                    hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
+                }
+                
+                // Handle strokes
+                if (minigameData.strokes) {
+                    redrawHostCanvas();
+                }
+            });
+        }
+
+        function redrawHostCanvas() {
+            if (!hostCtx || !hostCanvas || !gameState.roomCode) return;
+            
+            hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
+            
+            // Get all strokes from Firebase
+            db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value', (snapshot) => {
+                const strokes = snapshot.val();
+                if (!strokes) return;
+                
+                Object.values(strokes).forEach(stroke => {
+                    // Convert normalized coordinates to actual canvas coordinates
+                    const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * hostCanvas.width;
+                    const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * hostCanvas.height;
+                    const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * hostCanvas.width;
+                    const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * hostCanvas.height;
+                    
+                    hostCtx.strokeStyle = stroke.color;
+                    hostCtx.lineWidth = stroke.size;
+                    hostCtx.lineCap = 'round';
+                    hostCtx.lineJoin = 'round';
+                    hostCtx.beginPath();
+                    hostCtx.moveTo(fromX, fromY);
+                    hostCtx.lineTo(toX, toY);
+                    hostCtx.stroke();
+                });
+            });
+        }
+
+        // This function is no longer needed - voting determines winners automatically
+        // Keeping for backward compatibility, but it shouldn't be called
+        async function endCounterfeitCanvasMinigame() {
+            addEvent('⚠️ Mini-game will complete automatically after voting', 'bid');
         }
     </script>
 </body>
