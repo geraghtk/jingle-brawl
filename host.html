@@ -630,9 +630,6 @@
             </button>
         </div>
 
-        <div style="margin-top: 2rem; color: var(--text-muted);">
-            <a href="gift-tracker.html" style="color: var(--accent-gold);">← Use simple tracker instead</a>
-        </div>
     </div>
 
     <!-- Game Screen -->
@@ -1001,6 +998,16 @@
             // Get settings
             const settingsRef = await db.ref(`games/${roomCode}/settings`).once('value');
             gameState.settings = settingsRef.val() || { publicChips: false };
+            
+            // Apply settings to GAME_CONFIG
+            if (gameState.settings) {
+                GAME_CONFIG.maxReprisalDepth = gameState.settings.maxReprisalDepth ?? GAME_CONFIG.maxReprisalDepth;
+                GAME_CONFIG.maxBid = gameState.settings.maxBid ?? GAME_CONFIG.maxBid;
+                GAME_CONFIG.maxWinnerPayout = gameState.settings.maxWinnerPayout ?? GAME_CONFIG.maxWinnerPayout;
+                GAME_CONFIG.loserDividendRule = gameState.settings.loserDividendRule ?? GAME_CONFIG.loserDividendRule;
+                GAME_CONFIG.taxThreshold = gameState.settings.taxThreshold ?? GAME_CONFIG.taxThreshold;
+                GAME_CONFIG.baseCost = gameState.settings.baseCost ?? GAME_CONFIG.baseCost;
+            }
 
             // Setup listeners
             setupListeners(roomCode);
@@ -1061,6 +1068,8 @@
             GAME_CONFIG.loserDividendRule = settings.loserDividendRule;
             GAME_CONFIG.taxThreshold = settings.taxThreshold;
             GAME_CONFIG.baseCost = settings.baseCost;
+            // Store starting chips in settings (will be used by getStartingChipsForGame)
+            // Don't override getStartingChips function since it's used as fallback
 
             // Create game in Firebase
             await db.ref(`games/${roomCode}`).set({
@@ -2022,7 +2031,7 @@
         }
 
         // Draw next player from the bag
-        async function drawNextPlayer() {
+        async function drawNextPlayer(autoGiftName = null) {
             const players = Object.entries(gameState.players);
             const playersInBag = players.filter(([id, p]) => !p.giftId);
             
@@ -2035,9 +2044,18 @@
             const selectedPlayer = playersInBag[Math.floor(Math.random() * playersInBag.length)];
             const [playerId, player] = selectedPlayer;
 
-            // Prompt for gift name
-            const giftName = prompt(`🎅 ${player.name} was drawn!\n\nEnter the gift they're opening:`);
-            if (!giftName) return;
+            // Get gift name (auto-generated if auto-pilot, otherwise prompt)
+            let giftName = autoGiftName;
+            if (!giftName) {
+                // Auto-generate if in auto-pilot mode, otherwise prompt
+                if (autoPilotRunning) {
+                    const giftCount = Object.keys(gameState.gifts).length;
+                    giftName = GIFT_NAMES[giftCount % GIFT_NAMES.length];
+                } else {
+                    giftName = prompt(`🎅 ${player.name} was drawn!\n\nEnter the gift they're opening:`);
+                    if (!giftName) return;
+                }
+            }
 
             // Create gift and start bidding
             const giftId = 'gift_' + Date.now();
@@ -3505,6 +3523,18 @@
         // DEBUG MODE FUNCTIONS
         // =====================
         
+        // Gift names for auto-pilot
+        const GIFT_NAMES = [
+            'Mystery Gift Box', 'Cozy Blanket', 'Board Game', 'Coffee Maker', 'Scented Candles',
+            'Video Game', 'Book Collection', 'Art Supplies', 'Kitchen Gadget', 'Sports Equipment',
+            'Jewelry Box', 'Puzzle Set', 'Musical Instrument', 'Tool Kit', 'Plant Pot',
+            'Phone Case', 'Water Bottle', 'T-Shirt', 'Hat & Scarf Set', 'Slippers',
+            'Picture Frame', 'Desk Organizer', 'Lamp', 'Mug Set', 'Stationery Kit',
+            'Bath Set', 'Tea Collection', 'Snack Basket', 'Travel Bag', 'Yoga Mat',
+            'Sketchbook', 'Card Game', 'Novelty Socks', 'Keychain', 'Magnifying Glass',
+            'Binoculars', 'Flashlight', 'Pocket Watch', 'Compass', 'Magic 8-Ball'
+        ];
+
         const BOT_NAMES = [
             'Alice 🤖', 'Bob 🤖', 'Charlie 🤖', 'Diana 🤖', 'Eve 🤖', 
             'Frank 🤖', 'Grace 🤖', 'Henry 🤖', 'Ivy 🤖', 'Jack 🤖',
@@ -3514,6 +3544,16 @@
         let autoPilotRunning = false;
         let autoPilotInterval = null;
 
+        // Helper to get starting chips (checks custom setting first)
+        function getStartingChipsForGame(playerCount) {
+            // Check if there's a custom starting chips setting
+            if (gameState.settings && gameState.settings.startingChips) {
+                return gameState.settings.startingChips;
+            }
+            // Fall back to default calculation
+            return GAME_CONFIG.getStartingChips(playerCount);
+        }
+
         // Add bot players
         async function addBotPlayers() {
             const count = parseInt(document.getElementById('bot-count').value);
@@ -3521,8 +3561,8 @@
             const playerCount = Object.keys(gameState.players).length;
             const existingBots = Object.keys(gameState.players).filter(id => id.startsWith('bot_')).length;
             
-            // Get starting chips based on total players
-            const chips = GAME_CONFIG.getStartingChips(playerCount + count);
+            // Get starting chips (uses custom setting if available)
+            const chips = getStartingChipsForGame(playerCount + count);
 
             for (let i = 0; i < count && (existingBots + i) < BOT_NAMES.length; i++) {
                 const botId = `bot_${existingBots + i}_${Date.now()}`;
@@ -3544,9 +3584,10 @@
 
             // Update all existing players chips to match if we changed player count significantly
             if (count > 0) {
-                const newChips = GAME_CONFIG.getStartingChips(Object.keys(gameState.players).length + count);
+                const newChips = getStartingChipsForGame(Object.keys(gameState.players).length + count);
+                const oldChips = getStartingChipsForGame(playerCount);
                 for (const [id, player] of Object.entries(gameState.players)) {
-                    if (player.chips === GAME_CONFIG.getStartingChips(playerCount)) {
+                    if (player.chips === oldChips) {
                         await db.ref(`games/${gameState.roomCode}/players/${id}/chips`).set(newChips);
                     }
                 }
@@ -3872,7 +3913,8 @@
 
         // Calculate bot bid based on strategy
         function calculateBotBid(player, giftNaughtyLevel = 0) {
-            const maxBid = player.chips;
+            const maxBidAllowed = GAME_CONFIG.maxBid || 99; // Use setting, or unlimited if 99
+            const maxBid = Math.min(player.chips, maxBidAllowed === 99 ? player.chips : maxBidAllowed);
             if (maxBid <= 0) return 0;
 
             const minCost = GAME_CONFIG.getMinCost(giftNaughtyLevel);
@@ -3882,7 +3924,8 @@
                 case 'aggressive':
                     // 80% chance to bid, higher amounts
                     if (Math.random() < 0.8) {
-                        return Math.min(maxBid, Math.floor(Math.random() * 4) + minCost);
+                        const bidAmount = Math.floor(Math.random() * 4) + minCost;
+                        return Math.min(maxBid, bidAmount);
                     }
                     return 0;
 
@@ -3897,7 +3940,8 @@
                 default:
                     // 50% chance to bid
                     if (Math.random() < 0.5) {
-                        return Math.min(maxBid, Math.floor(Math.random() * (maxBid - minCost + 1)) + minCost);
+                        const bidRange = Math.max(1, maxBid - minCost + 1);
+                        return Math.min(maxBid, Math.floor(Math.random() * bidRange) + minCost);
                     }
                     return 0;
             }
@@ -4042,7 +4086,9 @@
                     const wrappedLeft = Object.keys(gameState.players).length - giftsCount;
                     
                     if (playersInBag.length > 0 && wrappedLeft > 0) {
-                        await drawNextPlayer();
+                        // Auto-pilot: generate gift name automatically
+                        const autoGiftName = GIFT_NAMES[giftsCount % GIFT_NAMES.length];
+                        await drawNextPlayer(autoGiftName);
                     } else if (playersInBag.length > 0) {
                         // Start endgame
                         await startEndgame();

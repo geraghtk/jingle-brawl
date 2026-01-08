@@ -986,7 +986,10 @@
             }
 
             const gameData = gameRef.val();
-            const startingChips = GAME_CONFIG.getStartingChips(Object.keys(gameData.players || {}).length + 1);
+            // Check for custom starting chips setting, otherwise use default
+            const startingChips = (gameData.settings && gameData.settings.startingChips) 
+                ? gameData.settings.startingChips 
+                : GAME_CONFIG.getStartingChips(Object.keys(gameData.players || {}).length + 1);
 
             // Create player
             const playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -1084,13 +1087,29 @@
             // Settings
             db.ref(`games/${roomCode}/settings`).on('value', (snapshot) => {
                 gameState.settings = snapshot.val() || {};
-                // Apply settings to GAME_CONFIG for cost calculations
-                if (gameState.settings.baseCost !== undefined) {
-                    GAME_CONFIG.baseCost = gameState.settings.baseCost;
+                // Apply all settings to GAME_CONFIG
+                if (gameState.settings) {
+                    if (gameState.settings.baseCost !== undefined) {
+                        GAME_CONFIG.baseCost = gameState.settings.baseCost;
+                    }
+                    if (gameState.settings.maxBid !== undefined) {
+                        GAME_CONFIG.maxBid = gameState.settings.maxBid;
+                    }
+                    if (gameState.settings.maxReprisalDepth !== undefined) {
+                        GAME_CONFIG.maxReprisalDepth = gameState.settings.maxReprisalDepth;
+                    }
+                    if (gameState.settings.maxWinnerPayout !== undefined) {
+                        GAME_CONFIG.maxWinnerPayout = gameState.settings.maxWinnerPayout;
+                    }
+                    if (gameState.settings.loserDividendRule !== undefined) {
+                        GAME_CONFIG.loserDividendRule = gameState.settings.loserDividendRule;
+                    }
+                    if (gameState.settings.taxThreshold !== undefined) {
+                        GAME_CONFIG.taxThreshold = gameState.settings.taxThreshold;
+                    }
                 }
-                if (gameState.settings.maxBid !== undefined) {
-                    GAME_CONFIG.maxBid = gameState.settings.maxBid;
-                }
+                // Update bid slider if in bidding phase
+                updateBidSliderMax();
             });
 
             // Current turn
@@ -1896,6 +1915,20 @@
 
         // Submit bid
         async function submitBid() {
+            // Validate bid amount
+            const maxBid = Math.min(playerState.chips, GAME_CONFIG.maxBid);
+            if (currentBid > maxBid) {
+                showToast(`Bid cannot exceed ${maxBid} chips!`, 'error');
+                currentBid = maxBid;
+                document.getElementById('bid-slider').value = currentBid;
+                updateBidDisplay();
+                return;
+            }
+            if (currentBid < 0) {
+                showToast('Invalid bid amount!', 'error');
+                return;
+            }
+            
             // Allow re-submitting to change bid
             await db.ref(`games/${playerState.roomCode}/currentTurn/bids/${playerState.playerId}`).set({
                 amount: currentBid,
