@@ -454,6 +454,153 @@
             margin-bottom: 1rem;
         }
 
+        /* Duel Modal Styles */
+        .duel-modal {
+            max-width: 600px;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 3px solid var(--accent-gold);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+        }
+
+        .duel-modal h2 {
+            color: var(--accent-gold);
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .duel-combatants {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 2rem 0;
+            gap: 1rem;
+        }
+
+        .duel-combatant {
+            flex: 1;
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            border: 2px solid var(--accent-gold);
+        }
+
+        .duel-combatant h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--accent-gold);
+            font-size: 1.3rem;
+        }
+
+        .duel-vs {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .duel-gift {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 8px;
+            border: 1px solid var(--accent-gold);
+        }
+
+        .duel-gift h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--accent-gold);
+        }
+
+        .duel-pot-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .pot-stat {
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .pot-stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .pot-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+
+        /* Coin Animation Styles */
+        .coin-animation-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2000;
+            overflow: hidden;
+        }
+
+        .flying-coin {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 50%;
+            border: 3px solid #92400e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #92400e;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 2001;
+        }
+
+        .flying-coin::before {
+            content: '🪙';
+            font-size: 1.5rem;
+        }
+
+        .elf-tax-collector {
+            position: fixed;
+            bottom: 50px;
+            right: 50px;
+            font-size: 3rem;
+            z-index: 2002;
+            animation: elfFlyIn 1s ease-out, elfFlyOut 1s ease-in 2s;
+            pointer-events: none;
+        }
+
+        @keyframes elfFlyIn {
+            from {
+                transform: translateX(200px) translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes elfFlyOut {
+            from {
+                transform: translateX(0) translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(200px) translateY(100px);
+                opacity: 0;
+            }
+        }
+
         .modal .options {
             display: flex;
             flex-direction: column;
@@ -563,10 +710,12 @@
                     🪙 Starting Chips
                 </label>
                 <select id="setting-starting-chips" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="" selected>Variable (based on player count)</option>
                     <option value="8">8 chips</option>
-                    <option value="10" selected>10 chips</option>
+                    <option value="10">10 chips</option>
                     <option value="12">12 chips</option>
                     <option value="15">15 chips</option>
+                    <option value="20">20 chips</option>
                 </select>
             </div>
             
@@ -929,6 +1078,16 @@
         </div>
     </div>
 
+    <!-- Duel Modal -->
+    <div class="modal-overlay" id="duel-modal-overlay">
+        <div class="modal duel-modal" id="duel-modal-content">
+            <!-- Dynamic content -->
+        </div>
+    </div>
+
+    <!-- Animation Containers -->
+    <div class="coin-animation-container" id="coin-animation-container"></div>
+
     <!-- QR Code Library - using CDN with fallback -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 
@@ -1046,16 +1205,21 @@
             const hostId = 'host_' + Date.now();
             
             // Read all settings
+            const startingChipsValue = document.getElementById('setting-starting-chips').value;
             const settings = {
                 publicChips: document.getElementById('setting-public-chips').checked,
                 maxReprisalDepth: parseInt(document.getElementById('setting-reprisal-depth').value),
                 maxBid: parseInt(document.getElementById('setting-max-bid').value),
                 maxWinnerPayout: parseInt(document.getElementById('setting-max-payout').value),
-                startingChips: parseInt(document.getElementById('setting-starting-chips').value),
                 loserDividendRule: document.getElementById('setting-loser-dividend').value,
                 taxThreshold: parseInt(document.getElementById('setting-tax-threshold').value),
                 baseCost: parseInt(document.getElementById('setting-base-cost').value)
             };
+            
+            // Only set startingChips if a specific value is chosen (not "variable")
+            if (startingChipsValue && startingChipsValue !== '') {
+                settings.startingChips = parseInt(startingChipsValue);
+            }
 
             gameState.roomCode = roomCode;
             gameState.hostId = hostId;
@@ -1162,6 +1326,20 @@
                 updateControls();
             });
             
+            // Settings (keep gameState.settings in sync)
+            db.ref(`games/${roomCode}/settings`).on('value', (snapshot) => {
+                gameState.settings = snapshot.val() || { publicChips: false };
+                // Apply settings to GAME_CONFIG
+                if (gameState.settings) {
+                    GAME_CONFIG.maxReprisalDepth = gameState.settings.maxReprisalDepth ?? GAME_CONFIG.maxReprisalDepth;
+                    GAME_CONFIG.maxBid = gameState.settings.maxBid ?? GAME_CONFIG.maxBid;
+                    GAME_CONFIG.maxWinnerPayout = gameState.settings.maxWinnerPayout ?? GAME_CONFIG.maxWinnerPayout;
+                    GAME_CONFIG.loserDividendRule = gameState.settings.loserDividendRule ?? GAME_CONFIG.loserDividendRule;
+                    GAME_CONFIG.taxThreshold = gameState.settings.taxThreshold ?? GAME_CONFIG.taxThreshold;
+                    GAME_CONFIG.baseCost = gameState.settings.baseCost ?? GAME_CONFIG.baseCost;
+                }
+            });
+            
             // Minigame phase changes (for word guess result)
             db.ref(`games/${roomCode}/minigame/phase`).on('value', (snapshot) => {
                 const phase = snapshot.val();
@@ -1196,7 +1374,7 @@
                     `<div class="chips">🪙 ${player.chips}</div>` : '';
                 
                 return `
-                    <div class="player-card ${isActive ? 'active' : ''} ${hasGift ? 'has-gift' : ''}">
+                    <div class="player-card ${isActive ? 'active' : ''} ${hasGift ? 'has-gift' : ''}" data-player-id="${id}">
                         <div class="name">${player.name}</div>
                         ${chipsDisplay}
                         ${hasGift ? `<div class="gift-indicator">🎁 Has gift</div>` : 
@@ -1641,6 +1819,13 @@
                         '<span style="color: var(--accent-gold);">Winner becomes the Challenger!</span>' : 
                         `Fighting for: "<strong>${gift?.name}</strong>"`;
                     bidsContainer.classList.add('hidden');
+                    
+                    // Show duel modal for non-tiebreak duels (tiebreaks have no pot/tax)
+                    if (!turn.isTiebreak && !document.getElementById('duel-modal-overlay').classList.contains('active')) {
+                        const pot = turn.pot || 0;
+                        const tax = turn.tax || 0;
+                        showDuelModal(turn.challengerId, turn.defenderId, turn.giftId, pot, tax);
+                    }
                     
                     // Both buttons styled the same - host clicks winner to continue
                     if (turn.isTiebreak) {
@@ -2187,9 +2372,13 @@
                     challengerId: challengerId,
                     defenderId: defenderId,
                     pot: pot,
+                    tax: tax, // Store tax for later use
                     isYieldDuel: false,
                     isTiebreak: false
                 });
+
+                // Show duel modal
+                showDuelModal(challengerId, defenderId, turn.giftId, pot, tax);
 
                 const challengerName = gameState.players[challengerId]?.name;
                 const defenderName = gameState.players[defenderId]?.name;
@@ -2198,6 +2387,190 @@
                 console.error('Error in startDuel:', error);
                 addEvent(`❌ Error: ${error.message}`, 'duel');
             }
+        }
+
+        // Show duel modal with combatants, gift, pot info
+        function showDuelModal(challengerId, defenderId, giftId, pot, tax) {
+            const challenger = gameState.players[challengerId];
+            const defender = gameState.players[defenderId];
+            const gift = giftId ? gameState.gifts[giftId] : null;
+            
+            const winnerPayout = pot; // Winner gets the pot
+            
+            const modalContent = `
+                <h2>⚔️ DUEL TIME! ⚔️</h2>
+                
+                <div class="duel-combatants">
+                    <div class="duel-combatant">
+                        <h3>${challenger?.name || 'Unknown'}</h3>
+                        <div style="font-size: 2rem; margin-top: 0.5rem;">🛡️</div>
+                    </div>
+                    <div class="duel-vs">VS</div>
+                    <div class="duel-combatant">
+                        <h3>${defender?.name || 'Unknown'}</h3>
+                        <div style="font-size: 2rem; margin-top: 0.5rem;">🛡️</div>
+                    </div>
+                </div>
+
+                ${gift ? `
+                <div class="duel-gift">
+                    <h4>🎁 Fighting For:</h4>
+                    <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent-gold);">
+                        "${gift.name}"
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="duel-pot-info">
+                    <div class="pot-stat">
+                        <div class="pot-stat-label">Total Pot</div>
+                        <div class="pot-stat-value">${pot} 🪙</div>
+                    </div>
+                    <div class="pot-stat">
+                        <div class="pot-stat-label">Winner Gets</div>
+                        <div class="pot-stat-value">${winnerPayout} 🪙</div>
+                    </div>
+                    <div class="pot-stat">
+                        <div class="pot-stat-label">Santa Tax</div>
+                        <div class="pot-stat-value">${tax} 🪙</div>
+                    </div>
+                    <div class="pot-stat">
+                        <div class="pot-stat-label">To Bank</div>
+                        <div class="pot-stat-value">${tax} 🏦</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid var(--accent-gold);">
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">
+                        Waiting for duel resolution...
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('duel-modal-content').innerHTML = modalContent;
+            document.getElementById('duel-modal-overlay').classList.add('active');
+        }
+
+        // Hide duel modal
+        function hideDuelModal() {
+            document.getElementById('duel-modal-overlay').classList.remove('active');
+        }
+
+        // Animate coins flying to winner
+        function animateCoinsToWinner(winnerId, amount, callback) {
+            const container = document.getElementById('coin-animation-container');
+            container.innerHTML = ''; // Clear previous animations
+            
+            // Try to find player card - look for player list items
+            const playerCards = document.querySelectorAll('.player-card, .player-item, [data-player-id]');
+            let winnerElement = null;
+            for (const card of playerCards) {
+                if (card.getAttribute('data-player-id') === winnerId || 
+                    card.textContent.includes(gameState.players[winnerId]?.name)) {
+                    winnerElement = card;
+                    break;
+                }
+            }
+            
+            // Fallback to center of players list area or screen center
+            if (!winnerElement) {
+                const playersContainer = document.getElementById('players-list') || 
+                                       document.querySelector('.players-container') ||
+                                       document.querySelector('#players');
+                if (playersContainer) {
+                    winnerElement = playersContainer;
+                }
+            }
+
+            if (!winnerElement) {
+                // Use center of screen as fallback
+                setTimeout(() => {
+                    container.innerHTML = '';
+                    if (callback) callback();
+                }, 2000);
+                return;
+            }
+
+            const rect = winnerElement.getBoundingClientRect();
+            const targetX = rect.left + rect.width / 2;
+            const targetY = rect.top + rect.height / 2;
+            const startX = window.innerWidth / 2;
+            const startY = window.innerHeight / 2;
+
+            // Create multiple coins
+            const numCoins = Math.min(amount, 15); // Max 15 coins for performance
+            let completed = 0;
+
+            for (let i = 0; i < numCoins; i++) {
+                const coin = document.createElement('div');
+                coin.className = 'flying-coin';
+                coin.style.left = startX + 'px';
+                coin.style.top = startY + 'px';
+                container.appendChild(coin);
+
+                // Random delay and path for each coin
+                const delay = i * 50 + Math.random() * 100;
+                const angle = (Math.PI * 2 * i) / numCoins + Math.random() * 0.5;
+                const distance = 150 + Math.random() * 100;
+                const midX = startX + Math.cos(angle) * distance;
+                const midY = startY + Math.sin(angle) * distance;
+
+                setTimeout(() => {
+                    coin.style.transition = 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    coin.style.left = targetX + 'px';
+                    coin.style.top = targetY + 'px';
+                    coin.style.transform = 'scale(1.5) rotate(720deg)';
+
+                    setTimeout(() => {
+                        coin.style.opacity = '0';
+                        completed++;
+                        if (completed === numCoins && callback) {
+                            setTimeout(callback, 200);
+                        }
+                    }, 900);
+                }, delay);
+            }
+
+            // If no coins (amount = 0), just call callback
+            if (numCoins === 0 && callback) {
+                setTimeout(callback, 500);
+            }
+        }
+
+        // Animate elves taking Santa tax
+        function animateElfTaxCollection(taxAmount, callback) {
+            if (taxAmount === 0) {
+                if (callback) callback();
+                return;
+            }
+
+            const container = document.getElementById('coin-animation-container');
+            const elf = document.createElement('div');
+            elf.className = 'elf-tax-collector';
+            elf.textContent = '🧝‍♂️';
+            elf.style.position = 'fixed';
+            elf.style.bottom = '50px';
+            elf.style.right = '50px';
+            container.appendChild(elf);
+
+            // Add text showing tax amount
+            const taxText = document.createElement('div');
+            taxText.style.position = 'fixed';
+            taxText.style.bottom = '100px';
+            taxText.style.right = '50px';
+            taxText.style.color = 'var(--accent-gold)';
+            taxText.style.fontSize = '1.2rem';
+            taxText.style.fontWeight = 'bold';
+            taxText.style.zIndex = '2003';
+            taxText.style.pointerEvents = 'none';
+            taxText.textContent = `+${taxAmount} 🪙 to Bank`;
+            container.appendChild(taxText);
+
+            setTimeout(() => {
+                elf.remove();
+                taxText.remove();
+                if (callback) callback();
+            }, 3000);
         }
 
         // Record duel winner
@@ -2210,6 +2583,9 @@
                     return;
                 }
                 
+                // Hide duel modal first
+                hideDuelModal();
+                
                 const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
                 const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
                 const winner = gameState.players[winnerId];
@@ -2221,10 +2597,23 @@
                     return;
                 }
 
-                // Give pot to winner
-                if (turn.pot > 0) {
-                    await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + turn.pot);
-                    addEvent(`${winner.name} wins pot of ${turn.pot} chips!`, 'bid');
+                const pot = turn.pot || 0;
+                const tax = turn.tax || 0;
+
+                // Animate coins to winner (don't wait, run in parallel)
+                if (pot > 0) {
+                    animateCoinsToWinner(winnerId, pot, null);
+                }
+
+                // Animate elf tax collection (after a short delay)
+                setTimeout(() => {
+                    animateElfTaxCollection(tax, null);
+                }, 800);
+
+                // Give pot to winner (update immediately, animation plays visually)
+                if (pot > 0) {
+                    await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + pot);
+                    addEvent(`${winner.name} wins pot of ${pot} chips!`, 'bid');
                 }
 
                 // Loser dividend (if not yield/misfit/tiebreak, based on rule)
@@ -3194,9 +3583,13 @@
                 challengerId: challenger1Id,
                 defenderId: challenger2Id,
                 pot: pot,
+                tax: tax, // Store tax
                 isYieldDuel: true,
                 yieldingOpener: turn.openerId
             });
+
+            // Show duel modal for yield duel
+            showDuelModal(challenger1Id, challenger2Id, turn.giftId, pot, tax);
 
             addEvent(`🏃 ${opener.name} yields! ${c1.name} vs ${c2.name} for the gift!`, 'duel');
         }
@@ -3478,11 +3871,15 @@
                 misfitId: turn.misfitId,
                 misfitName: turn.misfitName,
                 pot: pot,
+                tax: tax, // Store tax
                 isEndgameAuction: true,
                 isMisfitDuel: true,  // No dividend, no reprisal
                 bidderHadGift: !!gameState.players[bidderId].giftId,
                 bidderOldGift: gameState.players[bidderId].giftId
             });
+
+            // Show duel modal for endgame auction
+            showDuelModal(turn.activePlayerId, bidderId, turn.misfitId, pot, tax);
 
             addEvent(`⚔️ ${gameState.players[turn.activePlayerId]?.name} vs ${bidder.name} for "${turn.misfitName}"!`, 'duel');
         }
@@ -3519,6 +3916,14 @@
             if (e.target.id === 'modal-overlay') closeModal();
         });
 
+        // Duel modal should not close on overlay click (it's informational and auto-closes on winner selection)
+        // But we can allow ESC key to close it for debugging/emergency
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('duel-modal-overlay').classList.contains('active')) {
+                hideDuelModal();
+            }
+        });
+
         // =====================
         // DEBUG MODE FUNCTIONS
         // =====================
@@ -3546,11 +3951,12 @@
 
         // Helper to get starting chips (checks custom setting first)
         function getStartingChipsForGame(playerCount) {
-            // Check if there's a custom starting chips setting
-            if (gameState.settings && gameState.settings.startingChips) {
+            // Check if there's a custom starting chips setting (including 0)
+            // If startingChips is not set, use variable/default calculation based on player count
+            if (gameState.settings && typeof gameState.settings.startingChips === 'number') {
                 return gameState.settings.startingChips;
             }
-            // Fall back to default calculation
+            // Use default calculation (variable based on player count)
             return GAME_CONFIG.getStartingChips(playerCount);
         }
 
@@ -3560,6 +3966,12 @@
             const strategy = document.getElementById('bot-strategy').value;
             const playerCount = Object.keys(gameState.players).length;
             const existingBots = Object.keys(gameState.players).filter(id => id.startsWith('bot_')).length;
+            
+            // Ensure settings are loaded from Firebase if not already in gameState
+            if (!gameState.settings || Object.keys(gameState.settings).length === 0) {
+                const settingsRef = await db.ref(`games/${gameState.roomCode}/settings`).once('value');
+                gameState.settings = settingsRef.val() || { publicChips: false };
+            }
             
             // Get starting chips (uses custom setting if available)
             const chips = getStartingChipsForGame(playerCount + count);
@@ -3582,13 +3994,21 @@
                 addEvent(`${BOT_NAMES[existingBots + i]} joined (${botStrategy})`, 'gift');
             }
 
-            // Update all existing players chips to match if we changed player count significantly
-            if (count > 0) {
+            // Update existing players' chips ONLY if using default player-count-based logic (no custom startingChips setting)
+            // If custom startingChips is set, don't change existing players - they keep their chips
+            // Check if startingChips is explicitly set (including 0) by checking if it's a defined number
+            const hasCustomStartingChips = gameState.settings && 
+                                           typeof gameState.settings.startingChips === 'number';
+            
+            if (count > 0 && !hasCustomStartingChips) {
+                // Only update if using default logic (chips vary by player count)
                 const newChips = getStartingChipsForGame(Object.keys(gameState.players).length + count);
                 const oldChips = getStartingChipsForGame(playerCount);
-                for (const [id, player] of Object.entries(gameState.players)) {
-                    if (player.chips === oldChips) {
-                        await db.ref(`games/${gameState.roomCode}/players/${id}/chips`).set(newChips);
+                if (newChips !== oldChips) {
+                    for (const [id, player] of Object.entries(gameState.players)) {
+                        if (player.chips === oldChips) {
+                            await db.ref(`games/${gameState.roomCode}/players/${id}/chips`).set(newChips);
+                        }
                     }
                 }
             }

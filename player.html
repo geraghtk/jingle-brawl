@@ -680,6 +680,101 @@
             to { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
 
+        /* Duel Result Modal */
+        .duel-result-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            display: none;
+        }
+
+        .duel-result-modal.active { display: flex; }
+
+        .duel-result-content {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 2.5rem;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 3px solid var(--accent-gold);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+        }
+
+        .duel-result-content h2 {
+            font-family: 'Playfair Display', serif;
+            color: var(--accent-gold);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .duel-result-content.winner h2 { color: var(--accent-green); }
+        .duel-result-content.loser h2 { color: var(--accent-red); }
+
+        .duel-result-amount {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1.5rem 0;
+            color: var(--accent-gold);
+        }
+
+        .duel-result-content.winner .duel-result-amount { color: var(--accent-green); }
+        .duel-result-content.loser .duel-result-amount { color: var(--accent-red); }
+
+        .duel-result-total {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+        }
+
+        .duel-result-new-total {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+            margin-top: 0.5rem;
+        }
+
+        /* Coin Animation Styles */
+        .coin-animation-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2100;
+            overflow: hidden;
+        }
+
+        .flying-coin {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 50%;
+            border: 3px solid #92400e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #92400e;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 2101;
+        }
+
+        .flying-coin::before {
+            content: '🪙';
+            font-size: 1.5rem;
+        }
+
+        .flying-coin.outgoing {
+            background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+            border-color: #450a0a;
+        }
+
         /* Vibration feedback for important actions */
         .vibrate { animation: shake 0.3s; }
 
@@ -838,6 +933,16 @@
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
+    <!-- Duel Result Modal -->
+    <div class="duel-result-modal" id="duel-result-modal">
+        <div class="duel-result-content" id="duel-result-content">
+            <!-- Dynamic content -->
+        </div>
+    </div>
+
+    <!-- Animation Container -->
+    <div class="coin-animation-container" id="coin-animation-container"></div>
+
     <script>
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -864,6 +969,7 @@
         let bidSubmitted = false;
         let lastTurnId = null; // Track last processed turn to avoid unnecessary UI resets
         let lastPhase = null; // Track last phase to detect phase changes
+        let duelInfo = null; // Store duel info: { wasInDuel: bool, pot: number, wasChallenger: bool, wasDefender: bool, chipsBeforeDuel: number }
 
         // Check for existing session or URL room code
         window.addEventListener('load', async () => {
@@ -1036,9 +1142,46 @@
             db.ref(`games/${roomCode}/players/${playerState.playerId}`).on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    const chipsChanged = playerState.chips !== data.chips;
+                    const oldChips = playerState.chips;
+                    const chipsChanged = oldChips !== data.chips;
                     playerState.chips = data.chips;
                     playerState.giftId = data.giftId;
+                    
+                    // Check if duel just ended and we were in it
+                    // Check if we have stored duel info and chips changed significantly (not just from other actions)
+                    if (chipsChanged && duelInfo && duelInfo.wasInDuel) {
+                        const chipChange = data.chips - oldChips;
+                        const pot = duelInfo.pot || 0;
+                        const loserDividend = 1; // Standard loser dividend
+                        
+                        // Check if this change is likely from a duel result:
+                        // - Chips increased by pot amount (winner)
+                        // - Chips changed from before duel (loser got dividend or nothing)
+                        // - We're either still in duel phase (just finished) or not (next phase)
+                        const isLikelyDuelResult = (
+                            (chipChange > 0 && chipChange >= pot) || // Winner got pot
+                            (chipChange > 0 && chipChange === loserDividend && !gameState.currentTurn) || // Loser got dividend, turn ended
+                            (chipChange === 0 && oldChips === duelInfo.chipsBeforeDuel && !gameState.currentTurn) || // Loser got nothing, turn ended
+                            (gameState.currentTurn?.phase !== 'duel') // Phase changed from duel
+                        );
+                        
+                        if (isLikelyDuelResult) {
+                            // Determine win/loss based on chip change and pot
+                            if (chipChange > 0 && chipChange >= pot) {
+                                // We won! Show winner animation
+                                showDuelResultModal(true, pot, duelInfo.chipsBeforeDuel, data.chips);
+                            } else {
+                                // We lost - might have gotten dividend, but we lost overall
+                                // Calculate what we paid (bid if challenger, 0 if defender)
+                                const paidAmount = duelInfo.wasChallenger ? (duelInfo.bidAmount || 0) : 0;
+                                showDuelResultModal(false, paidAmount, duelInfo.chipsBeforeDuel, data.chips);
+                            }
+                            
+                            // Reset duel tracking
+                            duelInfo = null;
+                        }
+                    }
+                    
                     document.getElementById('chip-display').textContent = data.chips;
                     updateMyGiftDisplay();
                     
@@ -1114,7 +1257,34 @@
 
             // Current turn
             db.ref(`games/${roomCode}/currentTurn`).on('value', (snapshot) => {
+                const oldTurn = gameState.currentTurn;
                 gameState.currentTurn = snapshot.val();
+                
+                // Track when entering/exiting duel phase
+                const oldPhase = oldTurn?.phase;
+                const newPhase = gameState.currentTurn?.phase;
+                
+                if (oldPhase !== 'duel' && newPhase === 'duel') {
+                    // Entering duel phase - store duel info
+                    const amChallenger = gameState.currentTurn?.challengerId === playerState.playerId;
+                    const amDefender = gameState.currentTurn?.defenderId === playerState.playerId;
+                    if (amChallenger || amDefender) {
+                        // Get bid amount if we were challenger
+                        const bidAmount = amChallenger ? (gameState.currentTurn?.bids?.[playerState.playerId]?.amount || 0) : 0;
+                        duelInfo = {
+                            wasInDuel: true,
+                            pot: gameState.currentTurn?.pot || 0,
+                            wasChallenger: amChallenger,
+                            wasDefender: amDefender,
+                            chipsBeforeDuel: playerState.chips,
+                            bidAmount: bidAmount
+                        };
+                    }
+                } else if (oldPhase === 'duel' && newPhase !== 'duel') {
+                    // Exiting duel phase - will be handled by chips change listener
+                    // duelInfo is preserved so we can check when chips update
+                }
+                
                 handleTurnChange();
             });
 
@@ -1132,6 +1302,115 @@
                 // Update UI when phase changes
                 handleTurnChange();
             });
+        }
+
+        // Show duel result modal with animations
+        function showDuelResultModal(isWinner, amount, oldChips, newChips) {
+            const modal = document.getElementById('duel-result-modal');
+            const content = document.getElementById('duel-result-content');
+            
+            // Set winner/loser class
+            content.className = `duel-result-content ${isWinner ? 'winner' : 'loser'}`;
+            
+            if (isWinner) {
+                content.innerHTML = `
+                    <h2>🏆 YOU WON!</h2>
+                    <div class="duel-result-amount">+${amount} 🪙</div>
+                    <div class="duel-result-total">New Total:</div>
+                    <div class="duel-result-new-total">${newChips} 🪙</div>
+                `;
+                
+                // Animate coins flying in
+                animateCoinsToPlayer(amount, true, () => {
+                    // Update chip display after animation
+                    document.getElementById('chip-display').textContent = newChips;
+                });
+            } else {
+                content.innerHTML = `
+                    <h2>💔 You Lost</h2>
+                    ${amount > 0 ? `<div class="duel-result-amount">-${amount} 🪙</div>` : ''}
+                    <div class="duel-result-total">New Total:</div>
+                    <div class="duel-result-new-total">${newChips} 🪙</div>
+                `;
+                
+                // Animate coins flying out (if amount > 0)
+                if (amount > 0) {
+                    animateCoinsToPlayer(amount, false, () => {
+                        // Update chip display after animation
+                        document.getElementById('chip-display').textContent = newChips;
+                    });
+                } else {
+                    // Just update display immediately if no coins to animate
+                    document.getElementById('chip-display').textContent = newChips;
+                }
+            }
+            
+            modal.classList.add('active');
+            vibrate();
+            
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                modal.classList.remove('active');
+            }, 3000);
+        }
+
+        // Animate coins flying to/from player
+        function animateCoinsToPlayer(amount, incoming, callback) {
+            const container = document.getElementById('coin-animation-container');
+            container.innerHTML = ''; // Clear previous animations
+            
+            const chipDisplay = document.getElementById('chip-display');
+            if (!chipDisplay) {
+                if (callback) callback();
+                return;
+            }
+
+            const rect = chipDisplay.getBoundingClientRect();
+            const targetX = rect.left + rect.width / 2;
+            const targetY = rect.top + rect.height / 2;
+            const startX = incoming ? window.innerWidth / 2 : targetX;
+            const startY = incoming ? window.innerHeight / 2 : targetY;
+            const endX = incoming ? targetX : window.innerWidth / 2;
+            const endY = incoming ? targetY : window.innerHeight / 2;
+
+            // Create multiple coins
+            const numCoins = Math.min(amount, 15); // Max 15 coins for performance
+            let completed = 0;
+
+            for (let i = 0; i < numCoins; i++) {
+                const coin = document.createElement('div');
+                coin.className = `flying-coin ${incoming ? '' : 'outgoing'}`;
+                coin.style.left = startX + 'px';
+                coin.style.top = startY + 'px';
+                container.appendChild(coin);
+
+                // Random delay and path for each coin
+                const delay = i * 50 + Math.random() * 100;
+                const angle = (Math.PI * 2 * i) / numCoins + Math.random() * 0.5;
+                const distance = incoming ? (150 + Math.random() * 100) : (100 + Math.random() * 50);
+                const midX = startX + Math.cos(angle) * distance;
+                const midY = startY + Math.sin(angle) * distance;
+
+                setTimeout(() => {
+                    coin.style.transition = 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    coin.style.left = endX + 'px';
+                    coin.style.top = endY + 'px';
+                    coin.style.transform = incoming ? 'scale(1.5) rotate(720deg)' : 'scale(0.5) rotate(-720deg)';
+
+                    setTimeout(() => {
+                        coin.style.opacity = '0';
+                        completed++;
+                        if (completed === numCoins && callback) {
+                            setTimeout(callback, 200);
+                        }
+                    }, 900);
+                }, delay);
+            }
+
+            // If no coins (amount = 0), just call callback
+            if (numCoins === 0 && callback) {
+                setTimeout(callback, 500);
+            }
         }
 
         // Handle turn changes
