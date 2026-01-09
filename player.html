@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jingle Brawl - Player</title>
+    <link rel="icon" type="image/png" href="yuleduel_transparent.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -57,12 +58,19 @@
         }
 
         .join-screen h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 2rem;
             margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .join-screen h1 .brawl { color: var(--accent-gold); }
+        .join-screen h1 img {
+            max-width: 100%;
+            max-height: 80px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
 
         .join-screen .tagline {
             color: var(--text-muted);
@@ -791,7 +799,7 @@
     <div class="container">
         <!-- Join Screen -->
         <div id="join-screen" class="join-screen">
-            <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+            <h1><img src="yuleduel_transparent.png" alt="Jingle Brawl"></h1>
             <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
             
             <div class="join-form">
@@ -1003,7 +1011,7 @@
         // Show rejoin prompt
         function showRejoinPrompt(roomCode, playerId, playerName) {
             document.getElementById('join-screen').innerHTML = `
-                <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+                <h1><img src="yuleduel_transparent.png" alt="Jingle Brawl"></h1>
                 <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
                 
                 <div class="card" style="margin-top: 2rem; max-width: 300px; text-align: center;">

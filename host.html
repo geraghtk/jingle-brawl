@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jingle Brawl - Host</title>
+    <link rel="icon" type="image/png" href="yuleduel_transparent.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -43,12 +44,16 @@
         }
 
         .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.5rem;
-            font-weight: 800;
+            display: flex;
+            align-items: center;
+            height: 60px;
         }
 
-        .logo .brawl { color: var(--accent-gold); }
+        .logo img {
+            height: 100%;
+            width: auto;
+            object-fit: contain;
+        }
 
         .room-info {
             display: flex;
@@ -784,7 +789,9 @@
     <!-- Game Screen -->
     <div id="game-screen" class="hidden">
         <div class="header">
-            <div class="logo">🎄 Jingle <span class="brawl">Brawl</span> 🥊</div>
+            <div class="logo">
+                <img src="yuleduel_transparent.png" alt="Jingle Brawl">
+            </div>
             <div class="room-info">
                 <div class="player-count">
                     <span>👥</span>
