@@ -791,7 +791,7 @@
             </div>
             
             <!-- Tiebreaker Method -->
-            <div style="margin-bottom: 1.5rem; text-align: left;">
+            <div style="margin-bottom: 1rem; text-align: left;">
                 <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
                     ⚖️ Tiebreaker Method
                 </label>
@@ -803,6 +803,35 @@
                     How to resolve ties when multiple players bid the same amount
                 </div>
             </div>
+            
+            <!-- Minigame Drawing Timer (only shown if minigame is selected) -->
+            <div id="minigame-timer-setting" style="margin-bottom: 1.5rem; text-align: left; display: none;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    ⏱️ Drawing Timer (Minigame)
+                </label>
+                <select id="setting-minigame-timer" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="unlimited" selected>Unlimited (manual "Done" button)</option>
+                    <option value="5">5 seconds per stroke</option>
+                    <option value="10">10 seconds per stroke</option>
+                    <option value="15">15 seconds per stroke</option>
+                    <option value="30">30 seconds per stroke</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    How long each player has to draw one stroke (or unlimited with manual completion)
+                </div>
+            </div>
+            
+            <script>
+                // Show/hide minigame timer setting based on tiebreaker method
+                document.getElementById('setting-tiebreaker-method').addEventListener('change', function() {
+                    const timerSetting = document.getElementById('minigame-timer-setting');
+                    if (this.value === 'minigame') {
+                        timerSetting.style.display = 'block';
+                    } else {
+                        timerSetting.style.display = 'none';
+                    }
+                });
+            </script>
             
             <button class="btn btn-primary" onclick="createGame()" style="width: 100%;">
                 🎮 Create New Game
@@ -1140,6 +1169,20 @@
         </div>
     </div>
 
+    <!-- Minigame Canvas Modal -->
+    <div class="modal-overlay" id="minigame-canvas-modal-overlay">
+        <div class="modal" id="minigame-canvas-modal-content" style="max-width: 800px;">
+            <h2>🎨 The Counterfeit Canvas - Live Drawing</h2>
+            <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
+                <canvas id="minigame-modal-canvas" style="display: block; width: 100%; max-height: 600px;"></canvas>
+            </div>
+            <div id="minigame-modal-status" style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">
+                Loading...
+            </div>
+            <button class="btn btn-secondary" onclick="hideMinigameCanvasModal()" style="margin-top: 1rem;">Close</button>
+        </div>
+    </div>
+
     <!-- Animation Containers -->
     <div class="coin-animation-container" id="coin-animation-container"></div>
 
@@ -1170,7 +1213,10 @@
             players: {},
             gifts: {},
             currentTurn: null,
-            phase: 'lobby' // lobby, main, endgame, ended
+            phase: 'lobby', // lobby, main, endgame, ended
+            modalCanvasCtx: null,
+            minigamePhaseListener: null,
+            minigameModalListener: null
         };
 
         // Check for existing game on load
@@ -1280,7 +1326,9 @@
                 loserDividendRule: document.getElementById('setting-loser-dividend').value,
                 taxThreshold: parseInt(document.getElementById('setting-tax-threshold').value),
                 baseCost: parseInt(document.getElementById('setting-base-cost').value),
-                tiebreakerMethod: document.getElementById('setting-tiebreaker-method').value
+                tiebreakerMethod: document.getElementById('setting-tiebreaker-method').value,
+                minigameTimer: document.getElementById('setting-tiebreaker-method').value === 'minigame' ? 
+                    document.getElementById('setting-minigame-timer').value : null
             };
             
             // Only set startingChips if a specific value is chosen (not "variable")
@@ -2070,12 +2118,38 @@
                     phaseBadge.className = 'phase-badge duel';
                     const tbC1 = gameState.players[turn.tiebreakerC1];
                     const tbC2 = gameState.players[turn.tiebreakerC2];
-                    currentAction.textContent = `Opener chose to FIGHT!`;
-                    actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} for the right to challenge the opener.<br><span style="color: var(--text-muted);">Click to start the tiebreaker duel.</span>`;
+                    
+                    // Check if minigame is already in progress
+                    db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
+                        const minigame = snapshot.val();
+                        if (minigame) {
+                            // Minigame is active - show status and disable button
+                            currentAction.textContent = `🎨 Mini-Game in Progress!`;
+                            actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - The Counterfeit Canvas is active.<br><span style="color: var(--accent-gold);">Players are drawing on their devices.</span>`;
+                            actionButtons.innerHTML = `
+                                <button class="btn btn-secondary" disabled>⏳ Mini-Game in Progress...</button>
+                            `;
+                        } else {
+                            // No minigame yet - check method and show appropriate button
+                            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
+                            if (tiebreakerMethod === 'minigame') {
+                                // Minigame should have started, but hasn't - might be starting
+                                currentAction.textContent = `Starting Mini-Game...`;
+                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Initializing The Counterfeit Canvas...`;
+                                actionButtons.innerHTML = `
+                                    <button class="btn btn-secondary" disabled>🎨 Starting Mini-Game...</button>
+                                `;
+                            } else {
+                                // Random method - show start button
+                                currentAction.textContent = `Opener chose to FIGHT!`;
+                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} for the right to challenge the opener.<br><span style="color: var(--text-muted);">Click to start the tiebreaker duel.</span>`;
+                                actionButtons.innerHTML = `
+                                    <button class="btn btn-gold" onclick="startTiebreaker('${turn.tiebreakerC1}', '${turn.tiebreakerC2}')">⚔️ Start Tiebreaker Duel!</button>
+                                `;
+                            }
+                        }
+                    });
                     bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = `
-                        <button class="btn btn-gold" onclick="startTiebreaker('${turn.tiebreakerC1}', '${turn.tiebreakerC2}')">⚔️ Start Tiebreaker Duel!</button>
-                    `;
                     break;
 
                 case 'duel_pending':
@@ -2109,6 +2183,9 @@
                     phaseBadge.textContent = '🎨 MINI-GAME';
                     phaseBadge.className = 'phase-badge reveal';
                     
+                    // Initialize host canvas viewer if not already initialized
+                    initHostCanvasViewer();
+                    
                     // Get minigame state to show current phase
                     db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
                         const minigame = snapshot.val();
@@ -2119,10 +2196,32 @@
                         }
                         
                         updateHostMinigameUI(minigame, turn);
+                        
+                        // Show modal with drawing canvas during drawing/voting phases
+                        if (minigame.phase === 'drawing' || minigame.phase === 'voting') {
+                            showMinigameCanvasModal();
+                        }
                     });
                     
-                    // Initialize host canvas viewer
-                    initHostCanvasViewer();
+                    // Set up listener to update modal and UI when phase changes
+                    if (!gameState.minigamePhaseListener) {
+                        gameState.minigamePhaseListener = db.ref(`games/${gameState.roomCode}/minigame`).on('value', (snapshot) => {
+                            const minigame = snapshot.val();
+                            if (!minigame) {
+                                hideMinigameCanvasModal();
+                                return;
+                            }
+                            
+                            updateHostMinigameUI(minigame, turn);
+                            
+                            // Show/hide modal based on phase
+                            if (minigame.phase === 'drawing' || minigame.phase === 'voting') {
+                                showMinigameCanvasModal();
+                            } else if (minigame.phase === 'complete' || !minigame.phase) {
+                                hideMinigameCanvasModal();
+                            }
+                        });
+                    }
                     break;
 
                 case 'yield_choice':
@@ -3387,7 +3486,14 @@
                 currentRound: 1,
                 maxRounds: 2,
                 strokeStartTime: Date.now(),
-                strokeDuration: 5000, // 5 seconds per stroke
+                strokeDuration: (() => {
+                    const timerSetting = gameState.settings?.minigameTimer || 'unlimited';
+                    return timerSetting === 'unlimited' ? null : (parseInt(timerSetting) || 5) * 1000;
+                })(),
+                timerEnabled: (() => {
+                    const timerSetting = gameState.settings?.minigameTimer || 'unlimited';
+                    return timerSetting !== 'unlimited';
+                })(),
                 phase: 'role_reveal', // role_reveal, drawing, voting, word_guess, complete
                 startedAt: Date.now()
             });
@@ -3475,13 +3581,59 @@
                 strokeStartTime: Date.now()
             });
             
-            // Set timer for 5 seconds
-            setTimeout(async () => {
-                await minigameRef.update({
-                    currentTurnIndex: currentTurnIndex + 1
-                });
-                startNextDrawingTurn();
-            }, 5000);
+            // Check timer setting from minigame state
+            const timerEnabled = minigame.timerEnabled !== false; // Default to true for backward compatibility
+            if (!timerEnabled) {
+                // No timer - wait for player to click "Done" button
+                // The timer logic will be handled by player clicking "Done" which calls advanceDrawingTurn()
+                return;
+            } else {
+                // Use timer - get duration from minigame state
+                const strokeDuration = minigame.strokeDuration || 5000; // Default 5 seconds
+                
+                setTimeout(async () => {
+                    // Advance to next turn after timer expires
+                    await advanceDrawingTurn();
+                }, strokeDuration);
+            }
+        }
+        
+        // Advance to next drawing turn (called by timer or "Done" button)
+        async function advanceDrawingTurn() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'drawing') return;
+            
+            const { currentTurnIndex } = minigame;
+            
+            await minigameRef.update({
+                currentTurnIndex: currentTurnIndex + 1
+            });
+            
+            startNextDrawingTurn();
+        }
+        
+        // Advance to next drawing turn (called by timer or "Done" button)
+        async function advanceDrawingTurn() {
+            if (!gameState.roomCode) return;
+            
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'drawing') return;
+            
+            const { currentTurnIndex } = minigame;
+            
+            await minigameRef.update({
+                currentTurnIndex: currentTurnIndex + 1
+            });
+            
+            startNextDrawingTurn();
         }
         
         // Start voting phase
@@ -5130,10 +5282,10 @@
 
         // Update host UI for minigame phases
         function updateHostMinigameUI(minigame, turn) {
-            const phaseBadge = document.getElementById('turn-phase-badge');
-            const currentAction = document.getElementById('turn-current-action');
-            const actionDetails = document.getElementById('turn-action-details');
-            const actionButtons = document.getElementById('turn-action-buttons');
+            const phaseBadge = document.getElementById('phase-badge');
+            const currentAction = document.getElementById('current-action');
+            const actionDetails = document.getElementById('action-details');
+            const actionButtons = document.getElementById('action-buttons');
             const bidsContainer = document.getElementById('bids-container');
             
             if (!phaseBadge || !currentAction || !actionDetails) return;
@@ -5299,18 +5451,31 @@
                 db.ref(`games/${roomCode}/minigame`).off('value', hostMinigameListener);
             }
             
+            let lastTurnIndex = null;
+            
             hostMinigameListener = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigameData = snapshot.val();
                 if (!minigameData) return;
                 
                 // Handle clear
                 if (minigameData.clear) {
-                    hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
+                    if (hostCtx && hostCanvas) {
+                        hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
+                    }
                 }
                 
                 // Handle strokes
                 if (minigameData.strokes) {
                     redrawHostCanvas();
+                    redrawMinigameModalCanvas(); // Also update modal canvas if open
+                }
+                
+                // Detect when currentTurnIndex changes (player clicked "Done" or timer advanced)
+                const currentTurnIndex = minigameData.currentTurnIndex;
+                if (minigameData.phase === 'drawing' && currentTurnIndex !== null && currentTurnIndex !== lastTurnIndex) {
+                    lastTurnIndex = currentTurnIndex;
+                    // Trigger startNextDrawingTurn to advance to next player
+                    startNextDrawingTurn();
                 }
             });
         }
@@ -5344,6 +5509,121 @@
             });
         }
 
+        // Show minigame canvas modal
+        function showMinigameCanvasModal() {
+            const modalOverlay = document.getElementById('minigame-canvas-modal-overlay');
+            const modalCanvas = document.getElementById('minigame-modal-canvas');
+            
+            if (!modalOverlay || !modalCanvas) return;
+            
+            // Initialize canvas if needed
+            if (!gameState.modalCanvasCtx) {
+                gameState.modalCanvasCtx = modalCanvas.getContext('2d');
+                // Set canvas size
+                const container = modalCanvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                modalCanvas.width = rect.width;
+                modalCanvas.height = Math.min(rect.width * 0.75, 600);
+            }
+            
+            // Redraw canvas
+            redrawMinigameModalCanvas();
+            
+            // Update status
+            updateMinigameModalStatus();
+            
+            modalOverlay.classList.add('active');
+            
+            // Set up listener to update modal canvas when strokes change
+            if (!gameState.minigameModalListener) {
+                gameState.minigameModalListener = db.ref(`games/${gameState.roomCode}/minigame`).on('value', (snapshot) => {
+                    const minigame = snapshot.val();
+                    if (minigame) {
+                        redrawMinigameModalCanvas();
+                        updateMinigameModalStatus();
+                    }
+                });
+            }
+        }
+        
+        // Hide minigame canvas modal
+        function hideMinigameCanvasModal() {
+            const modalOverlay = document.getElementById('minigame-canvas-modal-overlay');
+            if (modalOverlay) {
+                modalOverlay.classList.remove('active');
+            }
+            
+            // Clean up listener
+            if (gameState.minigameModalListener && gameState.roomCode) {
+                db.ref(`games/${gameState.roomCode}/minigame`).off('value', gameState.minigameModalListener);
+                gameState.minigameModalListener = null;
+            }
+        }
+        
+        // Redraw canvas in modal
+        function redrawMinigameModalCanvas() {
+            const modalCanvas = document.getElementById('minigame-modal-canvas');
+            if (!modalCanvas || !gameState.modalCanvasCtx || !gameState.roomCode) return;
+            
+            const ctx = gameState.modalCanvasCtx;
+            ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+            
+            // Get all strokes from Firebase
+            db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value', (snapshot) => {
+                const strokes = snapshot.val();
+                if (!strokes) return;
+                
+                Object.values(strokes).forEach(stroke => {
+                    // Convert normalized coordinates to actual canvas coordinates
+                    const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * modalCanvas.width;
+                    const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * modalCanvas.height;
+                    const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * modalCanvas.width;
+                    const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * modalCanvas.height;
+                    
+                    ctx.strokeStyle = stroke.color || '#000000';
+                    ctx.lineWidth = stroke.size || 5;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(fromX, fromY);
+                    ctx.lineTo(toX, toY);
+                    ctx.stroke();
+                });
+            });
+        }
+        
+        // Update modal status text
+        function updateMinigameModalStatus() {
+            if (!gameState.roomCode) return;
+            
+            const statusEl = document.getElementById('minigame-modal-status');
+            if (!statusEl) return;
+            
+            db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
+                const minigame = snapshot.val();
+                if (!minigame) {
+                    statusEl.textContent = 'Mini-game ended';
+                    return;
+                }
+                
+                const phase = minigame.phase;
+                const currentPlayerId = minigame.currentPlayerId;
+                const currentPlayer = currentPlayerId ? gameState.players[currentPlayerId] : null;
+                const round = minigame.currentRound || 1;
+                
+                if (phase === 'drawing' && currentPlayer) {
+                    statusEl.innerHTML = `<strong>${currentPlayer.name}</strong> is drawing... (Round ${round})`;
+                } else if (phase === 'voting') {
+                    statusEl.textContent = 'Voting phase - players are voting for The Counterfeit';
+                } else if (phase === 'word_guess') {
+                    const counterfeit = gameState.players[minigame.counterfeitId];
+                    statusEl.innerHTML = `<strong>${counterfeit?.name}</strong> is guessing the secret word...`;
+                } else {
+                    statusEl.textContent = `Phase: ${phase || 'Unknown'}`;
+                }
+            });
+        }
+        
         // This function is no longer needed - voting determines winners automatically
         // Keeping for backward compatibility, but it shouldn't be called
         async function endCounterfeitCanvasMinigame() {

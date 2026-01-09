@@ -913,12 +913,17 @@
                         <span id="drawing-size-display" style="font-weight: 700; color: var(--accent-gold);">5</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-secondary" onclick="clearDrawing()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
-                        🗑️ Clear
-                    </button>
-                    <button class="btn btn-secondary" onclick="undoLastStroke()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
-                        ↶ Undo
+                <div id="drawing-controls-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="clearDrawing()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
+                            🗑️ Clear
+                        </button>
+                        <button class="btn btn-secondary" onclick="undoLastStroke()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
+                            ↶ Undo
+                        </button>
+                    </div>
+                    <button id="drawing-done-btn" class="btn btn-primary" onclick="finishDrawingTurn()" style="display: none; font-size: 1rem; padding: 1rem;">
+                        ✅ Done Drawing
                     </button>
                 </div>
             </div>
@@ -2878,6 +2883,35 @@
             }
         }
 
+        // Finish drawing turn (when timer is disabled, player clicks "Done")
+        async function finishDrawingTurn() {
+            if (!playerState.roomCode) return;
+            
+            // Verify it's actually our turn
+            const minigameRef = db.ref(`games/${playerState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+            
+            if (!minigame || minigame.phase !== 'drawing') {
+                showToast('Not in drawing phase');
+                return;
+            }
+            
+            if (minigame.currentPlayerId !== playerState.playerId) {
+                showToast('Not your turn!');
+                return;
+            }
+            
+            // Advance to next turn by incrementing currentTurnIndex
+            const currentTurnIndex = minigame.currentTurnIndex || 0;
+            await minigameRef.update({
+                currentTurnIndex: currentTurnIndex + 1
+            });
+            
+            // The host will detect this change and call startNextDrawingTurn
+            showToast('Turn completed! ✅');
+        }
+        
         function undoLastStroke() {
             if (drawingStrokes.length === 0) return;
             
@@ -3006,7 +3040,8 @@
         function updateMinigameUI(minigame) {
             const statusEl = document.getElementById('minigame-status');
             const canvasContainer = document.getElementById('drawing-canvas')?.parentElement;
-            const controlsContainer = document.getElementById('drawing-canvas')?.parentElement?.nextElementSibling;
+            const controlsContainer = document.getElementById('drawing-controls-container');
+            const doneBtn = document.getElementById('drawing-done-btn');
             
             switch (minigame.phase) {
                 case 'role_reveal':
@@ -3033,46 +3068,95 @@
                     // Hide canvas during role reveal
                     if (canvasContainer) canvasContainer.style.display = 'none';
                     if (controlsContainer) controlsContainer.style.display = 'none';
+                    if (doneBtn) doneBtn.style.display = 'none';
                     break;
                     
                 case 'drawing':
-                    // Show drawing interface
-                    if (canvasContainer) canvasContainer.style.display = 'block';
-                    if (controlsContainer) controlsContainer.style.display = 'flex';
-                    
                     const currentPlayerId = minigame.currentPlayerId;
                     window.minigameCurrentTurnPlayerId = currentPlayerId; // Store for draw() check
                     const isMyTurn = currentPlayerId === playerState.playerId;
                     const round = minigame.currentRound || 1;
-                    const strokeStartTime = minigame.strokeStartTime || Date.now();
-                    const timeLeft = Math.max(0, 5000 - (Date.now() - strokeStartTime));
+                    const timerEnabled = minigame.timerEnabled !== false; // Default to true for backward compatibility
+                    
+                    // Show canvas container always (so everyone can see the drawing)
+                    if (canvasContainer) canvasContainer.style.display = 'block';
                     
                     if (isMyTurn) {
-                        statusEl.innerHTML = `
+                        // It's my turn - show all controls and enable drawing
+                        // Show color picker row (the div containing color, size, etc.)
+                        const colorPickerRow = document.getElementById('drawing-color')?.parentElement;
+                        if (colorPickerRow) colorPickerRow.style.display = 'flex';
+                        
+                        // Show controls container with buttons
+                        if (controlsContainer) {
+                            controlsContainer.style.display = 'flex';
+                            // Show the buttons row (Clear/Undo)
+                            const buttonRow = controlsContainer.querySelector('div:first-child');
+                            if (buttonRow) buttonRow.style.display = 'flex';
+                        }
+                        
+                        // Update status with timer info if enabled
+                        let statusHtml = `
                             <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
                                 ✏️ Your Turn! Round ${round}
                             </div>
-                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                Draw ONE stroke (${Math.ceil(timeLeft / 1000)}s remaining)
-                            </div>
                         `;
+                        
+                        if (timerEnabled) {
+                            const strokeStartTime = minigame.strokeStartTime || Date.now();
+                            const strokeDuration = minigame.strokeDuration || 5000;
+                            const timeLeft = Math.max(0, strokeDuration - (Date.now() - strokeStartTime));
+                            statusHtml += `
+                                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                    Draw ONE stroke (${Math.ceil(timeLeft / 1000)}s remaining)
+                                </div>
+                            `;
+                            // Hide Done button if timer is enabled
+                            if (doneBtn) doneBtn.style.display = 'none';
+                        } else {
+                            statusHtml += `
+                                <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                    Draw ONE stroke, then click "Done Drawing" when finished
+                                </div>
+                            `;
+                            // Show Done button if timer is disabled
+                            if (doneBtn) doneBtn.style.display = 'block';
+                        }
+                        
+                        statusEl.innerHTML = statusHtml;
+                        
                         // Enable drawing
                         if (canvas) {
                             canvas.style.pointerEvents = 'auto';
                             canvas.style.opacity = '1';
+                            canvas.style.cursor = 'crosshair';
                         }
                     } else {
+                        // Not my turn - hide drawing controls but keep canvas visible (read-only)
+                        // Hide color picker row
+                        const colorPickerRow = document.getElementById('drawing-color')?.parentElement;
+                        if (colorPickerRow) colorPickerRow.style.display = 'none';
+                        
+                        // Hide controls container (Clear/Undo buttons and Done button)
+                        if (controlsContainer) controlsContainer.style.display = 'none';
+                        if (doneBtn) doneBtn.style.display = 'none';
+                        
                         const currentPlayerName = gameState.players[currentPlayerId]?.name || 'Someone';
                         statusEl.innerHTML = `
                             <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                ⏳ ${currentPlayerName}'s turn (Round ${round})...
+                                ⏳ ${currentPlayerName}'s turn (Round ${round})... Watch the drawing!
                             </div>
                         `;
-                        // Disable drawing
+                        
+                        // Disable drawing but keep canvas visible for viewing
                         if (canvas) {
                             canvas.style.pointerEvents = 'none';
-                            canvas.style.opacity = '0.5';
+                            canvas.style.opacity = '1'; // Keep fully visible so they can see the drawing
+                            canvas.style.cursor = 'default';
                         }
+                        
+                        // Ensure canvas container is visible
+                        if (canvasContainer) canvasContainer.style.display = 'block';
                     }
                     break;
                     
