@@ -2475,8 +2475,8 @@
 
                 <div class="duel-pot-info">
                     <div class="pot-stat">
-                        <div class="pot-stat-label">Total Pot</div>
-                        <div class="pot-stat-value">${pot} 🪙</div>
+                        <div class="pot-stat-label">Total Bid</div>
+                        <div class="pot-stat-value">${pot + tax} 🪙</div>
                     </div>
                     <div class="pot-stat">
                         <div class="pot-stat-label">Winner Gets</div>
@@ -2633,13 +2633,28 @@
                     return;
                 }
                 
+                // Validate turn has required IDs
+                if (!turn.challengerId || !turn.defenderId) {
+                    console.error('Invalid duel state - missing challenger or defender', turn);
+                    addEvent('❌ Error: Invalid duel state', 'duel');
+                    return;
+                }
+                
                 const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
                 const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
                 const winner = gameState.players[winnerId];
                 const loser = gameState.players[loserId];
 
                 if (!winner || !loser) {
-                    console.error('Winner or loser not found!', { winnerId, loserId, winner, loser });
+                    console.error('Winner or loser not found!', { 
+                        winnerId, 
+                        loserId, 
+                        winner, 
+                        loser,
+                        challengerId: turn.challengerId,
+                        defenderId: turn.defenderId,
+                        allPlayers: Object.keys(gameState.players)
+                    });
                     addEvent('❌ Error: Player not found', 'duel');
                     return;
                 }
@@ -4529,6 +4544,12 @@
                 return; // Only vote on regular duels, not tiebreakers
             }
 
+            // Validate that challenger and defender IDs exist
+            if (!turn.challengerId || !turn.defenderId) {
+                console.error('Invalid duel state - missing challenger or defender', turn);
+                return;
+            }
+
             const bots = Object.entries(gameState.players).filter(([id, p]) => 
                 (id.startsWith('bot_') || p.isBot) && 
                 id !== turn.challengerId && 
@@ -4537,6 +4558,16 @@
 
             const challenger = gameState.players[turn.challengerId];
             const defender = gameState.players[turn.defenderId];
+            
+            // Validate players exist
+            if (!challenger || !defender) {
+                console.error('Challenger or defender not found in players', { 
+                    challengerId: turn.challengerId, 
+                    defenderId: turn.defenderId,
+                    players: Object.keys(gameState.players)
+                });
+                return;
+            }
             
             for (const [botId, bot] of bots) {
                 // Check if bot already voted
@@ -4568,6 +4599,12 @@
                 // Add some randomness (bots aren't perfect predictors)
                 const adjustedProbability = voteProbability * 0.7 + 0.15; // Scale between 15% and 85%
                 const votedForId = Math.random() < adjustedProbability ? turn.challengerId : turn.defenderId;
+                
+                // Double-check votedForId is valid
+                if (!votedForId || !gameState.players[votedForId]) {
+                    console.error('Invalid votedForId', { votedForId, challengerId: turn.challengerId, defenderId: turn.defenderId });
+                    continue;
+                }
                 
                 const vote = {
                     playerId: botId,
