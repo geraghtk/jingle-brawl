@@ -46,12 +46,13 @@
         .logo {
             display: flex;
             align-items: center;
-            height: 60px;
+            height: 80px;
         }
 
         .logo img {
             height: 100%;
             width: auto;
+            max-width: 400px;
             object-fit: contain;
         }
 
@@ -4483,6 +4484,11 @@
 
         // Calculate bot bid based on strategy
         function calculateBotBid(player, giftNaughtyLevel = 0) {
+            // Validate player has chips
+            if (!player || !player.chips || player.chips <= 0) {
+                return 0; // Cannot bid with 0 or negative chips
+            }
+            
             const maxBidAllowed = GAME_CONFIG.maxBid || 99; // Use setting, or unlimited if 99
             const maxBid = Math.min(player.chips, maxBidAllowed === 99 ? player.chips : maxBidAllowed);
             if (maxBid <= 0) return 0;
@@ -4533,8 +4539,17 @@
                 // Check if bot already bid
                 if (turn.bids && turn.bids[botId]) continue;
                 
-                const bid = calculateBotBid(bot, 0);
-                if (bid > 0) {
+                // Validate bot has chips to bid
+                if (!bot || bot.chips <= 0) {
+                    continue; // Skip bots with 0 or negative chips
+                }
+                
+                // Get gift naughty level for proper min cost calculation
+                const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
+                const giftNaughtyLevel = gift?.naughtyLevel || 0;
+                
+                const bid = calculateBotBid(bot, giftNaughtyLevel);
+                if (bid > 0 && bid <= bot.chips) {
                     await db.ref(`games/${gameState.roomCode}/currentTurn/bids/${botId}`).set({
                         amount: bid,
                         submittedAt: Date.now()
