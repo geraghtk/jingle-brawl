@@ -916,6 +916,13 @@
                 <!-- Event Log -->
                 <div class="card">
                     <div class="card-title">📜 Event Log</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span></span>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+                            <input type="checkbox" id="debug-log-toggle" onchange="toggleDebugLog(this.checked)">
+                            Detailed Debug Log
+                        </label>
+                    </div>
                     <div class="event-log" id="event-log">
                         <div class="event">
                             <div>Game created! Share the room code with players.</div>
@@ -1111,6 +1118,17 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+
+        // Debug mode toggle
+        let debugMode = false;
+
+        // Toggle debug logging
+        function toggleDebugLog(enabled) {
+            debugMode = enabled;
+            if (enabled) {
+                addEvent('🔍 Detailed debug logging enabled', 'gift');
+            }
+        }
 
         // Game State
         let gameState = {
@@ -2330,6 +2348,24 @@
 
         // Reveal all bids
         async function revealBids() {
+            const turn = gameState.currentTurn;
+            const bids = turn?.bids || {};
+            
+            // Log detailed bid info if debug mode enabled
+            if (debugMode && turn) {
+                const bidEntries = Object.entries(bids).filter(([, b]) => b.amount > 0);
+                if (bidEntries.length > 0) {
+                    const bidDetails = bidEntries.map(([id, bid]) => {
+                        const player = gameState.players[id];
+                        const chipsBefore = player?.chips || 0;
+                        return `${player?.name}: ${bid.amount} 🪙 (${chipsBefore}→${chipsBefore - bid.amount})`;
+                    }).join(', ');
+                    addEvent(`[DEBUG] Bids: ${bidDetails}`, 'bid');
+                } else {
+                    addEvent(`[DEBUG] No bids submitted`, 'bid');
+                }
+            }
+            
             await db.ref(`games/${gameState.roomCode}/currentTurn/phase`).set('reveal');
             addEvent('Bids revealed!', 'bid');
         }
@@ -2446,14 +2482,12 @@
                         <div class="pot-stat-label">Winner Gets</div>
                         <div class="pot-stat-value">${winnerPayout} 🪙</div>
                     </div>
+                    ${tax > 0 ? `
                     <div class="pot-stat">
-                        <div class="pot-stat-label">Santa Tax</div>
-                        <div class="pot-stat-value">${tax} 🪙</div>
-                    </div>
-                    <div class="pot-stat">
-                        <div class="pot-stat-label">To Bank</div>
+                        <div class="pot-stat-label">Santa Tax (to Bank)</div>
                         <div class="pot-stat-value">${tax} 🏦</div>
                     </div>
+                    ` : ''}
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid var(--accent-gold);">
@@ -2599,9 +2633,6 @@
                     return;
                 }
                 
-                // Hide duel modal first
-                hideDuelModal();
-                
                 const loserId = winnerId === turn.challengerId ? turn.defenderId : turn.challengerId;
                 const gift = turn.giftId ? gameState.gifts[turn.giftId] : null;
                 const winner = gameState.players[winnerId];
@@ -2615,6 +2646,25 @@
 
                 const pot = turn.pot || 0;
                 const tax = turn.tax || 0;
+                
+                // Store chip counts before updates for debug logging
+                const winnerChipsBefore = winner.chips;
+                const loserChipsBefore = loser.chips;
+                
+                // Calculate expected chip changes
+                const loserDividend = (!turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak) ? 
+                    ((gameState.settings?.loserDividendRule === 'everyone' || 
+                      (gameState.settings?.loserDividendRule === 'defenders' && loserId === turn.defenderId)) ? 1 : 0) : 0;
+                const winnerChipsAfter = winnerChipsBefore + pot;
+                const loserChipsAfter = loserChipsBefore + loserDividend;
+                
+                // Log detailed debug info if enabled (BEFORE database updates)
+                if (debugMode) {
+                    addEvent(`[DEBUG] Duel Result: ${winner.name} (${winnerChipsBefore}→${winnerChipsAfter}${pot > 0 ? ` +${pot}` : ''}) vs ${loser.name} (${loserChipsBefore}→${loserChipsAfter}${loserDividend > 0 ? ` +${loserDividend}` : ''}) | Pot: ${pot}, Tax: ${tax}`, 'duel');
+                }
+                
+                // Don't hide modal immediately - let it stay visible during animations
+                // Modal will be hidden after animations complete (see end of function)
 
                 // Animate coins to winner (don't wait, run in parallel)
                 if (pot > 0) {
@@ -2629,7 +2679,10 @@
                 // Give pot to winner (update immediately, animation plays visually)
                 if (pot > 0) {
                     await db.ref(`games/${gameState.roomCode}/players/${winnerId}/chips`).set(winner.chips + pot);
-                    addEvent(`${winner.name} wins pot of ${pot} chips!`, 'bid');
+                    // Only show normal message if not in debug mode (debug mode already logged detailed info)
+                    if (!debugMode) {
+                        addEvent(`${winner.name} wins pot of ${pot} chips!`, 'bid');
+                    }
                 }
 
                 // Loser dividend (if not yield/misfit/tiebreak, based on rule)
@@ -2642,9 +2695,13 @@
                     
                     if (shouldPayDividend) {
                         await db.ref(`games/${gameState.roomCode}/players/${loserId}/chips`).set(loser.chips + GAME_CONFIG.loserDividend);
-                        addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+                        if (!debugMode) {
+                            addEvent(`${loser.name} receives +1 Loser's Dividend`, 'bid');
+                        }
                     } else if (dividendRule === 'defenders' && !isLoserDefender) {
-                        addEvent(`${loser.name} attacked and lost - no dividend!`, 'bid');
+                        if (!debugMode) {
+                            addEvent(`${loser.name} attacked and lost - no dividend!`, 'bid');
+                        }
                     }
                 }
 
@@ -2800,7 +2857,14 @@
                     }
                 }
 
-                addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
+                // Hide modal and show win message after animations complete
+                setTimeout(() => {
+                    hideDuelModal();
+                    // Small delay before showing win message so modal closes first
+                    setTimeout(() => {
+                        addEvent(`🏆 ${winner.name} wins the duel!`, 'duel');
+                    }, 200);
+                }, 3000);
 
                 // Track actual duel performance (when participating as challenger/defender)
                 // Only track for main duels, not tiebreakers
@@ -3863,6 +3927,12 @@
             const bid = turn.bids[bidderId]?.amount || 0;
             const bidder = gameState.players[bidderId];
             
+            // Prevent zero bid duels
+            if (bid <= 0) {
+                addEvent('❌ Invalid bid - cannot start duel with 0 chips', 'duel');
+                return;
+            }
+            
             // Deduct bid from bidder
             await db.ref(`games/${gameState.roomCode}/players/${bidderId}/chips`).set(bidder.chips - bid);
 
@@ -4030,7 +4100,9 @@
             }
             
             // Get starting chips (uses custom setting if available)
-            const chips = getStartingChipsForGame(playerCount + count);
+            // Always calculate based on the final player count after all bots are added
+            const finalPlayerCount = playerCount + count;
+            const chips = getStartingChipsForGame(finalPlayerCount);
 
             for (let i = 0; i < count && (existingBots + i) < BOT_NAMES.length; i++) {
                 const botId = `bot_${existingBots + i}_${Date.now()}`;
@@ -4720,13 +4792,13 @@
                     // Have bots vote first (if they haven't already)
                     if (!turn.isTiebreak) {
                         await botVoteAll();
-                        // Wait a moment for votes to be recorded, then resolve
+                        // Wait longer to let modal display first, then resolve
                         autoPilotInterval = setTimeout(async () => {
                             // Resolve duel randomly
                             const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                             await recordDuelWinner(winnerId);
                             runAutoPilotStep();
-                        }, getAutoPilotDelay(500));
+                        }, getAutoPilotDelay(2000)); // Increased delay so modal shows first
                         return;
                     } else {
                         // Tiebreaker - no voting, just resolve
@@ -4769,19 +4841,47 @@
                     if (activePlayer?.isBot) {
                         // Bot randomly chooses steal or auction
                         if (Math.random() < 0.5) {
-                            // Try to steal
-                            const targets = Object.entries(gameState.players)
-                                .filter(([id, p]) => p.giftId && id !== turn.activePlayerId);
-                            if (targets.length > 0) {
-                                const [targetId] = targets[Math.floor(Math.random() * targets.length)];
-                                const targetGiftId = gameState.players[targetId].giftId;
+                            // Try to steal - check for valid targets
+                            const playerGifts = Object.entries(gameState.gifts).filter(([id, g]) => 
+                                g.ownerId !== 'misfit' && g.ownerId !== turn.activePlayerId && g.ownerId
+                            );
+                            if (playerGifts.length > 0) {
+                                // Pick a random gift to steal
+                                const [targetGiftId] = playerGifts[Math.floor(Math.random() * playerGifts.length)];
                                 await executeEndgameSteal(targetGiftId);
                             } else {
-                                await showEndgameAuction();
+                                // No targets available, go to auction instead
+                                await startEndgameAuction();
                             }
                         } else {
-                            await showEndgameAuction();
+                            // Choose auction
+                            await startEndgameAuction();
                         }
+                        // Continue auto-pilot after handling
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1000));
+                        return;
+                    } else {
+                        // Human player needs to choose - auto-pilot can't make choices for humans
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
+                        return;
+                    }
+                } else if (turn.phase === 'endgame_steal_select') {
+                    // Active player choosing which gift to steal - bot should pick randomly
+                    const activePlayer = gameState.players[turn.activePlayerId];
+                    if (activePlayer?.isBot) {
+                        const playerGifts = Object.entries(gameState.gifts).filter(([id, g]) => 
+                            g.ownerId !== 'misfit' && g.ownerId !== turn.activePlayerId
+                        );
+                        if (playerGifts.length > 0) {
+                            const [targetGiftId] = playerGifts[Math.floor(Math.random() * playerGifts.length)];
+                            await executeEndgameSteal(targetGiftId);
+                        } else {
+                            // No targets, go to auction
+                            await startEndgameAuction();
+                        }
+                        // Continue auto-pilot after handling
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1000));
+                        return;
                     } else {
                         // Human player needs to choose
                         autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
@@ -4829,13 +4929,13 @@
                     // Have bots vote first (if they haven't already)
                     if (!turn.isTiebreak) {
                         await botVoteAll();
-                        // Wait a moment for votes to be recorded, then resolve
+                        // Wait longer to let modal display first, then resolve
                         autoPilotInterval = setTimeout(async () => {
                             // Resolve duel randomly
                             const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                             await recordDuelWinner(winnerId);
                             runAutoPilotStep();
-                        }, getAutoPilotDelay(500));
+                        }, getAutoPilotDelay(2000)); // Increased delay so modal shows first
                         return;
                     } else {
                         // Tiebreaker - no voting, just resolve
