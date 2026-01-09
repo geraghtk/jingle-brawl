@@ -941,9 +941,25 @@
                             <option value="conservative">All Conservative</option>
                             <option value="random">All Random</option>
                         </select>
-                        <button class="btn btn-gold" onclick="runBotAutoPilot()" id="btn-auto-pilot">
-                            🚀 Run Auto-Pilot
-                        </button>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-gold" onclick="runBotAutoPilot()" id="btn-auto-pilot">
+                                    🚀 Run Auto-Pilot
+                                </button>
+                                <button class="btn btn-secondary" onclick="toggleAutoPilotPause()" id="btn-pause-auto-pilot" style="display: none;">
+                                    ⏸️ Pause
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;">Speed:</label>
+                                <input type="range" id="auto-pilot-speed" min="0.1" max="5" step="0.1" value="1.0" 
+                                       style="flex: 1; cursor: pointer;" 
+                                       oninput="updateAutoPilotSpeed(this.value)">
+                                <span id="auto-pilot-speed-display" style="font-size: 0.85rem; color: var(--accent-gold); min-width: 50px; text-align: right;">
+                                    1.0x
+                                </span>
+                            </div>
+                        </div>
                         <button class="btn btn-secondary" onclick="botBidAll()" id="btn-bot-bid" style="display: none;">
                             💰 Bots Submit Bids
                         </button>
@@ -3947,7 +3963,47 @@
         ];
 
         let autoPilotRunning = false;
+        let autoPilotPaused = false;
         let autoPilotInterval = null;
+        let autoPilotSpeed = 1.0; // Speed multiplier (1.0 = normal, 0.5 = 2x faster, 2.0 = 2x slower)
+
+        // Get delay based on speed setting (lower speed = longer delay, higher speed = shorter delay)
+        function getAutoPilotDelay(baseDelay) {
+            return Math.max(100, baseDelay / autoPilotSpeed); // Minimum 100ms delay
+        }
+
+        // Update auto-pilot speed display
+        function updateAutoPilotSpeed(value) {
+            autoPilotSpeed = parseFloat(value);
+            document.getElementById('auto-pilot-speed-display').textContent = autoPilotSpeed.toFixed(1) + 'x';
+        }
+
+        // Toggle pause/resume
+        function toggleAutoPilotPause() {
+            if (!autoPilotRunning) return;
+            
+            autoPilotPaused = !autoPilotPaused;
+            const pauseBtn = document.getElementById('btn-pause-auto-pilot');
+            
+            if (autoPilotPaused) {
+                // Pause: clear the interval
+                if (autoPilotInterval) {
+                    clearTimeout(autoPilotInterval);
+                    autoPilotInterval = null;
+                }
+                pauseBtn.textContent = '▶️ Resume';
+                pauseBtn.classList.remove('btn-secondary');
+                pauseBtn.classList.add('btn-gold');
+                addEvent('⏸️ Auto-pilot paused', 'gift');
+            } else {
+                // Resume: continue from where we left off
+                pauseBtn.textContent = '⏸️ Pause';
+                pauseBtn.classList.remove('btn-gold');
+                pauseBtn.classList.add('btn-secondary');
+                addEvent('▶️ Auto-pilot resumed', 'gift');
+                runAutoPilotStep();
+            }
+        }
 
         // Helper to get starting chips (checks custom setting first)
         function getStartingChipsForGame(playerCount) {
@@ -4461,9 +4517,14 @@
             }
 
             autoPilotRunning = true;
+            autoPilotPaused = false;
             document.getElementById('btn-auto-pilot').textContent = '⏹️ Stop Auto-Pilot';
             document.getElementById('btn-auto-pilot').classList.add('btn-danger');
             document.getElementById('btn-auto-pilot').classList.remove('btn-gold');
+            document.getElementById('btn-pause-auto-pilot').style.display = 'block';
+            document.getElementById('btn-pause-auto-pilot').textContent = '⏸️ Pause';
+            document.getElementById('btn-pause-auto-pilot').classList.remove('btn-gold');
+            document.getElementById('btn-pause-auto-pilot').classList.add('btn-secondary');
             
             addEvent('🤖 Auto-pilot engaged!', 'gift');
             
@@ -4473,6 +4534,7 @@
 
         function stopAutoPilot() {
             autoPilotRunning = false;
+            autoPilotPaused = false;
             if (autoPilotInterval) {
                 clearTimeout(autoPilotInterval);
                 autoPilotInterval = null;
@@ -4480,11 +4542,12 @@
             document.getElementById('btn-auto-pilot').textContent = '🚀 Run Auto-Pilot';
             document.getElementById('btn-auto-pilot').classList.remove('btn-danger');
             document.getElementById('btn-auto-pilot').classList.add('btn-gold');
+            document.getElementById('btn-pause-auto-pilot').style.display = 'none';
             addEvent('🤖 Auto-pilot stopped', 'gift');
         }
 
         async function runAutoPilotStep() {
-            if (!autoPilotRunning) return;
+            if (!autoPilotRunning || autoPilotPaused) return;
             
             const turn = gameState.currentTurn;
             const phase = gameState.phase;
@@ -4494,7 +4557,7 @@
                 if (Object.keys(gameState.players).length >= 2) {
                     await startGame();
                 }
-                autoPilotInterval = setTimeout(runAutoPilotStep, 1500);
+                autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1500));
                 return;
             }
 
@@ -4525,7 +4588,7 @@
                     autoPilotInterval = setTimeout(async () => {
                         await revealBids();
                         runAutoPilotStep();
-                    }, 1000);
+                    }, getAutoPilotDelay(1000));
                     return;
                 } else if (turn.phase === 'reveal') {
                     // Process reveal automatically
@@ -4540,7 +4603,7 @@
                             await db.ref(`games/${gameState.roomCode}/currentTurn`).set(null);
                         } else {
                             // Wait for human opener - this will need manual input
-                            autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                            autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                             return;
                         }
                     } else {
@@ -4574,7 +4637,7 @@
                                     }
                                 } else {
                                     // Human opener - need to show choice UI
-                                    autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                                    autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                                     return;
                                 }
                             } else {
@@ -4595,7 +4658,7 @@
                                 } else {
                                     // Need random selection first
                                     await randomTiebreaker();
-                                    autoPilotInterval = setTimeout(runAutoPilotStep, 1000);
+                                    autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1000));
                                     return;
                                 }
                             }
@@ -4614,7 +4677,7 @@
                                 }
                             } else {
                                 // Human opener needs to choose
-                                autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                                autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                                 return;
                             }
                         } else {
@@ -4641,7 +4704,7 @@
                         }
                     } else {
                         // Human opener needs to choose
-                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                         return;
                     }
                 } else if (turn.phase === 'tiebreaker_pending') {
@@ -4663,7 +4726,7 @@
                             const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                             await recordDuelWinner(winnerId);
                             runAutoPilotStep();
-                        }, 500);
+                        }, getAutoPilotDelay(500));
                         return;
                     } else {
                         // Tiebreaker - no voting, just resolve
@@ -4721,7 +4784,7 @@
                         }
                     } else {
                         // Human player needs to choose
-                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                         return;
                     }
                 } else if (turn.phase === 'endgame_auction') {
@@ -4738,7 +4801,7 @@
                             await revealEndgameAuctionBids();
                         }
                         runAutoPilotStep();
-                    }, 1000);
+                    }, getAutoPilotDelay(1000));
                     return;
                 } else if (turn.phase === 'endgame_reveal') {
                     // Resolve endgame auction after bids revealed
@@ -4759,7 +4822,7 @@
                         }
                     } else {
                         // Human player needs to choose
-                        autoPilotInterval = setTimeout(runAutoPilotStep, 2000);
+                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                         return;
                     }
                 } else if (turn.phase === 'duel') {
@@ -4772,7 +4835,7 @@
                             const winnerId = Math.random() < 0.5 ? turn.challengerId : turn.defenderId;
                             await recordDuelWinner(winnerId);
                             runAutoPilotStep();
-                        }, 500);
+                        }, getAutoPilotDelay(500));
                         return;
                     } else {
                         // Tiebreaker - no voting, just resolve
@@ -4782,7 +4845,7 @@
                 }
             }
 
-            autoPilotInterval = setTimeout(runAutoPilotStep, 1500);
+            autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1500));
         }
 
         // Helper to skip reprisal
