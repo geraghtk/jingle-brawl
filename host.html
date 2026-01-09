@@ -46,13 +46,13 @@
         .logo {
             display: flex;
             align-items: center;
-            height: 80px;
+            height: 120px;
         }
 
         .logo img {
             height: 100%;
             width: auto;
-            max-width: 400px;
+            max-width: 600px;
             object-fit: contain;
         }
 
@@ -118,15 +118,25 @@
         }
 
         .setup-screen h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .setup-screen h1 img {
+            max-width: 100%;
+            max-height: 300px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
 
         .setup-screen .tagline {
             color: var(--text-muted);
             font-style: italic;
             margin-bottom: 2rem;
+            font-size: 1.1rem;
         }
 
         .setup-screen .tagline span { color: var(--accent-gold); }
@@ -659,7 +669,7 @@
 <body>
     <!-- Setup Screen -->
     <div id="setup-screen" class="setup-screen">
-        <h1>🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+        <h1><img src="yuleduel_transparent.png" alt="Jingle Brawl"></h1>
         <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
         
         <div class="card" style="margin-top: 2rem; max-width: 400px;">
@@ -773,11 +783,25 @@
             </div>
             
             <!-- Public Chips -->
-            <div style="margin-bottom: 1.5rem; text-align: left;">
+            <div style="margin-bottom: 1rem; text-align: left;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                     <input type="checkbox" id="setting-public-chips">
                     <span>👁️ Show everyone's chip counts</span>
                 </label>
+            </div>
+            
+            <!-- Tiebreaker Method -->
+            <div style="margin-bottom: 1.5rem; text-align: left;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    ⚖️ Tiebreaker Method
+                </label>
+                <select id="setting-tiebreaker-method" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
+                    <option value="random" selected>Random Selection (fast)</option>
+                    <option value="minigame">The Counterfeit Canvas Mini-Game</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    How to resolve ties when multiple players bid the same amount
+                </div>
             </div>
             
             <button class="btn btn-primary" onclick="createGame()" style="width: 100%;">
@@ -1255,7 +1279,8 @@
                 maxWinnerPayout: parseInt(document.getElementById('setting-max-payout').value),
                 loserDividendRule: document.getElementById('setting-loser-dividend').value,
                 taxThreshold: parseInt(document.getElementById('setting-tax-threshold').value),
-                baseCost: parseInt(document.getElementById('setting-base-cost').value)
+                baseCost: parseInt(document.getElementById('setting-base-cost').value),
+                tiebreakerMethod: document.getElementById('setting-tiebreaker-method').value
             };
             
             // Only set startingChips if a specific value is chosen (not "variable")
@@ -1371,7 +1396,7 @@
             // Settings (keep gameState.settings in sync)
             db.ref(`games/${roomCode}/settings`).on('value', (snapshot) => {
                 gameState.settings = snapshot.val() || { publicChips: false };
-                // Apply settings to GAME_CONFIG
+                // Apply settings to GAME_CONFIG (tiebreakerMethod stays in gameState.settings)
                 if (gameState.settings) {
                     GAME_CONFIG.maxReprisalDepth = gameState.settings.maxReprisalDepth ?? GAME_CONFIG.maxReprisalDepth;
                     GAME_CONFIG.maxBid = gameState.settings.maxBid ?? GAME_CONFIG.maxBid;
@@ -1379,6 +1404,7 @@
                     GAME_CONFIG.loserDividendRule = gameState.settings.loserDividendRule ?? GAME_CONFIG.loserDividendRule;
                     GAME_CONFIG.taxThreshold = gameState.settings.taxThreshold ?? GAME_CONFIG.taxThreshold;
                     GAME_CONFIG.baseCost = gameState.settings.baseCost ?? GAME_CONFIG.baseCost;
+                    // tiebreakerMethod is stored in gameState.settings, not GAME_CONFIG
                 }
             });
             
@@ -1768,8 +1794,12 @@
                             const c2Name = gameState.players[c2Id]?.name;
                             const openerName = gameState.players[turn.openerId]?.name;
                             
+                            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
+                            const useMinigame = tiebreakerMethod === 'minigame';
+                            
                             if (tiedBidders.length === 2) {
-                                // 2 tied bidders - opener chooses fight (mini-game to pick 1) or yield (direct fight)
+                                // 2 tied bidders - opener chooses fight or yield
+                                const fightText = useMinigame ? 'Mini-Game to Pick 1' : 'Tiebreaker Duel';
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">TIE!</strong> ${c1Name} & ${c2Name} both bid ${highestAmount}.<br>
                                     <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
@@ -1783,7 +1813,7 @@
                                         <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override (if opener can't use phone)</summary>
                                         <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
                                             <button class="btn btn-primary" onclick="openerChoosesFightForMinigame()">
-                                                ⚔️ Opener Fights → Mini-Game to Pick 1
+                                                ⚔️ Opener Fights → ${fightText}
                                             </button>
                                             <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
                                                 🏃 Opener Yields → ${c1Name} vs ${c2Name}
@@ -1792,8 +1822,10 @@
                                     </details>
                                 `;
                             } else {
-                                // 3+ tied - opener chooses first, then mini-game if needed
+                                // 3+ tied - opener chooses first, then mini-game or random if needed
                                 const tiedNames = tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
+                                const fightText = useMinigame ? 'Mini-Game to Pick 1' : 'Random Tiebreaker';
+                                const yieldText = useMinigame ? 'Mini-Game to Pick 2' : 'Random Selection';
                                 actionDetails.innerHTML = `
                                     <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedNames}<br>
                                     <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
@@ -1807,10 +1839,10 @@
                                         <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">🔧 Manual Override</summary>
                                         <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
                                             <button class="btn btn-primary" onclick="openerChoosesFightForMinigame()">
-                                                ⚔️ Opener Fights → Mini-Game to Pick 1
+                                                ⚔️ Opener Fights → ${fightText}
                                             </button>
                                             <button class="btn btn-gold" onclick="openerChoosesYieldForMinigame()">
-                                                🏃 Opener Yields → Mini-Game to Pick 2
+                                                🏃 Opener Yields → ${yieldText}
                                             </button>
                                         </div>
                                     </details>
@@ -3156,7 +3188,7 @@
             addEvent(`😈 ${opener.name} uses Grinch's Gambit on "${targetGift.name}"!`, 'duel');
         }
 
-        // Opener chooses to fight when there are 2+ tied bidders - triggers mini-game
+        // Opener chooses to fight when there are 2+ tied bidders - triggers mini-game or random
         async function openerChoosesFightForMinigame() {
             const turn = gameState.currentTurn;
             const bids = Object.entries(turn.bids || {})
@@ -3170,18 +3202,37 @@
                 return;
             }
             
-            // Store that opener chose to fight, and need to pick 1 winner from tied bidders
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                openerChoice: 'fight',
-                minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
-                tiedBidders: tiedBidders.map(([id]) => id)
-            });
+            // Check tiebreaker method setting
+            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
             
-            // Start the mini-game
-            await startCounterfeitCanvasMinigame();
+            if (tiebreakerMethod === 'minigame') {
+                // Store that opener chose to fight, and need to pick 1 winner from tied bidders
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    openerChoice: 'fight',
+                    minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
+                    tiedBidders: tiedBidders.map(([id]) => id)
+                });
+                
+                // Start the mini-game
+                await startCounterfeitCanvasMinigame();
+            } else {
+                // Random method: For 2 tied bidders, go directly to tiebreaker duel
+                if (tiedBidders.length === 2) {
+                    const [c1Id] = tiedBidders[0];
+                    const [c2Id] = tiedBidders[1];
+                    await startTiebreaker(c1Id, c2Id);
+                } else {
+                    // 3+ tied bidders: randomly select 2 first
+                    const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
+                    const selected = shuffled.slice(0, 2);
+                    const [c1Id] = selected[0];
+                    const [c2Id] = selected[1];
+                    await startTiebreaker(c1Id, c2Id);
+                }
+            }
         }
 
-        // Opener chooses to yield when there are 3+ tied bidders - triggers mini-game
+        // Opener chooses to yield when there are 3+ tied bidders - triggers mini-game or random
         async function openerChoosesYieldForMinigame() {
             const turn = gameState.currentTurn;
             const bids = Object.entries(turn.bids || {})
@@ -3195,31 +3246,50 @@
                 return;
             }
             
-            // Store that opener chose to yield, and need to pick 2 challengers to fight each other
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                openerChoice: 'yield',
-                minigameGoal: 'pick_two', // Need to pick 2 to fight each other
-                tiedBidders: tiedBidders.map(([id]) => id)
-            });
+            // Check tiebreaker method setting
+            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
             
-            // Start the mini-game
-            await startCounterfeitCanvasMinigame();
+            if (tiebreakerMethod === 'minigame') {
+                // Store that opener chose to yield, and need to pick 2 challengers to fight each other
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    openerChoice: 'yield',
+                    minigameGoal: 'pick_two', // Need to pick 2 to fight each other
+                    tiedBidders: tiedBidders.map(([id]) => id)
+                });
+                
+                // Start the mini-game
+                await startCounterfeitCanvasMinigame();
+            } else {
+                // Random method: randomly select 2 bidders to fight
+                const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 2);
+                const [c1Id] = selected[0];
+                const [c2Id] = selected[1];
+                await openerYields(c1Id, c2Id);
+            }
         }
 
         // Tiebreaker duel (no pot, winner becomes challenger)
         async function startTiebreaker(player1Id, player2Id) {
             const turn = gameState.currentTurn;
             
-            // Check if we need mini-game for 3+ tied bidders
-            const tiedBidders = turn.tiedBidders || [];
-            if (tiedBidders.length >= 3) {
-                // Need mini-game to pick 1 winner from tied bidders
-                await openerChoosesFightForMinigame();
+            // Check tiebreaker method setting
+            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
+            
+            // If mini-game is enabled, use it for any number of tied bidders
+            if (tiebreakerMethod === 'minigame') {
+                // Store tied bidders and start mini-game
+                const tiedBidders = turn.tiedBidders || [player1Id, player2Id];
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    openerChoice: 'fight',
+                    minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
+                    tiedBidders: tiedBidders
+                });
+                await startCounterfeitCanvasMinigame();
                 return;
             }
             
-            // For 2 tied bidders, proceed directly with tiebreaker
-            
+            // Random method: proceed directly with tiebreaker duel
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
                 phase: 'duel',
                 challengerId: player1Id,
@@ -4772,25 +4842,42 @@
                                     return;
                                 }
                             } else {
-                                // 3+ tied - randomly select 2 first
-                                const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
-                                const selected = shuffled.slice(0, 2);
-                                const [c1Id] = selected[0];
-                                const [c2Id] = selected[1];
+                                // 3+ tied bidders
+                                const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
                                 
                                 if (isOpenerBot) {
-                                    // Randomly select, then bot chooses
-                                    await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                                        phase: 'yield_choice',
-                                        selectedC1: c1Id,
-                                        selectedC2: c2Id
-                                    });
-                                    // Will be handled in yield_choice phase
+                                    if (tiebreakerMethod === 'minigame') {
+                                        // With mini-game, opener chooses directly (mini-game will handle selection)
+                                        // Bot randomly chooses fight (70%) or yield (30%)
+                                        if (Math.random() < 0.7) {
+                                            await openerChoosesFightForMinigame();
+                                        } else {
+                                            await openerChoosesYieldForMinigame();
+                                        }
+                                    } else {
+                                        // Random method: randomly select 2 first, then bot chooses
+                                        const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
+                                        const selected = shuffled.slice(0, 2);
+                                        const [c1Id] = selected[0];
+                                        const [c2Id] = selected[1];
+                                        await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                                            phase: 'yield_choice',
+                                            selectedC1: c1Id,
+                                            selectedC2: c2Id
+                                        });
+                                        // Will be handled in yield_choice phase
+                                    }
                                 } else {
-                                    // Need random selection first
-                                    await randomTiebreaker();
-                                    autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1000));
-                                    return;
+                                    if (tiebreakerMethod === 'minigame') {
+                                        // Human opener - wait for their choice on device
+                                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
+                                        return;
+                                    } else {
+                                        // Random method: randomly select 2 first
+                                        await randomTiebreaker();
+                                        autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(1000));
+                                        return;
+                                    }
                                 }
                             }
                         } else if (second && second[1].amount > 0) {
@@ -4839,7 +4926,7 @@
                         return;
                     }
                 } else if (turn.phase === 'tiebreaker_pending') {
-                    // Start the tiebreaker duel (this sets phase to 'duel' with isTiebreak: true)
+                    // Start the tiebreaker duel (this sets phase to 'duel' with isTiebreak: true, or mini-game if enabled)
                     await startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2);
                 } else if (turn.phase === 'yield_pending') {
                     // Start the yield duel
