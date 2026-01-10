@@ -1848,8 +1848,12 @@
                             if (tiedBidders.length === 2) {
                                 // 2 tied bidders - opener chooses fight or yield
                                 const fightText = useMinigame ? 'Mini-Game to Pick 1' : 'Tiebreaker Duel';
+                                // Hide tied bidders' names if minigame is enabled (will be revealed after tiebreaker)
+                                const tiedDisplay = useMinigame ? 
+                                    '2 players (hidden until tiebreaker concludes)' :
+                                    `${c1Name} & ${c2Name}`;
                                 actionDetails.innerHTML = `
-                                    <strong style="color: var(--accent-gold);">TIE!</strong> ${c1Name} & ${c2Name} both bid ${highestAmount}.<br>
+                                    <strong style="color: var(--accent-gold);">TIE!</strong> ${tiedDisplay} both bid ${highestAmount}.<br>
                                     <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
                                 `;
                                 actionButtons.innerHTML = `
@@ -1864,18 +1868,21 @@
                                                 ⚔️ Opener Fights → ${fightText}
                                             </button>
                                             <button class="btn btn-gold" onclick="openerYields('${c1Id}', '${c2Id}')">
-                                                🏃 Opener Yields → ${c1Name} vs ${c2Name}
+                                                🏃 Opener Yields → ${useMinigame ? '2 players fight' : `${c1Name} vs ${c2Name}`}
                                             </button>
                                         </div>
                                     </details>
                                 `;
                             } else {
                                 // 3+ tied - opener chooses first, then mini-game or random if needed
-                                const tiedNames = tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
                                 const fightText = useMinigame ? 'Mini-Game to Pick 1' : 'Random Tiebreaker';
                                 const yieldText = useMinigame ? 'Mini-Game to Pick 2' : 'Random Selection';
+                                // Hide tied bidders' names if minigame is enabled (will be revealed after tiebreaker)
+                                const tiedDisplay = useMinigame ? 
+                                    `${tiedBidders.length} players (hidden until tiebreaker concludes)` :
+                                    tiedBidders.map(([id]) => gameState.players[id]?.name).join(', ');
                                 actionDetails.innerHTML = `
-                                    <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedNames}<br>
+                                    <strong style="color: var(--accent-gold);">${tiedBidders.length}-WAY TIE</strong> at ${highestAmount} chips: ${tiedDisplay}<br>
                                     <span style="color: var(--accent-green);">⏳ Waiting for ${openerName} to choose: Fight or Yield?</span>
                                 `;
                                 actionButtons.innerHTML = `
@@ -3471,7 +3478,18 @@
             
             addEvent(`🎨 Starting The Counterfeit Canvas: ${category} - Secret word: ${secretWord}`, 'bid');
             
-            // Initialize minigame state in Firebase
+            // Assign roles to each player first
+            const roles = {};
+            allPlayerIds.forEach(playerId => {
+                roles[playerId] = {
+                    isCounterfeit: playerId === counterfeitId,
+                    playerId: playerId,
+                    category: category,
+                    secretWord: playerId === counterfeitId ? null : secretWord // Counterfeit sees no word
+                };
+            });
+            
+            // Initialize minigame state in Firebase (include roles in initial set)
             await db.ref(`games/${gameState.roomCode}/minigame`).set({
                 category: category,
                 secretWord: secretWord,
@@ -3479,6 +3497,7 @@
                 counterfeitId: counterfeitId,
                 tiedBidders: tiedBidders,
                 minigameGoal: minigameGoal, // 'pick_one' or 'pick_two'
+                roles: roles, // Include roles in initial state
                 strokes: {},
                 clear: null,
                 playerOrder: playerOrder,
@@ -3498,20 +3517,7 @@
                 startedAt: Date.now()
             });
             
-            // Assign roles to each player
-            const roles = {};
-            allPlayerIds.forEach(playerId => {
-                roles[playerId] = {
-                    isCounterfeit: playerId === counterfeitId,
-                    playerId: playerId,
-                    category: category,
-                    secretWord: playerId === counterfeitId ? null : secretWord // Counterfeit sees no word
-                };
-            });
-            
-            await db.ref(`games/${gameState.roomCode}/minigame/roles`).set(roles);
-            
-            // Update turn to minigame phase
+            // Update turn to minigame phase AFTER minigame state is ready
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
                 phase: 'minigame_counterfeit_canvas',
                 minigameStatus: `Category: ${category}. Role reveal - check your device!`,
@@ -5290,7 +5296,8 @@
             
             if (!phaseBadge || !currentAction || !actionDetails) return;
             
-            const tiedNames = (turn.tiedBidders || []).map(id => gameState.players[id]?.name).join(', ');
+            // Hide tied bidders during minigame - only show count
+            const tiedBiddersCount = (turn.tiedBidders || []).length;
             const minigameGoal = turn.minigameGoal || 'pick_one';
             const goalText = minigameGoal === 'pick_one' ? 'Pick 1 winner' : 'Pick 2 winners';
             
@@ -5302,7 +5309,7 @@
                         <div style="margin-bottom: 1rem;">
                             <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
                             <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
                             <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
                         </div>
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
@@ -5322,14 +5329,14 @@
                     actionDetails.innerHTML = `
                         <div style="margin-bottom: 1rem;">
                             <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
                             <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
                         </div>
                         <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
                             <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
                         </div>
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Turn-based drawing: Each player draws ONE stroke per turn (5 seconds each). ${minigame.maxRounds || 2} rounds total.
+                            Turn-based drawing: Each player draws ONE stroke per turn. ${minigame.maxRounds || 2} rounds total.
                         </div>
                     `;
                     bidsContainer.classList.add('hidden');
@@ -5343,7 +5350,7 @@
                         <div style="margin-bottom: 1rem;">
                             <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
                             <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)
                         </div>
                         <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
                             <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
@@ -5359,12 +5366,12 @@
                 case 'word_guess':
                     phaseBadge.textContent = '🎯 WORD GUESS';
                     currentAction.textContent = 'The Counterfeit Caught - Word Guess!';
-                    const counterfeitName = gameState.players[minigame.counterfeitId]?.name || 'Unknown';
+                    // Still hide tied bidders during word guess
                     actionDetails.innerHTML = `
                         <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-red);">The Counterfeit:</strong> ${counterfeitName}<br>
                             <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}
+                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)
                         </div>
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
                             The Counterfeit was caught! They get one guess at the secret word. Check The Counterfeit's device.
@@ -5379,7 +5386,7 @@
                     currentAction.textContent = 'The Counterfeit Canvas';
                     actionDetails.innerHTML = `
                         <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedNames}<br>
+                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
                             <span style="color: var(--text-secondary);">Mini-game in progress...</span>
                         </div>
                     `;

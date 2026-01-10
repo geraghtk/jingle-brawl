@@ -2088,10 +2088,21 @@
 
                 case 'minigame_counterfeit_canvas':
                     // Show mini-game interface based on phase
-                    document.getElementById('minigame-card').classList.remove('hidden');
-                    document.getElementById('bid-panel').classList.add('hidden');
-                    document.getElementById('action-card').classList.add('hidden');
-                    statusCard.classList.add('hidden');
+                    const minigameCard = document.getElementById('minigame-card');
+                    if (minigameCard) minigameCard.classList.remove('hidden');
+                    document.getElementById('bid-panel')?.classList.add('hidden');
+                    document.getElementById('action-card')?.classList.add('hidden');
+                    if (statusCard) statusCard.classList.add('hidden');
+                    
+                    // Show initializing message while minigame state loads
+                    const minigameStatusEl = document.getElementById('minigame-status');
+                    if (minigameStatusEl) {
+                        minigameStatusEl.innerHTML = `
+                            <div style="color: var(--text-secondary);">
+                                ⏳ Initializing The Counterfeit Canvas...
+                            </div>
+                        `;
+                    }
                     
                     // Setup Firebase listener for minigame state
                     if (playerState.roomCode) {
@@ -2143,12 +2154,28 @@
                     break;
 
                 default:
-                    statusCard.classList.remove('hidden');
-                    statusCard.innerHTML = `
-                        <div class="status-icon">⏳</div>
-                        <div class="status-title">Waiting...</div>
-                        <div class="status-desc">Watch the main screen.</div>
-                    `;
+                    // Check if it's a minigame phase that we haven't handled yet
+                    if (turn.phase === 'minigame_counterfeit_canvas') {
+                        // Should have been handled above, but if we're here, show minigame card
+                        const minigameCard = document.getElementById('minigame-card');
+                        if (minigameCard) minigameCard.classList.remove('hidden');
+                        document.getElementById('bid-panel')?.classList.add('hidden');
+                        document.getElementById('action-card')?.classList.add('hidden');
+                        if (statusCard) statusCard.classList.add('hidden');
+                        
+                        // Setup listeners
+                        if (playerState.roomCode) {
+                            setupMinigameListener(playerState.roomCode);
+                            setupMinigamePhaseListener(playerState.roomCode);
+                        }
+                    } else {
+                        statusCard.classList.remove('hidden');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">⏳</div>
+                            <div class="status-title">Waiting...</div>
+                            <div class="status-desc">Watch the main screen.</div>
+                        `;
+                    }
             }
         }
 
@@ -3028,11 +3055,46 @@
 
         // Setup listener for minigame phase changes (role reveal, drawing, voting, etc.)
         function setupMinigamePhaseListener(roomCode) {
-            db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
+            // Remove existing listener if any
+            if (window.minigamePhaseListenerRef) {
+                db.ref(`games/${roomCode}/minigame`).off('value', window.minigamePhaseListenerRef);
+            }
+            
+            // Set up listener for minigame state changes
+            window.minigamePhaseListenerRef = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigame = snapshot.val();
-                if (!minigame) return;
+                if (!minigame) {
+                    // Minigame not initialized yet - show waiting message
+                    const statusEl = document.getElementById('minigame-status');
+                    if (statusEl) {
+                        statusEl.innerHTML = `
+                            <div style="color: var(--text-secondary);">
+                                ⏳ Initializing The Counterfeit Canvas...
+                            </div>
+                        `;
+                    }
+                    return;
+                }
                 
                 updateMinigameUI(minigame);
+            });
+            
+            // Also fetch initial state immediately
+            db.ref(`games/${roomCode}/minigame`).once('value', (snapshot) => {
+                const minigame = snapshot.val();
+                if (minigame) {
+                    updateMinigameUI(minigame);
+                } else {
+                    // Minigame not initialized yet
+                    const statusEl = document.getElementById('minigame-status');
+                    if (statusEl) {
+                        statusEl.innerHTML = `
+                            <div style="color: var(--text-secondary);">
+                                ⏳ Initializing The Counterfeit Canvas...
+                            </div>
+                        `;
+                    }
+                }
             });
         }
 
