@@ -2894,6 +2894,19 @@
 
         function handleTouch(e) {
             e.preventDefault();
+            
+            // Critical check - ensure we're in the drawing phase AND it's our turn
+            // If minigameCurrentTurnPlayerId is undefined, we're not in the drawing phase yet
+            if (typeof window.minigameCurrentTurnPlayerId === 'undefined') {
+                // Not in drawing phase - don't allow any drawing
+                return;
+            }
+            
+            // Check if it's my turn to draw before allowing any touch interaction
+            if (window.minigameCurrentTurnPlayerId !== playerState.playerId) {
+                return; // Not my turn - don't allow any drawing
+            }
+            
             const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
             const x = touch.clientX - rect.left;
@@ -2907,6 +2920,21 @@
         }
 
         function startDrawing(e) {
+            // Critical check - ensure we're in the drawing phase AND it's our turn
+            // If minigameCurrentTurnPlayerId is undefined, we're not in the drawing phase yet
+            if (typeof window.minigameCurrentTurnPlayerId === 'undefined') {
+                // Not in drawing phase - don't start drawing
+                isDrawing = false;
+                return;
+            }
+            
+            // Check if it's my turn to draw - prevent starting a stroke if not my turn
+            if (window.minigameCurrentTurnPlayerId !== playerState.playerId) {
+                isDrawing = false; // Ensure we're not in drawing state
+                return; // Not my turn - don't start drawing
+            }
+            
+            // It's our turn - allow drawing to start
             isDrawing = true;
             lastX = e.offsetX;
             lastY = e.offsetY;
@@ -2915,10 +2943,19 @@
         function draw(e) {
             if (!isDrawing || !ctx || !canvas) return;
             
-            // Check if it's my turn to draw (only during drawing phase)
-            if (typeof window.minigameCurrentTurnPlayerId !== 'undefined' && 
-                window.minigameCurrentTurnPlayerId !== playerState.playerId) {
-                return; // Not my turn
+            // Critical check - ensure we're in the drawing phase AND it's our turn
+            // If minigameCurrentTurnPlayerId is undefined, we're not in the drawing phase yet
+            if (typeof window.minigameCurrentTurnPlayerId === 'undefined') {
+                // Not in drawing phase - stop drawing
+                isDrawing = false;
+                return;
+            }
+            
+            // Check if it's my turn to draw - only the current player can draw
+            if (window.minigameCurrentTurnPlayerId !== playerState.playerId) {
+                // Not my turn - stop drawing immediately
+                isDrawing = false;
+                return;
             }
             
             const color = document.getElementById('drawing-color').value;
@@ -3165,18 +3202,22 @@
                     return;
                 }
                 
+                // Minigame exists - update UI
                 updateMinigameUI(minigame);
             });
             
-            // Also fetch initial state immediately
+            // Also fetch initial state immediately (this ensures we get the current state right away)
             db.ref(`games/${roomCode}/minigame`).once('value', (snapshot) => {
                 const minigame = snapshot.val();
                 if (minigame) {
+                    // Minigame exists - update UI immediately
                     updateMinigameUI(minigame);
                 } else {
-                    // Minigame not initialized yet
+                    // Minigame not initialized yet - show initializing message
+                    // But don't overwrite if status was already set by updateMinigameUI
                     const statusEl = document.getElementById('minigame-status');
-                    if (statusEl) {
+                    if (statusEl && statusEl.textContent.includes('Initializing')) {
+                        // Only set if it's still showing initializing (hasn't been updated yet)
                         statusEl.innerHTML = `
                             <div style="color: var(--text-secondary);">
                                 ⏳ Initializing The Counterfeit Canvas...
@@ -3189,10 +3230,21 @@
 
         // Update UI based on minigame phase
         function updateMinigameUI(minigame) {
+            if (!minigame) return;
+            
             const statusEl = document.getElementById('minigame-status');
             const canvasContainer = document.getElementById('drawing-canvas')?.parentElement;
             const controlsContainer = document.getElementById('drawing-controls-container');
             const doneBtn = document.getElementById('drawing-done-btn');
+            
+            // Ensure status element exists
+            if (!statusEl) {
+                console.warn('minigame-status element not found');
+                return;
+            }
+            
+            // Debug: log phase to help diagnose
+            console.log('updateMinigameUI called with phase:', minigame.phase);
             
             switch (minigame.phase) {
                 case 'role_reveal':
@@ -3220,6 +3272,11 @@
                     if (canvasContainer) canvasContainer.style.display = 'none';
                     if (controlsContainer) controlsContainer.style.display = 'none';
                     if (doneBtn) doneBtn.style.display = 'none';
+                    // Ensure drawing is stopped during role reveal
+                    isDrawing = false;
+                    if (canvas) {
+                        canvas.style.pointerEvents = 'none';
+                    }
                     break;
                     
                 case 'drawing':
@@ -3274,7 +3331,10 @@
                             if (doneBtn) doneBtn.style.display = 'block';
                         }
                         
-                        statusEl.innerHTML = statusHtml;
+                        // Always update status element
+                        if (statusEl) {
+                            statusEl.innerHTML = statusHtml;
+                        }
                         
                         // Enable drawing
                         if (canvas) {
@@ -3293,17 +3353,21 @@
                         if (doneBtn) doneBtn.style.display = 'none';
                         
                         const currentPlayerName = gameState.players[currentPlayerId]?.name || 'Someone';
-                        statusEl.innerHTML = `
-                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                ⏳ ${currentPlayerName}'s turn (Round ${round})... Watch the drawing!
-                            </div>
-                        `;
+                        if (statusEl) {
+                            statusEl.innerHTML = `
+                                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                    ⏳ ${currentPlayerName}'s turn (Round ${round})... Watch the drawing!
+                                </div>
+                            `;
+                        }
                         
                         // Disable drawing but keep canvas visible for viewing
                         if (canvas) {
                             canvas.style.pointerEvents = 'none';
                             canvas.style.opacity = '1'; // Keep fully visible so they can see the drawing
                             canvas.style.cursor = 'default';
+                            // Ensure any active drawing is stopped
+                            isDrawing = false;
                         }
                         
                         // Ensure canvas container is visible
@@ -3315,29 +3379,48 @@
                     // Show voting interface
                     if (canvasContainer) canvasContainer.style.display = 'block';
                     if (controlsContainer) controlsContainer.style.display = 'none';
+                    // Disable drawing during voting
+                    isDrawing = false;
+                    if (canvas) {
+                        canvas.style.pointerEvents = 'none';
+                    }
                     showVotingUI(minigame);
                     break;
                     
                 case 'word_guess':
                     // Counterfeit guesses the word
+                    // Disable drawing during word guess phase
+                    isDrawing = false;
+                    if (canvas) {
+                        canvas.style.pointerEvents = 'none';
+                    }
                     const counterfeitRole = minigame.roles?.[minigame.counterfeitId];
                     if (playerState.playerId === minigame.counterfeitId) {
                         showWordGuessUI(minigame);
                     } else {
-                        statusEl.innerHTML = `
-                            <div style="color: var(--text-secondary);">
-                                ⏳ Waiting for The Counterfeit to guess the word...
-                            </div>
-                        `;
+                        if (statusEl) {
+                            statusEl.innerHTML = `
+                                <div style="color: var(--text-secondary);">
+                                    ⏳ Waiting for The Counterfeit to guess the word...
+                                </div>
+                            `;
+                        }
                     }
                     break;
                     
                 case 'complete':
-                    statusEl.innerHTML = `
-                        <div style="color: var(--accent-green);">
-                            ✅ Mini-game complete!
-                        </div>
-                    `;
+                    // Disable drawing when game is complete
+                    isDrawing = false;
+                    if (canvas) {
+                        canvas.style.pointerEvents = 'none';
+                    }
+                    if (statusEl) {
+                        statusEl.innerHTML = `
+                            <div style="color: var(--accent-green);">
+                                ✅ Mini-game complete!
+                            </div>
+                        `;
+                    }
                     break;
             }
         }
