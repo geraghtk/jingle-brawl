@@ -3194,17 +3194,38 @@
         // Setup listener for minigame phase changes (role reveal, drawing, voting, etc.)
         function setupMinigamePhaseListener(roomCode) {
             console.log('setupMinigamePhaseListener called for room:', roomCode);
-            // Remove existing listener if any
-            if (window.minigamePhaseListenerRef) {
-                console.log('Removing existing minigame phase listener');
-                db.ref(`games/${roomCode}/minigame`).off('value', window.minigamePhaseListenerRef);
+            
+            // If listener already exists for this room, don't recreate it
+            if (window.minigamePhaseListenerRef && window.minigamePhaseListenerRoomCode === roomCode) {
+                console.log('Listener already exists for room:', roomCode, '- not recreating');
+                // But do an immediate fetch to update UI if minigame exists
+                db.ref(`games/${roomCode}/minigame`).once('value', (snapshot) => {
+                    const minigame = snapshot.val();
+                    if (minigame) {
+                        console.log('Immediate fetch: minigame exists, updating UI');
+                        updateMinigameUI(minigame);
+                    }
+                });
+                return;
             }
             
+            // Remove existing listener if any (different room)
+            if (window.minigamePhaseListenerRef) {
+                console.log('Removing existing minigame phase listener for different room');
+                if (window.minigamePhaseListenerRoomCode) {
+                    db.ref(`games/${window.minigamePhaseListenerRoomCode}/minigame`).off('value', window.minigamePhaseListenerRef);
+                }
+            }
+            
+            // Store the room code so we can check if we need to remove it later
+            window.minigamePhaseListenerRoomCode = roomCode;
+            
             // Set up listener for minigame state changes
-            console.log('Setting up new minigame phase listener');
+            console.log('Setting up new minigame phase listener for room:', roomCode);
             window.minigamePhaseListenerRef = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigame = snapshot.val();
-                console.log('Minigame listener fired, minigame:', minigame, 'phase:', minigame?.phase);
+                const snapshotExists = snapshot.exists();
+                console.log('Minigame listener fired! exists:', snapshotExists, 'minigame:', minigame, 'phase:', minigame?.phase);
                 
                 const statusEl = document.getElementById('minigame-status');
                 if (!statusEl) {
@@ -3212,12 +3233,12 @@
                     return;
                 }
                 
-                if (!minigame) {
+                if (!minigame || !snapshotExists) {
                     // Minigame not initialized yet - show waiting message
                     // But only if status hasn't been set yet (to avoid overwriting role reveal, etc.)
                     const currentText = statusEl.textContent || '';
-                    if (currentText.includes('Initializing') || currentText.includes('Waiting to start')) {
-                        console.log('Minigame not found, showing initializing message');
+                    if (currentText.includes('Initializing') || currentText.includes('Waiting to start') || !currentText.trim()) {
+                        console.log('Minigame not found (exists:', snapshotExists, '), showing initializing message');
                         statusEl.innerHTML = `
                             <div style="color: var(--text-secondary);">
                                 ⏳ Initializing The Counterfeit Canvas...
@@ -3228,13 +3249,15 @@
                 }
                 
                 // Minigame exists - update UI
-                console.log('✅ Minigame exists! Phase:', minigame.phase, 'Full minigame:', minigame);
+                console.log('✅ Minigame exists! Phase:', minigame.phase, 'Has roles:', !!minigame.roles, 'Role count:', Object.keys(minigame.roles || {}).length);
                 if (minigame.phase) {
                     console.log('Calling updateMinigameUI with phase:', minigame.phase);
                     updateMinigameUI(minigame);
                 } else {
-                    console.warn('Minigame exists but has no phase property!');
+                    console.warn('Minigame exists but has no phase property! Minigame keys:', Object.keys(minigame));
                 }
+            }, (error) => {
+                console.error('Error in minigame phase listener:', error);
             });
             
             // Also fetch initial state immediately (this ensures we get the current state right away)
