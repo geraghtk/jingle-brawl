@@ -2149,6 +2149,7 @@
                     break;
 
                 case 'minigame_counterfeit_canvas':
+                    console.log('Entering minigame_counterfeit_canvas phase');
                     // Show mini-game interface based on phase
                     const minigameCard = document.getElementById('minigame-card');
                     if (minigameCard) {
@@ -2162,20 +2163,31 @@
                     document.getElementById('action-card')?.classList.add('hidden');
                     if (statusCard) statusCard.classList.add('hidden');
                     
-                    // Show initializing message while minigame state loads
-                    const minigameStatusEl = document.getElementById('minigame-status');
-                    if (minigameStatusEl) {
-                        minigameStatusEl.innerHTML = `
-                            <div style="color: var(--text-secondary);">
-                                ⏳ Initializing The Counterfeit Canvas...
-                            </div>
-                        `;
-                    }
-                    
-                    // Setup Firebase listener for minigame state
+                    // Setup Firebase listener for minigame state FIRST (before setting initializing message)
                     if (playerState.roomCode) {
+                        console.log('Setting up minigame listeners for room:', playerState.roomCode);
                         setupMinigameListener(playerState.roomCode);
                         setupMinigamePhaseListener(playerState.roomCode);
+                        
+                        // Then immediately fetch and display the minigame state if it exists
+                        db.ref(`games/${playerState.roomCode}/minigame`).once('value', (snapshot) => {
+                            const minigame = snapshot.val();
+                            console.log('Fetched minigame in minigame_counterfeit_canvas case:', minigame);
+                            if (minigame) {
+                                // Minigame exists - update UI immediately
+                                updateMinigameUI(minigame);
+                            } else {
+                                // Minigame not created yet - show initializing message
+                                const minigameStatusEl = document.getElementById('minigame-status');
+                                if (minigameStatusEl) {
+                                    minigameStatusEl.innerHTML = `
+                                        <div style="color: var(--text-secondary);">
+                                            ⏳ Initializing The Counterfeit Canvas...
+                                        </div>
+                                    `;
+                                }
+                            }
+                        });
                     }
                     break;
 
@@ -3189,6 +3201,7 @@
             // Set up listener for minigame state changes
             window.minigamePhaseListenerRef = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigame = snapshot.val();
+                console.log('Minigame listener fired, minigame:', minigame);
                 if (!minigame) {
                     // Minigame not initialized yet - show waiting message
                     const statusEl = document.getElementById('minigame-status');
@@ -3203,26 +3216,35 @@
                 }
                 
                 // Minigame exists - update UI
+                console.log('Calling updateMinigameUI with phase:', minigame.phase);
                 updateMinigameUI(minigame);
             });
             
             // Also fetch initial state immediately (this ensures we get the current state right away)
             db.ref(`games/${roomCode}/minigame`).once('value', (snapshot) => {
                 const minigame = snapshot.val();
+                console.log('Initial fetch of minigame state:', minigame);
                 if (minigame) {
                     // Minigame exists - update UI immediately
+                    console.log('Initial fetch: minigame exists, calling updateMinigameUI');
                     updateMinigameUI(minigame);
                 } else {
                     // Minigame not initialized yet - show initializing message
                     // But don't overwrite if status was already set by updateMinigameUI
                     const statusEl = document.getElementById('minigame-status');
-                    if (statusEl && statusEl.textContent.includes('Initializing')) {
-                        // Only set if it's still showing initializing (hasn't been updated yet)
-                        statusEl.innerHTML = `
-                            <div style="color: var(--text-secondary);">
-                                ⏳ Initializing The Counterfeit Canvas...
-                            </div>
-                        `;
+                    if (statusEl) {
+                        const currentText = statusEl.textContent || '';
+                        // Only set if it's still showing initializing or waiting (hasn't been updated yet)
+                        if (currentText.includes('Initializing') || currentText.includes('Waiting to start')) {
+                            console.log('Initial fetch: minigame not found, showing initializing message');
+                            statusEl.innerHTML = `
+                                <div style="color: var(--text-secondary);">
+                                    ⏳ Initializing The Counterfeit Canvas...
+                                </div>
+                            `;
+                        } else {
+                            console.log('Initial fetch: minigame not found, but status already set to:', currentText);
+                        }
                     }
                 }
             });
