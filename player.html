@@ -3193,19 +3193,31 @@
 
         // Setup listener for minigame phase changes (role reveal, drawing, voting, etc.)
         function setupMinigamePhaseListener(roomCode) {
+            console.log('setupMinigamePhaseListener called for room:', roomCode);
             // Remove existing listener if any
             if (window.minigamePhaseListenerRef) {
+                console.log('Removing existing minigame phase listener');
                 db.ref(`games/${roomCode}/minigame`).off('value', window.minigamePhaseListenerRef);
             }
             
             // Set up listener for minigame state changes
+            console.log('Setting up new minigame phase listener');
             window.minigamePhaseListenerRef = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigame = snapshot.val();
-                console.log('Minigame listener fired, minigame:', minigame);
+                console.log('Minigame listener fired, minigame:', minigame, 'phase:', minigame?.phase);
+                
+                const statusEl = document.getElementById('minigame-status');
+                if (!statusEl) {
+                    console.warn('minigame-status element not found in listener');
+                    return;
+                }
+                
                 if (!minigame) {
                     // Minigame not initialized yet - show waiting message
-                    const statusEl = document.getElementById('minigame-status');
-                    if (statusEl) {
+                    // But only if status hasn't been set yet (to avoid overwriting role reveal, etc.)
+                    const currentText = statusEl.textContent || '';
+                    if (currentText.includes('Initializing') || currentText.includes('Waiting to start')) {
+                        console.log('Minigame not found, showing initializing message');
                         statusEl.innerHTML = `
                             <div style="color: var(--text-secondary);">
                                 ⏳ Initializing The Counterfeit Canvas...
@@ -3216,8 +3228,13 @@
                 }
                 
                 // Minigame exists - update UI
-                console.log('Calling updateMinigameUI with phase:', minigame.phase);
-                updateMinigameUI(minigame);
+                console.log('✅ Minigame exists! Phase:', minigame.phase, 'Full minigame:', minigame);
+                if (minigame.phase) {
+                    console.log('Calling updateMinigameUI with phase:', minigame.phase);
+                    updateMinigameUI(minigame);
+                } else {
+                    console.warn('Minigame exists but has no phase property!');
+                }
             });
             
             // Also fetch initial state immediately (this ensures we get the current state right away)

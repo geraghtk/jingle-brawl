@@ -3490,6 +3490,7 @@
             });
             
             // Initialize minigame state in Firebase (include roles in initial set)
+            console.log('Host: Creating minigame state in Firebase...');
             await db.ref(`games/${gameState.roomCode}/minigame`).set({
                 category: category,
                 secretWord: secretWord,
@@ -3516,6 +3517,7 @@
                 phase: 'role_reveal', // role_reveal, drawing, voting, word_guess, complete
                 startedAt: Date.now()
             });
+            console.log('Host: Minigame state created successfully with phase: role_reveal');
             
             // Update turn to minigame phase AFTER minigame state is ready
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -3523,6 +3525,7 @@
                 minigameStatus: `Category: ${category}. Role reveal - check your device!`,
                 tiedBidders: tiedBidders
             });
+            console.log('Host: Updated currentTurn phase to minigame_counterfeit_canvas');
             
             // Start role reveal phase (20 seconds)
             setTimeout(() => {
