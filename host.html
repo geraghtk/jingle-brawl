@@ -2140,12 +2140,18 @@
                             // No minigame yet - check method and show appropriate button
                             const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
                             if (tiebreakerMethod === 'minigame') {
-                                // Minigame should have started, but hasn't - might be starting
+                                // Minigame method - should start automatically
+                                console.log('tiebreaker_pending phase: minigame method detected, starting minigame automatically');
                                 currentAction.textContent = `Starting Mini-Game...`;
                                 actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Initializing The Counterfeit Canvas...`;
                                 actionButtons.innerHTML = `
                                     <button class="btn btn-secondary" disabled>🎨 Starting Mini-Game...</button>
                                 `;
+                                // Automatically start the minigame
+                                startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2).catch(err => {
+                                    console.error('Error starting tiebreaker minigame:', err);
+                                    addEvent('❌ Error starting mini-game: ' + err.message, 'bid');
+                                });
                             } else {
                                 // Random method - show start button
                                 currentAction.textContent = `Opener chose to FIGHT!`;
@@ -3381,19 +3387,26 @@
             
             // Check tiebreaker method setting
             const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
+            console.log('startTiebreaker called, tiebreakerMethod:', tiebreakerMethod, 'player1Id:', player1Id, 'player2Id:', player2Id);
+            console.log('gameState.settings:', gameState.settings);
             
             // If mini-game is enabled, use it for any number of tied bidders
             if (tiebreakerMethod === 'minigame') {
+                console.log('Tiebreaker method is minigame, starting Counterfeit Canvas minigame');
                 // Store tied bidders and start mini-game
                 const tiedBidders = turn.tiedBidders || [player1Id, player2Id];
+                console.log('Storing tiedBidders:', tiedBidders);
                 await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
                     openerChoice: 'fight',
                     minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
                     tiedBidders: tiedBidders
                 });
+                console.log('About to call startCounterfeitCanvasMinigame()');
                 await startCounterfeitCanvasMinigame();
                 return;
             }
+            
+            console.log('Tiebreaker method is NOT minigame, proceeding with random tiebreaker duel');
             
             // Random method: proceed directly with tiebreaker duel
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -5088,6 +5101,7 @@
                     }
                 } else if (turn.phase === 'tiebreaker_pending') {
                     // Start the tiebreaker duel (this sets phase to 'duel' with isTiebreak: true, or mini-game if enabled)
+                    console.log('Auto-pilot: tiebreaker_pending phase detected, calling startTiebreaker');
                     await startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2);
                 } else if (turn.phase === 'yield_pending') {
                     // Start the yield duel
