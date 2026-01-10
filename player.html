@@ -902,8 +902,8 @@
                 <div id="minigame-status" style="text-align: center; margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
                     Waiting to start...
                 </div>
-                <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin-bottom: 1rem;">
-                    <canvas id="drawing-canvas" style="display: block; width: 100%; touch-action: none; cursor: crosshair;"></canvas>
+                <div id="canvas-container" style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; min-height: 200px;">
+                    <canvas id="drawing-canvas" style="display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair;"></canvas>
                 </div>
                 <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <input type="color" id="drawing-color" value="#000000" style="width: 50px; height: 40px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
@@ -2097,7 +2097,13 @@
                             if (minigame || tiebreakerMethod === 'minigame') {
                                 // Minigame tiebreaker - show minigame card
                                 const minigameCard = document.getElementById('minigame-card');
-                                if (minigameCard) minigameCard.classList.remove('hidden');
+                                if (minigameCard) {
+                                    minigameCard.classList.remove('hidden');
+                                    // Resize canvas now that card is visible
+                                    setTimeout(() => {
+                                        resizeDrawingCanvas();
+                                    }, 100);
+                                }
                                 document.getElementById('bid-panel')?.classList.add('hidden');
                                 document.getElementById('action-card')?.classList.add('hidden');
                                 if (statusCard) statusCard.classList.add('hidden');
@@ -2145,7 +2151,13 @@
                 case 'minigame_counterfeit_canvas':
                     // Show mini-game interface based on phase
                     const minigameCard = document.getElementById('minigame-card');
-                    if (minigameCard) minigameCard.classList.remove('hidden');
+                    if (minigameCard) {
+                        minigameCard.classList.remove('hidden');
+                        // Resize canvas now that card is visible
+                        setTimeout(() => {
+                            resizeDrawingCanvas();
+                        }, 100);
+                    }
                     document.getElementById('bid-panel')?.classList.add('hidden');
                     document.getElementById('action-card')?.classList.add('hidden');
                     if (statusCard) statusCard.classList.add('hidden');
@@ -2824,23 +2836,44 @@
         let minigameListener = null;
 
         // Initialize canvas
+        // Resize canvas function (exposed globally so it can be called when card becomes visible)
+        function resizeDrawingCanvas() {
+            if (!canvas) {
+                canvas = document.getElementById('drawing-canvas');
+                if (!canvas) return;
+            }
+            if (!ctx) {
+                ctx = canvas.getContext('2d');
+            }
+            const container = canvas.parentElement;
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                // Container not visible yet, try again after a short delay
+                setTimeout(resizeDrawingCanvas, 100);
+                return;
+            }
+            // Set canvas dimensions based on container
+            const computedStyle = window.getComputedStyle(container);
+            const padding = parseFloat(computedStyle.paddingLeft || 0) + parseFloat(computedStyle.paddingRight || 0);
+            const availableWidth = Math.max(rect.width - padding, 300); // Minimum 300px width
+            canvas.width = availableWidth;
+            canvas.height = Math.min(availableWidth * 0.75, 400); // 4:3 aspect ratio, max 400px height
+            // Set CSS size to match
+            canvas.style.width = availableWidth + 'px';
+            canvas.style.height = canvas.height + 'px';
+            redrawCanvas();
+        }
+        
         function initDrawingCanvas() {
             canvas = document.getElementById('drawing-canvas');
             if (!canvas) return;
             
             ctx = canvas.getContext('2d');
             
-            // Set canvas size (responsive)
-            function resizeCanvas() {
-                const container = canvas.parentElement;
-                const rect = container.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = Math.min(rect.width * 0.75, 400); // 4:3 aspect ratio, max 400px height
-                redrawCanvas();
-            }
-            
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
+            // Initial resize (will retry if container not visible)
+            resizeDrawingCanvas();
+            window.addEventListener('resize', resizeDrawingCanvas);
             
             // Drawing event handlers
             canvas.addEventListener('mousedown', startDrawing);
