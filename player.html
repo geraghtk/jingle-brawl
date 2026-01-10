@@ -2086,6 +2086,62 @@
                     }
                     break;
 
+                case 'tiebreaker_pending':
+                    // Tiebreaker is about to start - check if minigame is enabled or already exists
+                    const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
+                    
+                    // Also check if minigame state already exists (in case it was created before settings loaded)
+                    if (playerState.roomCode) {
+                        db.ref(`games/${playerState.roomCode}/minigame`).once('value', (snapshot) => {
+                            const minigame = snapshot.val();
+                            if (minigame || tiebreakerMethod === 'minigame') {
+                                // Minigame tiebreaker - show minigame card
+                                const minigameCard = document.getElementById('minigame-card');
+                                if (minigameCard) minigameCard.classList.remove('hidden');
+                                document.getElementById('bid-panel')?.classList.add('hidden');
+                                document.getElementById('action-card')?.classList.add('hidden');
+                                if (statusCard) statusCard.classList.add('hidden');
+                                
+                                // Show initializing message or update with minigame state
+                                const minigameStatusEl = document.getElementById('minigame-status');
+                                if (minigameStatusEl) {
+                                    if (minigame) {
+                                        // Minigame exists - update UI with it
+                                        updateMinigameUI(minigame);
+                                    } else {
+                                        // Minigame not created yet - show initializing
+                                        minigameStatusEl.innerHTML = `
+                                            <div style="color: var(--text-secondary);">
+                                                ⏳ Initializing The Counterfeit Canvas...
+                                            </div>
+                                        `;
+                                    }
+                                }
+                                
+                                // Setup Firebase listener for minigame state
+                                setupMinigameListener(playerState.roomCode);
+                                setupMinigamePhaseListener(playerState.roomCode);
+                            } else {
+                                // Random tiebreaker - show waiting message
+                                statusCard.classList.remove('hidden');
+                                statusCard.innerHTML = `
+                                    <div class="status-icon">⚖️</div>
+                                    <div class="status-title">Tiebreaker Pending</div>
+                                    <div class="status-desc">Waiting for tiebreaker to start...</div>
+                                `;
+                            }
+                        });
+                    } else {
+                        // No room code yet - show waiting
+                        statusCard.classList.remove('hidden');
+                        statusCard.innerHTML = `
+                            <div class="status-icon">⚖️</div>
+                            <div class="status-title">Tiebreaker Pending</div>
+                            <div class="status-desc">Waiting for tiebreaker to start...</div>
+                        `;
+                    }
+                    break;
+
                 case 'minigame_counterfeit_canvas':
                     // Show mini-game interface based on phase
                     const minigameCard = document.getElementById('minigame-card');
