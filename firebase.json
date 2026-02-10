@@ -1,0 +1,26 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "**/*.md",
+      "**/configs/**",
+      "**/*.yaml",
+      "**/jingle_brawl_*.py",
+      "**/requirements.txt",
+      "**/ai_art_critic.py",
+      "**/ai_art_critic_requirements.txt",
+      "**/AGENT_BEHAVIOR*",
+      "**/GAME_*.md",
+      "**/SELF_PLAY*.md",
+      "**/spec_package.md",
+      "**/Jingle*.md"
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  }
+}

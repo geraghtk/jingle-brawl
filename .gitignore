@@ -19,6 +19,8 @@ env/
 # Analysis outputs (can be regenerated)
 *.json
 !configs/*.yaml
+!firebase.json
+!functions/package.json
 
 # Logs
 *.log

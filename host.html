@@ -834,13 +834,13 @@
                     </label>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <label for="setting-ai-critic-url" style="flex-shrink: 0;">Server URL:</label>
-                        <input type="text" id="setting-ai-critic-url" value="http://localhost:5050" 
+                        <input type="text" id="setting-ai-critic-url" 
                             style="flex: 1; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);"
-                            placeholder="http://localhost:5050">
+                            placeholder="http://localhost:5050 or Cloud Function URL">
                     </div>
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
-                    Counterfeit Canvas: rates drawing vs secret word. Draw Off: judges & ranks all drawings. Run: <code>python ai_art_critic.py</code>
+                    Local: <code>python ai_art_critic.py</code>. Prod: use Firebase Cloud Function URL (see AI_ART_CRITIC.md).
                 </div>
             </div>
             
@@ -859,6 +859,15 @@
                     const val = document.getElementById('setting-tiebreaker-method').value;
                     document.getElementById('minigame-timer-setting').style.display = (val === 'minigame') ? 'block' : 'none';
                     document.getElementById('ai-critic-setting').style.display = (val === 'minigame' || val === 'draw_off') ? 'block' : 'none';
+                    // Default AI Critic URL: localhost for local dev, Cloud Function for prod
+                    const urlInput = document.getElementById('setting-ai-critic-url');
+                    if (urlInput && !urlInput.value) {
+                        const isProd = /\.(web\.app|firebaseapp\.com)$/.test(window.location.hostname);
+                        const projectId = (typeof firebaseConfig !== 'undefined' && firebaseConfig?.projectId) ? firebaseConfig.projectId : 'jingle-brawl-e8308';
+                        urlInput.value = isProd
+                            ? `https://us-central1-${projectId}.cloudfunctions.net/critiqueDrawingGemini`
+                            : 'http://localhost:5050';
+                    }
                 })();
             </script>
             
@@ -3805,9 +3814,10 @@
             return canvas.toDataURL('image/png');
         }
         
-        // Call AI Art Critic API
+        // Call AI Art Critic API (local server has /critique path; Cloud Function URL is the full endpoint)
         async function callAICritic(baseUrl, imageBase64, secretWord) {
-            const url = baseUrl.replace(/\/$/, '') + '/critique';
+            const base = baseUrl.replace(/\/$/, '');
+            const url = base.includes('cloudfunctions.net') ? base : base + '/critique';
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
