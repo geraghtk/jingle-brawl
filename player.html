@@ -896,9 +896,9 @@
                 </div>
             </div>
 
-            <!-- Mini-Game: The Counterfeit Canvas Drawing -->
+            <!-- Mini-Game: Counterfeit Canvas or AI Draw Off -->
             <div class="card minigame-card hidden" id="minigame-card">
-                <div class="card-title">🎨 Collaborative Drawing</div>
+                <div class="card-title" id="minigame-card-title">🎨 Collaborative Drawing</div>
                 <div id="minigame-status" style="text-align: center; margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
                     Waiting to start...
                 </div>
@@ -915,11 +915,8 @@
                 </div>
                 <div id="drawing-controls-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
                     <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-secondary" onclick="clearDrawing()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
-                            🗑️ Clear
-                        </button>
                         <button class="btn btn-secondary" onclick="undoLastStroke()" style="flex: 1; font-size: 0.85rem; padding: 0.75rem;">
-                            ↶ Undo
+                            ↶ Undo Last Stroke
                         </button>
                     </div>
                     <button id="drawing-done-btn" class="btn btn-primary" onclick="finishDrawingTurn()" style="display: none; font-size: 1rem; padding: 1rem;">
@@ -2094,7 +2091,7 @@
                     if (playerState.roomCode) {
                         db.ref(`games/${playerState.roomCode}/minigame`).once('value', (snapshot) => {
                             const minigame = snapshot.val();
-                            if (minigame || tiebreakerMethod === 'minigame') {
+                            if (minigame || tiebreakerMethod === 'minigame' || tiebreakerMethod === 'draw_off') {
                                 // Minigame tiebreaker - show minigame card
                                 const minigameCard = document.getElementById('minigame-card');
                                 if (minigameCard) {
@@ -2110,17 +2107,14 @@
                                 
                                 // Show initializing message or update with minigame state
                                 const minigameStatusEl = document.getElementById('minigame-status');
+                                const initMsg = tiebreakerMethod === 'draw_off' ? '⏳ Initializing AI Draw Off...' : '⏳ Initializing The Counterfeit Canvas...';
                                 if (minigameStatusEl) {
                                     if (minigame) {
                                         // Minigame exists - update UI with it
                                         updateMinigameUI(minigame);
                                     } else {
                                         // Minigame not created yet - show initializing
-                                        minigameStatusEl.innerHTML = `
-                                            <div style="color: var(--text-secondary);">
-                                                ⏳ Initializing The Counterfeit Canvas...
-                                            </div>
-                                        `;
+                                        minigameStatusEl.innerHTML = `<div style="color: var(--text-secondary);">${initMsg}</div>`;
                                     }
                                 }
                                 
@@ -2148,8 +2142,9 @@
                     }
                     break;
 
+                case 'minigame_draw_off':
                 case 'minigame_counterfeit_canvas':
-                    console.log('Entering minigame_counterfeit_canvas phase');
+                    console.log('Entering minigame phase:', turn.phase);
                     // Show mini-game interface based on phase
                     const minigameCard = document.getElementById('minigame-card');
                     if (minigameCard) {
@@ -2988,15 +2983,18 @@
             ctx.stroke();
             
             // Save stroke for undo (store actual coordinates for local redraw)
-            drawingStrokes.push({
+            const stroke = {
                 type: 'line',
                 color: color,
                 size: size,
                 from: { x: lastX, y: lastY },
                 to: { x: e.offsetX, y: e.offsetY },
                 normalizedFrom: normalizedFrom,
-                normalizedTo: normalizedTo
-            });
+                normalizedTo: normalizedTo,
+                playerId: playerState.playerId, // Track which player made this stroke
+                timestamp: Date.now()
+            };
+            drawingStrokes.push(stroke);
             
             // Sync to Firebase (with normalized coordinates)
             syncStrokeToFirebase({
@@ -3006,7 +3004,7 @@
                 normalizedFrom: normalizedFrom,
                 normalizedTo: normalizedTo,
                 playerId: playerState.playerId,
-                timestamp: Date.now()
+                timestamp: stroke.timestamp
             });
             
             lastX = e.offsetX;
@@ -3028,25 +3026,12 @@
 
         function syncStrokeToFirebase(stroke) {
             if (!playerState.roomCode) return;
-            
+            if (window.drawOffMode) return; // Draw Off uses local strokes only, submit final image
             const strokeId = `stroke_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             db.ref(`games/${playerState.roomCode}/minigame/strokes/${strokeId}`).set(stroke);
         }
 
-        function clearDrawing() {
-            if (!ctx || !canvas) return;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawingStrokes = [];
-            
-            // Sync clear to Firebase
-            if (playerState.roomCode) {
-                db.ref(`games/${playerState.roomCode}/minigame/clear`).set({
-                    playerId: playerState.playerId,
-                    timestamp: Date.now()
-                });
-            }
-        }
+        // clearDrawing function removed - too destructive, undo button is sufficient
 
         // Finish drawing turn (when timer is disabled, player clicks "Done")
         async function finishDrawingTurn() {
@@ -3077,19 +3062,56 @@
             showToast('Turn completed! ✅');
         }
         
-        function undoLastStroke() {
-            if (drawingStrokes.length === 0) return;
+        async function undoLastStroke() {
+            // Check if it's actually our turn
+            if (typeof window.minigameCurrentTurnPlayerId === 'undefined' || 
+                window.minigameCurrentTurnPlayerId !== playerState.playerId) {
+                showToast('Not your turn!');
+                return;
+            }
             
-            // Remove last stroke from history
-            drawingStrokes.pop();
+            if (!playerState.roomCode) return;
             
-            // Redraw all strokes
+            // Get all strokes from Firebase to find the last one by this player
+            const strokesRef = db.ref(`games/${playerState.roomCode}/minigame/strokes`);
+            const snapshot = await strokesRef.once('value');
+            const allStrokes = snapshot.val() || {};
+            
+            // Find the last stroke (by timestamp) that belongs to the current player
+            let lastPlayerStrokeId = null;
+            let lastPlayerStrokeTimestamp = 0;
+            
+            Object.entries(allStrokes).forEach(([strokeId, stroke]) => {
+                if (stroke.playerId === playerState.playerId && stroke.timestamp > lastPlayerStrokeTimestamp) {
+                    lastPlayerStrokeTimestamp = stroke.timestamp;
+                    lastPlayerStrokeId = strokeId;
+                }
+            });
+            
+            if (!lastPlayerStrokeId) {
+                showToast('No strokes to undo');
+                return;
+            }
+            
+            // Remove the stroke from Firebase
+            await strokesRef.child(lastPlayerStrokeId).remove();
+            
+            // Also remove from local array
+            const strokeToRemove = drawingStrokes.find(s => 
+                s.playerId === playerState.playerId && 
+                Math.abs((s.timestamp || 0) - lastPlayerStrokeTimestamp) < 1000 // Match by timestamp (within 1 second)
+            );
+            if (strokeToRemove) {
+                const index = drawingStrokes.indexOf(strokeToRemove);
+                if (index !== -1) {
+                    drawingStrokes.splice(index, 1);
+                }
+            }
+            
+            // Redraw all remaining strokes
             redrawCanvas();
             
-            // Sync undo to Firebase (by clearing and re-adding all strokes)
-            if (playerState.roomCode) {
-                syncAllStrokesToFirebase();
-            }
+            showToast('Last stroke removed');
         }
 
         function redrawCanvas() {
@@ -3099,13 +3121,19 @@
             
             // Redraw all strokes
             drawingStrokes.forEach(stroke => {
+                // Use normalized coordinates if available, otherwise use absolute coordinates
+                const fromX = stroke.normalizedFrom ? stroke.normalizedFrom.x * canvas.width : stroke.from.x;
+                const fromY = stroke.normalizedFrom ? stroke.normalizedFrom.y * canvas.height : stroke.from.y;
+                const toX = stroke.normalizedTo ? stroke.normalizedTo.x * canvas.width : stroke.to.x;
+                const toY = stroke.normalizedTo ? stroke.normalizedTo.y * canvas.height : stroke.to.y;
+                
                 ctx.strokeStyle = stroke.color;
                 ctx.lineWidth = stroke.size;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                 ctx.beginPath();
-                ctx.moveTo(stroke.from.x, stroke.from.y);
-                ctx.lineTo(stroke.to.x, stroke.to.y);
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
                 ctx.stroke();
             });
         }
@@ -3113,14 +3141,18 @@
         function syncAllStrokesToFirebase() {
             if (!playerState.roomCode) return;
             
-            // Clear remote strokes and re-add all
+            // Clear remote strokes and re-add all remaining strokes (preserving original playerId)
             db.ref(`games/${playerState.roomCode}/minigame/strokes`).remove(() => {
                 drawingStrokes.forEach((stroke, index) => {
                     const strokeId = `stroke_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
                     db.ref(`games/${playerState.roomCode}/minigame/strokes/${strokeId}`).set({
-                        ...stroke,
-                        playerId: playerState.playerId,
-                        timestamp: Date.now()
+                        type: stroke.type || 'line',
+                        color: stroke.color,
+                        size: stroke.size,
+                        normalizedFrom: stroke.normalizedFrom,
+                        normalizedTo: stroke.normalizedTo,
+                        playerId: stroke.playerId || playerState.playerId, // Preserve original playerId
+                        timestamp: stroke.timestamp || Date.now()
                     });
                 });
             });
@@ -3136,13 +3168,7 @@
                 const minigameData = snapshot.val();
                 if (!minigameData) return;
                 
-                // Handle clear
-                if (minigameData.clear && minigameData.clear.playerId !== playerState.playerId) {
-                    if (ctx && canvas) {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        drawingStrokes = [];
-                    }
-                }
+                // Handle clear (removed - too destructive, undo button is sufficient)
                 
                 // Handle strokes from other players (only during drawing phase)
                 if (minigameData.phase === 'drawing' && minigameData.strokes && ctx && canvas) {
@@ -3182,7 +3208,9 @@
                                     from: { x: fromX, y: fromY },
                                     to: { x: toX, y: toY },
                                     normalizedFrom: stroke.normalizedFrom || { x: fromX / canvas.width, y: fromY / canvas.height },
-                                    normalizedTo: stroke.normalizedTo || { x: toX / canvas.width, y: toY / canvas.height }
+                                    normalizedTo: stroke.normalizedTo || { x: toX / canvas.width, y: toY / canvas.height },
+                                    playerId: stroke.playerId, // Track which player made this stroke
+                                    timestamp: stroke.timestamp || Date.now()
                                 });
                             }
                         }
@@ -3290,6 +3318,155 @@
             });
         }
 
+        // Draw Off: individual canvas, submit when done
+        let drawOffSubmitted = false;
+        let drawOffTimerInterval = null;
+
+        function updateDrawOffUI(minigame, statusEl, canvasContainer, controlsContainer, doneBtn) {
+            const titleEl = document.getElementById('minigame-card-title');
+            if (titleEl) titleEl.textContent = '🎨 AI Draw Off';
+
+            const prompt = minigame.prompt || 'Unknown';
+            const isParticipant = (minigame.participants || []).includes(playerState.playerId);
+
+            if (doneBtn) doneBtn.style.display = 'none';
+
+            switch (minigame.phase) {
+                case 'prompt_reveal':
+                    statusEl.innerHTML = `
+                        <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
+                            Draw: "${prompt}"
+                        </div>
+                        <div style="color: var(--text-secondary);">Drawing starts in 10 seconds. Get ready!</div>
+                    `;
+                    if (canvasContainer) canvasContainer.style.display = 'none';
+                    if (controlsContainer) controlsContainer.style.display = 'none';
+                    if (canvas) canvas.style.pointerEvents = 'none';
+                    break;
+
+                case 'drawing':
+                    if (!isParticipant) {
+                        statusEl.innerHTML = `<div style="color: var(--text-secondary);">You're not in this Draw Off. Watch the host screen.</div>`;
+                        if (canvasContainer) canvasContainer.style.display = 'none';
+                        return;
+                    }
+
+                    drawOffSubmitted = minigame.submissions?.[playerState.playerId] != null;
+                    const endTime = minigame.drawingEndTime || Date.now();
+                    const secLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+                    if (drawOffSubmitted) {
+                        window.drawOffMode = false;
+                        statusEl.innerHTML = `
+                            <div style="color: var(--accent-green); font-weight: 700;">✅ Submitted!</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Waiting for others... ${secLeft}s left</div>
+                        `;
+                        if (canvas) canvas.style.pointerEvents = 'none';
+                        if (controlsContainer) controlsContainer.style.display = 'none';
+                    } else {
+                        // Clear and init draw-off canvas (local strokes only)
+                        window.drawOffMode = true;
+                        window.minigameCurrentTurnPlayerId = playerState.playerId;
+                        drawingStrokes.length = 0; // Clear for fresh draw
+                        if (canvas && ctx) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        }
+                        if (canvasContainer) canvasContainer.style.display = 'block';
+                        const colorPickerRow = document.getElementById('drawing-color')?.parentElement;
+                        if (colorPickerRow) colorPickerRow.style.display = 'flex';
+                        if (controlsContainer) {
+                            controlsContainer.style.display = 'flex';
+                            controlsContainer.innerHTML = `
+                                <div style="display: flex; gap: 0.5rem; width: 100%;">
+                                    <button class="btn btn-secondary" onclick="undoDrawOffStroke()" style="flex: 1;">↶ Undo</button>
+                                    <button class="btn btn-primary" onclick="submitDrawOffDrawing()" style="flex: 1;">✅ Submit Drawing</button>
+                                </div>
+                            `;
+                        }
+                        if (canvas) {
+                            canvas.style.pointerEvents = 'auto';
+                            canvas.style.cursor = 'crosshair';
+                        }
+                        statusEl.innerHTML = `
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
+                                Draw: "${prompt}"
+                            </div>
+                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                ⏱️ ${secLeft} seconds remaining
+                            </div>
+                        `;
+                        startDrawOffTimer(statusEl, minigame);
+                    }
+                    if (canvasContainer) canvasContainer.style.display = 'block';
+                    break;
+
+                case 'judging':
+                    window.drawOffMode = false;
+                    statusEl.innerHTML = `
+                        <div style="font-size: 1.1rem; color: var(--accent-gold);">Draw: "${prompt}"</div>
+                        <div style="color: var(--text-secondary); margin-top: 0.5rem;">🤖 AI is judging all drawings...</div>
+                    `;
+                    if (canvasContainer) canvasContainer.style.display = 'none';
+                    if (controlsContainer) controlsContainer.style.display = 'none';
+                    break;
+
+                case 'results':
+                    window.drawOffMode = false;
+                    const rankings = minigame.rankings || [];
+                    const scores = minigame.scores || {};
+                    const myRank = rankings.indexOf(playerState.playerId) + 1;
+                    const myScore = scores[playerState.playerId];
+                    statusEl.innerHTML = `
+                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">Draw: "${prompt}"</div>
+                        <div style="font-weight: 700; margin-bottom: 0.5rem;">Your result: #${myRank || '?'} (${myScore?.rating || 0}/100)</div>
+                        ${myScore?.critique ? `<div style="font-size: 0.9rem; font-style: italic;">${myScore.critique}</div>` : ''}
+                    `;
+                    if (canvasContainer) canvasContainer.style.display = 'none';
+                    if (controlsContainer) controlsContainer.style.display = 'none';
+                    break;
+
+                default:
+                    statusEl.innerHTML = `<div style="color: var(--text-secondary);">Draw Off in progress...</div>`;
+            }
+        }
+
+        function startDrawOffTimer(statusEl, minigame) {
+            if (drawOffTimerInterval) clearInterval(drawOffTimerInterval);
+            drawOffTimerInterval = setInterval(async () => {
+                const endTime = minigame.drawingEndTime || Date.now();
+                const secLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+                const timerDiv = statusEl.querySelector('div:last-child');
+                if (timerDiv) timerDiv.textContent = `⏱️ ${secLeft} seconds remaining`;
+                if (secLeft <= 0) {
+                    clearInterval(drawOffTimerInterval);
+                    drawOffTimerInterval = null;
+                    if (!drawOffSubmitted) await submitDrawOffDrawing();
+                }
+            }, 1000);
+        }
+
+        async function submitDrawOffDrawing() {
+            if (!playerState.roomCode || !canvas) return;
+            if (drawOffSubmitted) return;
+
+            const minigameSnap = await db.ref(`games/${playerState.roomCode}/minigame`).once('value');
+            const minigame = minigameSnap.val();
+            if (!minigame || minigame.phase !== 'drawing') return;
+
+            const imageBase64 = canvas.toDataURL('image/png');
+            await db.ref(`games/${playerState.roomCode}/minigame/submissions/${playerState.playerId}`).set(imageBase64);
+            drawOffSubmitted = true;
+            showToast('Drawing submitted! ✅');
+            updateMinigameUI({ ...minigame, submissions: { ...minigame.submissions, [playerState.playerId]: imageBase64 } });
+        }
+
+        function undoDrawOffStroke() {
+            if (!drawingStrokes || drawingStrokes.length === 0) return;
+            drawingStrokes.pop();
+            redrawCanvas();
+        }
+
         // Update UI based on minigame phase
         function updateMinigameUI(minigame) {
             if (!minigame) return;
@@ -3299,13 +3476,18 @@
             const controlsContainer = document.getElementById('drawing-controls-container');
             const doneBtn = document.getElementById('drawing-done-btn');
             
-            // Ensure status element exists
-            if (!statusEl) {
-                console.warn('minigame-status element not found');
+            if (!statusEl) return;
+            
+            // AI Draw Off - different flow
+            if (minigame.type === 'draw_off') {
+                updateDrawOffUI(minigame, statusEl, canvasContainer, controlsContainer, doneBtn);
                 return;
             }
             
-            // Debug: log phase to help diagnose
+            // Counterfeit Canvas
+            const titleEl = document.getElementById('minigame-card-title');
+            if (titleEl) titleEl.textContent = '🎨 Collaborative Drawing';
+
             console.log('updateMinigameUI called with phase:', minigame.phase);
             
             switch (minigame.phase) {
@@ -3360,7 +3542,7 @@
                         // Show controls container with buttons
                         if (controlsContainer) {
                             controlsContainer.style.display = 'flex';
-                            // Show the buttons row (Clear/Undo)
+                            // Show the buttons row (Undo button)
                             const buttonRow = controlsContainer.querySelector('div:first-child');
                             if (buttonRow) buttonRow.style.display = 'flex';
                         }
@@ -3513,7 +3695,18 @@
                 `;
             }).join('');
             
+            const aiCritic = minigame.aiCriticResult;
+            const aiCriticHtml = aiCritic && !aiCritic.error ? `
+                <div style="background: var(--bg-card-hover); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--accent-gold);">
+                    <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">🤖 AI Art Critic</div>
+                    <div style="font-size: 0.85rem;">${aiCritic.description || ''}</div>
+                    <div style="margin-top: 0.5rem; font-weight: 600;">Score: ${aiCritic.rating}/100</div>
+                    ${aiCritic.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${aiCritic.critique}</div>` : ''}
+                </div>
+            ` : '';
+            
             statusEl.innerHTML = `
+                ${aiCriticHtml}
                 <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem;">
                     🗳️ Who is The Counterfeit?
                 </div>

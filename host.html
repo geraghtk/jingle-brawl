@@ -798,6 +798,7 @@
                 <select id="setting-tiebreaker-method" style="width: 100%; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);">
                     <option value="random" selected>Random Selection (fast)</option>
                     <option value="minigame">The Counterfeit Canvas Mini-Game</option>
+                    <option value="draw_off">AI Draw Off (3 min, AI judges & ranks)</option>
                 </select>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
                     How to resolve ties when multiple players bid the same amount
@@ -821,16 +822,44 @@
                 </div>
             </div>
             
+            <!-- AI Art Critic (shown when Counterfeit Canvas or Draw Off is selected) -->
+            <div id="ai-critic-setting" style="margin-bottom: 1.5rem; text-align: left; display: none;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                    🤖 AI Art Critic
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="setting-ai-critic-enabled" style="width: auto;">
+                        <span>Enable AI Art Critic (local vision model)</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="setting-ai-critic-url" style="flex-shrink: 0;">Server URL:</label>
+                        <input type="text" id="setting-ai-critic-url" value="http://localhost:5050" 
+                            style="flex: 1; padding: 0.5rem; border-radius: 8px; background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border);"
+                            placeholder="http://localhost:5050">
+                    </div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Counterfeit Canvas: rates drawing vs secret word. Draw Off: judges & ranks all drawings. Run: <code>python ai_art_critic.py</code>
+                </div>
+            </div>
+            
             <script>
-                // Show/hide minigame timer setting based on tiebreaker method
+                // Show/hide minigame settings based on tiebreaker method
                 document.getElementById('setting-tiebreaker-method').addEventListener('change', function() {
+                    const val = this.value;
                     const timerSetting = document.getElementById('minigame-timer-setting');
-                    if (this.value === 'minigame') {
-                        timerSetting.style.display = 'block';
-                    } else {
-                        timerSetting.style.display = 'none';
-                    }
+                    const aiCriticSetting = document.getElementById('ai-critic-setting');
+                    timerSetting.style.display = (val === 'minigame') ? 'block' : 'none';
+                    aiCriticSetting.style.display = (val === 'minigame' || val === 'draw_off') ? 'block' : 'none';
+                    if (val === 'draw_off') document.getElementById('setting-ai-critic-enabled').checked = true;
                 });
+                // Trigger on load in case minigame/draw_off is pre-selected
+                (function() {
+                    const val = document.getElementById('setting-tiebreaker-method').value;
+                    document.getElementById('minigame-timer-setting').style.display = (val === 'minigame') ? 'block' : 'none';
+                    document.getElementById('ai-critic-setting').style.display = (val === 'minigame' || val === 'draw_off') ? 'block' : 'none';
+                })();
             </script>
             
             <button class="btn btn-primary" onclick="createGame()" style="width: 100%;">
@@ -1328,7 +1357,10 @@
                 baseCost: parseInt(document.getElementById('setting-base-cost').value),
                 tiebreakerMethod: document.getElementById('setting-tiebreaker-method').value,
                 minigameTimer: document.getElementById('setting-tiebreaker-method').value === 'minigame' ? 
-                    document.getElementById('setting-minigame-timer').value : null
+                    document.getElementById('setting-minigame-timer').value : null,
+                aiCriticEnabled: (['minigame','draw_off'].includes(document.getElementById('setting-tiebreaker-method').value) &&
+                    document.getElementById('setting-ai-critic-enabled')?.checked) || false,
+                aiCriticUrl: document.getElementById('setting-ai-critic-url')?.value || 'http://localhost:5050'
             };
             
             // Only set startingChips if a specific value is chosen (not "variable")
@@ -2131,26 +2163,34 @@
                         const minigame = snapshot.val();
                         if (minigame) {
                             // Minigame is active - show status and disable button
+                            const gameName = minigame.type === 'draw_off' ? 'AI Draw Off' : 'The Counterfeit Canvas';
                             currentAction.textContent = `🎨 Mini-Game in Progress!`;
-                            actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - The Counterfeit Canvas is active.<br><span style="color: var(--accent-gold);">Players are drawing on their devices.</span>`;
+                            actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - ${gameName} is active.<br><span style="color: var(--accent-gold);">Players are drawing on their devices.</span>`;
                             actionButtons.innerHTML = `
                                 <button class="btn btn-secondary" disabled>⏳ Mini-Game in Progress...</button>
                             `;
                         } else {
-                            // No minigame yet - check method and show appropriate button
+                            // No minigame yet - check method and show appropriate UI
                             const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
                             if (tiebreakerMethod === 'minigame') {
-                                // Minigame method - should start automatically
+                                // Minigame method - starts automatically
                                 console.log('tiebreaker_pending phase: minigame method detected, starting minigame automatically');
-                                currentAction.textContent = `Starting Mini-Game...`;
-                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Initializing The Counterfeit Canvas...`;
-                                actionButtons.innerHTML = `
-                                    <button class="btn btn-secondary" disabled>🎨 Starting Mini-Game...</button>
-                                `;
+                                currentAction.textContent = `🎨 Starting The Counterfeit Canvas...`;
+                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Mini-game will begin automatically.<br><span style="color: var(--text-muted); font-size: 0.9rem;">Players will receive their roles shortly.</span>`;
+                                actionButtons.innerHTML = ''; // No button needed - it starts automatically
                                 // Automatically start the minigame
                                 startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2).catch(err => {
                                     console.error('Error starting tiebreaker minigame:', err);
                                     addEvent('❌ Error starting mini-game: ' + err.message, 'bid');
+                                });
+                            } else if (tiebreakerMethod === 'draw_off') {
+                                // Draw Off - starts automatically
+                                currentAction.textContent = `🎨 Starting AI Draw Off...`;
+                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Draw Off will begin automatically.<br><span style="color: var(--text-muted); font-size: 0.9rem;">Same prompt, 3 minutes, AI ranks all drawings.</span>`;
+                                actionButtons.innerHTML = '';
+                                startTiebreaker(turn.tiebreakerC1, turn.tiebreakerC2).catch(err => {
+                                    console.error('Error starting Draw Off:', err);
+                                    addEvent('❌ Error starting Draw Off: ' + err.message, 'bid');
                                 });
                             } else {
                                 // Random method - show start button
@@ -2233,6 +2273,29 @@
                             } else if (minigame.phase === 'complete' || !minigame.phase) {
                                 hideMinigameCanvasModal();
                             }
+                        });
+                    }
+                    break;
+
+                case 'minigame_draw_off':
+                    phaseBadge.textContent = '🎨 DRAW OFF';
+                    phaseBadge.className = 'phase-badge reveal';
+                    
+                    db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
+                        const minigame = snapshot.val();
+                        if (!minigame) {
+                            currentAction.textContent = 'AI Draw Off';
+                            actionDetails.innerHTML = 'Loading...';
+                            return;
+                        }
+                        updateHostDrawOffUI(minigame, turn);
+                    });
+                    
+                    if (!gameState.drawOffPhaseListener) {
+                        gameState.drawOffPhaseListener = db.ref(`games/${gameState.roomCode}/minigame`).on('value', (snapshot) => {
+                            const minigame = snapshot.val();
+                            if (!minigame) return;
+                            updateHostDrawOffUI(minigame, turn);
                         });
                     }
                     break;
@@ -3327,6 +3390,13 @@
                 
                 // Start the mini-game
                 await startCounterfeitCanvasMinigame();
+            } else if (tiebreakerMethod === 'draw_off') {
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    openerChoice: 'fight',
+                    minigameGoal: 'pick_one',
+                    tiedBidders: tiedBidders.map(([id]) => id)
+                });
+                await startDrawOffMinigame();
             } else {
                 // Random method: For 2 tied bidders, go directly to tiebreaker duel
                 if (tiedBidders.length === 2) {
@@ -3371,6 +3441,13 @@
                 
                 // Start the mini-game
                 await startCounterfeitCanvasMinigame();
+            } else if (tiebreakerMethod === 'draw_off') {
+                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                    openerChoice: 'yield',
+                    minigameGoal: 'pick_two',
+                    tiedBidders: tiedBidders.map(([id]) => id)
+                });
+                await startDrawOffMinigame();
             } else {
                 // Random method: randomly select 2 bidders to fight
                 const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
@@ -3391,6 +3468,15 @@
             console.log('gameState.settings:', gameState.settings);
             
             // If mini-game is enabled, use it for any number of tied bidders
+            if (tiebreakerMethod === 'draw_off') {
+                console.log('Tiebreaker method is draw_off, starting AI Draw Off minigame');
+                const tiedBidders = turn.tiedBidders || [player1Id, player2Id];
+                if (!turn.tiedBidders) {
+                    await db.ref(`games/${gameState.roomCode}/currentTurn`).update({ tiedBidders: tiedBidders });
+                }
+                await startDrawOffMinigame();
+                return;
+            }
             if (tiebreakerMethod === 'minigame') {
                 console.log('Tiebreaker method is minigame, starting Counterfeit Canvas minigame');
                 // Store tied bidders and start mini-game
@@ -3532,6 +3618,9 @@
             });
             console.log('Host: Minigame state created successfully with phase: role_reveal');
             
+            // Initialize host canvas viewer and set up listener for drawing phase
+            initHostCanvasViewer();
+            
             // Update turn to minigame phase AFTER minigame state is ready
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
                 phase: 'minigame_counterfeit_canvas',
@@ -3636,43 +3725,97 @@
                 currentTurnIndex: currentTurnIndex + 1
             });
             
-            startNextDrawingTurn();
-        }
-        
-        // Advance to next drawing turn (called by timer or "Done" button)
-        async function advanceDrawingTurn() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-            
-            if (!minigame || minigame.phase !== 'drawing') return;
-            
-            const { currentTurnIndex } = minigame;
-            
-            await minigameRef.update({
-                currentTurnIndex: currentTurnIndex + 1
-            });
-            
-            startNextDrawingTurn();
+            // startNextDrawingTurn() will be called by the listener when currentTurnIndex changes
         }
         
         // Start voting phase
         async function startVotingPhase() {
             if (!gameState.roomCode) return;
             
-            await db.ref(`games/${gameState.roomCode}/minigame`).update({
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const minigameSnap = await minigameRef.once('value');
+            const minigame = minigameSnap.val();
+            
+            let aiCriticResult = null;
+            if (gameState.settings?.aiCriticEnabled && gameState.settings?.aiCriticUrl && minigame?.secretWord) {
+                try {
+                    addEvent('🤖 AI Art Critic is analyzing the drawing...', 'bid');
+                    const imageBase64 = await getMinigameCanvasImageBase64();
+                    if (imageBase64) {
+                        aiCriticResult = await callAICritic(gameState.settings.aiCriticUrl, imageBase64, minigame.secretWord);
+                        if (aiCriticResult && !aiCriticResult.error) {
+                            addEvent(`🤖 AI says: "${aiCriticResult.rating}/100" - ${aiCriticResult.critique || aiCriticResult.description}`, 'bid');
+                        } else if (aiCriticResult?.error) {
+                            addEvent(`⚠️ AI Critic: ${aiCriticResult.error}`, 'bid');
+                        }
+                    }
+                } catch (err) {
+                    console.error('AI Art Critic error:', err);
+                    addEvent(`⚠️ AI Critic failed: ${err.message}`, 'bid');
+                }
+            }
+            
+            const updateData = {
                 phase: 'voting',
                 votes: {},
                 votingStartTime: Date.now(),
                 votingDuration: 20000 // 20 seconds
-            });
+            };
+            if (aiCriticResult) updateData.aiCriticResult = aiCriticResult;
+            
+            await minigameRef.update(updateData);
             
             // After 20 seconds, process votes
             setTimeout(() => {
                 processVotingResults();
             }, 20000);
+        }
+        
+        // Get canvas image as base64 for AI critic (renders strokes to offscreen canvas)
+        async function getMinigameCanvasImageBase64() {
+            if (!gameState.roomCode) return null;
+            const strokesSnap = await db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value');
+            const strokesData = strokesSnap.val();
+            const strokes = strokesData ? Object.values(strokesData) : [];
+            if (strokes.length === 0) return null;
+            
+            const w = 400, h = 300;
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            
+            strokes.forEach(stroke => {
+                const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * w;
+                const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * h;
+                const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * w;
+                const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * h;
+                ctx.strokeStyle = stroke.color || '#000000';
+                ctx.lineWidth = stroke.size || 5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
+            });
+            
+            return canvas.toDataURL('image/png');
+        }
+        
+        // Call AI Art Critic API
+        async function callAICritic(baseUrl, imageBase64, secretWord) {
+            const url = baseUrl.replace(/\/$/, '') + '/critique';
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageBase64, secretWord: secretWord })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || res.statusText);
+            return data;
         }
         
         // Process voting results and determine winners
@@ -3871,6 +4014,160 @@
                 // Proceed with yield - opener already yielded, so C1 and C2 fight directly
                 await openerYields(c1Id, c2Id);
                 addEvent(`🎨 Mini-game complete! ${gameState.players[c1Id]?.name} & ${gameState.players[c2Id]?.name} selected to fight.`, 'bid');
+            }
+        }
+
+        // ========== AI DRAW OFF MINIGAME ==========
+        const DRAW_OFF_DURATION_MS = 3 * 60 * 1000; // 3 minutes
+        const DRAW_OFF_PROMPT_REVEAL_MS = 10 * 1000; // 10 seconds to read prompt
+
+        async function startDrawOffMinigame() {
+            const turn = gameState.currentTurn;
+            const tiedBidders = turn.tiedBidders || [];
+            const minigameGoal = turn.minigameGoal || 'pick_one';
+
+            if (tiedBidders.length < 2) {
+                addEvent('❌ Error: Not enough players for Draw Off', 'bid');
+                return;
+            }
+
+            if (!gameState.settings?.aiCriticEnabled || !gameState.settings?.aiCriticUrl) {
+                addEvent('❌ Error: AI Art Critic must be enabled for Draw Off. Enable it in game settings.', 'bid');
+                return;
+            }
+
+            // Pick prompt
+            const categories = Object.keys(COUNTERFEIT_CANVAS_CATEGORIES);
+            const category = categories[Math.floor(Math.random() * categories.length)];
+            const words = COUNTERFEIT_CANVAS_CATEGORIES[category];
+            const prompt = words[Math.floor(Math.random() * words.length)];
+
+            addEvent(`🎨 Starting AI Draw Off: Draw "${prompt}" - 3 minutes!`, 'bid');
+
+            await db.ref(`games/${gameState.roomCode}/minigame`).set({
+                type: 'draw_off',
+                category: category,
+                prompt: prompt,
+                participants: tiedBidders,
+                tiedBidders: tiedBidders,
+                minigameGoal: minigameGoal,
+                phase: 'prompt_reveal',
+                submissions: {},
+                scores: {},
+                promptRevealEndTime: Date.now() + DRAW_OFF_PROMPT_REVEAL_MS,
+                startedAt: Date.now()
+            });
+
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
+                phase: 'minigame_draw_off',
+                minigameStatus: `Draw Off: Draw "${prompt}" - 3 minutes!`
+            });
+
+            // After prompt reveal, start drawing
+            setTimeout(() => startDrawOffDrawingPhase(), DRAW_OFF_PROMPT_REVEAL_MS);
+        }
+
+        async function startDrawOffDrawingPhase() {
+            if (!gameState.roomCode) return;
+
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+
+            if (!minigame || minigame.type !== 'draw_off' || minigame.phase !== 'prompt_reveal') return;
+
+            const drawingEndTime = Date.now() + DRAW_OFF_DURATION_MS;
+
+            await minigameRef.update({
+                phase: 'drawing',
+                drawingEndTime: drawingEndTime,
+                drawingStartTime: Date.now()
+            });
+
+            addEvent(`✏️ Drawing time! 3 minutes to draw "${minigame.prompt}"`, 'bid');
+
+            // When 3 min expires, start judging
+            setTimeout(() => startDrawOffJudgingPhase(), DRAW_OFF_DURATION_MS);
+        }
+
+        async function startDrawOffJudgingPhase() {
+            if (!gameState.roomCode) return;
+
+            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
+            const snapshot = await minigameRef.once('value');
+            const minigame = snapshot.val();
+
+            if (!minigame || minigame.type !== 'draw_off' || minigame.phase !== 'drawing') return;
+
+            await minigameRef.update({ phase: 'judging' });
+            addEvent('🤖 AI Art Critic is judging all drawings...', 'bid');
+
+            const submissions = minigame.submissions || {};
+            const participants = minigame.participants || [];
+            const prompt = minigame.prompt;
+            const aiCriticUrl = gameState.settings?.aiCriticUrl || 'http://localhost:5050';
+
+            const scores = {};
+            for (const playerId of participants) {
+                const imageBase64 = submissions[playerId];
+                if (!imageBase64) {
+                    scores[playerId] = { rating: 0, description: 'No submission', critique: 'Did not submit in time' };
+                    continue;
+                }
+                try {
+                    const result = await callAICritic(aiCriticUrl, imageBase64, prompt);
+                    scores[playerId] = {
+                        rating: result.rating || 0,
+                        description: result.description || '',
+                        critique: result.critique || ''
+                    };
+                } catch (err) {
+                    console.error('AI critique error for', playerId, err);
+                    scores[playerId] = { rating: 0, description: 'Error', critique: err.message };
+                }
+            }
+
+            const rankings = [...participants].sort((a, b) => (scores[b]?.rating || 0) - (scores[a]?.rating || 0));
+
+            await minigameRef.update({
+                phase: 'results',
+                scores: scores,
+                rankings: rankings
+            });
+
+            const minigameGoal = minigame.minigameGoal || 'pick_one';
+            const winners = minigameGoal === 'pick_one' ? [rankings[0]] : rankings.slice(0, 2);
+            await completeDrawOffMinigame(winners);
+        }
+
+        async function completeDrawOffMinigame(winners) {
+            const turn = gameState.currentTurn;
+            const minigameGoal = turn.minigameGoal || 'pick_one';
+
+            if (winners.length === 0) {
+                addEvent('❌ Error: No winners (no submissions?)', 'bid');
+                return;
+            }
+
+            await db.ref(`games/${gameState.roomCode}/minigame`).remove();
+
+            if (minigameGoal === 'pick_one') {
+                const winnerId = winners[0];
+                const openerId = turn.openerId;
+                if (!openerId) {
+                    addEvent('❌ Error: No opener found', 'bid');
+                    return;
+                }
+                await startDuel(winnerId, openerId);
+                addEvent(`🎨 Draw Off complete! ${gameState.players[winnerId]?.name} wins - duels ${gameState.players[openerId]?.name}!`, 'bid');
+            } else {
+                if (winners.length < 2) {
+                    addEvent('❌ Error: Need 2 winners for yield duel', 'bid');
+                    return;
+                }
+                const [c1Id, c2Id] = winners;
+                await openerYields(c1Id, c2Id);
+                addEvent(`🎨 Draw Off complete! ${gameState.players[c1Id]?.name} & ${gameState.players[c2Id]?.name} selected to fight.`, 'bid');
             }
         }
 
@@ -5303,6 +5600,82 @@
             });
         }
 
+        // Update host UI for AI Draw Off minigame
+        function updateHostDrawOffUI(minigame, turn) {
+            const phaseBadge = document.getElementById('phase-badge');
+            const currentAction = document.getElementById('current-action');
+            const actionDetails = document.getElementById('action-details');
+            const actionButtons = document.getElementById('action-buttons');
+            const bidsContainer = document.getElementById('bids-container');
+            if (!phaseBadge || !currentAction || !actionDetails) return;
+
+            const participants = minigame.participants || [];
+            const prompt = minigame.prompt || 'Unknown';
+            const scores = minigame.scores || {};
+            const rankings = minigame.rankings || [];
+
+            switch (minigame.phase) {
+                case 'prompt_reveal':
+                    phaseBadge.textContent = '📋 PROMPT';
+                    currentAction.textContent = `Draw: "${prompt}"`;
+                    actionDetails.innerHTML = `
+                        <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-gold); margin: 1rem 0;">
+                            Draw: "${prompt}"
+                        </div>
+                        <div style="color: var(--text-secondary);">Players see the prompt. Drawing starts in 10 seconds...</div>
+                    `;
+                    break;
+                case 'drawing':
+                    const endTime = minigame.drawingEndTime || Date.now();
+                    const secLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+                    phaseBadge.textContent = '✏️ DRAWING';
+                    currentAction.textContent = `Draw "${prompt}" - ${secLeft}s left`;
+                    actionDetails.innerHTML = `
+                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
+                            Draw: "${prompt}"
+                        </div>
+                        <div style="color: var(--text-secondary); margin-bottom: 1rem;">
+                            ⏱️ ${participants.length} players drawing on their devices. ${secLeft} seconds remaining.
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-muted);">
+                            Submissions: ${Object.keys(minigame.submissions || {}).length} / ${participants.length}
+                        </div>
+                    `;
+                    break;
+                case 'judging':
+                    phaseBadge.textContent = '🤖 JUDGING';
+                    currentAction.textContent = 'AI Art Critic is judging...';
+                    actionDetails.innerHTML = `
+                        <div style="font-size: 1.1rem; color: var(--accent-gold);">Draw: "${prompt}"</div>
+                        <div style="color: var(--text-secondary); margin-top: 1rem;">AI is scoring each drawing. Please wait...</div>
+                    `;
+                    break;
+                case 'results':
+                    phaseBadge.textContent = '🏆 RESULTS';
+                    currentAction.textContent = 'Draw Off Complete!';
+                    const rankingsHtml = rankings.map((id, i) => {
+                        const p = gameState.players[id];
+                        const s = scores[id] || {};
+                        return `<div style="margin: 0.5rem 0; padding: 0.5rem; background: var(--bg-card-hover); border-radius: 8px;">
+                            <strong>#${i + 1}</strong> ${p?.name || 'Unknown'} - ${s.rating || 0}/100
+                            ${s.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${s.critique}</div>` : ''}
+                        </div>`;
+                    }).join('');
+                    actionDetails.innerHTML = `
+                        <div style="font-size: 1.1rem; color: var(--accent-gold); margin-bottom: 1rem;">Draw: "${prompt}"</div>
+                        <div style="font-weight: 700; margin-bottom: 0.5rem;">AI Rankings:</div>
+                        ${rankingsHtml}
+                    `;
+                    break;
+                default:
+                    phaseBadge.textContent = '🎨 DRAW OFF';
+                    currentAction.textContent = 'AI Draw Off';
+                    actionDetails.innerHTML = `<div style="color: var(--text-secondary);">Draw Off in progress...</div>`;
+            }
+            if (bidsContainer) bidsContainer.classList.add('hidden');
+            if (actionButtons) actionButtons.innerHTML = '';
+        }
+
         // Update host UI for minigame phases
         function updateHostMinigameUI(minigame, turn) {
             const phaseBadge = document.getElementById('phase-badge');
@@ -5363,6 +5736,15 @@
                 case 'voting':
                     phaseBadge.textContent = '🗳️ VOTING';
                     currentAction.textContent = 'Voting Phase - Who is The Counterfeit?';
+                    const aiCritic = minigame.aiCriticResult;
+                    const aiCriticHtml = aiCritic && !aiCritic.error ? `
+                        <div style="background: var(--bg-card-hover); border-radius: 12px; padding: 1rem; margin: 1rem 0; border-left: 4px solid var(--accent-gold);">
+                            <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">🤖 AI Art Critic</div>
+                            <div style="font-size: 0.85rem;">${aiCritic.description || ''}</div>
+                            <div style="margin-top: 0.5rem; font-weight: 600;">Score: ${aiCritic.rating}/100</div>
+                            ${aiCritic.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${aiCritic.critique}</div>` : ''}
+                        </div>
+                    ` : '';
                     actionDetails.innerHTML = `
                         <div style="margin-bottom: 1rem;">
                             <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
@@ -5372,6 +5754,7 @@
                         <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
                             <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
                         </div>
+                        ${aiCriticHtml}
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
                             Everyone is voting for who they think is The Counterfeit. Results will be processed automatically.
                         </div>
@@ -5475,7 +5858,16 @@
                 db.ref(`games/${roomCode}/minigame`).off('value', hostMinigameListener);
             }
             
-            let lastTurnIndex = null;
+            // Initialize lastTurnIndex from current state
+            db.ref(`games/${roomCode}/minigame`).once('value', (snapshot) => {
+                const minigameData = snapshot.val();
+                if (minigameData && minigameData.phase === 'drawing') {
+                    window.hostLastTurnIndex = minigameData.currentTurnIndex;
+                    console.log('Host: Initialized lastTurnIndex to', window.hostLastTurnIndex);
+                } else {
+                    window.hostLastTurnIndex = null;
+                }
+            });
             
             hostMinigameListener = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
                 const minigameData = snapshot.val();
@@ -5496,10 +5888,18 @@
                 
                 // Detect when currentTurnIndex changes (player clicked "Done" or timer advanced)
                 const currentTurnIndex = minigameData.currentTurnIndex;
-                if (minigameData.phase === 'drawing' && currentTurnIndex !== null && currentTurnIndex !== lastTurnIndex) {
-                    lastTurnIndex = currentTurnIndex;
-                    // Trigger startNextDrawingTurn to advance to next player
-                    startNextDrawingTurn();
+                if (minigameData.phase === 'drawing' && currentTurnIndex !== null && currentTurnIndex !== undefined) {
+                    if (window.hostLastTurnIndex === null || window.hostLastTurnIndex === undefined || currentTurnIndex !== window.hostLastTurnIndex) {
+                        console.log('Host: currentTurnIndex changed from', window.hostLastTurnIndex, 'to', currentTurnIndex);
+                        window.hostLastTurnIndex = currentTurnIndex;
+                        // Use setTimeout to avoid calling startNextDrawingTurn synchronously within the listener
+                        setTimeout(() => {
+                            startNextDrawingTurn();
+                        }, 100);
+                    }
+                } else if (minigameData.phase !== 'drawing') {
+                    // Reset lastTurnIndex when not in drawing phase
+                    window.hostLastTurnIndex = null;
                 }
             });
         }
@@ -5638,7 +6038,10 @@
                 if (phase === 'drawing' && currentPlayer) {
                     statusEl.innerHTML = `<strong>${currentPlayer.name}</strong> is drawing... (Round ${round})`;
                 } else if (phase === 'voting') {
-                    statusEl.textContent = 'Voting phase - players are voting for The Counterfeit';
+                    const ai = minigame.aiCriticResult;
+                    statusEl.innerHTML = ai && !ai.error
+                        ? `Voting phase - AI gave this drawing ${ai.rating}/100`
+                        : 'Voting phase - players are voting for The Counterfeit';
                 } else if (phase === 'word_guess') {
                     const counterfeit = gameState.players[minigame.counterfeitId];
                     statusEl.innerHTML = `<strong>${counterfeit?.name}</strong> is guessing the secret word...`;
