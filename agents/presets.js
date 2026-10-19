@@ -13,6 +13,9 @@ const PRESETS = [
   { name: 'max-bid-5', why: 'higher bid ceiling', settings: { 'max-bid': '5' } },
   { name: 'cheap-challenges', why: 'Gambit/Reprisal/Steal cost = Naughty level only', settings: { 'base-cost': '0' } },
   { name: 'reprisal-chain-2', why: 'a Reprisal can trigger one more', settings: { 'reprisal-depth': '2' } },
+  { name: 'spectator-bets', why: 'experiment: each duel vote stakes 1 chip; right callers split the wrong callers\' chips', settings: { 'spectator-bets': '1' } },
+  { name: 'party-whack', why: 'ties settled by Whack-an-Elf (whole table plays, Elf Bonus chip)', settings: { 'tiebreaker-method': 'whack_elf' } },
+  { name: 'party-sketch', why: 'ties settled by Sketch-Off (whole table draws and votes)', settings: { 'tiebreaker-method': 'sketch_off' } },
 ];
 
 module.exports = { PRESETS };

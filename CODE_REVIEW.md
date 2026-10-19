@@ -72,6 +72,23 @@ on the old code for the first 11), or in `tests/` / `functions/index.test.js`.
 
 Rule recorded from code: a Reprisal that targets a Misfit claims it with no duel (your current gift goes to the Misfit pile).
 
+### Tiebreakers reworked (2026-10-18, later)
+The Counterfeit Canvas (a near-copy of *A Fake Artist Goes to New York*; with 2 tied bidders the
+"who is the fake" vote was a coin flip and the random role mostly decided the winner) was removed
+(~1,400 lines across host/player). Replaced by **party mini-games** the whole table plays —
+`party-games.js`: Sketch-Off and Whack-an-Elf. One ranking settles the tie (best-placed tied
+bidder; two after a yield) and pays 3/2/1 party points + an Elf Bonus chip to the best non-tied
+finisher (`setting-party-prize`). Old games saved with `tiebreakerMethod: 'minigame'` run a
+Sketch-Off. Agent tests showed the first Whack-an-Elf was too easy (everyone ~30 hits) → taps now
+score by speed (3/2/1, gold ×2, Grinch −3).
+
+### Party Score + spectator bets (2026-10-18, later)
+Duel-vote records (`votingWins/Losses`) were shown in the host's Betting leaderboard but never paid off
+("Best voter wins a mystery prize"). Now: **Party Score** = party points + correct calls, Party MVP at
+the final tally (`scoring.js`). **Spectator bets** (host setting, off by default, experimental): each
+vote stakes 1 chip, wrong callers' chips split between right callers. Also fixed: the final tally
+didn't redraw on player updates (scores that landed after `phase: ended` were missing).
+
 ### Rules vs code — resolved 2026-10-18: the written rules now follow the app
 Kevin chose to keep the app's behaviour and update `Jingle Brawl V2.md`, `JingleBrawlV2.html`,
 `rules.html` and `quick-reference.html` to match. What changed in the text:

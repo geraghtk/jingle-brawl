@@ -16,7 +16,9 @@
     <script src="firebase-config.js"></script>
     <script src="chip-fx.js"></script>
     <script src="mascots.js"></script>
-    <style>
+    <script src="party-games.js"></script>
+    <script src="scoring.js"></script>
+<style>
         :root {
             /* ===== FROST design tokens ===== */
             --accent:  #ff3366;
@@ -1570,7 +1572,17 @@
                 </select>
                 <div class="hint">"Defenders only" makes attacking riskier</div>
             </div>
-            
+
+            <!-- Spectator bets (experiment) -->
+            <div class="form-group">
+                <label class="label">🎲 Spectator Bets (experiment)</label>
+                <select id="setting-spectator-bets" class="select">
+                    <option value="0" selected>Off — voting is free</option>
+                    <option value="1">On — each duel vote stakes 1 chip</option>
+                </select>
+                <div class="hint">Right callers split the wrong callers' chips. Correct calls always add to the Party Score.</div>
+            </div>
+
             <!-- Santa Tax Threshold -->
             <div class="form-group">
                 <label class="label">💰 Santa Tax Threshold</label>
@@ -1608,26 +1620,25 @@
                 <label class="label">⚖️ Tiebreaker Method</label>
                 <select id="setting-tiebreaker-method" class="select">
                     <option value="random" selected>Random Selection (fast)</option>
-                    <option value="minigame">The Counterfeit Canvas Mini-Game</option>
+                    <option value="sketch_off">✏️ Sketch-Off (everyone draws, everyone votes)</option>
+                    <option value="whack_elf">🔨 Whack-an-Elf (everyone plays, 20 s)</option>
                     <option value="draw_off">AI Draw Off (3 min, AI judges & ranks)</option>
                 </select>
-                <div class="hint">How to resolve ties when multiple players bid the same amount</div>
+                <div class="hint">How to resolve ties when multiple players bid the same amount. In the party games the whole table plays: the best-placed tied bidder wins the tie.</div>
             </div>
-            
-            <!-- Minigame Drawing Timer (only shown if minigame is selected) -->
-            <div id="minigame-timer-setting" class="form-group" style="display: none;">
-                <label class="label">⏱️ Drawing Timer (Minigame)</label>
-                <select id="setting-minigame-timer" class="select">
-                    <option value="unlimited" selected>Unlimited (manual "Done" button)</option>
-                    <option value="5">5 seconds per stroke</option>
-                    <option value="10">10 seconds per stroke</option>
-                    <option value="15">15 seconds per stroke</option>
-                    <option value="30">30 seconds per stroke</option>
+
+            <!-- Party game prizes (only for the whole-table games) -->
+            <div id="party-prize-setting" class="form-group" style="display: none;">
+                <label class="label">🎉 Party Game Prizes</label>
+                <select id="setting-party-prize" class="select">
+                    <option value="points_chips" selected>Party points + Elf Bonus chip</option>
+                    <option value="points">Party points only</option>
+                    <option value="none">No prizes</option>
                 </select>
-                <div class="hint">How long each player has to draw one stroke (or unlimited with manual completion)</div>
+                <div class="hint">Top 3 score 3/2/1 party points (shown at the final tally). The Elf Bonus: the best finisher who wasn't in the tie gets +1 chip from the North Pole Fund.</div>
             </div>
             
-            <!-- AI Art Critic (shown when Counterfeit Canvas or Draw Off is selected) -->
+            <!-- AI Art Critic (shown when Draw Off is selected) -->
             <div id="ai-critic-setting" class="form-group" style="display: none;">
                 <label class="label">🤖 AI Art Critic</label>
                 <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
@@ -1660,10 +1671,8 @@
                 // Show/hide minigame settings based on tiebreaker method
                 document.getElementById('setting-tiebreaker-method').addEventListener('change', function() {
                     const val = this.value;
-                    const timerSetting = document.getElementById('minigame-timer-setting');
-                    const aiCriticSetting = document.getElementById('ai-critic-setting');
-                    timerSetting.style.display = (val === 'minigame') ? 'block' : 'none';
-                    aiCriticSetting.style.display = (val === 'minigame' || val === 'draw_off') ? 'block' : 'none';
+                    document.getElementById('party-prize-setting').style.display = PartyGames.METHODS.includes(val) ? 'block' : 'none';
+                    document.getElementById('ai-critic-setting').style.display = (val === 'draw_off') ? 'block' : 'none';
                     if (val === 'draw_off') document.getElementById('setting-ai-critic-enabled').checked = true;
                 });
                 document.getElementById('setting-ai-critic-backend').addEventListener('change', function() {
@@ -1672,8 +1681,8 @@
                 // Trigger on load in case minigame/draw_off is pre-selected
                 (function() {
                     const val = document.getElementById('setting-tiebreaker-method').value;
-                    document.getElementById('minigame-timer-setting').style.display = (val === 'minigame') ? 'block' : 'none';
-                    document.getElementById('ai-critic-setting').style.display = (val === 'minigame' || val === 'draw_off') ? 'block' : 'none';
+                    document.getElementById('party-prize-setting').style.display = PartyGames.METHODS.includes(val) ? 'block' : 'none';
+                    document.getElementById('ai-critic-setting').style.display = (val === 'draw_off') ? 'block' : 'none';
                     document.getElementById('ai-critic-openai-row').style.display = (document.getElementById('setting-ai-critic-backend').value === 'openai') ? 'flex' : 'none';
                     // Default AI Critic URL: localhost for local dev, Cloud Function for prod
                     const urlInput = document.getElementById('setting-ai-critic-url');
@@ -2021,20 +2030,6 @@
         </div>
     </div>
 
-    <!-- Minigame Canvas Modal -->
-    <div class="modal-overlay" id="minigame-canvas-modal-overlay">
-        <div class="modal" id="minigame-canvas-modal-content" style="max-width: 800px;">
-            <h2>🎨 The Counterfeit Canvas - Live Drawing</h2>
-            <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
-                <canvas id="minigame-modal-canvas" style="display: block; width: 100%; max-height: 600px;"></canvas>
-            </div>
-            <div id="minigame-modal-status" style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">
-                Loading...
-            </div>
-            <button class="btn btn-secondary" onclick="hideMinigameCanvasModal()" style="margin-top: 1rem;">Close</button>
-        </div>
-    </div>
-
     <!-- Animation Containers -->
     <div class="coin-animation-container" id="coin-animation-container"></div>
 
@@ -2093,8 +2088,7 @@
             currentTurn: null,
             phase: 'lobby', // lobby, main, endgame, ended
             modalCanvasCtx: null,
-            minigamePhaseListener: null,
-            minigameModalListener: null
+minigameModalListener: null
         };
 
         // Check for existing game on load
@@ -2220,12 +2214,12 @@
                 maxBid: parseInt(document.getElementById('setting-max-bid').value),
                 maxWinnerPayout: parseInt(document.getElementById('setting-max-payout').value),
                 loserDividendRule: document.getElementById('setting-loser-dividend').value,
+                spectatorBets: parseInt(document.getElementById('setting-spectator-bets').value),
                 taxThreshold: parseInt(document.getElementById('setting-tax-threshold').value),
                 baseCost: parseInt(document.getElementById('setting-base-cost').value),
                 tiebreakerMethod: document.getElementById('setting-tiebreaker-method').value,
-                minigameTimer: document.getElementById('setting-tiebreaker-method').value === 'minigame' ? 
-                    document.getElementById('setting-minigame-timer').value : null,
-                aiCriticEnabled: (['minigame','draw_off'].includes(document.getElementById('setting-tiebreaker-method').value) &&
+                partyPrize: document.getElementById('setting-party-prize').value,
+                aiCriticEnabled: (document.getElementById('setting-tiebreaker-method').value === 'draw_off' &&
                     document.getElementById('setting-ai-critic-enabled')?.checked) || false,
                 aiCriticUrl: document.getElementById('setting-ai-critic-url')?.value || 'http://localhost:5050',
                 aiCriticBackend: document.getElementById('setting-ai-critic-backend')?.value || 'ollama',
@@ -2352,6 +2346,7 @@
                 gameState.players = snapshot.val() || {};
                 renderPlayers();
                 updateControls();
+                if (gameState.phase === 'ended') renderTurnPanel(); // the tally shows chips + Party Scores
                 updateAdminDropdowns(); // Keep admin panel in sync
             });
 
@@ -2372,6 +2367,17 @@
                 syncStrip();
                 Mascots.observe(gameState); // Santa / elf / reindeer react to table moments
             });
+
+            // Party mini-games: TV view, phase timers (re-armed after a refresh), early finish
+            db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
+                const mg = snapshot.val();
+                gameState.minigame = mg;
+                if (!mg || !PartyGames.GAMES[mg.type]) return;
+                if (gameState.currentTurn?.phase === 'minigame_party') renderPartyPanel();
+                armPartyTimer(mg);
+                if (partyEveryoneDone(mg)) advancePartyGame(mg.seed, mg.phase);
+            });
+            PartyGames.syncClock(db);
 
             // Phase
             db.ref(`games/${roomCode}/phase`).on('value', (snapshot) => {
@@ -2401,14 +2407,7 @@
                     // tiebreakerMethod is stored in gameState.settings, not GAME_CONFIG
                 }
             });
-            
-            // Minigame phase changes (for word guess result)
-            db.ref(`games/${roomCode}/minigame/phase`).on('value', (snapshot) => {
-                const phase = snapshot.val();
-                if (phase === 'word_guess_result') {
-                    handleWordGuessResult();
-                }
-            });
+
         }
 
         // Render players
@@ -2638,7 +2637,7 @@
             // Render Frost v6 ranked rows
             leaderboardContainer.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;">
-                    <span class="f6-chip tint">🎁 Best voter wins a mystery prize</span>
+                    <span class="f6-chip tint">🏅 Each correct call = 1 Party Score point</span>
                     <span class="f6-cap" style="font-size: 9px;">win % × participation</span>
                 </div>
                 <div class="f6-rows">
@@ -2830,13 +2829,19 @@
                         .map(([id, p]) => ({
                             name: p.name,
                             chips: p.chips || 0,
+                            partyScore: Scoring.partyScore(p),
                             gift: p.giftId ? (gameState.gifts[p.giftId]?.name || 'Mystery gift') : 'No gift'
                         }))
                         .sort((a, b) => b.chips - a.chips);
 
                     if (ranked.length > 0) {
                         document.getElementById('bids-container-title').textContent = 'Standings';
+                        const mvps = Scoring.partyMvps(gameState.players);
                         document.getElementById('bids-grid').innerHTML = `
+                            ${mvps.length ? `<div class="party-mvp" style="grid-column: 1 / -1; text-align: center; font-weight: 800; font-size: 1.15rem; margin-bottom: 8px;">
+                                🏅 Party MVP: ${mvps.map((id) => escapeHtml(gameState.players[id].name)).join(' & ')}
+                                <span class="f6-cap" style="display: block; margin-top: 2px;">Party Score = party-game points + correct duel calls</span>
+                            </div>` : ''}
                             <div class="f6-rows tally-grid" style="grid-column: 1 / -1;">
                                 ${ranked.map((p, i) => `
                                     <div class="f6-row${i === 0 ? ' top' : ''}">
@@ -2848,6 +2853,7 @@
                                         </div>
                                         <div class="stat">
                                             <div class="big"><span class="f6-coin"></span> ${p.chips}</div>
+                                            ${p.partyScore ? `<div class="sub">🏅 ${p.partyScore} party score</div>` : ''}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -2926,8 +2932,7 @@
                             const c2Name = gameState.players[c2Id]?.name;
                             const openerName = gameState.players[turn.openerId]?.name;
                             
-                            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-                            const useMinigame = tiebreakerMethod === 'minigame';
+                            const useMinigame = isMinigameMethod(tiebreakerMethod());
                             
                             if (tiedBidders.length === 2) {
                                 // 2 tied bidders - opener chooses fight or yield
@@ -3215,23 +3220,23 @@
                         const minigame = snapshot.val();
                         if (minigame) {
                             // Minigame is active - show status and disable button
-                            const gameName = minigame.type === 'draw_off' ? 'AI Draw Off' : 'The Counterfeit Canvas';
+                            const gameName = minigame.type === 'draw_off' ? 'AI Draw Off' : (PartyGames.GAMES[minigame.type]?.label || 'The mini-game');
                             currentAction.textContent = `🎨 Mini-Game in Progress!`;
-                            actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - ${gameName} is active.<br><span style="color: var(--accent-gold);">Players are drawing on their devices.</span>`;
+                            actionDetails.innerHTML = `${gameName} is active.<br><span style="color: var(--accent-gold);">Players are playing on their devices.</span>`;
                             actionButtons.innerHTML = `
                                 <button class="btn btn-secondary" disabled>⏳ Mini-Game in Progress...</button>
                             `;
                         } else {
                             // No minigame yet - check method and show appropriate UI
-                            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-                            if (tiebreakerMethod === 'minigame') {
-                                // Minigame method - starts automatically
-                                console.log('tiebreaker_pending phase: minigame method detected, starting minigame automatically');
-                                currentAction.textContent = `🎨 Starting The Counterfeit Canvas...`;
-                                actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Mini-game will begin automatically.<br><span style="color: var(--text-muted); font-size: 0.9rem;">Players will receive their roles shortly.</span>`;
-                                actionButtons.innerHTML = ''; // No button needed - it starts automatically
+                            const method = tiebreakerMethod();
+                            if (PartyGames.METHODS.includes(method)) {
+                                // Party game - starts automatically, the whole table plays
+                                const g = PartyGames.GAMES[method];
+                                currentAction.textContent = `${g.emoji} Starting ${g.label}...`;
+                                actionDetails.innerHTML = `Everyone plays — the best-placed tied bidder wins the tie.`;
+                                actionButtons.innerHTML = '';
                                 autoStartTiebreaker(turn);
-                            } else if (tiebreakerMethod === 'draw_off') {
+                            } else if (method === 'draw_off') {
                                 // Draw Off - starts automatically
                                 currentAction.textContent = `🎨 Starting AI Draw Off...`;
                                 actionDetails.innerHTML = `${tbC1?.name} vs ${tbC2?.name} - Draw Off will begin automatically.<br><span style="color: var(--text-muted); font-size: 0.9rem;">Same prompt, 3 minutes, AI ranks all drawings.</span>`;
@@ -3283,50 +3288,16 @@
                     `;
                     break;
 
-                case 'minigame_counterfeit_canvas':
-                    phaseBadge.textContent = '🎨 MINI-GAME';
+                case 'minigame_party': {
+                    const mg = gameState.minigame;
+                    const g = PartyGames.GAMES[mg?.type] || { emoji: '🎉', label: 'Party game' };
+                    phaseBadge.textContent = `${g.emoji} ${g.label.toUpperCase()}`;
                     phaseBadge.className = 'phase-badge reveal';
-                    
-                    // Initialize host canvas viewer if not already initialized
-                    initHostCanvasViewer();
-                    
-                    // Get minigame state to show current phase
-                    db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
-                        const minigame = snapshot.val();
-                        if (!minigame) {
-                            currentAction.textContent = 'The Counterfeit Canvas';
-                            actionDetails.innerHTML = 'Loading mini-game...';
-                            return;
-                        }
-                        
-                        updateHostMinigameUI(minigame, turn);
-                        
-                        // Show modal with drawing canvas during drawing/voting phases
-                        if (minigame.phase === 'drawing' || minigame.phase === 'voting') {
-                            showMinigameCanvasModal();
-                        }
-                    });
-                    
-                    // Set up listener to update modal and UI when phase changes
-                    if (!gameState.minigamePhaseListener) {
-                        gameState.minigamePhaseListener = db.ref(`games/${gameState.roomCode}/minigame`).on('value', (snapshot) => {
-                            const minigame = snapshot.val();
-                            if (!minigame) {
-                                hideMinigameCanvasModal();
-                                return;
-                            }
-                            
-                            updateHostMinigameUI(minigame, gameState.currentTurn || turn); // listener outlives this turn
-                            
-                            // Show/hide modal based on phase
-                            if (minigame.phase === 'drawing' || minigame.phase === 'voting') {
-                                showMinigameCanvasModal();
-                            } else if (minigame.phase === 'complete' || !minigame.phase) {
-                                hideMinigameCanvasModal();
-                            }
-                        });
-                    }
+                    currentAction.textContent = `${g.emoji} ${g.label} — everyone plays!`;
+                    actionDetails.innerHTML = 'Tied bidders play for the tie; everyone else for party points.';
+                    renderPartyPanel();
                     break;
+                }
 
                 case 'minigame_draw_off':
                     phaseBadge.textContent = '🎨 DRAW OFF';
@@ -4250,6 +4221,19 @@
                         addEvent(`✅ ${player.name} correctly predicted the winner!`, 'bid');
                     }
                 }
+
+                // Spectator bets (experiment): wrong callers' chips are split between right callers
+                if (gameState.settings?.spectatorBets) {
+                    const bets = Scoring.settleBets(votes, winnerId);
+                    const updates = {};
+                    for (const [voterId, change] of Object.entries(bets.delta)) {
+                        const voter = gameState.players[voterId];
+                        if (voter && change) updates[`players/${voterId}/chips`] = Math.max(0, voter.chips + change);
+                    }
+                    if (Object.keys(updates).length) await db.ref(`games/${gameState.roomCode}`).update(updates);
+                    await db.ref(`games/${gameState.roomCode}/lastDuel/bets`).set({ pool: bets.pool, toBank: bets.toBank, winners: bets.winners });
+                    if (bets.pool) addEvent(`🎲 Spectator bets: ${bets.pool} chip${bets.pool > 1 ? 's' : ''} → ${bets.winners ? `${bets.winners} right caller${bets.winners > 1 ? 's' : ''}` : 'the North Pole Fund'}`, 'bid');
+                }
             } catch (error) {
                 console.error('Error processing duel votes:', error);
             }
@@ -4455,6 +4439,22 @@
             addEvent(`😈 ${opener.name} uses Grinch's Gambit on "${targetGift.name}"!`, 'duel');
         }
 
+        // Tiebreaker method in force ('minigame' = the retired Counterfeit Canvas → Sketch-Off)
+        function tiebreakerMethod() {
+            const m = gameState.settings?.tiebreakerMethod || 'random';
+            return m === 'minigame' ? 'sketch_off' : m;
+        }
+        const isMinigameMethod = (m) => m === 'draw_off' || PartyGames.METHODS.includes(m);
+
+        // Hand a tie to the configured mini-game. goal: 'pick_one' (winner duels the Opener)
+        // or 'pick_two' (the Opener yielded; the two winners duel each other).
+        async function startMinigameTiebreak(goal, tiedBidders, openerChoice) {
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({ openerChoice, minigameGoal: goal, tiedBidders });
+            const method = tiebreakerMethod();
+            if (method === 'draw_off') return startDrawOffMinigame();
+            return startPartyGame(method, goal, tiedBidders);
+        }
+
         // Opener chooses to fight when there are 2+ tied bidders - triggers mini-game or random
         async function openerChoosesFightForMinigame() {
             const turn = gameState.currentTurn;
@@ -4469,26 +4469,8 @@
                 return;
             }
             
-            // Check tiebreaker method setting
-            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-            
-            if (tiebreakerMethod === 'minigame') {
-                // Store that opener chose to fight, and need to pick 1 winner from tied bidders
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                    openerChoice: 'fight',
-                    minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
-                    tiedBidders: tiedBidders.map(([id]) => id)
-                });
-                
-                // Start the mini-game
-                await startCounterfeitCanvasMinigame();
-            } else if (tiebreakerMethod === 'draw_off') {
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                    openerChoice: 'fight',
-                    minigameGoal: 'pick_one',
-                    tiedBidders: tiedBidders.map(([id]) => id)
-                });
-                await startDrawOffMinigame();
+            if (isMinigameMethod(tiebreakerMethod())) {
+                await startMinigameTiebreak('pick_one', tiedBidders.map(([id]) => id), 'fight');
             } else {
                 // Random method: For 2 tied bidders, go directly to tiebreaker duel
                 if (tiedBidders.length === 2) {
@@ -4520,26 +4502,8 @@
                 return;
             }
             
-            // Check tiebreaker method setting
-            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-            
-            if (tiebreakerMethod === 'minigame') {
-                // Store that opener chose to yield, and need to pick 2 challengers to fight each other
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                    openerChoice: 'yield',
-                    minigameGoal: 'pick_two', // Need to pick 2 to fight each other
-                    tiedBidders: tiedBidders.map(([id]) => id)
-                });
-                
-                // Start the mini-game
-                await startCounterfeitCanvasMinigame();
-            } else if (tiebreakerMethod === 'draw_off') {
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                    openerChoice: 'yield',
-                    minigameGoal: 'pick_two',
-                    tiedBidders: tiedBidders.map(([id]) => id)
-                });
-                await startDrawOffMinigame();
+            if (isMinigameMethod(tiebreakerMethod())) {
+                await startMinigameTiebreak('pick_two', tiedBidders.map(([id]) => id), 'yield');
             } else {
                 // Random method: randomly select 2 bidders to fight
                 const shuffled = [...tiedBidders].sort(() => Math.random() - 0.5);
@@ -4565,31 +4529,8 @@
             }
             const tiedBidders = getAllTiedBidders();
 
-            // Check tiebreaker method setting
-            const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-            console.log('startTiebreaker called, tiebreakerMethod:', tiebreakerMethod, 'tiedBidders:', tiedBidders);
-            
-            // If mini-game is enabled, use it for any number of tied bidders
-            if (tiebreakerMethod === 'draw_off') {
-                console.log('Tiebreaker method is draw_off, starting AI Draw Off minigame');
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({ tiedBidders: tiedBidders });
-                await startDrawOffMinigame();
-                return;
-            }
-            if (tiebreakerMethod === 'minigame') {
-                console.log('Tiebreaker method is minigame, starting Counterfeit Canvas minigame');
-                console.log('Storing tiedBidders:', tiedBidders);
-                await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                    openerChoice: 'fight',
-                    minigameGoal: 'pick_one', // Need to pick 1 winner for tiebreaker
-                    tiedBidders: tiedBidders
-                });
-                console.log('About to call startCounterfeitCanvasMinigame()');
-                await startCounterfeitCanvasMinigame();
-                return;
-            }
-            
-            console.log('Tiebreaker method is NOT minigame, proceeding with random tiebreaker duel');
+            // A mini-game settles any number of tied bidders
+            if (isMinigameMethod(tiebreakerMethod())) return startMinigameTiebreak('pick_one', tiedBidders, 'fight');
             
             // Random method: proceed directly with tiebreaker duel
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
@@ -4639,15 +4580,6 @@
             }
         }
 
-        // Categories and words for The Counterfeit Canvas
-        const COUNTERFEIT_CANVAS_CATEGORIES = {
-            'Holiday Things': ['Snowman', 'Reindeer', 'Wreath', 'Ornament', 'Stocking', 'Candy Cane', 'Mistletoe', 'Sleigh', 'Gingerbread House', 'Nutcracker'],
-            'Animals': ['Penguin', 'Dolphin', 'Elephant', 'Giraffe', 'Kangaroo', 'Tiger', 'Panda', 'Octopus', 'Butterfly', 'Owl'],
-            'Food': ['Pizza', 'Burger', 'Taco', 'Ice Cream', 'Cake', 'Cookie', 'Sandwich', 'Sushi', 'Donut', 'Pancake'],
-            'Vehicles': ['Car', 'Boat', 'Plane', 'Train', 'Bicycle', 'Motorcycle', 'Helicopter', 'Truck', 'Bus', 'Submarine'],
-            'Buildings': ['House', 'Castle', 'Bridge', 'Tower', 'Temple', 'Church', 'Skyscraper', 'Barn', 'Lighthouse', 'Windmill']
-        };
-
         // Richer scene-based prompts for AI Draw Off (not just nouns)
         const DRAW_OFF_PROMPTS = [
             'A young cow eating grass and admiring the view. Bonus points for adding the farmer.',
@@ -4672,260 +4604,6 @@
             'A group of ghosts having a tea party in a haunted mansion.'
         ];
 
-        // Start The Counterfeit Canvas mini-game to select challengers from tied bidders
-        async function startCounterfeitCanvasMinigame() {
-            const turn = gameState.currentTurn;
-            const tiedBidders = turn.tiedBidders || [];
-            const minigameGoal = turn.minigameGoal || 'pick_one'; // 'pick_one' or 'pick_two'
-            
-            if (tiedBidders.length < 2) {
-                addEvent('❌ Error: Not enough tied bidders for mini-game', 'bid');
-                return;
-            }
-            
-            // Randomly select category and secret word
-            const categories = Object.keys(COUNTERFEIT_CANVAS_CATEGORIES);
-            const category = categories[Math.floor(Math.random() * categories.length)];
-            const words = COUNTERFEIT_CANVAS_CATEGORIES[category];
-            const secretWord = words[Math.floor(Math.random() * words.length)];
-            
-            // Randomly assign Counterfeit role to one of the tied challengers
-            const counterfeitId = tiedBidders[Math.floor(Math.random() * tiedBidders.length)];
-            
-            // Get all player IDs for turn order (all players participate)
-            const allPlayerIds = Object.keys(gameState.players);
-            const playerOrder = [...allPlayerIds].sort(() => Math.random() - 0.5);
-            
-            addEvent(`🎨 Starting The Counterfeit Canvas: ${category} - Secret word: ${secretWord}`, 'bid');
-            
-            // Assign roles to each player first
-            const roles = {};
-            allPlayerIds.forEach(playerId => {
-                roles[playerId] = {
-                    isCounterfeit: playerId === counterfeitId,
-                    playerId: playerId,
-                    category: category,
-                    secretWord: playerId === counterfeitId ? null : secretWord // Counterfeit sees no word
-                };
-            });
-            
-            // Initialize minigame state in Firebase (include roles in initial set)
-            console.log('Host: Creating minigame state in Firebase...');
-            await db.ref(`games/${gameState.roomCode}/minigame`).set({
-                category: category,
-                secretWord: secretWord,
-                possibleWords: words, // Store all words for word guess phase
-                counterfeitId: counterfeitId,
-                tiedBidders: tiedBidders,
-                minigameGoal: minigameGoal, // 'pick_one' or 'pick_two'
-                roles: roles, // Include roles in initial state
-                strokes: {},
-                clear: null,
-                playerOrder: playerOrder,
-                currentTurnIndex: 0,
-                currentRound: 1,
-                maxRounds: 2,
-                strokeStartTime: Date.now(),
-                strokeDuration: (() => {
-                    const timerSetting = gameState.settings?.minigameTimer || 'unlimited';
-                    return timerSetting === 'unlimited' ? null : (parseInt(timerSetting) || 5) * 1000;
-                })(),
-                timerEnabled: (() => {
-                    const timerSetting = gameState.settings?.minigameTimer || 'unlimited';
-                    return timerSetting !== 'unlimited';
-                })(),
-                phase: 'role_reveal', // role_reveal, drawing, voting, word_guess, complete
-                startedAt: Date.now()
-            });
-            console.log('Host: Minigame state created successfully with phase: role_reveal');
-            
-            // Initialize host canvas viewer and set up listener for drawing phase
-            initHostCanvasViewer();
-            
-            // Update turn to minigame phase AFTER minigame state is ready
-            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({
-                phase: 'minigame_counterfeit_canvas',
-                minigameStatus: `Category: ${category}. Role reveal - check your device!`,
-                tiedBidders: tiedBidders
-            });
-            console.log('Host: Updated currentTurn phase to minigame_counterfeit_canvas');
-            
-            // Start role reveal phase (20 seconds)
-            setTimeout(() => {
-                startDrawingPhase();
-            }, 20000);
-        }
-        
-        // Start the turn-based drawing phase
-        async function startDrawingPhase() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-            
-            if (!minigame || minigame.phase !== 'role_reveal') return;
-            
-            await minigameRef.update({
-                phase: 'drawing',
-                currentRound: 1,
-                currentTurnIndex: 0,
-                strokeStartTime: Date.now()
-            });
-            // setupHostMinigameListener sees phase=drawing and calls startNextDrawingTurn
-        }
-        
-        // Move to next player's drawing turn
-        async function startNextDrawingTurn() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-            
-            if (!minigame || minigame.phase !== 'drawing') return;
-            
-            const { playerOrder, currentTurnIndex, currentRound, maxRounds } = minigame;
-            
-            // Check if round is complete
-            if (currentTurnIndex >= playerOrder.length) {
-                // Move to next round or start voting
-                if (currentRound >= maxRounds) {
-                    await startVotingPhase();
-                    return;
-                } else {
-                    // The listener sees the new round's turn 0 and starts it
-                    await minigameRef.update({
-                        currentRound: currentRound + 1,
-                        currentTurnIndex: 0,
-                        strokeStartTime: Date.now()
-                    });
-                    return;
-                }
-            }
-            
-            const currentPlayerId = playerOrder[currentTurnIndex];
-            
-            await minigameRef.update({
-                currentPlayerId: currentPlayerId,
-                strokeStartTime: Date.now()
-            });
-            
-            // Check timer setting from minigame state
-            const timerEnabled = minigame.timerEnabled !== false; // Default to true for backward compatibility
-            if (!timerEnabled) {
-                // No timer - wait for player to click "Done" button
-                // The timer logic will be handled by player clicking "Done" which calls advanceDrawingTurn()
-                return;
-            } else {
-                // Use timer - get duration from minigame state
-                const strokeDuration = minigame.strokeDuration || 5000; // Default 5 seconds
-                
-                setTimeout(async () => {
-                    // Advance after the timer - unless that turn already ended
-                    await advanceDrawingTurn(currentTurnIndex, currentRound);
-                }, strokeDuration);
-            }
-        }
-        
-        // Advance to next drawing turn (called by timer or "Done" button)
-        async function advanceDrawingTurn(expectedTurnIndex, expectedRound) {
-            if (!gameState.roomCode) return;
-
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-
-            if (!minigame || minigame.phase !== 'drawing') return;
-
-            const { currentTurnIndex } = minigame;
-            if (currentTurnIndex !== expectedTurnIndex || minigame.currentRound !== expectedRound) return;
-            
-            await minigameRef.update({
-                currentTurnIndex: currentTurnIndex + 1
-            });
-            
-            // startNextDrawingTurn() will be called by the listener when currentTurnIndex changes
-        }
-        
-        // Start voting phase
-        async function startVotingPhase() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const minigameSnap = await minigameRef.once('value');
-            const minigame = minigameSnap.val();
-            
-            let aiCriticResult = null;
-            if (gameState.settings?.aiCriticEnabled && gameState.settings?.aiCriticUrl && minigame?.secretWord) {
-                try {
-                    addEvent('🤖 AI Art Critic is analyzing the drawing...', 'bid');
-                    const imageBase64 = await getMinigameCanvasImageBase64();
-                    if (imageBase64) {
-                        const openaiKey = (gameState.settings?.aiCriticBackend === 'openai' && gameState.settings?.aiCriticOpenaiKey && !gameState.settings.aiCriticUrl?.includes('cloudfunctions.net')) ? gameState.settings.aiCriticOpenaiKey : undefined;
-                        aiCriticResult = await callAICritic(gameState.settings.aiCriticUrl, imageBase64, minigame.secretWord, openaiKey);
-                        if (aiCriticResult && !aiCriticResult.error) {
-                            addEvent(`🤖 AI says: "${aiCriticResult.rating}/100" - ${aiCriticResult.critique || aiCriticResult.description}`, 'bid');
-                        } else if (aiCriticResult?.error) {
-                            addEvent(`⚠️ AI Critic: ${aiCriticResult.error}`, 'bid');
-                        }
-                    }
-                } catch (err) {
-                    console.error('AI Art Critic error:', err);
-                    addEvent(`⚠️ AI Critic failed: ${err.message}`, 'bid');
-                }
-            }
-            
-            const updateData = {
-                phase: 'voting',
-                votes: {},
-                votingStartTime: Date.now(),
-                votingDuration: 20000 // 20 seconds
-            };
-            if (aiCriticResult) updateData.aiCriticResult = aiCriticResult;
-            
-            await minigameRef.update(updateData);
-            
-            // After 20 seconds, process votes
-            setTimeout(() => {
-                processVotingResults();
-            }, 20000);
-        }
-        
-        // Get canvas image as base64 for AI critic (renders strokes to offscreen canvas)
-        async function getMinigameCanvasImageBase64() {
-            if (!gameState.roomCode) return null;
-            const strokesSnap = await db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value');
-            const strokesData = strokesSnap.val();
-            const strokes = strokesData ? Object.values(strokesData) : [];
-            if (strokes.length === 0) return null;
-            
-            const w = 400, h = 300;
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, w, h);
-            
-            strokes.forEach(stroke => {
-                const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * w;
-                const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * h;
-                const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * w;
-                const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * h;
-                ctx.strokeStyle = stroke.color || '#000000';
-                ctx.lineWidth = stroke.size || 5;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.beginPath();
-                ctx.moveTo(fromX, fromY);
-                ctx.lineTo(toX, toY);
-                ctx.stroke();
-            });
-            
-            return canvas.toDataURL('image/png');
-        }
-        
         // Call AI Art Critic API (local server has /critique path; Cloud Function URL is the full endpoint)
         async function callAICritic(baseUrl, imageBase64, secretWord, openaiApiKey) {
             const base = baseUrl.replace(/\/$/, '');
@@ -4942,203 +4620,120 @@
             return data;
         }
         
-        // Process voting results and determine winners
-        async function processVotingResults() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-            
-            if (!minigame) return;
-            
-            const votes = minigame.votes || {};
-            const tiedBidders = minigame.tiedBidders || [];
-            const counterfeitId = minigame.counterfeitId;
-            
-            // Count votes for each tied challenger only
-            const voteCounts = {};
-            tiedBidders.forEach(bidderId => {
-                voteCounts[bidderId] = 0;
-            });
-            
-            Object.values(votes).forEach(vote => {
-                if (vote.targetId && tiedBidders.includes(vote.targetId)) {
-                    voteCounts[vote.targetId] = (voteCounts[vote.targetId] || 0) + 1;
-                }
-            });
-            
-            // Find highest vote count (who was suspected most)
-            const maxVotes = Math.max(...Object.values(voteCounts));
-            const topSuspected = Object.entries(voteCounts)
-                .filter(([id, count]) => count === maxVotes)
-                .map(([id]) => id);
-            
-            const counterfeitWasCaught = topSuspected.includes(minigame.counterfeitId);
-            
-            if (counterfeitWasCaught) {
-                // Counterfeit was caught - they get one guess at the secret word
-                await minigameRef.update({
-                    phase: 'word_guess',
-                    counterfeitWasCaught: true,
-                    wordGuessStartTime: Date.now()
-                });
-                
-                // Show word guess UI (we'll implement this next)
-                // For now, move to word guess phase
-                addEvent(`🕵️ The Counterfeit was caught! They get one guess at the secret word.`, 'bid');
-            } else {
-                // Counterfeit was not caught - determine winners based on goal
-                await determineWinners(minigame, voteCounts, minigame.counterfeitId, false);
+        
+        // ========== PARTY MINI-GAMES (Sketch-Off, Whack-an-Elf) ==========
+        // The whole table plays and PartyGames.results() ranks everyone: the best-placed tied
+        // bidder(s) win the tie; party points (and the Elf Bonus chip) go to the top finishers.
+        // Phases run on server-synced timers that the minigame listener (re)arms, so a host
+        // refresh resumes the game; everyone finishing early, or "Skip ahead", moves it on too.
+        let partyTimer = null;
+        let partyTimerKey = null;
+
+        async function startPartyGame(type, goal, tiedBidders) {
+            const g = PartyGames.GAMES[type];
+            const t = PartyGames.now();
+            const minigame = {
+                type, phase: 'intro', seed: Math.floor(Math.random() * 2147483647) + 1,
+                participants: Object.keys(gameState.players), tiedBidders, minigameGoal: goal,
+                prize: gameState.settings?.partyPrize || 'points_chips',
+                startedAt: t, phaseEndsAt: t + g.introMs,
+            };
+            if (type === 'sketch_off') {
+                minigame.prompt = PartyGames.SKETCH_PROMPTS[Math.floor(Math.random() * PartyGames.SKETCH_PROMPTS.length)];
             }
+            await db.ref(`games/${gameState.roomCode}/minigame`).set(minigame);
+            await db.ref(`games/${gameState.roomCode}/currentTurn`).update({ phase: 'minigame_party', minigameStatus: `${g.emoji} ${g.label}` });
+            const names = tiedBidders.map((id) => gameState.players[id]?.name).join(', ');
+            addEvent(`${g.emoji} ${g.label}! Everyone plays — ${names} are tied`, 'bid');
         }
-        
-        // Determine winners after word guess (or if counterfeit wasn't caught)
-        async function determineWinners(minigame, voteCounts, counterfeitId, counterfeitGuessedCorrectly) {
-            const tiedBidders = minigame.tiedBidders || [];
-            const minigameGoal = minigame.minigameGoal || 'pick_one';
-            
-            let winners = [];
-            
-            // Determine if counterfeit wins:
-            // - If counterfeit wasn't caught: counterfeit wins
-            // - If counterfeit was caught but guessed correctly: counterfeit wins
-            // - If counterfeit was caught and guessed wrong: counterfeit loses
-            const counterfeitWins = !minigame.counterfeitWasCaught || (minigame.counterfeitWasCaught && counterfeitGuessedCorrectly);
-            
-            if (counterfeitWins) {
-                // Counterfeit wins
-                winners.push(counterfeitId);
-                addEvent(`🎉 ${gameState.players[counterfeitId]?.name} (The Counterfeit) wins the mini-game!`, 'bid');
-                
-                if (minigameGoal === 'pick_two') {
-                    // Need second winner - least suspected other challenger
-                    const otherChallengers = tiedBidders.filter(id => id !== counterfeitId);
-                    if (otherChallengers.length > 0) {
-                        const leastSuspected = otherChallengers.reduce((min, id) => {
-                            const minVotes = voteCounts[min] || 0;
-                            const idVotes = voteCounts[id] || 0;
-                            return idVotes < minVotes ? id : min;
-                        }, otherChallengers[0]);
-                        winners.push(leastSuspected);
-                        addEvent(`🎨 ${gameState.players[leastSuspected]?.name} also wins (least suspected).`, 'bid');
-                    }
-                }
-            } else {
-                // Fake loses - winners are real challengers with fewest votes
-                const realChallengers = tiedBidders.filter(id => id !== counterfeitId);
-                const votes = minigame.votes || {};
-                
-                // Sort by votes, then by vote submission time (earliest = least suspected in ties)
-                const sortedByVotes = realChallengers.sort((a, b) => {
-                    const votesA = voteCounts[a] || 0;
-                    const votesB = voteCounts[b] || 0;
-                    if (votesA !== votesB) {
-                        return votesA - votesB; // Fewer votes = better
-                    }
-                    // Tie in votes - use earliest vote submission time
-                    const votesForA = Object.values(votes).filter(v => v.targetId === a);
-                    const votesForB = Object.values(votes).filter(v => v.targetId === b);
-                    const earliestA = votesForA.length > 0 ? Math.min(...votesForA.map(v => v.timestamp || 0)) : 0;
-                    const earliestB = votesForB.length > 0 ? Math.min(...votesForB.map(v => v.timestamp || 0)) : 0;
-                    return earliestA - earliestB; // Earlier vote = less suspected
-                });
-                
-                if (sortedByVotes.length > 0) {
-                    winners.push(sortedByVotes[0]);
-                    addEvent(`🎉 ${gameState.players[sortedByVotes[0]]?.name} wins the mini-game!`, 'bid');
-                    if (minigameGoal === 'pick_two' && sortedByVotes.length >= 2) {
-                        winners.push(sortedByVotes[1]);
-                        addEvent(`🎨 ${gameState.players[sortedByVotes[1]]?.name} also wins (least suspected).`, 'bid');
-                    }
-                }
+
+        /** Called on every minigame update: arm the timer for the current phase once. */
+        function armPartyTimer(mg) {
+            if (!mg || !PartyGames.GAMES[mg.type]) return;
+            const key = `${mg.seed}|${mg.phase}`;
+            if (key === partyTimerKey) return;
+            partyTimerKey = key;
+            clearTimeout(partyTimer);
+            // Whack-an-Elf: give the phones' final scores a moment to land
+            const grace = mg.phase === 'playing' && mg.type === 'whack_elf' ? 1500 : 250;
+            partyTimer = setTimeout(() => advancePartyGame(mg.seed, mg.phase), Math.max(0, mg.phaseEndsAt - PartyGames.now()) + grace);
+        }
+
+        /** Sketch-Off moves on as soon as every drawing (or every vote) is in. */
+        function partyEveryoneDone(mg) {
+            if (!mg || mg.type !== 'sketch_off') return false;
+            const n = (mg.participants || []).length;
+            if (mg.phase === 'playing') return Object.keys(mg.submissions || {}).length >= n;
+            if (mg.phase === 'voting') {
+                const drawings = Object.keys(mg.submissions || {});
+                const canVote = (mg.participants || []).filter((id) => drawings.some((d) => d !== id));
+                return Object.keys(mg.votes || {}).length >= canVote.length;
             }
-            
-            // Complete mini-game and proceed
-            await completeCounterfeitCanvasMinigame(winners);
+            return false;
         }
-        
-        // Handle word guess result from counterfeit
-        async function handleWordGuessResult() {
-            if (!gameState.roomCode) return;
-            
-            const minigameRef = db.ref(`games/${gameState.roomCode}/minigame`);
-            const snapshot = await minigameRef.once('value');
-            const minigame = snapshot.val();
-            
-            if (!minigame || minigame.phase !== 'word_guess_result') return;
-            
-            const counterfeitGuessedCorrectly = minigame.counterfeitGuessedCorrectly || false;
-            const counterfeitId = minigame.counterfeitId;
-            const tiedBidders = minigame.tiedBidders || [];
-            const votes = minigame.votes || {};
-            
-            addEvent(`🎯 The Counterfeit (${gameState.players[counterfeitId]?.name}) guessed: "${minigame.counterfeitGuess || 'Unknown'}" - ${counterfeitGuessedCorrectly ? '✅ CORRECT!' : '❌ WRONG!'}`, 'bid');
-            
-            // Count votes
-            const voteCounts = {};
-            tiedBidders.forEach(bidderId => {
-                voteCounts[bidderId] = 0;
-            });
-            
-            Object.values(votes).forEach(vote => {
-                if (vote.targetId && tiedBidders.includes(vote.targetId)) {
-                    voteCounts[vote.targetId] = (voteCounts[vote.targetId] || 0) + 1;
-                }
-            });
-            
-            // Determine winners based on guess result
-            // Pass counterfeitWasCaught = true since we're in word_guess_result phase
-            await determineWinners({...minigame, counterfeitWasCaught: true}, voteCounts, counterfeitId, counterfeitGuessedCorrectly);
+
+        // Move the game on from `fromPhase`. Claiming the step is a transaction, so the timer,
+        // an early finish and "Skip ahead" can race without double-paying rewards; the new
+        // phase and its times then land in ONE write (phones must never see a half-set phase).
+        async function advancePartyGame(seed, fromPhase) {
+            const ref = db.ref(`games/${gameState.roomCode}/minigame`);
+            const mg = (await ref.once('value')).val();
+            if (!mg || mg.seed !== seed || mg.phase !== fromPhase) return;
+            const { committed } = await ref.child(`claims/${fromPhase}`).transaction((c) => (c ? undefined : true));
+            if (!committed) return;
+            const g = PartyGames.GAMES[mg.type];
+            const t = PartyGames.now();
+            if (fromPhase === 'intro') return ref.update({ phase: 'playing', playStartAt: t, phaseEndsAt: t + g.playMs });
+            if (fromPhase === 'playing' && mg.type === 'sketch_off') return ref.update({ phase: 'voting', phaseEndsAt: t + g.voteMs });
+            if (fromPhase === 'results') return completePartyGame(mg);
+            return finishPartyGame(mg, t);
         }
-        
-        
-        // Complete mini-game and proceed with selected winners
-        async function completeCounterfeitCanvasMinigame(winners) {
-            const turn = gameState.currentTurn;
-            const minigameGoal = turn.minigameGoal || 'pick_one';
-            
-            if (winners.length === 0) {
-                addEvent('❌ Error: No winners selected', 'bid');
-                return;
+
+        async function finishPartyGame(mg, t) {
+            const results = PartyGames.results(mg);
+            await db.ref(`games/${gameState.roomCode}/minigame`).update({ phase: 'results', results, phaseEndsAt: t + PartyGames.RESULTS_MS });
+            const updates = {};
+            for (const [pid, pts] of Object.entries(results.points)) {
+                if (gameState.players[pid]) updates[`players/${pid}/partyPoints`] = (gameState.players[pid].partyPoints || 0) + pts;
             }
-            
-            // Clean up minigame data
+            if (results.bonus && gameState.players[results.bonus]) {
+                updates[`players/${results.bonus}/chips`] = gameState.players[results.bonus].chips + 1;
+            }
+            if (Object.keys(updates).length) await db.ref(`games/${gameState.roomCode}`).update(updates);
+            const name = (id) => gameState.players[id]?.name;
+            addEvent(`${PartyGames.GAMES[mg.type].emoji} ${results.winners.map(name).join(' & ')} win${results.winners.length > 1 ? '' : 's'} the tie!`, 'bid');
+            if (results.bonus) addEvent(`🧝 Elf Bonus: ${name(results.bonus)} +1 chip from the North Pole Fund`, 'bid');
+        }
+
+        async function completePartyGame(mg) {
             await db.ref(`games/${gameState.roomCode}/minigame`).remove();
-            
-            if (minigameGoal === 'pick_one') {
-                // Opener chose to fight - winner becomes challenger and fights opener directly
-                const winnerId = winners[0];
-                const openerId = turn.openerId;
-                
-                if (!openerId) {
-                    addEvent('❌ Error: No opener found', 'bid');
-                    return;
-                }
-                
-                // Start duel directly: Winner vs Opener (no tiebreaker needed since we picked 1)
-                await startDuel(winnerId, openerId);
-                
-                addEvent(`🎨 Mini-game complete! ${gameState.players[winnerId]?.name} selected as challenger to fight ${gameState.players[openerId]?.name}!`, 'bid');
+            const winners = mg.results?.winners || PartyGames.results(mg).winners;
+            if (mg.minigameGoal === 'pick_two') {
+                if (winners.length < 2) { addEvent('❌ Error: Need 2 winners for yield duel', 'bid'); return; }
+                await openerYields(winners[0], winners[1], true);
             } else {
-                // Opener chose to yield - winners fight each other
-                if (winners.length < 2) {
-                    addEvent('❌ Error: Need 2 winners for yield duel', 'bid');
-                    return;
-                }
-                
-                const [c1Id, c2Id] = winners;
-                
-                // Update turn with the selected challengers and then proceed with yield
-                // We need to pass the bids from the original turn
-                const turnRef = db.ref(`games/${gameState.roomCode}/currentTurn`);
-                const turnSnapshot = await turnRef.once('value');
-                const currentTurn = turnSnapshot.val();
-                
-                // Proceed with yield - opener already yielded, so C1 and C2 fight directly
-                await openerYields(c1Id, c2Id, true);
-                addEvent(`🎨 Mini-game complete! ${gameState.players[c1Id]?.name} & ${gameState.players[c2Id]?.name} selected to fight.`, 'bid');
+                await startDuel(winners[0], gameState.currentTurn.openerId);
             }
+        }
+
+        /** Host "Skip ahead": move the current phase on now. */
+        function skipPartyPhase() {
+            const mg = gameState.minigame;
+            if (mg) advancePartyGame(mg.seed, mg.phase);
+        }
+
+        /** The TV view of the party game, inside the turn panel. */
+        function renderPartyPanel() {
+            const mg = gameState.minigame;
+            if (!mg || !PartyGames.GAMES[mg.type]) return;
+            document.getElementById('bids-container-title').textContent = 'Party game';
+            const grid = document.getElementById('bids-grid');
+            let host = grid.querySelector('.party-host');
+            if (!host) { grid.innerHTML = '<div class="party-host" style="grid-column: 1 / -1;"></div>'; host = grid.querySelector('.party-host'); }
+            PartyGames.renderHost(host, mg, gameState.players);
+            document.getElementById('bids-container').classList.remove('hidden');
+            const label = mg.phase === 'results' ? '⚔️ Continue to the duel' : '⏭ Skip ahead';
+            document.getElementById('action-buttons').innerHTML = `<button class="btn btn-secondary" onclick="skipPartyPhase()">${label}</button>`;
         }
 
         // ========== AI DRAW OFF MINIGAME ==========
@@ -5372,8 +4967,7 @@
             const turn = gameState.currentTurn;
 
             // A 3+ way tie with a mini-game tiebreaker: the mini-game picks the 2 duelists
-            const method = gameState.settings?.tiebreakerMethod || 'random';
-            if (!challengersChosen && (method === 'minigame' || method === 'draw_off') &&
+            if (!challengersChosen && isMinigameMethod(tiebreakerMethod()) &&
                 topTiedBidders(turn).length >= 3) {
                 await openerChoosesYieldForMinigame();
                 return;
@@ -5763,12 +5357,10 @@
             if (e.target.id === 'duel-modal-overlay') hideDuelModal();
         });
 
-        // ESC closes modals (main, duel, minigame canvas)
+        // ESC closes modals (main, duel)
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
-            if (document.getElementById('minigame-canvas-modal-overlay')?.classList.contains('active')) {
-                hideMinigameCanvasModal();
-            } else if (document.getElementById('modal-overlay').classList.contains('active')) {
+            if (document.getElementById('modal-overlay').classList.contains('active')) {
                 closeModal();
             } else if (document.getElementById('duel-modal-overlay').classList.contains('active')) {
                 hideDuelModal();
@@ -6504,10 +6096,10 @@
                                 }
                             } else {
                                 // 3+ tied bidders
-                                const tiebreakerMethod = gameState.settings?.tiebreakerMethod || 'random';
-                                
+                                const useMinigame = isMinigameMethod(tiebreakerMethod());
+
                                 if (isOpenerBot) {
-                                    if (tiebreakerMethod === 'minigame') {
+                                    if (useMinigame) {
                                         // With mini-game, opener chooses directly (mini-game will handle selection)
                                         // Bot randomly chooses fight (70%) or yield (30%)
                                         if (Math.random() < 0.7) {
@@ -6529,7 +6121,7 @@
                                         // Will be handled in yield_choice phase
                                     }
                                 } else {
-                                    if (tiebreakerMethod === 'minigame') {
+                                    if (useMinigame) {
                                         // Human opener - wait for their choice on device
                                         autoPilotInterval = setTimeout(runAutoPilotStep, getAutoPilotDelay(2000));
                                         return;
@@ -6879,127 +6471,6 @@
             if (actionButtons && minigame.phase !== 'results') actionButtons.innerHTML = '';
         }
 
-        // Update host UI for minigame phases
-        function updateHostMinigameUI(minigame, turn) {
-            const phaseBadge = document.getElementById('phase-badge');
-            const currentAction = document.getElementById('current-action');
-            const actionDetails = document.getElementById('action-details');
-            const actionButtons = document.getElementById('action-buttons');
-            const bidsContainer = document.getElementById('bids-container');
-            
-            if (!phaseBadge || !currentAction || !actionDetails) return;
-            
-            // Hide tied bidders during minigame - only show count
-            const tiedBiddersCount = (turn.tiedBidders || []).length;
-            const minigameGoal = turn.minigameGoal || 'pick_one';
-            const goalText = minigameGoal === 'pick_one' ? 'Pick 1 winner' : 'Pick 2 winners';
-            
-            switch (minigame.phase) {
-                case 'role_reveal':
-                    phaseBadge.textContent = '🎭 ROLE REVEAL';
-                    currentAction.textContent = 'The Counterfeit Canvas: Role Reveal Phase';
-                    actionDetails.innerHTML = `
-                        <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
-                            <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Players are seeing their roles (Real Artist vs The Counterfeit). The Counterfeit doesn't see the secret word!
-                        </div>
-                    `;
-                    bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = '';
-                    break;
-                    
-                case 'drawing':
-                    const currentPlayerId = minigame.currentPlayerId;
-                    const currentPlayerName = gameState.players[currentPlayerId]?.name || 'Someone';
-                    const round = minigame.currentRound || 1;
-                    phaseBadge.textContent = '✏️ DRAWING';
-                    currentAction.textContent = `${currentPlayerName}'s Turn - Round ${round}`;
-                    actionDetails.innerHTML = `
-                        <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
-                            <strong style="color: var(--accent-gold);">Goal:</strong> ${goalText}
-                        </div>
-                        <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
-                            <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Turn-based drawing: Each player draws ONE stroke per turn. ${minigame.maxRounds || 2} rounds total.
-                        </div>
-                    `;
-                    bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = '';
-                    break;
-                    
-                case 'voting':
-                    phaseBadge.textContent = '🗳️ VOTING';
-                    currentAction.textContent = 'Voting Phase - Who is The Counterfeit?';
-                    const aiCritic = minigame.aiCriticResult;
-                    const aiCriticHtml = aiCritic && !aiCritic.error ? `
-                        <div style="background: var(--bg-card-hover); border-radius: 12px; padding: 1rem; margin: 1rem 0; border-left: 4px solid var(--accent-gold);">
-                            <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">🤖 AI Art Critic ${(aiCritic.backend && aiCritic.model) ? `— ${aiCritic.backend} (${aiCritic.model})` : ''}</div>
-                            <div style="font-size: 0.85rem;">${escapeHtml(aiCritic.description)}</div>
-                            <div style="margin-top: 0.5rem; font-weight: 600;">Score: ${aiCritic.rating}/100</div>
-                            ${aiCritic.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${escapeHtml(aiCritic.critique)}</div>` : ''}
-                        </div>
-                    ` : '';
-                    actionDetails.innerHTML = `
-                        <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)
-                        </div>
-                        <div style="position: relative; background: white; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px solid var(--border);">
-                            <canvas id="host-drawing-canvas" style="display: block; width: 100%; max-height: 400px;"></canvas>
-                        </div>
-                        ${aiCriticHtml}
-                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Everyone is voting for who they think is The Counterfeit. Results will be processed automatically.
-                        </div>
-                    `;
-                    bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = '';
-                    break;
-                    
-                case 'word_guess':
-                    phaseBadge.textContent = '🎯 WORD GUESS';
-                    currentAction.textContent = 'The Counterfeit Caught - Word Guess!';
-                    // Still hide tied bidders during word guess
-                    actionDetails.innerHTML = `
-                        <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Category:</strong> ${minigame.category || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Secret Word:</strong> ${minigame.secretWord || 'Unknown'}<br>
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            The Counterfeit was caught! They get one guess at the secret word. Check The Counterfeit's device.
-                        </div>
-                    `;
-                    bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = '';
-                    break;
-                    
-                default:
-                    phaseBadge.textContent = '🎨 MINI-GAME';
-                    currentAction.textContent = 'The Counterfeit Canvas';
-                    actionDetails.innerHTML = `
-                        <div style="margin-bottom: 1rem;">
-                            <strong style="color: var(--accent-gold);">Tied Bidders:</strong> ${tiedBiddersCount} player${tiedBiddersCount !== 1 ? 's' : ''} (hidden until tiebreaker concludes)<br>
-                            <span style="color: var(--text-secondary);">Mini-game in progress...</span>
-                        </div>
-                    `;
-                    bidsContainer.classList.add('hidden');
-                    actionButtons.innerHTML = '';
-            }
-            // drawing/voting just re-rendered #host-drawing-canvas — bind and paint the new element
-            attachHostCanvas();
-        }
-
         // Helper to resolve endgame auction
         async function resolveEndgameAuction() {
             const turn = gameState.currentTurn;
@@ -7020,239 +6491,6 @@
             }
         }
 
-        // ============================================================================
-        // MINI-GAME: THE COUNTERFEIT CANVAS - HOST VIEWER
-        // ============================================================================
-        
-        let hostCanvas = null;
-        let hostCtx = null;
-        let hostMinigameListener = null;
-
-        // The turn-rotation listener must run whether or not the inline canvas is on
-        // screen (it isn't during role reveal), so it is set up independently of it.
-        function initHostCanvasViewer() {
-            if (gameState.roomCode) {
-                setupHostMinigameListener(gameState.roomCode);
-            }
-            attachHostCanvas();
-        }
-
-        // Bind (or re-bind, after updateHostMinigameUI re-renders it) the inline canvas
-        let hostCanvasResizeBound = false;
-        function attachHostCanvas() {
-            hostCanvas = document.getElementById('host-drawing-canvas');
-            if (!hostCanvas) return;
-            hostCtx = hostCanvas.getContext('2d');
-            const rect = hostCanvas.parentElement.getBoundingClientRect();
-            hostCanvas.width = rect.width;
-            hostCanvas.height = Math.min(rect.width * 0.75, 400);
-            redrawHostCanvas();
-            if (!hostCanvasResizeBound) {
-                window.addEventListener('resize', attachHostCanvas);
-                hostCanvasResizeBound = true;
-            }
-        }
-
-        // Single driver for Counterfeit Canvas turn rotation: whenever the drawing turn
-        // changes (player clicked "Done", the stroke timer fired, or a new round began)
-        // start that turn. Idempotent per room.
-        let hostMinigameListenerRoom = null;
-        function setupHostMinigameListener(roomCode) {
-            if (hostMinigameListener && hostMinigameListenerRoom === roomCode) return;
-            if (hostMinigameListener) {
-                db.ref(`games/${hostMinigameListenerRoom}/minigame`).off('value', hostMinigameListener);
-            }
-            hostMinigameListenerRoom = roomCode;
-            window.hostLastTurnIndex = null;
-
-            hostMinigameListener = db.ref(`games/${roomCode}/minigame`).on('value', (snapshot) => {
-                const minigameData = snapshot.val();
-                if (!minigameData) return;
-                
-                // Handle clear
-                if (minigameData.clear) {
-                    if (hostCtx && hostCanvas) {
-                        hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
-                    }
-                }
-                
-                // Handle strokes
-                if (minigameData.strokes) {
-                    redrawHostCanvas();
-                    redrawMinigameModalCanvas(); // Also update modal canvas if open
-                }
-                
-                // Detect when the drawing turn changes (keyed by round too, so a new
-                // round's turn 0 counts as a change)
-                const currentTurnIndex = minigameData.currentTurnIndex;
-                if (minigameData.phase === 'drawing' && currentTurnIndex !== null && currentTurnIndex !== undefined) {
-                    const turnKey = `${minigameData.currentRound}:${currentTurnIndex}`;
-                    if (turnKey !== window.hostLastTurnIndex) {
-                        window.hostLastTurnIndex = turnKey;
-                        // Use setTimeout to avoid calling startNextDrawingTurn synchronously within the listener
-                        setTimeout(() => {
-                            startNextDrawingTurn();
-                        }, 100);
-                    }
-                } else if (minigameData.phase !== 'drawing') {
-                    // Reset lastTurnIndex when not in drawing phase
-                    window.hostLastTurnIndex = null;
-                }
-            });
-        }
-
-        function redrawHostCanvas() {
-            if (!hostCtx || !hostCanvas || !gameState.roomCode) return;
-            
-            hostCtx.clearRect(0, 0, hostCanvas.width, hostCanvas.height);
-            
-            // Get all strokes from Firebase
-            db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value', (snapshot) => {
-                const strokes = snapshot.val();
-                if (!strokes) return;
-                
-                Object.values(strokes).forEach(stroke => {
-                    // Convert normalized coordinates to actual canvas coordinates
-                    const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * hostCanvas.width;
-                    const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * hostCanvas.height;
-                    const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * hostCanvas.width;
-                    const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * hostCanvas.height;
-                    
-                    hostCtx.strokeStyle = stroke.color;
-                    hostCtx.lineWidth = stroke.size;
-                    hostCtx.lineCap = 'round';
-                    hostCtx.lineJoin = 'round';
-                    hostCtx.beginPath();
-                    hostCtx.moveTo(fromX, fromY);
-                    hostCtx.lineTo(toX, toY);
-                    hostCtx.stroke();
-                });
-            });
-        }
-
-        // Show minigame canvas modal
-        function showMinigameCanvasModal() {
-            const modalOverlay = document.getElementById('minigame-canvas-modal-overlay');
-            const modalCanvas = document.getElementById('minigame-modal-canvas');
-            
-            if (!modalOverlay || !modalCanvas) return;
-            
-            // Initialize canvas if needed
-            if (!gameState.modalCanvasCtx) {
-                gameState.modalCanvasCtx = modalCanvas.getContext('2d');
-                // Set canvas size
-                const container = modalCanvas.parentElement;
-                const rect = container.getBoundingClientRect();
-                modalCanvas.width = rect.width;
-                modalCanvas.height = Math.min(rect.width * 0.75, 600);
-            }
-            
-            // Redraw canvas
-            redrawMinigameModalCanvas();
-            
-            // Update status
-            updateMinigameModalStatus();
-            
-            modalOverlay.classList.add('active');
-            
-            // Set up listener to update modal canvas when strokes change
-            if (!gameState.minigameModalListener) {
-                gameState.minigameModalListener = db.ref(`games/${gameState.roomCode}/minigame`).on('value', (snapshot) => {
-                    const minigame = snapshot.val();
-                    if (minigame) {
-                        redrawMinigameModalCanvas();
-                        updateMinigameModalStatus();
-                    }
-                });
-            }
-        }
-        
-        // Hide minigame canvas modal
-        function hideMinigameCanvasModal() {
-            const modalOverlay = document.getElementById('minigame-canvas-modal-overlay');
-            if (modalOverlay) {
-                modalOverlay.classList.remove('active');
-            }
-            
-            // Clean up listener
-            if (gameState.minigameModalListener && gameState.roomCode) {
-                db.ref(`games/${gameState.roomCode}/minigame`).off('value', gameState.minigameModalListener);
-                gameState.minigameModalListener = null;
-            }
-        }
-        
-        // Redraw canvas in modal
-        function redrawMinigameModalCanvas() {
-            const modalCanvas = document.getElementById('minigame-modal-canvas');
-            if (!modalCanvas || !gameState.modalCanvasCtx || !gameState.roomCode) return;
-            
-            const ctx = gameState.modalCanvasCtx;
-            ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
-            
-            // Get all strokes from Firebase
-            db.ref(`games/${gameState.roomCode}/minigame/strokes`).once('value', (snapshot) => {
-                const strokes = snapshot.val();
-                if (!strokes) return;
-                
-                Object.values(strokes).forEach(stroke => {
-                    // Convert normalized coordinates to actual canvas coordinates
-                    const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * modalCanvas.width;
-                    const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * modalCanvas.height;
-                    const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * modalCanvas.width;
-                    const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * modalCanvas.height;
-                    
-                    ctx.strokeStyle = stroke.color || '#000000';
-                    ctx.lineWidth = stroke.size || 5;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(fromX, fromY);
-                    ctx.lineTo(toX, toY);
-                    ctx.stroke();
-                });
-            });
-        }
-        
-        // Update modal status text
-        function updateMinigameModalStatus() {
-            if (!gameState.roomCode) return;
-            
-            const statusEl = document.getElementById('minigame-modal-status');
-            if (!statusEl) return;
-            
-            db.ref(`games/${gameState.roomCode}/minigame`).once('value', (snapshot) => {
-                const minigame = snapshot.val();
-                if (!minigame) {
-                    statusEl.textContent = 'Mini-game ended';
-                    return;
-                }
-                
-                const phase = minigame.phase;
-                const currentPlayerId = minigame.currentPlayerId;
-                const currentPlayer = currentPlayerId ? gameState.players[currentPlayerId] : null;
-                const round = minigame.currentRound || 1;
-                
-                if (phase === 'drawing' && currentPlayer) {
-                    statusEl.innerHTML = `<strong>${currentPlayer.name}</strong> is drawing... (Round ${round})`;
-                } else if (phase === 'voting') {
-                    const ai = minigame.aiCriticResult;
-                    statusEl.innerHTML = ai && !ai.error
-                        ? `Voting phase - AI gave this drawing ${ai.rating}/100`
-                        : 'Voting phase - players are voting for The Counterfeit';
-                } else if (phase === 'word_guess') {
-                    const counterfeit = gameState.players[minigame.counterfeitId];
-                    statusEl.innerHTML = `<strong>${counterfeit?.name}</strong> is guessing the secret word...`;
-                } else {
-                    statusEl.textContent = `Phase: ${phase || 'Unknown'}`;
-                }
-            });
-        }
-        
-        // This function is no longer needed - voting determines winners automatically
-        // Keeping for backward compatibility, but it shouldn't be called
-        async function endCounterfeitCanvasMinigame() {
-            addEvent('⚠️ Mini-game will complete automatically after voting', 'bid');
-        }
     </script>
 </body>
 </html>

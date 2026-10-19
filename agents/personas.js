@@ -47,11 +47,14 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 //   leaderHunter   bonus value for hitting whoever holds the best gift (to me)
 //   stealBias      endgame: preference for Path A (steal) over Path B (auction), 0-1
 //   voteRate       how often they vote on other people's duels
+//   reflexMs       Whack-an-Elf: typical time between taps (lower = faster)
+//   slip           Whack-an-Elf: chance of tapping a Grinch by mistake
 //   random         ignore all of the above and do something random
 const DEFAULTS = {
   bidThreshold: 2, bidScale: 0.6, noise: 0.4, reserve: 0.3, endgameSaver: false, allIn: false,
   herd: 0, attachment: 0, yieldBelow: 3, gambitMin: 2, reprisalMin: 2, costAversion: 1,
   conflictAverse: 0, spite: 0, nemesis: 0, leaderHunter: 0, stealBias: 0.5, voteRate: 0.5, random: false,
+  reflexMs: 420, slip: 0.08,
 };
 
 const PERSONAS = {
@@ -60,11 +63,13 @@ const PERSONAS = {
     label: 'The Accountant', emoji: '🧾',
     blurb: 'Counts every chip: small bids, only on clear upgrades, hoards for later.',
     bidThreshold: 3, bidScale: 0.35, reserve: 0.6, yieldBelow: 3, gambitMin: 5, reprisalMin: 4, costAversion: 1.5, stealBias: 0.15, voteRate: 0.3,
+    reflexMs: 480, slip: 0.02,
   },
   brawler: {
     label: 'The Alpha', emoji: '🥊',
     blurb: 'Office-party alpha: bids big and often, never yields, always takes the Gambit/Reprisal.',
     bidThreshold: 0.5, bidScale: 1.0, noise: 0.8, reserve: 0, yieldBelow: -99, gambitMin: 0, reprisalMin: 0, costAversion: 0.2, stealBias: 0.9, voteRate: 0.9,
+    reflexMs: 260, slip: 0.25,
   },
   sniper: {
     label: 'The Collector', emoji: '🎯',
@@ -74,7 +79,7 @@ const PERSONAS = {
   wildcard: {
     label: 'The Party Animal', emoji: '🎲',
     blurb: 'Three eggnogs in: random bids and choices, never read the rules.',
-    random: true, voteRate: 0.7,
+    random: true, voteRate: 0.7, reflexMs: 320, slip: 0.4,
   },
   grinch: {
     label: 'The Grudge Holder', emoji: '😈',
@@ -127,6 +132,7 @@ const PERSONAS = {
     label: 'The First-Timer', emoji: '🐣',
     blurb: 'Nervous newcomer: tiny bids, misses half the options, mostly keeps what they get.',
     bidThreshold: 2.5, bidScale: 0.3, noise: 1.0, reserve: 0.5, yieldBelow: 2, gambitMin: 4, reprisalMin: 4, costAversion: 2, conflictAverse: 0.5, stealBias: 0.2, voteRate: 0.4,
+    reflexMs: 750, slip: 0.15,
   },
 };
 for (const p of Object.values(PERSONAS)) for (const [k, v] of Object.entries(DEFAULTS)) if (!(k in p)) p[k] = v;
@@ -272,9 +278,11 @@ function decide(personaKey) {
       return { playerId: id, thought: `duel ${view.players[id]?.name}` };
     },
 
-    /** Spectator vote on someone else's duel (flavour — exercises the UI). */
+    /** Spectator vote on someone else's duel. With spectator bets on it costs a chip if wrong,
+     *  so the more a persona hoards (reserve), the more often it sits the vote out. */
     vote(view) {
       if (view.random() > p.voteRate) return null;
+      if (view.betsOn && view.random() < p.reserve * 0.8) return null;
       return { pick: view.random() < 0.5 ? 'challenger' : 'defender' };
     },
   };

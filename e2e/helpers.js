@@ -130,7 +130,7 @@ function trackErrors(page, who) {
 /**
  * Create a game from the host setup screen. `settings` maps setup-screen <select>
  * ids (without the "setting-" prefix) to option values, e.g.
- * { 'starting-chips': '15', 'tiebreaker-method': 'minigame' }.
+ * { 'starting-chips': '15', 'tiebreaker-method': 'whack_elf' }.
  */
 async function createGame(browser, settings = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });

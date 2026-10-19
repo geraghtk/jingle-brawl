@@ -111,7 +111,10 @@ If one or more players bid:
 * If the highest bid is tied, the Opener first chooses to **fight** or **yield**:  
   * Fight: two of the tied bidders (picked at random if more than 2 tied) hold a Tie-break Duel; the winner becomes Challenger 1 and duels the Opener.  
   * Yield: two of the tied bidders (picked at random if more than 2 tied) duel each other as a Yield Duel.  
-  * The host can instead have a mini-game (Counterfeit Canvas or Draw Off) choose the duelists.  
+  * The host can instead have a mini-game choose the duelists: Sketch-Off, Whack-an-Elf or AI Draw Off.  
+  * Party tiebreakers (Sketch-Off, Whack-an-Elf): the whole table plays. The best-placed tied bidder wins the tie (the best two, if the Opener yielded). Everyone scores party points by place (3 / 2 / 1, shown at the final tally), and the best finisher who wasn't in the tie wins an Elf Bonus chip from the North Pole Fund (the host can turn prizes off).  
+* Party Score: party-game points plus 1 for every duel you correctly call as a spectator. The highest Party Score at the final tally is the Party MVP.  
+* Spectator bets (optional house setting, experimental): each spectator vote stakes 1 chip; the wrong callers' chips are split between the right callers.  
   * No Loser’s Dividend is paid for tie-break duels.
 
 ## 3 The Duel (and Yielding)

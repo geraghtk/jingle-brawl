@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grinch's Gambit and Reindeer Reprisals. A mini-game ("Counterfeit Canvas" collaborative drawing, "Draw Off" individual drawing) can trigger as a tiebreaker, with an AI Art Critic judging the results.
+**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grinch's Gambit and Reindeer Reprisals. A tied top bid can be settled by a party mini-game the whole table plays ("Sketch-Off", "Whack-an-Elf" — `party-games.js`) or by "AI Draw Off", with an AI Art Critic judging the results.
 
 ## Commands
 
@@ -54,6 +54,8 @@ On localhost the pages talk to the **emulators**, never production (`useLocalEmu
 - `agents/` — persona-agent play-testing harness (playability + settings/balance sweeps); see `agents/README.md`
 - `chip-fx.js` — Jingle Chip look + `flyChips()` (loser → winner flights), shared by both pages
 - `mascots.js` — Santa / elf / reindeer pop-ups reacting to game moments (`?mascots=0` disables)
+- `scoring.js` — Party Score (party points + correct duel calls → Party MVP) and spectator bets (`settings.spectatorBets`, experimental); pure + unit-tested
+- `party-games.js` — Sketch-Off + Whack-an-Elf: pure ranking/reward rules (unit-tested, `npm run test:party`) plus the phone and TV screens; host.html only runs the phase timers (`startPartyGame` / `advancePartyGame`)
 
 **Real-time data flow:** host creates `games/{roomCode}` (claimed atomically by transaction) → all clients attach listeners → state changes propagate. Key paths: `players`, `gifts`, `currentTurn` (turn state machine), `phase`, `settings`, `minigame`, `lastDuel` (outcome the host publishes so phones show the right verdict).
 

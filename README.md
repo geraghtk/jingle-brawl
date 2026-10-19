@@ -41,7 +41,8 @@ plays every settings preset and writes a balance report. See [`agents/README.md`
 3. If a phone dies, the host has **Manual Override** under every waiting step, and the
    **Admin** tab (edit chips, move gifts, skip/reset a turn, undo the last duel).
 4. A refreshed host or phone offers **Rejoin** (state lives in Firebase).
-5. AI tiebreakers (Counterfeit Canvas critic / Draw Off) need the critic URL in settings —
+5. Tiebreakers: Sketch-Off and Whack-an-Elf need nothing extra (everyone plays on their phone; the host has
+   **Skip ahead** if someone stalls). AI Draw Off needs the critic URL in settings —
    on Firebase Hosting it defaults to the `critiqueDrawingGemini` function.
 
 ### Deploying

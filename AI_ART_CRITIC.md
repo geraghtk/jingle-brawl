@@ -1,8 +1,7 @@
 # AI Art Critic - Setup Guide
 
-The AI Art Critic adds a fun "robot judge" that analyzes drawings in two mini-games:
-
-**The Counterfeit Canvas** – Collaborative drawing; AI rates the shared canvas against the secret word.
+The AI Art Critic adds a fun "robot judge" that analyzes drawings in the AI Draw Off tiebreaker
+(the Counterfeit Canvas it also judged was retired in Oct 2026 for the Sketch-Off, which the table votes on):
 
 **AI Draw Off** – Each player draws individually (same prompt, 3 minutes); AI judges and ranks all submissions.
 
@@ -38,12 +37,11 @@ pip install -r ai_art_critic_requirements.txt
    Server runs at `http://localhost:5050` by default.
 
 3. **Create a Jingle Brawl game** with:
-   - Tiebreaker: **The Counterfeit Canvas Mini-Game** or **AI Draw Off** (Draw Off requires the critic and auto-enables it)
+   - Tiebreaker: **AI Draw Off** (requires the critic and auto-enables it)
    - ✅ **Enable AI Art Critic**
    - Engine: **Ollama** (local, free) or **OpenAI** (paste a key; it stays in the host's browser session and is only sent to this local server)
    - Server URL: `http://localhost:5050` (default)
 
-Counterfeit Canvas: when drawing ends, the AI rates the shared canvas and the rating appears during voting.
 Draw Off: after 3 minutes the AI scores each submission, then `/witty-verdict` writes a critic's verdict and picks the winner (falls back to the highest score if that call fails).
 
 ## Environment variables

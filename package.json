@@ -12,7 +12,8 @@
     "agents": "node agents/play.js",
     "agents:watch": "node agents/play.js --watch",
     "agents:sweep": "node agents/play.js --sweep",
-    "test:agents": "node --test agents/personas.test.js"
+    "test:agents": "node --test agents/personas.test.js",
+    "test:party": "node --test party-games.test.js scoring.test.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

@@ -38,7 +38,8 @@ To simulate multiple devices without the harness:
 - **Lobby**: Host sees players join; players see each other
 - **Bidding**: All non-opener players can submit bids
 - **Duels**: Challenger vs defender; votes from other players
-- **Counterfeit Canvas**: Collaborative drawing, AI critique, voting for The Counterfeit
+- **Sketch-Off**: Everyone draws the prompt, votes (not for themselves); tie + party points
+- **Whack-an-Elf**: Everyone taps for 20 s; live TV leaderboard; Elf Bonus chip
 - **Draw Off**: Each player draws; AI critiques; witty verdict; duel
 - **Reprisals**: Loser can target another gift
 - **Endgame**: Misfit lottery, steals
@@ -78,7 +79,7 @@ Keep the emulators up between runs with `npm run emulator` (Playwright reuses th
 | `lobby-and-join.spec.js` | create → 3 join → start |
 | `bidding-and-duel.spec.js` | draw → bid → reveal → duel (smoke) |
 | `game-flows.spec.js` | every main-phase fork: no bids, single bidder win/loss, two bids fight/yield, ties fight/yield, reprisal offered, full game → final tally |
-| `regressions.spec.js` | one test per bug fixed in the 2026-10 review: starting-chips setting, duel voting, Gambit cancel + Misfit targets, clean reprisal duels, host reprisal override, own-gift reprisal, yield rounding, win/loss verdict, admin Misfit, Counterfeit Canvas turn rotation + undo sync, Draw Off canvas wipe, 3-way ties, Draw Off yield loop, endgame auction, settings-driven help text, apostrophe rejoin |
+| `regressions.spec.js` | one test per bug fixed in the 2026-10 review: starting-chips setting, duel voting, Gambit cancel + Misfit targets, clean reprisal duels, host reprisal override, own-gift reprisal, yield rounding, win/loss verdict, admin Misfit, Sketch-Off + Whack-an-Elf (tie, points, Elf Bonus), Draw Off canvas wipe, 3-way ties, Draw Off yield loop, endgame auction, settings-driven help text, apostrophe rejoin |
 
 Tests assert **invariants** (`invariantErrors()` in `e2e/helpers.js`: chips never
 negative, gift ↔ owner consistent both ways, no player holds 2 gifts, zero page errors)

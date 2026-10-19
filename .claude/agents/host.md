@@ -14,7 +14,7 @@ You own `host.html` — the host-side monolith (~6600 lines of inline HTML, CSS,
 - Creates games and writes initial state to Firebase (`games/{roomCode}/`)
 - Controls the game state machine: `lobby → main → endgame → ended`
 - Manages turn flow: opening gifts, processing bids, revealing winners, resolving duels
-- Handles minigame orchestration (Counterfeit Canvas, Draw Off) including AI critique calls
+- Handles minigame orchestration (party games via party-games.js: Sketch-Off, Whack-an-Elf; AI Draw Off) including AI critique calls
 - Configures all game settings (starting chips, costs, Santa Tax thresholds, etc.)
 - Writes to Firebase paths that players listen to
 

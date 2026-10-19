@@ -35,6 +35,8 @@ function gameStats(r) {
     endgameTurns: paths.length,
     stealRate: ratio(paths.filter((x) => x.path === 'steal').length, paths.length),
     chips: mean(seats.map((s) => s.chips)),
+    moved: (r.duels || []).reduce((n, d) => n + (d.potWon || 0), 0), // chips handed over in pots
+    gap: seats.length ? Math.max(...seats.map((s) => s.chips)) - Math.min(...seats.map((s) => s.chips)) : NaN,
     unspent: ratio(mean(seats.map((s) => s.chips)), r.startingChips),
     broke: ratio(seats.filter((s) => s.chips === 0).length, seats.length),
     hoarders: ratio(seats.filter((s) => s.chips >= r.startingChips * 0.75).length, seats.length),
@@ -42,6 +44,8 @@ function gameStats(r) {
     spread: sd(values),
     top3: ratio(seats.filter((s) => s.rank != null && s.rank <= 3).length, seats.length),
     giftless: seats.filter((s) => s.gift == null).length,
+    predPts: seats.reduce((n, s) => n + (s.votingWins || 0), 0),   // Party Score from correct calls
+    partyPts: seats.reduce((n, s) => n + (s.partyPoints || 0), 0), // Party Score from party games
   };
 }
 
@@ -59,18 +63,18 @@ function summarize(results, meta) {
   for (const r of results) (byPreset[r.preset] ||= []).push(r);
   out.push('## Settings comparison');
   out.push('');
-  out.push('| preset | done | min | duels | contested | top bid | gambit | yield | reprisal taken | endgame turns | chips left | hoarders | broke | gift value | spread | top-3 gift |');
-  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  out.push('| preset | done | min | duels | contested | top bid | gambit | yield | reprisal taken | endgame turns | chips left | chips moved | rich–poor gap | hoarders | broke | call pts | party pts | gift value | spread | top-3 gift |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const [name, rs] of Object.entries(byPreset)) {
     const done = rs.filter((r) => r.outcome === 'ended');
     const s = done.map(gameStats);
     const m = (k) => mean(s.map((x) => x[k]).filter(Number.isFinite));
     out.push(`| ${name} | ${done.length}/${rs.length} | ${f1(m('minutes'))} | ${f1(m('duels'))} | ${pct(m('contested'))} | ${f1(m('avgTopBid'))} | ` +
-      `${pct(m('gambitRate'))} | ${pct(m('yieldRate'))} | ${pct(m('reprisalTaken'))} | ${f1(m('endgameTurns'))} | ${f1(m('chips'))} (${pct(m('unspent'))}) | ` +
-      `${pct(m('hoarders'))} | ${pct(m('broke'))} | ${f1(m('value'))} | ${f1(m('spread'))} | ${pct(m('top3'))} |`);
+      `${pct(m('gambitRate'))} | ${pct(m('yieldRate'))} | ${pct(m('reprisalTaken'))} | ${f1(m('endgameTurns'))} | ${f1(m('chips'))} (${pct(m('unspent'))}) | ${f1(m('moved'))} | ${f1(m('gap'))} | ` +
+      `${pct(m('hoarders'))} | ${pct(m('broke'))} | ${f1(m('predPts'))} | ${f1(m('partyPts'))} | ${f1(m('value'))} | ${f1(m('spread'))} | ${pct(m('top3'))} |`);
   }
   out.push('');
-  out.push('Columns: **contested** = opened gifts with ≥1 bid · **chips left** = average final chips (share of starting chips) · ' +
+  out.push('Columns: **contested** = opened gifts with ≥1 bid · **chips left** = average final chips (share of starting chips) · **chips moved** = chips handed from loser to winner in pots, per game · **rich–poor gap** = richest minus poorest player at the end · **call pts / party pts** = Party Score handed out per game for correct duel calls / party mini-games · ' +
     '**hoarders** = players ending with ≥75% of their chips (chips didn\'t matter to them) · **broke** = ending on 0 · ' +
     '**gift value** = how much each player values what they took home (0–12) · **spread** = how unequal that is within a game · ' +
     '**top-3 gift** = ended with one of their 3 favourite opened gifts.');
@@ -96,8 +100,8 @@ function summarize(results, meta) {
   out.push('');
   out.push('## Personas (all finished games)');
   out.push('');
-  out.push('| persona | games | gift value | vs table | top-3 gift | chips left | duels W-L | avg bid when bidding | bids placed |');
-  out.push('|---|---|---|---|---|---|---|---|---|');
+  out.push('| persona | games | gift value | vs table | top-3 gift | chips left | duels W-L | avg bid when bidding | bids placed | party pts |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|');
   const allSeats = ok.flatMap((r) => r.seats.map((s) => ({ ...s, tableMean: mean(r.seats.filter((x) => x.value != null).map((x) => x.value)) })));
   const allBids = ok.flatMap((r) => r.decisions.filter((x) => x.kind === 'bid' || x.kind === 'endgame-bid'));
   for (const p of Object.keys(PERSONAS)) {
@@ -109,7 +113,7 @@ function summarize(results, meta) {
     out.push(`| ${PERSONAS[p].emoji} ${PERSONAS[p].label} | ${seats.length} | ${f1(mean(valued.map((s) => s.value)))} | ` +
       `${f1(mean(valued.map((s) => s.value - s.tableMean)))} | ${pct(ratio(seats.filter((s) => s.rank != null && s.rank <= 3).length, seats.length))} | ` +
       `${f1(mean(seats.map((s) => s.chips)))} | ${seats.reduce((a, s) => a + s.wins, 0)}-${seats.reduce((a, s) => a + s.losses, 0)} | ` +
-      `${f1(mean(placed.map((x) => x.amount)))} | ${pct(ratio(placed.length, bids.length))} |`);
+      `${f1(mean(placed.map((x) => x.amount)))} | ${pct(ratio(placed.length, bids.length))} | ${f1(mean(seats.map((s) => s.partyPoints || 0)))} |`);
   }
   out.push('');
   out.push('**vs table** = persona\'s gift value minus the average at their table (positive = the style pays off).');

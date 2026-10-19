@@ -50,6 +50,7 @@ class Arena {
     this.issues = [];       // playability problems (deduped by text)
     this.duels = [];        // resolved duel records
     this.decisions = [];    // every agent decision (for per-persona stats)
+    this.partyGames = [];   // party mini-game results
     this.turns = 0;
     this.acted = new Map(); // state key → { at, tries }
     this.voted = new Set();
@@ -187,6 +188,7 @@ class Arena {
       leaderId: Object.values(gifts).filter((x) => players[x.ownerId] && x.ownerId !== pid)
         .sort((x, y) => y.value - x.value)[0]?.ownerId || null,
       recentTopBids: this.recentTopBids.slice(-4),
+      betsOn: !!g.settings?.spectatorBets,
       random: a.random,
     };
   }
@@ -231,6 +233,9 @@ class Arena {
       g.phase, Object.keys(g.gifts || {}).length, t?.phase, t?.giftId, t?.openerId, t?.activePlayerId,
       t?.challengerId, t?.defenderId, t?.reprisalPlayerId, Object.keys(t?.bids || {}).length,
       Object.keys(t?.duelVotes || {}).length, g.lastDuel?.at,
+      // party games: phase, drawings, votes and live scores count as progress
+      g.minigame?.phase, Object.keys(g.minigame?.submissions || {}).length, Object.keys(g.minigame?.votes || {}).length,
+      Object.values(g.minigame?.scores || {}).reduce((n, x) => n + (x?.score || 0), 0),
       Object.values(g.players).map((p) => [p.chips, p.giftId || null]),
     ]);
   }
@@ -385,6 +390,8 @@ class Arena {
       case 'yield_pending':
         return A(`${tk}|start`, 'start the yield duel', () => this.click(host, 'button[onclick^="openerYields("]', 'HOST', 'Start Yield Duel!'));
       case 'tiebreaker_pending':
+        // Mini-game tiebreakers start themselves; only the random method has a button
+        if ((g.settings?.tiebreakerMethod || 'random') !== 'random') return null;
         return A(`${tk}|start`, 'start the tiebreaker', () => this.click(host, 'button[onclick^="startTiebreaker("]', 'HOST', 'Start Tiebreaker Duel!'));
 
       case 'duel': {
@@ -482,15 +489,108 @@ class Arena {
         });
       }
 
-      case 'minigame_counterfeit_canvas':
+      case 'minigame_party': return this.partyAction(g, A);
+
       case 'minigame_draw_off':
-        this.issue('unsupported', 'mini-game tiebreakers are not agent-driven — use tiebreaker-method=random');
+        this.issue('unsupported', 'AI Draw Off is not agent-driven (needs the AI critic) — use another tiebreaker method');
         return null;
 
       default:
         this.issue('unknown-phase', `turn phase "${t.phase}"`);
         return null;
     }
+  }
+
+  // --- party mini-games (Sketch-Off, Whack-an-Elf): the whole table plays ---------------
+
+  partyAction(g, A) {
+    const mg = g.minigame;
+    if (!mg) return null;
+    const mk = `party|${mg.seed}|${mg.phase}`;
+    const name = (id) => g.players[id]?.name || id;
+    const ids = (mg.participants || []).filter((id) => this.agents[id]);
+    if (mg.phase === 'intro' || mg.phase === 'results') {
+      if (mg.phase === 'results' && mg.results && !this.partyGames.some((x) => x.seed === mg.seed)) {
+        this.partyGames.push({ type: mg.type, seed: mg.seed, tied: mg.tiedBidders, ...mg.results });
+        const r = mg.results;
+        this.say(`🎉 ${r.winners.map(name).join(' & ')} win${r.winners.length > 1 ? '' : 's'} the tie${r.bonus ? ` · Elf Bonus → ${name(r.bonus)}` : ''}`, 'duel');
+      }
+      return A(mk, mg.phase === 'intro' ? 'start the party game' : 'continue to the duel', async () => {
+        await sleep(this.watch ? 4000 : 300); // let people read the rules / results
+        await this.click(this.host, 'button[onclick="skipPartyPhase()"]', 'HOST', 'Skip ahead');
+      });
+    }
+    if (mg.phase === 'playing' && mg.type === 'whack_elf') {
+      return A(mk, 'everyone whacks elves', () => Promise.all(ids.map((id) => this.whack(id, mg))));
+    }
+    if (mg.phase === 'playing' && mg.type === 'sketch_off') {
+      const who = ids.find((id) => !mg.submissions?.[id]);
+      return who ? A(`${mk}|${who}`, `${name(who)} sketches`, () => this.sketch(who)) : null;
+    }
+    if (mg.phase === 'voting') {
+      const drawings = Object.keys(mg.submissions || {});
+      const voter = ids.find((id) => !mg.votes?.[id] && drawings.some((d) => d !== id));
+      if (!voter) return null;
+      return A(`${mk}|${voter}`, `${name(voter)} votes`, async () => {
+        const options = drawings.filter((d) => d !== voter);
+        const pick = options[Math.floor(this.agents[voter].random() * options.length)];
+        this.record(voter, 'sketch-vote', { pick, thought: `votes for ${name(pick)}'s drawing` });
+        await this.click(this.agents[voter].page, `#party-card [data-vote="${pick}"]`, name(voter), 'vote for a drawing');
+      });
+    }
+    return null;
+  }
+
+  /** One agent plays Whack-an-Elf on its own phone until time's up. */
+  async whack(pid, mg) {
+    const a = this.agents[pid];
+    const p = a.persona;
+    let hits = 0;
+    let slips = 0;
+    const seen = {}; // "cell|kind" → when this player can react to it
+    while (Date.now() < mg.phaseEndsAt - 200) { // phaseEndsAt is server time; the emulator is local
+      // Human-ish: an elf can only be hit once it has been up for this player's reaction
+      // time (reflexMs ± 40%), so slow players miss the quick ones late in the game.
+      const now = Date.now();
+      const up = await a.page.locator('#party-card .whack-cell.up').evaluateAll((els) => els.map((e) => `${e.dataset.cell}|${e.dataset.kind}`));
+      for (const key of Object.keys(seen)) if (!up.includes(key)) delete seen[key];
+      for (const key of up) seen[key] ??= now + p.reflexMs * (0.6 + a.random() * 0.8);
+      const ready = up.filter((key) => seen[key] <= now);
+      const good = ready.filter((key) => !key.endsWith('|grinch'));
+      const bad = ready.filter((key) => key.endsWith('|grinch'));
+      const target = bad.length && a.random() < p.slip ? bad[0] : good[0];
+      if (target) {
+        delete seen[target];
+        await a.page.locator(`#party-card .whack-cell[data-cell="${target.split('|')[0]}"]`).dispatchEvent('pointerdown').catch(() => {});
+        if (target.endsWith('|grinch')) slips++; else hits++;
+      }
+      await sleep(60);
+    }
+    this.record(pid, 'whack', { hits, slips, thought: `whacked ${hits} el${hits === 1 ? 'f' : 'ves'}${slips ? `, hit the Grinch ${slips}×` : ''}` });
+  }
+
+  /** One agent scribbles something and hands it in. */
+  async sketch(pid) {
+    const a = this.agents[pid];
+    const pad = a.page.locator('#party-card canvas.pg-pad');
+    await pad.waitFor({ state: 'visible', timeout: 8000 });
+    const b = await pad.boundingBox();
+    const strokes = 2 + Math.floor(a.random() * 4);
+    for (let s = 0; s < strokes; s++) {
+      let x = b.x + b.width * (0.2 + a.random() * 0.6);
+      let y = b.y + b.height * (0.2 + a.random() * 0.6);
+      await a.page.mouse.move(x, y);
+      await a.page.mouse.down();
+      for (let i = 0; i < 8; i++) {
+        x = Math.min(b.x + b.width - 4, Math.max(b.x + 4, x + (a.random() - 0.5) * b.width * 0.25));
+        y = Math.min(b.y + b.height - 4, Math.max(b.y + 4, y + (a.random() - 0.5) * b.height * 0.25));
+        await a.page.mouse.move(x, y, { steps: 2 });
+      }
+      await a.page.mouse.up();
+    }
+    if (this.watch) await sleep(800);
+    this.record(pid, 'sketch', { strokes, thought: `draws a masterpiece (${strokes} strokes)` });
+    await this.click(a.page, '#party-card [data-act="done"]', a.name, 'Done drawing');
   }
 
   async fightOrYield(g, opener, opened) {
@@ -523,7 +623,8 @@ class Arena {
       const all = Object.values(g.gifts || {}).map((x) => this.valueFor(a.id, x.name)).sort((x, y) => y - x);
       const best = all[0] ?? null;
       return {
-        name: a.name, persona: a.personaKey, chips: p.chips,
+        name: a.name, persona: a.personaKey, chips: p.chips, partyPoints: p.partyPoints || 0,
+        votingWins: p.votingWins || 0, votingLosses: p.votingLosses || 0,
         gift: gift?.name || null, value: myVal, best,
         rank: myVal == null ? null : all.indexOf(myVal) + 1, gifts: all.length,
         wins: this.duels.filter((d) => d.winnerId === a.id).length,
@@ -535,7 +636,7 @@ class Arena {
       settings: { ...this.settings }, gameSettings: g.settings,
       ms: Date.now() - this.t0, turns: this.turns,
       startingChips: this.startingChips,
-      seats, duels: this.duels.map(({ k, ...d }) => d), decisions: this.decisions,
+      seats, duels: this.duels.map(({ k, ...d }) => d), decisions: this.decisions, partyGames: this.partyGames,
       issues: this.issues.map(({ key, ...i }) => i),
     };
     this.say(`🏁 ${outcome.toUpperCase()} after ${(result.ms / 1000).toFixed(0)}s, ${this.turns} draws, ${this.duels.length} duels`);

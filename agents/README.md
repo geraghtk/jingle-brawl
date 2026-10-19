@@ -65,7 +65,9 @@ took home.
 
 ## Limits
 
-- Mini-game tiebreakers (Counterfeit Canvas, Draw Off) aren't agent-driven. Sweeps use
-  `tiebreaker-method=random`.
+- Party tiebreakers are agent-driven: in Whack-an-Elf each agent taps on its own phone with its
+  persona's reaction time (`reflexMs`) and Grinch slip rate; in Sketch-Off agents scribble and
+  vote at random (drawing quality isn't modelled). Presets `party-whack` / `party-sketch`.
+- AI Draw Off isn't agent-driven (it needs the AI critic).
 - Duels are coin flips, so skill is not modelled.
 - Agents don't see other players' chip counts, which matches the default `publicChips: false`.

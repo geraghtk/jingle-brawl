@@ -345,47 +345,21 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test('Counterfeit Canvas: "Done Drawing" passes the turn to the next artist', async ({ browser }) => {
-    test.setTimeout(90000);
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, {
-      'tiebreaker-method': 'minigame',
-      'minigame-timer': 'unlimited',
-    });
+  test('a game saved with the retired Counterfeit Canvas setting runs a Sketch-Off (exactly once)', async ({ browser }) => {
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
-      const turn = await H.drawGift(host, roomCode, 'Canvas Gift');
+      await H.dbPatch(roomCode, { 'settings/tiebreakerMethod': 'minigame' });
+      const turn = await H.drawGift(host, roomCode, 'Legacy Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
       const [c1, c2] = NAMES.filter((n) => n !== opener);
       await H.allBid(pages, opener, { [c1]: 2, [c2]: 2 });
       await H.revealBids(host);
       await H.openerFights(pages[opener]);
-
-      const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'drawing' && g.minigame.currentPlayerId ? g.minigame : false),
-        { label: 'drawing phase', timeout: 35000 });
-      const p = await H.playersByName(roomCode);
-      const nameById = Object.fromEntries(Object.entries(p).map(([n, v]) => [v.id, n]));
-      const first = nameById[mg.currentPlayerId];
-      const watcher = pages[NAMES.find((n) => n !== first)];
-
-      // The artist draws; another phone mirrors it — and mirrors an Undo too
-      const artist = pages[first];
-      const box = await artist.locator('#drawing-canvas').boundingBox();
-      await artist.mouse.move(box.x + 30, box.y + 30);
-      await artist.mouse.down();
-      for (let i = 1; i <= 5; i++) await artist.mouse.move(box.x + 30 + i * 12, box.y + 30);
-      await artist.mouse.up();
-      await expect.poll(() => watcher.evaluate('drawingStrokes.length')).toBeGreaterThan(0);
-      const seen = await watcher.evaluate('drawingStrokes.length');
-      await artist.getByRole('button', { name: /Undo Last Stroke/ }).click();
-      await expect.poll(() => watcher.evaluate('drawingStrokes.length')).toBe(seen - 1);
-
-      await artist.locator('#drawing-done-btn').click();
-
-      const next = await H.waitForGame(roomCode, (g) => (g.minigame?.currentTurnIndex === 1 && g.minigame.currentPlayerId !== mg.currentPlayerId ? g.minigame : false),
-        { label: 'turn passed to next artist', timeout: 8000 });
-      expect(next.currentPlayerId).toBe(mg.playerOrder[1]);
-
+      const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.type ? g.minigame : false), { label: 'party game' });
+      expect(mg.type).toBe('sketch_off');
+      await host.waitForTimeout(1500);
       const log = await host.locator('#event-log').innerText();
-      expect(log.match(/Starting The Counterfeit Canvas/g)?.length, 'minigame must start exactly once').toBe(1);
+      expect(log.match(/Sketch-Off! Everyone plays/g)?.length, 'starts exactly once').toBe(1);
       assertNoPageErrors();
     } finally {
       await cleanup();
@@ -760,6 +734,193 @@ test.describe('Regressions (2026-10 review)', () => {
     await page.evaluate(() => Mascots.say('santa', 'hello'));
     await page.waitForTimeout(800);
     await expect(page.locator('[data-mascot]')).toHaveCount(0);
+  });
+
+  // --- Party mini-games: the whole table plays; ranking settles the tie + prizes --------
+
+  /** Two tied bidders, opener fights → the party game starts. Returns names. */
+  async function tieIntoPartyGame(host, roomCode, pages, giftName) {
+    const turn = await H.drawGift(host, roomCode, giftName);
+    const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+    const [t1, t2] = NAMES.filter((n) => n !== opener);
+    await H.allBid(pages, opener, { [t1]: 2, [t2]: 2 });
+    await H.revealBids(host);
+    await H.openerFights(pages[opener]);
+    await H.waitForGame(roomCode, (g) => (g.currentTurn?.phase === 'minigame_party' && g.minigame?.phase === 'intro' ? g : false), { label: 'party intro' });
+    return { opener, t1, t2 };
+  }
+  const skipAhead = (host) => host.locator('#action-buttons button[onclick="skipPartyPhase()"]').click();
+  const partyPhase = (roomCode, phase) =>
+    H.waitForGame(roomCode, (g) => (g.minigame?.phase === phase ? g.minigame : false), { label: `party ${phase}`, timeout: 20000 });
+
+  async function whack(page, ms, { avoidGrinch = true } = {}) {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      const sel = avoidGrinch ? '#party-card .whack-cell.up:not([data-kind="grinch"])' : '#party-card .whack-cell.up';
+      const cell = page.locator(sel).first();
+      if (await cell.count()) await cell.dispatchEvent('pointerdown').catch(() => {});
+      await page.waitForTimeout(60);
+    }
+  }
+
+  test('Whack-an-Elf: everyone plays; the better tied bidder wins the tie, the best other player gets the Elf Bonus', async ({ browser }) => {
+    test.setTimeout(90000);
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'whack_elf' });
+    try {
+      const { opener, t1, t2 } = await tieIntoPartyGame(host, roomCode, pages, 'Whack Gift');
+      for (const n of NAMES) await expect(pages[n].locator('#party-card')).toContainText('Whack-an-Elf');
+      await skipAhead(host);
+      await partyPhase(roomCode, 'playing');
+      await expect(pages[t1].locator('#party-card .whack-grid')).toBeVisible();
+      await Promise.all([whack(pages[t1], 6000), whack(pages[opener], 2500)]); // t2 never taps
+      await host.waitForTimeout(1200); // live scores land
+      const scores = (await H.dbGet(roomCode, 'minigame/scores')) || {};
+      const p = await H.playersByName(roomCode);
+      expect(scores[p[t1].id]?.score).toBeGreaterThan(scores[p[opener].id]?.score ?? 0);
+      expect(scores[p[opener].id]?.score).toBeGreaterThan(0);
+
+      await skipAhead(host);
+      const mg = await partyPhase(roomCode, 'results');
+      expect(mg.results.winners).toEqual([p[t1].id]);
+      expect(mg.results.bonus).toBe(p[opener].id);
+      await expect(pages[t2].locator('#party-card')).toContainText('wins the tie');
+      await expect(host.locator('#bids-grid')).toContainText('Elf Bonus');
+
+      await skipAhead(host); // continue to the duel
+      const duel = await H.waitForTurnPhase(roomCode, 'duel');
+      expect(duel.challengerId).toBe(p[t1].id);
+      expect(duel.defenderId).toBe(p[opener].id);
+      const after = await H.playersByName(roomCode);
+      expect(after[opener].chips, 'Elf Bonus +1 chip').toBe(11);
+      expect(after[t1].chips, 'tie winner paid the bid of 2').toBe(8);
+      expect(after[t1].partyPoints).toBe(3);
+      expect(after[opener].partyPoints).toBe(2);
+      expect(after[t2].partyPoints ?? 0).toBe(0);
+      expect(await H.dbGet(roomCode, 'minigame')).toBeNull();
+      await expect(pages[t1].locator('#party-card')).toBeHidden();
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  async function scribble(page, dx) {
+    const pad = page.locator('#party-card canvas.pg-pad');
+    await pad.waitFor({ state: 'visible' });
+    const b = await pad.boundingBox();
+    await page.mouse.move(b.x + 30, b.y + 30);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(b.x + 30 + i * dx, b.y + 30 + i * 12);
+    await page.mouse.up();
+    await page.locator('#party-card [data-act="done"]').click();
+  }
+
+  test('Sketch-Off: everyone draws and votes (never for themselves); most votes among the tied wins', async ({ browser }) => {
+    test.setTimeout(90000);
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'sketch_off' });
+    try {
+      const { opener, t1, t2 } = await tieIntoPartyGame(host, roomCode, pages, 'Sketch Gift');
+      const mg0 = await H.dbGet(roomCode, 'minigame');
+      await expect(pages[opener].locator('#party-card')).toContainText(mg0.prompt);
+      await skipAhead(host);
+      await partyPhase(roomCode, 'playing');
+      for (const [i, n] of NAMES.entries()) await scribble(pages[n], 10 + i * 5);
+      await partyPhase(roomCode, 'voting'); // everyone handed in → moves on by itself
+
+      const p = await H.playersByName(roomCode);
+      const vote = async (voter, target) => {
+        const card = pages[voter].locator('#party-card');
+        await expect(card.locator('figure.mine')).toHaveCount(1); // own drawing isn't votable
+        await card.locator(`[data-vote="${p[target].id}"]`).click();
+      };
+      await vote(opener, t2);
+      await vote(t1, t2);
+      await vote(t2, t1);
+      const mg = await partyPhase(roomCode, 'results'); // everyone voted → moves on by itself
+      expect(mg.results.scoreOf).toEqual({ [p[t2].id]: 2, [p[t1].id]: 1, [p[opener].id]: 0 });
+      expect(mg.results.winners).toEqual([p[t2].id]);
+      expect(mg.results.bonus ?? null, 'the opener got no votes → no Elf Bonus').toBeNull();
+
+      await skipAhead(host);
+      const duel = await H.waitForTurnPhase(roomCode, 'duel');
+      expect(duel.challengerId).toBe(p[t2].id);
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test('the final tally shows each Party Score (party points + correct calls) and crowns the Party MVP', async ({ browser }) => {
+    const { host, roomCode, cleanup, assertNoPageErrors } = await setup(browser);
+    try {
+      const p = await H.playersByName(roomCode);
+      await H.dbPatch(roomCode, {
+        [`players/${p.Bob.id}/partyPoints`]: 3, [`players/${p.Bob.id}/votingWins`]: 1,
+        [`players/${p.Alice.id}/votingWins`]: 2, [`players/${p.Alice.id}/votingLosses`]: 4,
+        phase: 'ended',
+      });
+      await expect(host.locator('.tally-grid .f6-row', { hasText: 'Bob' })).toContainText('4 party score');
+      await expect(host.locator('.tally-grid .f6-row', { hasText: 'Alice' })).toContainText('2 party score');
+      await expect(host.locator('.tally-grid .f6-row', { hasText: 'Charlie' })).not.toContainText('party score');
+      await expect(host.locator('#bids-grid')).toContainText('Party MVP: Bob');
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test('the host shows the betting leaderboard once a duel vote is settled', async ({ browser }) => {
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
+    try {
+      await expect(host.locator('#card-betting')).toBeHidden(); // no votes yet
+      const turn = await H.drawGift(host, roomCode, 'Vote Gift');
+      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+      const [bidder, spectator] = NAMES.filter((n) => n !== opener);
+      await H.allBid(pages, opener, { [bidder]: 1 });
+      await H.revealBids(host);
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      await pages[spectator].getByRole('button', { name: new RegExp(`🏆 ${bidder}`) }).click();
+      await H.waitForGame(roomCode, (g) => g.currentTurn?.duelVotes, { label: 'vote recorded' });
+      await H.declareWinner(host, bidder);
+
+      const board = host.locator('#card-betting');
+      await expect(board).toBeVisible();
+      await expect(board).toContainText(spectator);
+      expect((await H.playersByName(roomCode))[spectator].votingWins).toBe(1);
+      expect((await H.playersByName(roomCode))[spectator].chips, 'bets are off by default').toBe(10);
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("spectator bets (experiment): a right call wins the wrong callers' chips", async ({ browser }) => {
+    const names = ['Alice', 'Bob', 'Charlie', 'Dana'];
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'spectator-bets': '1' }, names);
+    try {
+      const turn = await H.drawGift(host, roomCode, 'Bet Gift');
+      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+      const [bidder, right, wrong] = names.filter((n) => n !== opener);
+      await H.allBid(pages, opener, { [bidder]: 1 });
+      await H.revealBids(host);
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      await expect(pages[right].locator('#status-card')).toContainText(/bet 1 chip/i);
+      await pages[right].getByRole('button', { name: new RegExp(`🏆 ${bidder}`) }).click();
+      await pages[wrong].getByRole('button', { name: new RegExp(`🏆 ${opener}`) }).click();
+      await H.waitForGame(roomCode, (g) => Object.keys(g.currentTurn?.duelVotes || {}).length === 2, { label: 'both voted' });
+      await H.declareWinner(host, bidder);
+      await H.waitForGame(roomCode, (g) => (g.lastDuel?.bets ? g : false), { label: 'bets settled' });
+
+      const p = await H.playersByName(roomCode);
+      expect(p[right].chips).toBe(11);
+      expect(p[wrong].chips).toBe(9);
+      expect(await H.dbGet(roomCode, 'lastDuel/bets')).toEqual({ pool: 1, toBank: 0, winners: 1 });
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
   });
 
   test("a player named O'Brien can rejoin after a refresh", async ({ browser }) => {

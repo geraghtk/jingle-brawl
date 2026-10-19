@@ -12,7 +12,7 @@ module.exports = async () => {
   for (const url of ENDPOINTS) {
     for (;;) {
       try {
-        if ((await fetch(url)).ok) break;
+        if ((await fetch(url)).status < 500) break; // 401/403 = up (the rules lock the root)
       } catch { /* not listening yet */ }
       if (Date.now() > deadline) throw new Error(`Emulator not ready: ${url}`);
       await new Promise((r) => setTimeout(r, 500));
