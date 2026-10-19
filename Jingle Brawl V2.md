@@ -69,6 +69,7 @@ Whenever a player **loses a duel as the Defender**, they immediately receive **\
 
 * A duel determines a winner between two players.  
 * Standard Rule: The Defender chooses the duel type/method. They may also choose to have the method selected randomly.  
+  * *In the app:* the host lists the room's duel methods at setup (and may add the in-app mini-games). The Defender picks one on their phone, or taps "Let the wheel pick". A yield duel (two challengers) and a tiebreak duel have no real Defender, so the wheel always picks for them. The chosen duel shows on the TV and every phone.  
   * *Optional Rule:*   
     *The dual method is always chosen at random.*
 
@@ -76,6 +77,7 @@ The Under-16 Exception:
 
 * Players under 16 always choose the duel method (this overrides both the Standard and Optional rules).  
   * If both duel players are under 16, the youngest player always chooses.
+  * *In the app:* when joining, a player can tick "I'm under 16" and give their age (nobody else is asked). Their phone then gets the pick whenever they duel, including yield and tiebreak duels.
 
 * The duel winner wins the contested outcome (gift, pot, etc.) based on the situation.  
   ![][image4]
@@ -113,6 +115,7 @@ If one or more players bid:
   * Yield: two of the tied bidders (picked at random if more than 2 tied) duel each other as a Yield Duel.  
   * The host can instead have a mini-game choose the duelists: Sketch-Off, Whack-an-Elf or AI Draw Off.  
   * Party tiebreakers (Sketch-Off, Whack-an-Elf): the whole table plays. The best-placed tied bidder wins the tie (the best two, if the Opener yielded). Everyone scores party points by place (3 / 2 / 1, shown at the final tally), and the best finisher who wasn't in the tie wins an Elf Bonus chip from the North Pole Fund (the host can turn prizes off).  
+* Duel calls: once the duel method is known, spectators call the winner on their phones. The host waits for every connected spectator (or the house vote timer, 30 seconds by default; the host can also close voting early) before declaring the winner.  
 * Party Score: party-game points plus 1 for every duel you correctly call as a spectator. The highest Party Score at the final tally is the Party MVP.  
 * Spectator bets (optional house setting, experimental): each spectator vote stakes 1 chip; the wrong callers' chips are split between the right callers.  
   * No Loser’s Dividend is paid for tie-break duels.

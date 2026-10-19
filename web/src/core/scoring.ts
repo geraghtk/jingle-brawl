@@ -1,0 +1,29 @@
+// Party Score + spectator bets.
+//   Party Score = party points + 1 per correct duel call; the top score is the Party MVP.
+//   Spectator bets (experimental setting): each vote stakes 1 chip; wrong callers' chips are
+//   split between right callers (odd chip → North Pole Fund; nobody right → all to the Fund).
+import type { DuelVote, Player, PlayerId } from './types';
+
+export const partyScore = (p: Partial<Player> | undefined) => (p?.partyPoints || 0) + (p?.votingWins || 0);
+
+export function partyMvps(players: Record<PlayerId, Partial<Player>> | undefined): PlayerId[] {
+  const scores = Object.entries(players || {}).map(([id, p]) => [id, partyScore(p)] as const);
+  const best = Math.max(0, ...scores.map(([, s]) => s));
+  return best > 0 ? scores.filter(([, s]) => s === best).map(([id]) => id) : [];
+}
+
+export function settleBets(votes: Record<PlayerId, DuelVote> | undefined, winnerId: PlayerId) {
+  const delta: Record<PlayerId, number> = {};
+  const staked = Object.entries(votes || {}).filter(([, v]) => (v?.stake || 0) > 0);
+  const right = staked.filter(([, v]) => v.votedFor === winnerId).map(([id]) => id);
+  const wrong = staked.filter(([, v]) => v.votedFor !== winnerId).map(([id]) => id);
+  const pool = wrong.length;
+  for (const id of wrong) delta[id] = -1;
+  let toBank = pool;
+  if (right.length) {
+    const share = Math.floor(pool / right.length);
+    for (const id of right) delta[id] = share;
+    toBank = pool - share * right.length;
+  }
+  return { delta, pool, toBank, winners: right.length };
+}

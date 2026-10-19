@@ -1,0 +1,153 @@
+// Phone app: join / rejoin, then the game screen for this player.
+import { onDisconnect, set } from 'firebase/database';
+import { useEffect, useState } from 'react';
+import { cleanName, joinPlayer } from '../core/actions';
+import { signedIn } from '../firebase/app';
+import { applyPlan, gameRef, readGame, useGame } from '../firebase/game';
+import { GameScreen } from './GameScreen';
+import { PlayerProvider, useToast } from './PlayerContext';
+import { clearSession, loadSession, saveSession } from './session';
+import type { Session } from './session';
+
+const params = new URLSearchParams(location.search);
+
+function Hero() {
+  return (
+    <div className="join-hero">
+      <div className="logo-wrap"><img src="ydlogo2.png" alt="Yuel Duel" /></div>
+      <h1 className="join-title fz-riso">Yuel <span style={{ color: 'var(--accent)' }}>Duel</span></h1>
+      <div className="join-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
+    </div>
+  );
+}
+
+async function markConnected(s: Session) {
+  const ref = gameRef(s.room, `players/${s.playerId}/connected`);
+  await set(ref, true);
+  onDisconnect(ref).set(false);
+}
+
+export function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [saved, setSaved] = useState<Session | null | undefined>(undefined); // undefined = checking
+  const [msg, show, toast] = useToast();
+
+  // A saved session whose player still exists → offer to rejoin
+  useEffect(() => {
+    const s = loadSession();
+    if (!s) { setSaved(null); return; }
+    readGame(s.room).then((g) => {
+      if (g?.players?.[s.playerId]) setSaved(s);
+      else { clearSession(); setSaved(null); }
+    });
+  }, []);
+
+  async function join(room: string, rawName: string, age: number | null) {
+    room = room.trim().toUpperCase();
+    const name = cleanName(rawName);
+    if (room.length !== 4) return toast('Please enter a valid 4-letter room code');
+    if (!name) return toast('Please enter your name');
+    const game = await readGame(room);
+    if (!game) return toast('Game not found! Check the room code.');
+    const uid = await signedIn();
+    if (!uid) return toast('Could not sign in — check your connection and try again');
+    const playerId = `player_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const joined = await applyPlan(room, joinPlayer(game, { playerId, name, uid, now: Date.now(), age })).catch(() => false);
+    if (!joined) return toast('Could not join — try again');
+    const s = { room, playerId, name };
+    saveSession(s);
+    onDisconnect(gameRef(room, `players/${playerId}/connected`)).set(false);
+    setSession(s);
+    toast('Joined the game! 🎄');
+  }
+
+  async function rejoin(s: Session) {
+    await signedIn();
+    await markConnected(s);
+    setSession(s);
+    toast('Reconnected! 🎄');
+  }
+
+  return (
+    <>
+      <div className="container">
+        {session ? <Playing session={session} toast={toast} />
+          : saved === undefined ? null
+          : saved ? <Rejoin s={saved} onRejoin={() => rejoin(saved)} onOther={() => { clearSession(); setSaved(null); }} />
+          : <Join onJoin={join} />}
+      </div>
+      <div className={`toast${show ? ' show' : ''}`} id="toast">{msg}</div>
+    </>
+  );
+}
+
+function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | null) => void }) {
+  const [room, setRoom] = useState((params.get('room') || '').toUpperCase());
+  const [name, setName] = useState(params.get('name') || '');
+  // Only under-16s are asked their age: the youngest duellist picks the duel (V2 Under-16 Exception)
+  const [young, setYoung] = useState(false);
+  const [age, setAge] = useState('');
+  const ageValue = young && age ? Number(age) : null;
+  useEffect(() => {
+    if (params.get('autoJoin') === '1' && room && name) onJoin(room, name, null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div id="join-screen" className="join-screen">
+      <Hero />
+      <div className="join-form">
+        <input type="text" id="room-code-input" className="room-code-input" placeholder="ROOM" maxLength={4} autoComplete="off"
+          value={room} onChange={(e) => setRoom(e.target.value.toUpperCase())} />
+        <input type="text" id="player-name-input" placeholder="Your name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
+        <label className="young-toggle">
+          <input type="checkbox" data-testid="under-16" checked={young} onChange={(e) => setYoung(e.target.checked)} />
+          <span>I'm under 16 <small>you'll get to pick your duels</small></span>
+        </label>
+        {young && (
+          <label className="young-age">
+            <span>How old are you?</span>
+            <select data-testid="age" value={age} onChange={(e) => setAge(e.target.value)}>
+              <option value="">Choose</option>
+              {Array.from({ length: 11 }, (_, i) => 5 + i).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+        )}
+        <button className="btn btn-primary" data-testid="join" disabled={young && !age} onClick={() => onJoin(room, name, ageValue)}>🎮 Join Game</button>
+      </div>
+      <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ask the host for the room code</p>
+    </div>
+  );
+}
+
+function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; onOther: () => void }) {
+  return (
+    <div id="join-screen" className="join-screen">
+      <Hero />
+      <div className="card" style={{ marginTop: 0, maxWidth: 320, textAlign: 'center' }}>
+        <h3 style={{ marginBottom: '0.5rem' }}>Welcome back, {s.name}!</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          Room: <strong style={{ color: 'var(--accent-gold)' }}>{s.room}</strong>
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button className="btn btn-primary" id="rejoin-btn" data-testid="rejoin" onClick={onRejoin}>🔄 Rejoin Game</button>
+          <button className="btn btn-secondary" onClick={onOther}>🆕 Join Different Game</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Playing({ session, toast }: { session: Session; toast: (m: string) => void }) {
+  const { game } = useGame(session.room);
+  if (!game) return null;
+  const leave = () => {
+    if (!confirm('Leave this game?')) return;
+    set(gameRef(session.room, `players/${session.playerId}/connected`), false);
+    clearSession();
+    location.reload();
+  };
+  return (
+    <PlayerProvider room={session.room} me={session.playerId} game={game} toast={toast}>
+      <GameScreen onLeave={leave} />
+    </PlayerProvider>
+  );
+}

@@ -39,6 +39,33 @@ function connectGameAuth() {
     return auth;
 }
 
+// Anonymous sign-in for the security rules. Returns signedIn(): call it right before
+// a write; it resolves to the user (or null) and retries a failed sign-in (busy
+// server, flaky network) instead of leaving the page signed out for good.
+function anonymousSignIn(auth, persistence) {
+    const ready = auth.setPersistence(persistence).catch(() => {});
+    let pending = null;
+    return function signedIn() {
+        pending = pending || (async () => {
+            await ready;
+            for (let attempt = 0; ; attempt++) {
+                if (auth.currentUser) return auth.currentUser;
+                try {
+                    const cred = await auth.signInAnonymously();
+                    return (cred && cred.user) || auth.currentUser || null;
+                } catch (err) {
+                    if (attempt >= 3) {
+                        console.error('Anonymous auth failed (enable the Anonymous provider in the Firebase console):', err && (err.code || err.message || err));
+                        return null;
+                    }
+                    await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
+                }
+            }
+        })().finally(() => { pending = null; });
+        return pending;
+    };
+}
+
 // Game configuration defaults
 const GAME_CONFIG = {
     // Whether players can see each other's chip counts

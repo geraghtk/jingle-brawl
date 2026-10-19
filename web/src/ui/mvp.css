@@ -1,0 +1,50 @@
+/* The Party MVP reveal (TV + phone). Ink stage, gold sticker, chips raining once it lands. */
+.mvp-stage {
+  position: fixed; inset: 0; z-index: 2150; display: grid; place-items: center; overflow: hidden;
+  background: var(--ink, #0d1018); color: #fff; text-align: center;
+  animation: mvpIn 0.4s ease-out both;
+}
+.mvp-stage.landed { cursor: pointer; }
+@keyframes mvpIn { from { opacity: 0; } }
+.mvp-stage::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.08;
+  background-image: radial-gradient(#fff 1.3px, transparent 1.5px); background-size: 10px 10px;
+}
+.mvp-body { position: relative; display: flex; flex-direction: column; align-items: center; padding: 0 20px; max-width: 100%; }
+.mvp-heading { margin-top: 18px; font-weight: 700; letter-spacing: -0.02em; color: #ffc53d; }
+.mvp-roll { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 10px; min-height: 1.1em; }
+.mvp-name { font-weight: 700; line-height: 0.95; letter-spacing: -0.03em; word-break: break-word; }
+.mvp-stage.rolling .mvp-name { opacity: 0.75; filter: blur(0.6px); }
+.mvp-stage.landed .mvp-name { animation: mvpLand 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both; text-shadow: 5px 5px 0 var(--accent, #ff3366); }
+@keyframes mvpLand { from { transform: scale(0.6) rotate(-4deg); } }
+.mvp-score {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 8px 12px; margin-top: 26px;
+  font: 600 18px var(--f6-body, system-ui); color: rgba(255, 255, 255, 0.82); animation: f6RiseMvp 0.4s 0.35s ease-out both;
+}
+.mvp-score strong { color: #fff; }
+.mvp-total { font: 700 30px var(--f6-disp, system-ui); color: #ffc53d; }
+.mvp-hint { margin-top: 30px; font-size: 14px; color: rgba(255, 255, 255, 0.55); animation: f6RiseMvp 0.4s 1s ease-out both; }
+@keyframes f6RiseMvp { from { opacity: 0; transform: translateY(8px); } }
+
+/* sizes */
+.mvp-stage.tv .mvp-sticker { font-size: 15px; padding: 7px 15px; }
+.mvp-stage.tv .mvp-heading { font-size: 44px; }
+.mvp-stage.tv .mvp-name { font-size: clamp(80px, 11vw, 170px); }
+.mvp-stage.phone .mvp-heading { font-size: 26px; }
+.mvp-stage.phone .mvp-name { font-size: clamp(40px, 13vw, 64px); }
+.mvp-stage.phone .mvp-roll { flex-direction: column; gap: 12px; }
+.mvp-stage.phone .mvp-score { font-size: 15px; }
+.mvp-stage.phone .mvp-total { font-size: 24px; }
+.mvp-stage.phone:not(.mine) { background: color-mix(in srgb, var(--ink, #0d1018) 92%, transparent); }
+
+/* chips falling once the name lands */
+.mvp-rain { position: absolute; inset: 0; pointer-events: none; }
+.mvp-drop { position: absolute; top: -60px; animation-name: mvpFall; animation-timing-function: cubic-bezier(0.3, 0, 0.7, 1); animation-iteration-count: 2; animation-fill-mode: both; }
+@keyframes mvpFall {
+  from { transform: translateY(0) rotateX(0) rotate(0); }
+  to { transform: translateY(calc(100vh + 120px)) rotateX(720deg) rotate(200deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mvp-stage, .mvp-name, .mvp-score, .mvp-hint { animation: none !important; }
+  .mvp-rain { display: none; }
+}

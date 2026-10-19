@@ -1292,13 +1292,10 @@
         // Non-breaking until the rules deploy AND the Anonymous provider is enabled in console.
         const auth = connectGameAuth();
         const _isTestTab = new URLSearchParams(location.search).has('testId');
-        const authReady = auth.setPersistence(_isTestTab
-                ? firebase.auth.Auth.Persistence.SESSION
-                : firebase.auth.Auth.Persistence.LOCAL)
-            .catch(() => {})
-            .then(() => auth.signInAnonymously())
-            .then(cred => (cred && cred.user) || auth.currentUser || null)
-            .catch(err => { console.error('Anonymous auth failed (enable the Anonymous provider in the Firebase console):', err && (err.code || err.message || err)); return null; });
+        const signedIn = anonymousSignIn(auth, _isTestTab
+            ? firebase.auth.Auth.Persistence.SESSION
+            : firebase.auth.Auth.Persistence.LOCAL);
+        signedIn(); // start early so it is usually done before anyone taps a button
         function currentUid() { return (auth.currentUser && auth.currentUser.uid) || null; }
 
         // Player state
@@ -1424,7 +1421,7 @@
             playerState.name = playerName;
 
             // Sign in before touching our player node (rules bind it to our uid).
-            await authReady;
+            await signedIn();
 
             // Mark as connected
             await db.ref(`games/${roomCode}/players/${playerId}/connected`).set(true);
@@ -1498,7 +1495,7 @@
 
             // Ensure we are signed in before writing our own player node. The rules bind
             // this node to our uid (ownerUid), so only this browser can edit it.
-            await authReady;
+            await signedIn();
 
             // Create player
             const playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);

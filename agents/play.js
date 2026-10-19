@@ -5,6 +5,7 @@
 //   npm run agents:sweep                       # headless: every preset × N games → balance report
 //   node agents/play.js --games 5 --set max-payout=3,loser-dividend=everyone
 //   node agents/play.js --lineup brawler,miser,miser,sniper --seed 7 --watch
+//   npm run agents:join ABCD                   # YOU host room ABCD on React (+ play a phone); agents fill the other seats
 //
 // Options:
 //   --watch            slowed down, streamed live to one window with commentary
@@ -20,6 +21,9 @@
 //   --pace MS          delay between actions in watch mode (default 900)
 //   --out DIR          report directory (default agents/reports/<timestamp>)
 //   --verbose          print every action and agent thought
+//   --join ROOM        join a game a person is hosting (lobby only): the agents play their own
+//                      seats and leave the host page and your phone to you (--players = agent count, default 4)
+//   --phones URL       app the agents' phones load (default $PLAYER_BASE / $BASE_URL / the dev server :5173)
 //
 // Needs the local emulators + page server; starts them if they aren't running.
 
@@ -27,7 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, execSync } = require('child_process');
 const { chromium } = require('@playwright/test');
-const { Arena } = require('./arena');
+let Arena; // required in main(), once --phones is known
 const { PERSONAS, rng } = require('./personas');
 const { PRESETS } = require('./presets');
 const { summarize } = require('./report');
@@ -49,8 +53,14 @@ function parseArgs(argv) {
     else if (a === '--seed') o.seed = Number(next());
     else if (a === '--pace') o.pace = Number(next());
     else if (a === '--out') o.out = next();
+    else if (a === '--join') o.join = next().toUpperCase();
+    else if (a === '--phones') o.phones = next().replace(/\/$/, '');
     else if (a === '--set') for (const kv of next().split(',')) { const [k, v] = kv.split('='); o.set[k] = v; }
-    else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 22).join('\n')); process.exit(0); }
+    else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 27).join('\n')); process.exit(0); }
+    // Bare values, so `npm run agents:join ABCD` works in PowerShell too (it drops the `--`
+    // before npm's args, and npm then swallows any --flags meant for this script)
+    else if (/^https?:\/\//.test(a)) o.phones = a.replace(/\/$/, '');
+    else if (/^[a-z]{4}$/i.test(a)) o.join = a.toUpperCase();
     else throw new Error(`Unknown option ${a}`);
   }
   return o;
@@ -58,16 +68,25 @@ function parseArgs(argv) {
 
 // --- servers ------------------------------------------------------------------
 
-const PAGE_URL = 'http://localhost:8080/host.html';
+const PAGES = () => (process.env.PLAYER_BASE || process.env.BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+const PAGE_URL = () => `${PAGES()}/player.html`;
 const DB_URL = 'http://127.0.0.1:9000/.json?ns=jingle-brawl-e8308-default-rtdb';
 const AUTH_URL = 'http://127.0.0.1:9099/emulator/v1/projects/jingle-brawl-e8308/config';
-const up = async (url) => { try { return (await fetch(url)).ok; } catch { return false; } };
+// Any answer means it is running (the database answers 401 at its root: the rules forbid reading it)
+const up = async (url) => { try { return (await fetch(url)).status < 500; } catch { return false; } };
 
 async function ensureServers() {
   const started = [];
   const root = path.join(__dirname, '..');
-  if (!(await up(PAGE_URL))) {
-    started.push(spawn('python', ['-m', 'http.server', '8080'], { cwd: root, stdio: 'ignore', shell: true }));
+  if (!(await up(PAGE_URL()))) {
+    if (/:5173$/.test(PAGES())) {
+      console.log('Starting the app (npm run dev)…');
+      started.push(spawn('npx', ['vite', '--config', 'vite.config.mts'], { cwd: root, stdio: 'ignore', shell: true }));
+    } else if (/:8080$/.test(PAGES())) {
+      started.push(spawn('python', ['-m', 'http.server', '8080'], { cwd: root, stdio: 'ignore', shell: true })); // the original pages
+    } else {
+      throw new Error(`Nothing is serving ${PAGES()} — start the app first`);
+    }
   }
   if (!(await up(DB_URL)) || !(await up(AUTH_URL))) {
     console.log('Starting the Firebase emulators (database + auth)…');
@@ -75,7 +94,7 @@ async function ensureServers() {
       { cwd: root, stdio: 'ignore', shell: true }));
   }
   const deadline = Date.now() + 90000;
-  for (const url of [PAGE_URL, DB_URL, AUTH_URL]) {
+  for (const url of [PAGE_URL(), DB_URL, AUTH_URL]) {
     while (!(await up(url))) {
       if (Date.now() > deadline) throw new Error(`Not reachable: ${url} (is Java 21+ / the Firebase CLI installed?)`);
       await new Promise((r) => setTimeout(r, 500));
@@ -96,7 +115,7 @@ async function ensureServers() {
 // the stage shows a live screencast of each next to the agents' running commentary.
 // One window fits any screen, and nothing on the stage is clickable by accident.
 
-async function openStage(seats) {
+async function openStage(seats, { host = true } = {}) {
   const browser = await chromium.launch({ headless: false, args: ['--start-maximized'] });
   const ctx = await browser.newContext({ viewport: null });
   const page = await ctx.newPage();
@@ -123,6 +142,7 @@ async function openStage(seats) {
     figcaption { padding:3px 2px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     figcaption b { color:var(--text); }
     ul { margin:0; padding:8px 12px 8px 26px; background:var(--card); border-radius:10px; color:var(--muted); font-size:12px; }
+    ${host ? '' : '#host { display:none; } #feed-wrap { grid-row: 1 / span 2; }'}
   </style></head><body>
   <figure id="host"><img id="host-img" alt=""></figure>
   <section id="feed-wrap"><h1>🎄 Agent commentary</h1><div id="feed"></div></section>
@@ -158,7 +178,7 @@ function streamer(stage) {
 
 const NAMES = ['Alice', 'Bob', 'Carol', 'Dave', 'Erin', 'Frank', 'Grace', 'Heidi', 'Ivan', 'Judy', 'Mallory', 'Niaj'];
 
-function seatsFor(config, gameIndex, seed) {
+function seatsFor(config, gameIndex, seed, taken = []) {
   let personas;
   if (config.lineup) {
     // Fixed lineup: rotate through the seats so seat/draw order isn't confounded with persona
@@ -172,20 +192,22 @@ function seatsFor(config, gameIndex, seed) {
       return pool[i % pool.length];
     });
   }
-  return personas.map((persona, i) => ({ name: NAMES[i], persona }));
+  const lower = new Set(taken.map((n) => n.toLowerCase()));
+  const names = NAMES.filter((n) => !lower.has(n.toLowerCase()));
+  return personas.map((persona, i) => ({ name: names[i] || `Agent ${i + 1}`, persona }));
 }
 
-async function runOne(browser, { config, gameIndex, seed, watch, verbose, pace, outDir }) {
-  const seats = seatsFor(config, gameIndex, seed);
-  const stage = watch ? await openStage(seats) : null;
+async function runOne(browser, { config, gameIndex, seed, watch, verbose, pace, outDir, join, taken = [] }) {
+  const seats = seatsFor(config, gameIndex, seed, taken);
+  const stage = watch ? await openStage(seats, { host: !join }) : null;
   const arena = new Arena({
-    browser, seats, settings: config.settings, seed, watch, pace, outDir,
+    browser, seats, settings: config.settings, seed, watch, pace, outDir, join,
     onPage: stage ? streamer(stage.page) : null, commentary: stage?.page,
-    log: watch || verbose ? (t) => console.log(t) : null, verbose,
+    log: watch || verbose || join ? (t) => console.log(t) : null, verbose,
   });
   try {
     await arena.setup();
-    const result = await arena.play();
+    const result = await arena.play(join ? { maxMs: 6 * 3600000 } : undefined);
     result.preset = config.name;
     result.lineup = seats;
     return result;
@@ -203,15 +225,20 @@ async function runOne(browser, { config, gameIndex, seed, watch, verbose, pace, 
 
 async function main() {
   const o = parseArgs(process.argv.slice(2));
+  if (o.phones) process.env.PLAYER_BASE = o.phones;
+  // The host page (sweeps) runs on the same app as the phones: the dev server unless told otherwise
+  process.env.BASE_URL ||= process.env.PLAYER_BASE || 'http://localhost:5173';
+  ({ Arena } = require('./arena')); // after PLAYER_BASE is set (e2e/helpers reads it on load)
   const lineup = o.lineup || null; // null = random mix of the whole cast per game
   for (const p of lineup || []) if (!PERSONAS[p]) throw new Error(`Unknown persona ${p}. Known: ${Object.keys(PERSONAS).join(', ')}`);
-  const players = lineup ? lineup.length : (o.players ?? 6);
+  const players = lineup ? lineup.length : (o.players ?? (o.join ? 4 : 6));
   if (players < 2 || players > 12) throw new Error('--players must be 2-12');
   const base = { 'tiebreaker-method': 'random', ...o.set };
   const configs = o.sweep
     ? PRESETS.filter((p) => !o.presets || o.presets.includes(p.name)).map((p) => ({ name: p.name, settings: { ...base, ...p.settings }, lineup, players }))
     : [{ name: Object.keys(o.set).length ? 'custom' : 'default', settings: base, lineup, players }];
-  const games = o.games ?? (o.watch ? 1 : 8);
+  if (o.join && (o.sweep || o.games > 1)) throw new Error('--join plays one game (your game) — drop --sweep / --games');
+  const games = o.join ? 1 : o.games ?? (o.watch ? 1 : 8);
   const seed0 = o.seed ?? Math.floor(Math.random() * 1e6);
   const outDir = o.out || path.join(__dirname, 'reports', new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19));
   fs.mkdirSync(outDir, { recursive: true });
@@ -219,6 +246,12 @@ async function main() {
   const stop = await ensureServers();
   process.on('SIGINT', () => { stop(); process.exit(130); });
   const browser = await chromium.launch(); // game pages are always headless; --watch streams them
+  let taken = [];
+  if (o.join) {
+    const room = await fetch(`http://127.0.0.1:9000/games/${o.join}.json?ns=jingle-brawl-e8308-default-rtdb`).then((r) => r.json()).catch(() => null);
+    if (!room) throw new Error(`Room ${o.join} not found on the local emulator — create it on the host page (localhost) first`);
+    taken = Object.values(room.players || {}).map((x) => x.name);
+  }
 
   const jobs = [];
   for (const config of configs) for (let i = 0; i < games; i++) jobs.push({ config, gameIndex: i, seed: seed0 + i });
@@ -231,7 +264,7 @@ async function main() {
   await Promise.all(Array.from({ length: parallel }, async () => {
     while (next < jobs.length) {
       const job = jobs[next++];
-      const r = await runOne(browser, { ...job, watch: o.watch, verbose: o.verbose, pace: o.pace, outDir });
+      const r = await runOne(browser, { ...job, watch: o.watch, verbose: o.verbose, pace: o.pace, outDir, join: o.join, taken });
       results.push(r);
       const issues = (r.issues || []).length;
       console.log(`  [${results.length}/${jobs.length}] ${r.preset} seed ${job.seed}: ${r.outcome}` +

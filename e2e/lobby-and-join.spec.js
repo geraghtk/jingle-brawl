@@ -7,6 +7,7 @@ const { test, expect } = require('@playwright/test');
  */
 test.describe('Lobby and Join', () => {
   const BASE = process.env.BASE_URL || 'http://localhost:8080';
+  const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
   const PLAYER_NAMES = ['Alice', 'Bob', 'Charlie'];
 
   test('host creates game, 3 players join, host starts game', async ({ browser }) => {
@@ -31,7 +32,7 @@ test.describe('Lobby and Join', () => {
         const ctx = await browser.newContext();
         const page = await ctx.newPage();
         await page.goto(
-          `${BASE}/player.html?room=${roomCode}&testId=${i}&name=${name}`
+          `${PLAYER_BASE}/player.html?room=${roomCode}&testId=${i}&name=${name}`
         );
         return { page, ctx, name };
       })

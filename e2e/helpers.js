@@ -10,7 +10,9 @@
 //
 // State is read straight from the RTDB emulator (Bearer owner = admin bypass).
 
-const BASE = process.env.BASE_URL || 'http://localhost:8080';
+const BASE = process.env.BASE_URL || 'http://localhost:4173'; // see playwright.config.js
+// Phones can be served separately (PLAYER_BASE=…, e.g. React phones against the original host)
+const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
 const NS = 'jingle-brawl-e8308-default-rtdb';
 const DB_BASE = 'http://127.0.0.1:9000';
 const ADMIN = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
@@ -137,8 +139,17 @@ async function createGame(browser, settings = {}) {
   const host = await ctx.newPage();
   const errors = trackErrors(host, 'HOST');
   await host.goto(`${BASE}/host.html`);
-  for (const [id, value] of Object.entries(settings)) {
-    await host.locator(`#setting-${id}`).selectOption(value);
+  // Most tests call duels straight away: no duel-vote wait unless a test asks for one
+  // (the setting only exists in the React host)
+  // …and no duel-game pick/wheel (duelPick off) unless a test asks for one
+  const all = { 'vote-window': '0', 'duel-pick': 'off', ...settings };
+  for (const [id, value] of Object.entries(all)) {
+    const select = host.locator(`#setting-${id}`); // a <select>, checkbox or textarea
+    if ((id === 'vote-window' || id === 'duel-pick') && !(await select.count())) continue;
+    const kind = await select.evaluate((e) => (e.tagName === 'INPUT' ? e.type : e.tagName.toLowerCase()));
+    if (kind === 'select') await select.selectOption(value);
+    else if (kind === 'checkbox') await select.setChecked(value === true || value === 'on');
+    else await select.fill(String(value)); // textarea (e.g. duel-games: one per line)
   }
   await host.getByRole('button', { name: /Create New Game/i }).click();
   await host.waitForSelector('#game-screen', { state: 'visible' });
@@ -163,7 +174,7 @@ async function joinPlayers(browser, roomCode, names) {
     contexts.push(ctx);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`PLAYER ${names[i]}: ${e.message}`));
-    await page.goto(`${BASE}/player.html?room=${roomCode}&testId=${i}&name=${names[i]}`);
+    await page.goto(`${PLAYER_BASE}/player.html?room=${roomCode}&testId=${i}&name=${names[i]}`);
     await page.getByRole('button', { name: /Join Game/i }).click();
     await page.waitForSelector('#game-screen', { state: 'visible' });
     pages[names[i]] = page;
@@ -220,10 +231,17 @@ const clickStartYieldDuel = (host) => host.getByRole('button', { name: /Start Yi
 const clickStartTiebreakerDuel = (host) => host.getByRole('button', { name: /Start Tiebreaker Duel/i }).click();
 
 /** Normal duel winner — button lives in the duel modal footer. */
-async function declareWinner(host, name) {
+/** Click "X wins" in the duel modal; then tap the TV verdict away (unless the test watches it). */
+async function declareWinner(host, name, { keepVerdict = false } = {}) {
   const btn = host.locator('#duel-modal-content').getByRole('button', { name: new RegExp(`${name} wins`, 'i') });
   await btn.waitFor({ state: 'visible', timeout: 10000 });
   await btn.click();
+  if (!keepVerdict) await dismissVerdict(host);
+}
+
+/** The React host celebrates each duel full-screen; a click dismisses it (legacy has none). */
+async function dismissVerdict(host) {
+  await host.locator('#duel-verdict').click({ timeout: 2500 }).catch(() => {});
 }
 
 /** Tiebreak winner — buttons live in the turn panel (no modal for tiebreaks). */
@@ -258,11 +276,11 @@ async function resolveDuel(host, roomCode, pagesById) {
 }
 
 module.exports = {
-  BASE, dbGet, dbPut, dbPatch, waitForGame, waitForTurnPhase,
+  BASE, PLAYER_BASE, dbGet, dbPut, dbPatch, waitForGame, waitForTurnPhase,
   invariantErrors, assertInvariants,
   createGame, joinPlayers, playersByName, startGame, drawGift, openerNameOf,
   submitBid, allBid, revealBids,
   clickStartDuel, clickStartYieldDuel, clickStartTiebreakerDuel,
-  declareWinner, declareTiebreakWinner,
+  declareWinner, dismissVerdict, declareTiebreakWinner,
   openerKeeps, openerFights, openerYields, skipReprisal, resolveDuel,
 };

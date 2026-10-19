@@ -38,3 +38,6 @@ node_modules/
 
 # Agent play-test reports
 /agents/reports/
+
+# Vite build output
+dist/

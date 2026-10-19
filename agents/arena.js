@@ -24,6 +24,9 @@ const GIFT_CATALOG = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Match a button in either app: the React test id, or the legacy page's onclick. */
+const sel = (testid, legacy) => `[data-testid="${testid}"], ${legacy}`;
+
 class Arena {
   /**
    * @param {object} o
@@ -36,12 +39,15 @@ class Arena {
    * @param {string} o.outDir      where stuck snapshots/screenshots go
    * @param {(page, role, index) => Promise<void>} [o.onPage]  called for every page before it loads (watch mode streams it)
    * @param {import('@playwright/test').Page} [o.commentary]
+   * @param {string} [o.join]     JOIN MODE: a room a person is hosting. The agents join it and play
+   *                              only their own seats; the host page and any human players are left
+   *                              to the people (no host clicks, no stall timeout).
    */
   constructor(o) {
     Object.assign(this, o);
     this.random = rng(o.seed);
     this.pace = o.watch ? (o.pace ?? 900) : (o.pace ?? 0);
-    this.stallMs = o.stallMs ?? (o.watch ? 60000 : 25000);
+    this.stallMs = o.stallMs ?? (o.join ? Infinity : o.watch ? 60000 : 25000); // people think slowly
     this.agents = {};       // playerId → { name, persona, brain, page, random, rivals }
     this.byName = {};
     this.values = {};       // giftName → base quality
@@ -79,20 +85,52 @@ class Arena {
 
   async setup() {
     this.t0 = Date.now();
+    if (this.join) return this.setupJoin();
     const hostCtx = await this.browser.newContext({ viewport: { width: 1440, height: 900 } });
     this.contexts = [hostCtx];
     this.host = await hostCtx.newPage();
     this.hookPage(this.host, 'HOST');
     if (this.onPage) await this.onPage(this.host, 'host', 0);
     await this.host.goto(`${H.BASE}/host.html`);
-    for (const [id, value] of Object.entries(this.settings)) {
-      await this.host.locator(`#setting-${id}`).selectOption(value);
+    // The referee calls duels once the agents have voted, so no vote window (unless asked)
+    for (const [id, value] of Object.entries({ 'vote-window': '0', ...this.settings })) {
+      const select = this.host.locator(`#setting-${id}`);
+      if ((id === 'vote-window' || id === 'duel-pick') && !(await select.count())) continue;
+      await select.selectOption(value);
     }
     await this.host.getByRole('button', { name: /Create New Game/i }).click();
     await this.host.waitForSelector('#game-screen', { state: 'visible' });
     this.room = (await this.host.locator('#room-code-display').textContent()).trim();
     this.say(`🎄 Room ${this.room} — ${this.seats.length} agents, seed ${this.seed}`);
 
+    await this.joinSeats();
+    await this.host.getByRole('button', { name: /Start Game/i }).click();
+    await this.started();
+  }
+
+  /** JOIN MODE: sit the agents down at a person's table, then wait for them to press Start. */
+  async setupJoin() {
+    this.room = this.join.toUpperCase();
+    this.contexts = [];
+    this.host = null;
+    const g = await H.dbGet(this.room);
+    if (!g) throw new Error(`Room ${this.room} not found — create the game on the host page first`);
+    if (g.phase !== 'lobby') throw new Error(`Room ${this.room} has already started — agents can only join in the lobby`);
+    const humans = Object.values(g.players || {}).map((x) => x.name);
+    this.say(`🎄 Joining room ${this.room} — ${this.seats.length} agents${humans.length ? ` alongside ${humans.join(', ')}` : ''}`);
+    await this.joinSeats();
+    this.say('⏳ Agents are seated. Join on your phone too if you haven\'t, then press Start Game on the host.');
+    await H.waitForGame(this.room, (x) => (x.phase !== 'lobby' ? x : false), { label: 'game start', timeout: 6 * 3600000 });
+    await this.started();
+  }
+
+  async started() {
+    const g = await H.waitForGame(this.room, (x) => (x.phase === 'main' ? x : false), { label: 'main phase' });
+    this.startingChips = Object.values(g.players)[0].chips;
+    this.say(`▶️ Game on — everyone starts with ${this.startingChips} chips`);
+  }
+
+  async joinSeats() {
     for (let i = 0; i < this.seats.length; i++) {
       const { name, persona } = this.seats[i];
       const ctx = await this.browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -100,9 +138,20 @@ class Arena {
       const page = await ctx.newPage();
       this.hookPage(page, name);
       if (this.onPage) await this.onPage(page, 'phone', i);
-      await page.goto(`${H.BASE}/player.html?room=${this.room}&testId=${i}&name=${encodeURIComponent(name)}`);
+      await page.goto(`${H.PLAYER_BASE}/player.html?room=${this.room}&testId=${i}&name=${encodeURIComponent(name)}`);
+      const logs = [];
+      page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
       await page.getByRole('button', { name: /Join Game/i }).click();
-      await page.waitForSelector('#game-screen', { state: 'visible' });
+      if (!(await page.waitForSelector('#game-screen', { state: 'visible', timeout: 15000 }).catch(() => null))) {
+        // Report what the phone showed, then tap Join again like a person would
+        const toast = (await page.locator('#toast').textContent().catch(() => ''))?.trim();
+        const shot = path.join(this.outDir, 'issues', `${this.room}-${name}-join.png`);
+        fs.mkdirSync(path.dirname(shot), { recursive: true });
+        await page.screenshot({ path: shot }).catch(() => {});
+        this.issue('join-failed', `${name}: still on the join screen after 15s (toast: "${toast || 'none'}"; console: ${logs.slice(-3).join(' | ') || 'none'})`, { screenshot: shot });
+        await page.getByRole('button', { name: /Join Game/i }).click().catch(() => {});
+        await page.waitForSelector('#game-screen', { state: 'visible' });
+      }
       this.byName[name] = { name, persona, page };
     }
     const players = await H.playersByName(this.room);
@@ -122,10 +171,6 @@ class Arena {
       this.agents[id].nemesis = others[Math.floor(this.random() * others.length)];
     }
     this.recentTopBids = []; // winning bids revealed so far (public)
-    await this.host.getByRole('button', { name: /Start Game/i }).click();
-    const g = await H.waitForGame(this.room, (x) => (x.phase === 'main' ? x : false), { label: 'main phase' });
-    this.startingChips = Object.values(g.players)[0].chips;
-    this.say(`▶️ Game on — everyone starts with ${this.startingChips} chips`);
   }
 
   hookPage(page, who) {
@@ -149,6 +194,9 @@ class Arena {
     });
   }
 
+  /** Ask play() to wrap up after its current step (join mode never stalls out by itself). */
+  stop() { this.stopped = true; }
+
   async close() {
     for (const c of this.contexts || []) await c.close().catch(() => {});
   }
@@ -158,7 +206,10 @@ class Arena {
   valueFor(pid, giftName) {
     const t = this.taste[pid];
     if (!(giftName in t)) t[giftName] = (this.random() + this.random() + this.random() - 1.5) * 2; // ~N(0, 1.4)
-    const base = this.values[giftName] ?? 5.5; // gifts we didn't name (admin adds) = average
+    // Gifts we didn't name (a person typed them in join mode, or an admin add) get a quality
+    // the first time anyone sees them, like the ones we draw from GIFT_CATALOG
+    this.values[giftName] ??= 1 + Math.floor(this.random() * 10);
+    const base = this.values[giftName];
     return clamp(base + t[giftName], 0, 12);
   }
 
@@ -220,7 +271,7 @@ class Arena {
   async bid(pid, amount) {
     const { page, name } = this.agents[pid];
     await page.locator('#bid-panel').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
-    const ok = await this.click(page, `#bid-quick-buttons button[onclick="setBid(${amount})"]`, name, `bid ${amount}`);
+    const ok = await this.click(page, sel(`bid-${amount}`, `#bid-quick-buttons button[onclick="setBid(${amount})"]`), name, `bid ${amount}`);
     if (ok) await this.click(page, '#submit-bid-btn', name, 'Seal bid');
   }
 
@@ -275,6 +326,7 @@ class Arena {
       }
 
       if (g.phase === 'ended') return this.finish(g, 'ended');
+      if (this.stopped) return this.finish(g, 'stopped');
       // Invariants only on a settled state (host writes gift/owner/turn in separate steps)
       if (!t && Date.now() - lastChange > 1500) {
         for (const e of H.invariantErrors(g)) this.issue('invariant', e);
@@ -309,6 +361,9 @@ class Arena {
     const gifts = g.gifts || {};
     const name = (id) => players[id]?.name || id;
     const A = (key, desc, run) => ({ key, desc, run });
+    // Join mode: a person runs the host page, and people make their own moves
+    const hostA = (key, desc, run) => (this.host ? A(key, desc, run) : null);
+    const agent = (id) => !!this.agents[id];
 
     if (!t) {
       if (g.phase === 'main') {
@@ -316,15 +371,15 @@ class Arena {
         const inBag = ids.filter((id) => !players[id].giftId).length;
         if (wrapped > 0 && inBag > 0) {
           // keyed by turns SEEN (not clicked): the host writes gift → owner → turn in steps
-          return A(`draw#${this.turns}`, 'draw from the sack', async () => {
+          return hostA(`draw#${this.turns}`, 'draw from the sack', async () => {
             await this.click(host, '#btn-draw-player:not([disabled])', 'HOST', 'Draw from Santa\'s Sack');
           });
         }
-        if (inBag > 0) return A('endgame', 'start the endgame', async () => {
+        if (inBag > 0) return hostA('endgame', 'start the endgame', async () => {
           this.say('🎰 All gifts open — Misfit Lottery!');
           await this.click(host, '#btn-endgame:not([disabled])', 'HOST', 'Endgame');
         });
-        return A('end', 'end the game', () => this.click(host, 'button[onclick="endGame()"]', 'HOST', 'End Game for All'));
+        return hostA('end', 'end the game', () => this.click(host, sel('end-game', 'button[onclick="endGame()"]'), 'HOST', 'End Game for All'));
       }
       return null; // endgame: host draws the next player itself
     }
@@ -342,9 +397,10 @@ class Arena {
         if (opened && !this.announced?.has(t.giftId)) {
           (this.announced ||= new Set()).add(t.giftId);
           this.turns++;
-          this.say(`🎁 ${name(t.openerId)} opens "${opened.name}" (quality ${this.values[opened.name] ?? '?'}/10)`, 'gift');
+          this.valueFor(ids.find((id) => this.agents[id]) || t.openerId, opened.name); // assigns its quality
+          this.say(`🎁 ${name(t.openerId)} opens "${opened.name}" (quality ${this.values[opened.name]}/10)`, 'gift');
         }
-        const waiting = ids.find((id) => id !== t.openerId && !t.bids?.[id]);
+        const waiting = ids.find((id) => id !== t.openerId && !t.bids?.[id] && agent(id));
         if (waiting) {
           return A(`${tk}|bid|${waiting}`, `${name(waiting)} bids`, async () => {
             const d = this.agents[waiting].brain.bid(this.view(g, waiting), this.valueFor(waiting, opened.name));
@@ -352,7 +408,8 @@ class Arena {
             await this.bid(waiting, d.amount);
           });
         }
-        return A(`${tk}|reveal`, 'reveal bids', () => this.click(host, 'button[onclick="revealBids()"]', 'HOST', 'Reveal All Bids'));
+        if (ids.some((id) => id !== t.openerId && !t.bids?.[id])) return null; // a person is still bidding
+        return hostA(`${tk}|reveal`, 'reveal bids', () => this.click(host, sel('reveal-bids', 'button[onclick="revealBids()"]'), 'HOST', 'Reveal All Bids'));
       }
 
       case 'reveal': {
@@ -362,6 +419,7 @@ class Arena {
         }
         const opener = t.openerId;
         if (positiveBids.length === 0) {
+          if (!agent(opener)) return null;
           return A(`${tk}|keep-or-gambit`, `${name(opener)} keep/Gambit`, async () => {
             const targets = Object.entries(gifts).filter(([id, x]) => id !== t.giftId && x.ownerId !== opener && players[x.ownerId]);
             const v = this.view(g, opener);
@@ -369,58 +427,103 @@ class Arena {
             this.record(opener, 'keep-or-gambit', d);
             const page = this.agents[opener].page;
             if (d.action === 'gambit') {
-              if (await this.click(page, 'button[onclick="showGambitOptions()"]', name(opener), 'Grinch\'s Gambit')) {
-                if (await this.click(page, `[onclick="executeGambit('${d.giftId}')"]`, name(opener), 'Gambit target')) return;
-                await this.click(page, 'button[onclick="cancelGambit()"]', name(opener), 'Cancel Gambit'); // back to Keep
+              if (await this.click(page, sel('gambit', 'button[onclick="showGambitOptions()"]'), name(opener), 'Grinch\'s Gambit')) {
+                if (await this.click(page, sel(`gambit-target-${d.giftId}`, `[onclick="executeGambit('${d.giftId}')"]`), name(opener), 'Gambit target')) return;
+                await this.click(page, sel('cancel-gambit', 'button[onclick="cancelGambit()"]'), name(opener), 'Cancel Gambit'); // back to Keep
               }
             }
-            await this.click(page, 'button[onclick="keepMyGift()"]', name(opener), 'Keep My Gift');
+            await this.click(page, sel('keep-gift', 'button[onclick="keepMyGift()"]'), name(opener), 'Keep My Gift');
           });
         }
         if (positiveBids.length === 1) {
-          return A(`${tk}|start-duel`, 'start the duel', () => this.click(host, 'button[onclick^="startDuel("]', 'HOST', 'Start Duel'));
+          return hostA(`${tk}|start-duel`, 'start the duel', () => this.click(host, sel('start-duel', 'button[onclick^="startDuel("]'), 'HOST', 'Start Duel'));
         }
+        if (!agent(opener)) return null;
         return A(`${tk}|fight-or-yield`, `${name(opener)} fight/yield`, () => this.fightOrYield(g, opener, opened));
       }
 
       case 'yield_choice':
+        if (!agent(t.openerId)) return null;
         return A(`${tk}|fight-or-yield`, `${name(t.openerId)} fight/yield`, () => this.fightOrYield(g, t.openerId, opened));
       case 'duel_pending':
-        return A(`${tk}|start`, 'start the duel', () => this.click(host, 'button[onclick^="startDuel("]', 'HOST', 'Start Duel!'));
+        return hostA(`${tk}|start`, 'start the duel', () => this.click(host, sel('start-duel', 'button[onclick^="startDuel("]'), 'HOST', 'Start Duel!'));
       case 'yield_pending':
-        return A(`${tk}|start`, 'start the yield duel', () => this.click(host, 'button[onclick^="openerYields("]', 'HOST', 'Start Yield Duel!'));
+        return hostA(`${tk}|start`, 'start the yield duel', () => this.click(host, sel('start-yield-duel', 'button[onclick^="openerYields("]'), 'HOST', 'Start Yield Duel!'));
       case 'tiebreaker_pending':
         // Mini-game tiebreakers start themselves; only the random method has a button
         if ((g.settings?.tiebreakerMethod || 'random') !== 'random') return null;
-        return A(`${tk}|start`, 'start the tiebreaker', () => this.click(host, 'button[onclick^="startTiebreaker("]', 'HOST', 'Start Tiebreaker Duel!'));
+        return hostA(`${tk}|start`, 'start the tiebreaker', () => this.click(host, sel('start-tiebreaker', 'button[onclick^="startTiebreaker("]'), 'HOST', 'Start Tiebreaker Duel!'));
 
       case 'duel': {
         const dk = `${t.challengerId}|${t.defenderId}|${t.giftId}|${!!t.isTiebreak}`;
+        // Which duel gets played (React host: settings.duelPick; the original pages have none)
+        const duelPick = g.settings?.duelPick || 'off';
+        const listed = g.settings?.duelGames; // text, one per line (older games: an array)
+        const tableGames = typeof listed === 'string' ? listed.split('\n').filter((x) => x.trim()).length : Object.values(listed || {}).length;
+        const duelGames = tableGames + Object.values(g.settings?.duelAppGames || {}).length;
+        if (!t.duelGame && duelPick !== 'off' && duelGames > 0) {
+          // who picks: an under-16 duellist (the youngest; a tie → the defender), else the house rule
+          const young = (id) => (typeof players[id]?.age === 'number' && players[id].age < 16 ? players[id].age : null);
+          const c = young(t.challengerId), d = young(t.defenderId);
+          const picker = c != null && (d == null || c < d) ? t.challengerId
+            : d != null ? t.defenderId
+            : duelPick === 'wheel' || t.isYieldDuel || t.isTiebreak ? null : t.defenderId;
+          if (!picker || !agent(picker)) return null; // the host spins / a person picks
+          return A(`${tk}|duel-game`, `${name(picker)} picks the duel`, async () => {
+            const page = this.agents[picker].page;
+            const a = this.agents[picker];
+            if (a.random() < 0.2) {
+              this.record(picker, 'duel-game', { pick: 'wheel', thought: 'lets the wheel decide' });
+              await this.click(page, '[data-testid="duel-game-spin"]', name(picker), 'Let the wheel pick');
+              return;
+            }
+            const i = Math.floor(a.random() * duelGames);
+            this.record(picker, 'duel-game', { pick: i, thought: 'picks the duel' });
+            await this.click(page, `[data-testid="duel-game-${i}"]`, name(picker), 'a duel');
+          });
+        }
+        if (typeof t.wheel?.spunAt === 'number' && Date.now() < t.wheel.spunAt + 5200) return null; // let it stop
+        if (t.duelGameWinner) return null; // an in-app duel game decided it; the host settles it
         // Every spectator decides (vote or not) before the referee calls the duel
         const spectators = t.isTiebreak ? [] : ids.filter((id) =>
-          id !== t.challengerId && id !== t.defenderId && !t.duelVotes?.[id] && !this.voted.has(`${dk}|${id}`));
+          id !== t.challengerId && id !== t.defenderId && !t.duelVotes?.[id] && !this.voted.has(`${dk}|${id}`) && agent(id));
         for (const voter of spectators) {
           this.voted.add(`${dk}|${voter}`);
           const d = this.agents[voter].brain.vote(this.view(g, voter));
           if (!d) continue;
           const pick = d.pick === 'challenger' ? t.challengerId : t.defenderId;
           return A(`${tk}|vote|${voter}`, `${name(voter)} votes`, () =>
-            this.click(this.agents[voter].page, `button[onclick="voteOnDuel('${pick}')"]`, name(voter), 'vote', 4000));
+            this.click(this.agents[voter].page, sel(`vote-${pick}`, `button[onclick="voteOnDuel('${pick}')"]`), name(voter), 'vote', 10000)); // a busy machine can lag the phone behind the wheel
+        }
+        // An in-app duel game (Whack-an-Elf…): the referee starts it, the game decides the winner
+        if (t.duelGame?.kind === 'app') {
+          return hostA(`${tk}|duel-app`, `start ${t.duelGame.name}`, () =>
+            this.click(host, '[data-testid="start-duel-app"]:not([disabled])', 'HOST', `Start ${t.duelGame.name}`));
         }
         const fn = t.isTiebreak ? 'recordTiebreakerWinner' : 'recordDuelWinner';
-        return A(`${tk}|winner`, 'declare the duel winner', async () => {
+        return hostA(`${tk}|winner`, 'declare the duel winner', async () => {
           await sleep(this.watch ? 1800 : 200); // let people see the duel
           const winner = this.random() < 0.5 ? t.challengerId : t.defenderId; // fair coin
           this.say(`⚔️ ${name(t.challengerId)} vs ${name(t.defenderId)}${t.isTiebreak ? ' (tiebreak)' : opened ? ` for "${opened.name}"` : ''} → 🏆 ${name(winner)}`, 'duel');
           // Sealed/Gambit/Reprisal duels show a modal over the turn panel's copy of the buttons
           const modalOpen = await host.locator('#duel-modal-overlay.active').count();
-          const scope = modalOpen ? '#duel-modal-overlay' : '#action-buttons';
-          await this.click(host, `${scope} button[onclick="${fn}('${winner}')"]`, 'HOST', `${name(winner)} wins`);
+          await this.click(host, modalOpen
+            ? sel(`modal-winner-${winner}`, `#duel-modal-overlay button[onclick="${fn}('${winner}')"]`)
+            : sel(`${t.isTiebreak ? 'tiebreak' : 'duel'}-winner-${winner}`, `#action-buttons button[onclick="${fn}('${winner}')"]`), 'HOST', `${name(winner)} wins`);
+          // The TV verdict: let watchers enjoy it, otherwise tap it away
+          if (!t.isTiebreak) {
+            if (this.watch) {
+              await host.locator('#duel-verdict').waitFor({ state: 'attached', timeout: 2500 }).catch(() => {});
+              await host.locator('#duel-verdict').waitFor({ state: 'detached', timeout: 9000 }).catch(() => {});
+            }
+            else await host.locator('#duel-verdict').click({ timeout: 2500 }).catch(() => {});
+          }
         });
       }
 
       case 'reprisal': {
         const pid = t.reprisalPlayerId;
+        if (!agent(pid)) return null;
         return A(`${tk}|reprisal`, `${name(pid)} reprisal`, async () => {
           const v = this.view(g, pid);
           const targets = Object.entries(v.gifts).filter(([id, x]) =>
@@ -428,13 +531,14 @@ class Arena {
           const d = this.agents[pid].brain.reprisal(v, targets);
           this.record(pid, 'reprisal', d, { misfit: d.giftId ? gifts[d.giftId]?.ownerId === 'misfit' : undefined });
           const page = this.agents[pid].page;
-          if (d.giftId && await this.click(page, `[onclick="selectReprisalTarget('${d.giftId}')"]`, name(pid), 'Reprisal target')) return;
-          await this.click(page, 'button[onclick="skipReprisal()"]', name(pid), 'Skip Reprisal');
+          if (d.giftId && await this.click(page, sel(`reprisal-target-${d.giftId}`, `[onclick="selectReprisalTarget('${d.giftId}')"]`), name(pid), 'Reprisal target')) return;
+          await this.click(page, sel('skip-reprisal', 'button[onclick="skipReprisal()"]'), name(pid), 'Skip Reprisal');
         });
       }
 
       case 'endgame_choice': {
         const pid = t.activePlayerId;
+        if (!agent(pid)) return null;
         return A(`${tk}|path`, `${name(pid)} picks a path`, async () => {
           const v = this.view(g, pid);
           const steal = Object.entries(v.gifts).filter(([, x]) => x.ownerId !== pid && players[x.ownerId]);
@@ -442,23 +546,24 @@ class Arena {
           this.record(pid, 'endgame-path', d, { misfit: t.misfitName });
           (this.stealPlan ||= {})[tk.replace('endgame_choice', 'endgame_steal_select')] = d.giftId;
           const page = this.agents[pid].page;
-          if (d.path === 'steal' && await this.click(page, 'button[onclick="showEndgameStealOptions()"]', name(pid), 'Path A')) return;
-          await this.click(page, 'button[onclick="startEndgameAuction()"]', name(pid), 'Path B');
+          if (d.path === 'steal' && await this.click(page, sel('path-a', 'button[onclick="showEndgameStealOptions()"]'), name(pid), 'Path A')) return;
+          await this.click(page, sel('path-b', 'button[onclick="startEndgameAuction()"]'), name(pid), 'Path B');
         });
       }
 
       case 'endgame_steal_select': {
         const pid = t.activePlayerId;
+        if (!agent(pid)) return null;
         return A(`${tk}|steal`, `${name(pid)} steals`, async () => {
           const target = this.stealPlan?.[tk];
           const page = this.agents[pid].page;
-          if (target && await this.click(page, `[onclick="executeEndgameSteal('${target}')"]`, name(pid), 'steal target')) return;
-          await this.click(page, 'button[onclick="cancelEndgameSteal()"]', name(pid), 'Cancel steal');
+          if (target && await this.click(page, sel(`steal-target-${target}`, `[onclick="executeEndgameSteal('${target}')"]`), name(pid), 'steal target')) return;
+          await this.click(page, sel('cancel-steal', 'button[onclick="cancelEndgameSteal()"]'), name(pid), 'Cancel steal');
         });
       }
 
       case 'endgame_bidding': {
-        const waiting = ids.find((id) => id !== t.activePlayerId && !t.bids?.[id]);
+        const waiting = ids.find((id) => id !== t.activePlayerId && !t.bids?.[id] && agent(id));
         if (waiting) {
           return A(`${tk}|bid|${waiting}`, `${name(waiting)} bids on the Misfit`, async () => {
             const d = this.agents[waiting].brain.bid(this.view(g, waiting), this.valueFor(waiting, t.misfitName));
@@ -466,25 +571,27 @@ class Arena {
             await this.bid(waiting, d.amount);
           });
         }
-        return A(`${tk}|reveal`, 'reveal auction bids', () =>
-          this.click(host, 'button[onclick="revealEndgameAuctionBids()"]', 'HOST', 'Reveal Bids'));
+        if (ids.some((id) => id !== t.activePlayerId && !t.bids?.[id])) return null; // a person is still bidding
+        return hostA(`${tk}|reveal`, 'reveal auction bids', () =>
+          this.click(host, sel('reveal-auction', 'button[onclick="revealEndgameAuctionBids()"]'), 'HOST', 'Reveal Bids'));
       }
 
       case 'endgame_reveal':
-        return A(`${tk}|duel`, 'duel the highest bidder', () =>
-          this.click(host, 'button[onclick^="startEndgameAuctionDuel("]', 'HOST', 'Duel Highest Bidder'));
+        return hostA(`${tk}|duel`, 'duel the highest bidder', () =>
+          this.click(host, sel('auction-duel', 'button[onclick^="startEndgameAuctionDuel("]'), 'HOST', 'Duel Highest Bidder'));
 
       case 'endgame_nobids': {
         const pid = t.activePlayerId;
+        if (!agent(pid)) return null;
         return A(`${tk}|defender`, `${name(pid)} picks a defender`, async () => {
           const page = this.agents[pid].page;
-          const sel = '[onclick^="executeNoBidsDuel("]';
-          await page.locator(sel).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
-          const candidates = await page.locator(sel).evaluateAll((els) =>
-            els.map((e) => (e.getAttribute('onclick').match(/'([^']+)'/) || [])[1]).filter(Boolean));
+          const pickSel = '[data-testid^="nobids-defender-"], [onclick^="executeNoBidsDuel("]';
+          await page.locator(pickSel).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+          const candidates = await page.locator(pickSel).evaluateAll((els) => els.map((e) =>
+            e.dataset.testid?.slice('nobids-defender-'.length) || (e.getAttribute('onclick')?.match(/'([^']+)'/) || [])[1]).filter(Boolean));
           const d = this.agents[pid].brain.noBidsDefender(this.view(g, pid), candidates);
           this.record(pid, 'nobids-defender', d);
-          if (d.playerId) await this.click(page, `[onclick="executeNoBidsDuel('${d.playerId}')"]`, name(pid), 'defender');
+          if (d.playerId) await this.click(page, sel(`nobids-defender-${d.playerId}`, `[onclick="executeNoBidsDuel('${d.playerId}')"]`), name(pid), 'defender');
           else this.issue('dead-end', `${name(pid)}: no-bids Misfit duel but no defender to pick`);
         });
       }
@@ -492,6 +599,7 @@ class Arena {
       case 'minigame_party': return this.partyAction(g, A);
 
       case 'minigame_draw_off':
+        if (!this.host) return null; // people draw this one; the agents sit it out
         this.issue('unsupported', 'AI Draw Off is not agent-driven (needs the AI critic) — use another tiebreaker method');
         return null;
 
@@ -515,9 +623,10 @@ class Arena {
         const r = mg.results;
         this.say(`🎉 ${r.winners.map(name).join(' & ')} win${r.winners.length > 1 ? '' : 's'} the tie${r.bonus ? ` · Elf Bonus → ${name(r.bonus)}` : ''}`, 'duel');
       }
+      if (!this.host) return null;
       return A(mk, mg.phase === 'intro' ? 'start the party game' : 'continue to the duel', async () => {
         await sleep(this.watch ? 4000 : 300); // let people read the rules / results
-        await this.click(this.host, 'button[onclick="skipPartyPhase()"]', 'HOST', 'Skip ahead');
+        await this.click(this.host, sel('skip-party-phase', 'button[onclick="skipPartyPhase()"]'), 'HOST', 'Skip ahead');
       });
     }
     if (mg.phase === 'playing' && mg.type === 'whack_elf') {
@@ -598,7 +707,7 @@ class Arena {
     this.record(opener, 'fight-or-yield', d);
     const page = this.agents[opener].page;
     const fn = d.action === 'yield' ? 'openerChooseYield' : 'openerChooseFight';
-    await this.click(page, `button[onclick^="${fn}("]`, g.players[opener].name, d.action === 'yield' ? 'Yield!' : 'Fight!');
+    await this.click(page, sel(d.action === 'yield' ? 'yield' : 'fight', `button[onclick^="${fn}("]`), g.players[opener].name, d.action === 'yield' ? 'Yield!' : 'Fight!');
   }
 
   // --- results ------------------------------------------------------------------
@@ -607,7 +716,7 @@ class Arena {
     const dir = path.join(this.outDir, `stuck-${this.room}`);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(g, null, 2));
-    await this.host.screenshot({ path: path.join(dir, 'host.png') }).catch(() => {});
+    await this.host?.screenshot({ path: path.join(dir, 'host.png') }).catch(() => {});
     for (const a of Object.values(this.agents)) await a.page.screenshot({ path: path.join(dir, `${a.name}.png`) }).catch(() => {});
     this.say(`🧊 STUCK — snapshot in ${dir}`, 'warn');
     return dir;

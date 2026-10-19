@@ -2044,11 +2044,8 @@
         // Non-breaking until the rules are deployed AND the Anonymous provider is enabled
         // in the Firebase console (Authentication → Sign-in method → Anonymous → Enable).
         const auth = connectGameAuth();
-        const authReady = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .catch(() => {})
-            .then(() => auth.signInAnonymously())
-            .then(cred => (cred && cred.user) || auth.currentUser || null)
-            .catch(err => { console.error('Anonymous auth failed (enable the Anonymous provider in the Firebase console):', err && (err.code || err.message || err)); return null; });
+        const signedIn = anonymousSignIn(auth, firebase.auth.Auth.Persistence.LOCAL);
+        signedIn(); // start early so it is usually done before anyone taps a button
         function currentUid() { return (auth.currentUser && auth.currentUser.uid) || null; }
 
         // Debug mode toggle
@@ -2141,7 +2138,7 @@ minigameModalListener: null
             const savedHostId = localStorage.getItem('jingleBrawl_host_id');
 
             // Sign in before resuming host writes (rules gate host-only writes on hostUid).
-            await authReady;
+            await signedIn();
 
             gameState.roomCode = roomCode;
             gameState.hostId = savedHostId;
@@ -2237,7 +2234,7 @@ minigameModalListener: null
 
             // Ensure we are signed in so the game is stamped with the host's uid (hostUid),
             // which the security rules use to authorize host-only writes.
-            await authReady;
+            await signedIn();
 
             // Atomically claim an unused room code. The transaction only writes if the
             // code is free (current === null), so a collision can never wipe a live game.

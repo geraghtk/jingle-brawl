@@ -51,6 +51,9 @@
    * onLand(n) fires as each chip arrives; onDone once all have.
    */
   window.flyChips = function ({ from, to, count, size = 34, stagger = 90, duration = 950, onLand, onDone }) {
+    // Announce the flight (tests / the agent harness listen for it)
+    const label = (t) => (t instanceof Element ? t.dataset.duelCorner || t.dataset.playerId || t.id || null : null);
+    document.dispatchEvent(new CustomEvent('jb:chips', { detail: { from: label(from), to: label(to), count } }));
     const a = centerOf(from);
     const b = centerOf(to);
     const n = Math.max(0, Math.min(count | 0, 12));

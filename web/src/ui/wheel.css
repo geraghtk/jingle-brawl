@@ -1,0 +1,19 @@
+/* The duel wheel (TV + phones). Ink rim, Frost slices, a pointer at the top. */
+.duel-wheel { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0 auto; max-width: 100%; }
+.duel-wheel svg { display: block; max-width: 100%; height: auto; overflow: visible; filter: drop-shadow(5px 6px 0 rgba(13, 16, 24, 0.9)); }
+.wheel-disc { transform-origin: 0 0; transition-property: transform; transition-timing-function: cubic-bezier(0.12, 0.6, 0.08, 1); }
+.wheel-disc text { font-family: 'Manrope', system-ui, sans-serif; pointer-events: none; }
+.wheel-pointer {
+  position: absolute; top: -6px; left: 50%; z-index: 1; transform: translateX(-50%);
+  width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+  border-top: 26px solid #0d1018; filter: drop-shadow(0 2px 0 #fff);
+}
+.duel-wheel.stopped .wheel-win path { stroke: #fff; stroke-width: 3; }
+.wheel-result {
+  margin-top: 14px; padding: 6px 16px; border-radius: 999px; background: #0d1018; color: #fff;
+  font: 700 18px 'Space Grotesk', system-ui, sans-serif; letter-spacing: -0.01em; min-height: 1.4em;
+}
+.duel-wheel.spinning .wheel-result { background: transparent; color: inherit; opacity: 0.7; }
+.duel-wheel.stopped .wheel-result { animation: wheelLand 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes wheelLand { from { transform: scale(0.7); } }
+@media (prefers-reduced-motion: reduce) { .wheel-disc { transition: none; } .duel-wheel.stopped .wheel-result { animation: none; } }

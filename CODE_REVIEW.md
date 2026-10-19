@@ -107,6 +107,15 @@ Kevin chose to keep the app's behaviour and update `Jingle Brawl V2.md`, `Jingle
 | Swap with 2 gifts | loser chooses which to Misfit | loser's original is auto-Misfited |
 | Head Elf rotation | Misfit loser becomes Head Elf | table play only; the host screen draws |
 
+Added later the same day (from a host + one-phone play-test), and written into all four rule docs:
+duel methods are listed at setup and the Defender picks one on their phone (or spins the wheel);
+yield and tiebreak duels always spin; spectators call the duel once it's known, and the host's
+winner buttons wait for their votes (30 s by default, or "Close voting now").
+
+The V2 "Under-16 Exception" is in the app too: joining, a phone can tick "I'm under 16" and give
+an age (adults are never asked). A duellist under 16 then picks the duel — the youngest if both
+are, the Defender on a tie — overriding the Defender and the wheel (yield/tiebreak duels too).
+
 Still not modelled: chip supply is not conserved (tax deletes chips, the dividend mints
 them — there is no stored bank).
 

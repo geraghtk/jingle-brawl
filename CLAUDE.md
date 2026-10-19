@@ -18,6 +18,8 @@ npm run test:flows               # game-flow permutations only
 npm run test:e2e:ui / :headed    # visual debugging
 cd functions && npm test         # Cloud Function parser unit tests
 python -m unittest discover -s tests   # ai_art_critic.py unit tests
+npm run test:unit                # rules engine + economics (vitest: web/src/core, web/src/sim)
+npm run analyze:economics        # game-theory report: deviation matrix, chip flows (see ECONOMICS.md)
 
 npm run agents:watch             # persona agents play a real game, streamed to one window
 npm run agents:sweep             # all settings presets × N headless games → agents/reports/…/summary.md
@@ -74,6 +76,10 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 - Target-legality helpers exist on both sides — `reprisalTargets()` / `gambitTargets()` / `topTiedBidders()` — use them instead of re-filtering gifts.
 - Inline `onclick` strings must only interpolate ids, never names (names may contain quotes).
 - Escape user/AI text with `escapeHtml()` before `innerHTML`.
+
+## Economics
+
+`ECONOMICS.md` + `web/src/sim/` (in-memory games through the real engine): the chip ledger must balance; incentive findings are pinned in `web/src/sim/economics.test.ts`. Key fact: leftover chips are worthless at the end, but the standings rank by chips — which of the two players play for flips the equilibrium. A rule change that moves chips or bids should re-run `npm run analyze:economics`.
 
 ## Game Rules Reference
 

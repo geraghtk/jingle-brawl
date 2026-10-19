@@ -1,0 +1,250 @@
+// The host sidebar: Game (controls, stats, quick actions) · Event log · Admin.
+import { useState } from 'react';
+import * as A from '../core/actions';
+import * as Admin from '../core/admin';
+import { startEndgame } from '../core/duel';
+import { pick, rng } from '../core/rng';
+import { giftless, wrappedGifts } from '../core/rules';
+import { MISFIT } from '../core/types';
+import { useHost } from './HostContext';
+import { useModal } from './Modal';
+
+type Tab = 'game' | 'events' | 'admin';
+
+export function Sidebar({ onExit }: { onExit: () => void }) {
+  const [tab, setTab] = useState<Tab>('game');
+  return (
+    <div className="sidebar">
+      <div className="sidebar-tab-bar">
+        {(['game', 'events', 'admin'] as Tab[]).map((t) => (
+          <button key={t} type="button" className={`sidebar-tab-btn${tab === t ? ' active' : ''}`} data-tab={t} onClick={() => setTab(t)}>
+            {t === 'game' ? 'Game' : t === 'events' ? 'Event log' : 'Admin'}
+          </button>
+        ))}
+      </div>
+      <div className="sidebar-tab-panels">
+        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /></div>
+        <div id="tab-events" className={`sidebar-tab-panel${tab === 'events' ? ' active' : ''}`}><EventLog /></div>
+        <div id="tab-admin" className={`sidebar-tab-panel${tab === 'admin' ? ' active' : ''}`}><AdminPanel /></div>
+      </div>
+    </div>
+  );
+}
+
+function GameTab({ onExit }: { onExit: () => void }) {
+  const { game, act } = useHost();
+  const setModal = useModal();
+  const players = Object.keys(game.players || {}).length;
+  const wrapped = wrappedGifts(game);
+  const bag = giftless(game).length;
+  const busy = !!game.currentTurn;
+  const gifts = Object.values(game.gifts || {});
+  const canDraw = !busy && wrapped > 0 && bag > 0;
+  const canEndgame = wrapped === 0 && bag > 0 && game.phase !== 'endgame' && !busy;
+  const drawLabel = busy ? '⏳ Turn in Progress...' : wrapped === 0 ? '🎁 All Gifts Opened' : bag === 0 ? '👥 Bag Empty' : "🎅 Draw from Santa's Sack";
+
+  const draw = () => {
+    // The prompt names who's drawn: preview with the same seed the plan then draws with
+    const seed = Date.now() ^ Math.floor(Math.random() * 1e9);
+    const who = game.players?.[pick(giftless(game), rng(seed))]?.name || 'Someone';
+    const giftName = prompt(`🎅 ${who} was drawn!\n\nEnter the gift they're opening:`);
+    if (!giftName) return;
+    act((g) => A.drawGift(g, giftName, `gift_${Date.now()}`, { now: Date.now(), rng: rng(seed) }));
+  };
+
+  return (
+    <>
+      <div className="card" id="controls-card">
+        <div className="card-title">Controls</div>
+        {game.phase === 'lobby' ? (
+          <div id="lobby-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', margin: '0.25rem 0' }}>Waiting in the lobby — start the game from the room-code card.</p>
+          </div>
+        ) : (
+          <div id="game-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button className="btn btn-gold" id="btn-draw-player" data-testid="draw" disabled={!canDraw} onClick={draw} style={{ fontSize: '1.1rem', padding: '1.25rem' }}>{drawLabel}</button>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setModal(<AddGiftModal onClose={() => setModal(null)} />)}>Add Gift</button>
+              <button className="btn btn-secondary" id="btn-endgame" data-testid="endgame" disabled={!canEndgame} style={{ flex: 1 }} onClick={() => act(startEndgame)}>
+                {game.phase === 'endgame' ? '🎰 In Endgame' : 'Endgame'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="card" id="stats-card">
+        <div className="card-title">Game stats</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          {([['stat-wrapped', wrapped, 'Wrapped', 'gold'], ['stat-opened', gifts.filter((g) => g.ownerId !== MISFIT).length, 'Opened', 'green'],
+            ['stat-in-bag', players ? bag : 0, 'In Bag', 'blue'], ['stat-misfit', gifts.filter((g) => g.ownerId === MISFIT).length, 'Misfit', 'red']] as const).map(([id, v, label, c]) => (
+            <div key={id} style={{ background: 'var(--bg-card-hover)', padding: '0.75rem', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: `var(--accent-${c})` }} id={id}>{v}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-title">Quick actions</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <button className="btn btn-secondary" onClick={() => window.open('quick-reference.html', '_blank')}>Quick Reference</button>
+          <button className="btn btn-secondary" onClick={() => { if (confirm('Exit this game? You can rejoin later if you refresh.')) onExit(); }}>Exit Game</button>
+          <button className="btn btn-danger" data-testid="end-game" onClick={() => { if (confirm('Are you sure you want to end the game?')) act(A.endGame); }}>End Game for All</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AddGiftModal({ onClose }: { onClose: () => void }) {
+  const { game, act } = useHost();
+  const [name, setName] = useState('');
+  const [owner, setOwner] = useState<string>(MISFIT);
+  return (
+    <>
+      <h2>➕ Add Gift Manually</h2>
+      <div style={{ textAlign: 'left', marginTop: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Gift Name</label>
+        <input type="text" id="manual-gift-name" value={name} onChange={(e) => setName(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card-hover)' }} />
+      </div>
+      <div style={{ textAlign: 'left', marginTop: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Owner</label>
+        <select id="manual-gift-owner" value={owner} onChange={(e) => setOwner(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card-hover)' }}>
+          <option value={MISFIT}>🧸 Misfit Pile</option>
+          {Object.entries(game.players || {}).map(([id, p]) => <option key={id} value={id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
+        <button className="btn btn-primary" onClick={async () => { if (await act((g) => Admin.addGift(g, `gift_${Date.now()}`, name, owner, Date.now()))) onClose(); }}>Add Gift</button>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+      </div>
+    </>
+  );
+}
+
+function EventLog() {
+  const { log, debug, setDebug, addEvent } = useHost();
+  return (
+    <div className="card">
+      <div className="card-title">Event log</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <span />
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <input type="checkbox" id="debug-log-toggle" checked={debug} onChange={(e) => { setDebug(e.target.checked); if (e.target.checked) addEvent('🔍 Detailed debug logging enabled', 'gift'); }} />
+          Detailed Debug Log
+        </label>
+      </div>
+      <div className="event-log" id="event-log">
+        {log.map((e, i) => (
+          <div key={`${e.at}-${i}`} className={`event ${e.kind}`}>
+            <div>{e.text}</div>
+            <div className="time">{new Date(e.at).toLocaleTimeString()}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const field = { padding: '0.25rem', borderRadius: 4, background: 'var(--bg-card)', border: '1px solid var(--border)' };
+
+function AdminPanel() {
+  const { game, act, snapshot, clearSnapshot } = useHost();
+  const [open, setOpen] = useState(false);
+  const [pid, setPid] = useState('');
+  const [chips, setChips] = useState(0);
+  const [gid, setGid] = useState('');
+  const [edit, setEdit] = useState({ name: '', naughty: 0, owner: '' });
+  const [newGift, setNewGift] = useState('');
+  const players = Object.entries(game.players || {});
+  const gifts = Object.entries(game.gifts || {});
+  const now = () => Date.now();
+
+  const loadGift = (id: string) => {
+    setGid(id);
+    const g = game.gifts?.[id];
+    if (g) setEdit({ name: g.name, naughty: g.naughtyLevel || 0, owner: g.ownerId !== MISFIT ? g.ownerId : '' });
+  };
+
+  return (
+    <>
+      <div className="card" id="debug-panel" style={{ border: '2px dashed var(--accent-gold)' }}>
+        <div className="card-title">🤖 Bots &amp; auto-pilot</div>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Replaced by the agent play-testing harness: <code>npm run agents:watch</code> plays a whole game with persona agents on real phones.
+        </div>
+      </div>
+      <div className="card" id="admin-panel" style={{ border: '2px solid var(--accent-red)' }}>
+        <div className="card-title" style={{ cursor: 'pointer' }} onClick={() => setOpen(!open)}>⚙️ Host Admin <span id="admin-toggle-icon">{open ? '▲' : '▼'}</span></div>
+        {open && (
+          <div id="admin-content" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" title="Force skip current phase" onClick={() => { if (confirm('Skip current phase? This may cause unexpected state.')) act(Admin.resetTurn); }}>⏭️ Skip Phase</button>
+              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) act(Admin.resetTurn); }}>🔄 Reset Turn</button>
+              <button className="btn btn-secondary" title="Undo the last duel" onClick={() => {
+                if (!snapshot) return alert('No state to undo. Undo captures state before each duel is resolved.');
+                if (confirm('Restore players and gifts to before the last duel?')) { act((g) => Admin.restore(g, snapshot)); clearSnapshot(); }
+              }}>↩️ Undo</button>
+            </div>
+
+            <div style={{ background: 'var(--bg-card-hover)', padding: '0.75rem', borderRadius: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>👤 Edit Player</div>
+              <select id="admin-player-select" value={pid} style={{ width: '100%', padding: '0.5rem', borderRadius: 6, marginBottom: '0.5rem' }}
+                onChange={(e) => { setPid(e.target.value); setChips(game.players?.[e.target.value]?.chips ?? 0); }}>
+                <option value="">Select player...</option>
+                {players.map(([id, p]) => <option key={id} value={id}>{p.name} (🪙{p.chips})</option>)}
+              </select>
+              {pid && (
+                <div id="admin-player-controls">
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flex: 1 }}>🪙 <input type="number" id="admin-player-chips" min={0} max={99} value={chips} onChange={(e) => setChips(parseInt(e.target.value) || 0)} style={{ ...field, width: 60 }} /></label>
+                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => act((g) => Admin.setChips(g, pid, chips))}>Save</button>
+                  </div>
+                  <button className="btn btn-secondary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.removePlayerGift(g, pid, now()))}>🎁 Remove Gift</button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: 'var(--bg-card-hover)', padding: '0.75rem', borderRadius: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>🎁 Edit Gift</div>
+              <select id="admin-gift-select" value={gid} style={{ width: '100%', padding: '0.5rem', borderRadius: 6, marginBottom: '0.5rem' }} onChange={(e) => loadGift(e.target.value)}>
+                <option value="">Select gift...</option>
+                {gifts.map(([id, g]) => <option key={id} value={id}>{g.name} ({g.ownerId === MISFIT ? 'Misfit' : game.players?.[g.ownerId]?.name || 'Unknown'}, 😈{g.naughtyLevel || 0})</option>)}
+              </select>
+              {gid && game.gifts?.[gid] && (
+                <div id="admin-gift-controls">
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <input type="text" id="admin-gift-name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} style={{ ...field, flex: 1 }} />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>😈 <input type="number" id="admin-gift-naughty" min={0} max={20} value={edit.naughty} onChange={(e) => setEdit({ ...edit, naughty: parseInt(e.target.value) || 0 })} style={{ ...field, width: 50 }} /></label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <select id="admin-gift-owner" value={edit.owner} onChange={(e) => setEdit({ ...edit, owner: e.target.value })} style={{ ...field, flex: 1 }}>
+                      <option value="">No owner (Misfit)</option>
+                      {players.map(([id, p]) => <option key={id} value={id}>{p.name}</option>)}
+                    </select>
+                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => act((g) => Admin.saveGift(g, gid, { name: edit.name, naughtyLevel: edit.naughty, ownerId: edit.owner || null }, now()))}>Save</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-secondary" data-testid="admin-to-misfit" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.moveGiftToMisfit(g, gid, now()))}>📦 → Misfit Pile</button>
+                    <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem', background: 'var(--accent-red)' }}
+                      onClick={() => { if (confirm(`Delete "${game.gifts?.[gid]?.name}"? This cannot be undone.`)) { act((g) => Admin.deleteGift(g, gid)); setGid(''); } }}>🗑️ Delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: 'var(--bg-card-hover)', padding: '0.75rem', borderRadius: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>➕ Add Gift</div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input type="text" id="admin-new-gift-name" placeholder="Gift name" value={newGift} onChange={(e) => setNewGift(e.target.value)} style={{ ...field, flex: 1, padding: '0.5rem' }} />
+                <button className="btn btn-primary" onClick={async () => { if (await act((g) => Admin.addGift(g, `gift_${Date.now()}`, newGift, MISFIT, now()))) setNewGift(''); }}>Add</button>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>⚠️ Use with caution - changes are immediate</div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+

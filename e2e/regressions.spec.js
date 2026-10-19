@@ -36,6 +36,10 @@ async function keepRound(host, roomCode, pages, giftName) {
   return opener;
 }
 
+/** Strokes on a phone's Draw Off canvas (React: data-strokes; original page: a global). */
+const strokeCount = (page) => page.evaluate(
+  "Number(document.querySelector('#drawing-canvas')?.dataset.strokes ?? drawingStrokes.length)");
+
 const giftByName = (game, name) => {
   const entry = Object.entries(game.gifts || {}).find(([, g]) => g.name === name);
   return entry ? { id: entry[0], ...entry[1] } : null;
@@ -389,14 +393,14 @@ test.describe('Regressions (2026-10 review)', () => {
       await artist.mouse.down();
       for (let i = 1; i <= 10; i++) await artist.mouse.move(box.x + 20 + i * 10, box.y + 20 + i * 5);
       await artist.mouse.up();
-      const strokesBefore = await artist.evaluate('drawingStrokes.length');
+      const strokesBefore = await strokeCount(artist);
       expect(strokesBefore).toBeGreaterThan(0);
 
       await pages[c2].getByRole('button', { name: /Submit Drawing/ }).click();
       await H.waitForGame(roomCode, (g) => (g.minigame?.submissions && Object.keys(g.minigame.submissions).length === 1 ? g : false),
         { label: 'one submission' });
       await artist.waitForTimeout(1000);
-      expect(await artist.evaluate('drawingStrokes.length')).toBe(strokesBefore);
+      expect(await strokeCount(artist)).toBe(strokesBefore);
       assertNoPageErrors();
     } finally {
       await cleanup();
@@ -536,7 +540,7 @@ test.describe('Regressions (2026-10 review)', () => {
 
       await host.getByRole('button', { name: /Reveal Bids/ }).click();
       await H.waitForTurnPhase(roomCode, 'endgame_nobids');
-      await expect(pages.Charlie.locator(`[onclick="executeNoBidsDuel('${p.Alice.id}')"]`)).toBeVisible();
+      await expect(pages.Charlie.locator(`[data-testid="nobids-defender-${p.Alice.id}"], [onclick="executeNoBidsDuel('${p.Alice.id}')"]`)).toBeVisible();
       assertNoPageErrors();
     } finally {
       await cleanup();
@@ -547,8 +551,24 @@ test.describe('Regressions (2026-10 review)', () => {
   test('Base Challenge Cost "0 + Naughty" makes a Naughty-2 gift cost 2 on host and phones', async ({ browser }) => {
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'base-cost': '0' });
     try {
-      await expect.poll(() => host.evaluate(() => GAME_CONFIG.getMinCost(2))).toBe(2);
-      await expect.poll(() => pages.Alice.evaluate(() => GAME_CONFIG.getMinCost(2))).toBe(2);
+      // Bob and Charlie hold gifts, so the draw lands on Alice; nobody bids → Alice Gambits
+      const p = await H.playersByName(roomCode);
+      await H.dbPatch(roomCode, {
+        'gifts/gB': { name: 'Naughty Two', ownerId: p.Bob.id, naughtyLevel: 2, createdAt: 1 },
+        'gifts/gC': { name: 'Plain One', ownerId: p.Charlie.id, naughtyLevel: 0, createdAt: 2 },
+        [`players/${p.Bob.id}/giftId`]: 'gB', [`players/${p.Charlie.id}/giftId`]: 'gC',
+      });
+      const turn = await H.drawGift(host, roomCode, 'Third Gift');
+      expect(turn.openerId).toBe(p.Alice.id);
+      await H.allBid(pages, 'Alice', {});
+      await H.revealBids(host);
+      await pages.Alice.getByRole('button', { name: /Grinch's Gambit/ }).click();
+      const card = pages.Alice.locator('#status-card');
+      await expect(card.locator('.action-option', { hasText: 'Naughty Two' })).toContainText('2 chips');
+      await expect(card.locator('.action-option', { hasText: 'Plain One' })).toContainText('0 chip');
+      if (await host.evaluate(() => typeof GAME_CONFIG !== 'undefined')) { // the original host page
+        expect(await host.evaluate(() => GAME_CONFIG.getMinCost(2))).toBe(2);
+      }
       assertNoPageErrors();
     } finally {
       await cleanup();
@@ -672,12 +692,7 @@ test.describe('Regressions (2026-10 review)', () => {
     try {
       await host.evaluate(() => {
         window.__flights = [];
-        const real = window.flyChips;
-        window.flyChips = (o) => {
-          const who = (el) => el?.dataset?.duelCorner || el?.dataset?.playerId || null;
-          window.__flights.push({ from: who(o.from), to: who(o.to), count: o.count });
-          return real(o);
-        };
+        document.addEventListener('jb:chips', (e) => window.__flights.push(e.detail));
       });
       const turn = await H.drawGift(host, roomCode, 'Flight Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
@@ -686,13 +701,82 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.revealBids(host);
       await H.clickStartDuel(host);
       await H.waitForTurnPhase(roomCode, 'duel');
-      await H.declareWinner(host, opener); // defender wins the 2-chip pot
+      await H.declareWinner(host, opener, { keepVerdict: true }); // defender wins the 2-chip pot
 
       const p = await H.playersByName(roomCode);
-      await expect.poll(() => host.evaluate(() => window.__flights)).toContainEqual({ from: p[bidder].id, to: p[opener].id, count: 2 });
+      // drawn: the chips really animate on screen (they used to fly between small tiles below the
+      // fold — and the old check passed even when nothing was drawn)
+      const flights = (x) => x.filter((f) => f.from === p[bidder].id && f.to === p[opener].id && f.count === 2);
+      await expect.poll(async () => flights(await host.evaluate(() => window.__flights)).map((f) => f.drawn)).toEqual([2]);
+      // …as part of the TV verdict: the winner, what they won, their chips counting up
+      const verdict = host.locator('#duel-verdict');
+      await expect(verdict).toBeVisible();
+      await expect(verdict.locator('.verdict-name')).toHaveText(opener);
+      await expect(verdict.locator('.verdict-outcome')).toHaveText('keeps the Flight Gift');
+      await expect(verdict.getByTestId('verdict-winner-chips')).toHaveText('12');
       await expect(pages[opener].locator('#verdict-party')).toHaveText(`from ${bidder}`);
       await expect(pages[bidder].locator('#verdict-party')).toHaveText(`to ${opener}`);
       await expect(pages[opener].locator('#verdict-chips')).toHaveText('12'); // 10 + pot 2, after the chips land
+      await expect(verdict).toBeHidden({ timeout: 10000 }); // and it clears itself
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // Found by play-testing as host + one phone: the host's "X wins" was live the moment the duel
+  // started, so the duel was over before the table could vote.
+  test('duel voting: the host cannot call the duel until every spectator has voted', async ({ browser }) => {
+    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
+    const names = ['Alice', 'Bob', 'Charlie', 'Dana'];
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'vote-window': '60' }, names);
+    try {
+      const turn = await H.drawGift(host, roomCode, 'Vote Gift');
+      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+      const [bidder, ...spectators] = names.filter((n) => n !== opener);
+      await H.allBid(pages, opener, { [bidder]: 1 });
+      await H.revealBids(host);
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      const p = await H.playersByName(roomCode);
+
+      const gate = host.getByTestId('vote-gate');
+      const winBtn = host.getByTestId(`modal-winner-${p[opener].id}`);
+      await expect(gate).toContainText('0/2');
+      await expect(winBtn).toBeDisabled();
+
+      await pages[spectators[0]].getByTestId(`vote-${p[opener].id}`).click();
+      await expect(gate).toContainText('1/2');
+      await expect(winBtn).toBeDisabled(); // one still deciding
+
+      await pages[spectators[1]].getByTestId(`vote-${p[bidder].id}`).click();
+      await expect(gate).toContainText('Votes are in');
+      await expect(winBtn).toBeEnabled();
+      await H.declareWinner(host, opener, { keepVerdict: true });
+      await expect(host.getByTestId('verdict-callers')).toHaveText(`Called it: ${spectators[0]}`);
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test('duel voting: the host can close voting early; the phone then stops taking votes', async ({ browser }) => {
+    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'vote-window': '60' });
+    try {
+      const turn = await H.drawGift(host, roomCode, 'Close Gift');
+      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+      const [bidder, spectator] = NAMES.filter((n) => n !== opener);
+      await H.allBid(pages, opener, { [bidder]: 1 });
+      await H.revealBids(host);
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      const p = await H.playersByName(roomCode);
+      await expect(host.getByTestId(`modal-winner-${p[opener].id}`)).toBeDisabled();
+      await host.getByTestId('close-voting').click();
+      await expect(host.getByTestId(`modal-winner-${p[opener].id}`)).toBeEnabled();
+      await expect(pages[spectator].getByTestId(`vote-${p[opener].id}`)).toHaveCount(0);
+      await expect(pages[spectator].locator('#status-card')).toContainText('Voting closed');
       assertNoPageErrors();
     } finally {
       await cleanup();
@@ -728,12 +812,22 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test('?mascots=0 keeps the mascots away', async ({ page }) => {
-    await page.goto(`${H.BASE}/rules.html?mascots=0`);
-    await page.addScriptTag({ url: `${H.BASE}/mascots.js` });
-    await page.evaluate(() => Mascots.say('santa', 'hello'));
-    await page.waitForTimeout(800);
-    await expect(page.locator('[data-mascot]')).toHaveCount(0);
+  test('?mascots=0 keeps the mascots away', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const host = await ctx.newPage();
+    await host.goto(`${H.BASE}/host.html?mascots=0`);
+    await host.getByRole('button', { name: /Create New Game/i }).click();
+    await host.waitForSelector('#game-screen', { state: 'visible' });
+    const roomCode = (await host.locator('#room-code-display').textContent()).trim();
+    const { contexts } = await H.joinPlayers(browser, roomCode, ['Alice', 'Bob']);
+    try {
+      await H.startGame(host, roomCode); // Santa would say "Ho ho ho" here
+      await host.waitForTimeout(2500);
+      await expect(host.locator('[data-mascot]')).toHaveCount(0);
+    } finally {
+      await ctx.close();
+      for (const c of contexts) await c.close();
+    }
   });
 
   // --- Party mini-games: the whole table plays; ranking settles the tie + prizes --------
@@ -749,7 +843,7 @@ test.describe('Regressions (2026-10 review)', () => {
     await H.waitForGame(roomCode, (g) => (g.currentTurn?.phase === 'minigame_party' && g.minigame?.phase === 'intro' ? g : false), { label: 'party intro' });
     return { opener, t1, t2 };
   }
-  const skipAhead = (host) => host.locator('#action-buttons button[onclick="skipPartyPhase()"]').click();
+  const skipAhead = (host) => host.locator('[data-testid="skip-party-phase"], #action-buttons button[onclick="skipPartyPhase()"]').click();
   const partyPhase = (roomCode, phase) =>
     H.waitForGame(roomCode, (g) => (g.minigame?.phase === phase ? g.minigame : false), { label: `party ${phase}`, timeout: 20000 });
 
@@ -869,6 +963,28 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
+  test('the extra prize: the TV reveals the Party MVP, the MVP\'s phone celebrates, the others are told', async ({ browser }) => {
+    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
+    try {
+      const p = await H.playersByName(roomCode);
+      await H.dbPatch(roomCode, { [`players/${p.Bob.id}/partyPoints`]: 3, [`players/${p.Bob.id}/votingWins`]: 1, phase: 'ended' });
+      const tv = host.locator('#mvp-reveal');
+      await expect(tv).toBeVisible();
+      await expect(tv.getByTestId('mvp-name')).toHaveText('Bob', { timeout: 6000 }); // after the roll lands
+      await expect(tv).toContainText('3 party-game points');
+      await expect(tv).toContainText('1 correct duel calls');
+      await expect(pages.Bob.locator('#mvp-reveal')).toContainText("You're the Party MVP", { timeout: 6000 });
+      await expect(pages.Alice.locator('#mvp-reveal')).toContainText('Cheer for Bob!', { timeout: 6000 });
+      await tv.click(); // on to the standings
+      await expect(tv).toBeHidden();
+      await expect(host.locator('.tally-grid')).toBeVisible();
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
   test('the host shows the betting leaderboard once a duel vote is settled', async ({ browser }) => {
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
@@ -920,6 +1036,28 @@ test.describe('Regressions (2026-10 review)', () => {
       assertNoPageErrors();
     } finally {
       await cleanup();
+    }
+  });
+
+  test('a failed anonymous sign-in is retried, so Join still works instead of hanging', async ({ browser }) => {
+    const { hostCtx, roomCode } = await H.createGame(browser);
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+      const phone = await ctx.newPage();
+      const errors = [];
+      phone.on('pageerror', (e) => errors.push(e.message));
+      // A busy emulator / flaky network: the first sign-up attempt fails
+      let failed = 0;
+      await phone.route('**/accounts:signUp*', (route) => (failed++ === 0 ? route.abort('failed') : route.continue()));
+      await phone.goto(`${H.PLAYER_BASE}/player.html?room=${roomCode}&testId=7&name=Dave`);
+      await phone.getByRole('button', { name: /Join Game/i }).click();
+      await expect(phone.locator('#game-screen')).toBeVisible({ timeout: 10000 });
+      await expect(phone.locator('#display-name')).toHaveText('Dave');
+      expect(failed).toBeGreaterThan(1);
+      expect(errors).toEqual([]);
+    } finally {
+      await hostCtx.close();
+      await ctx.close();
     }
   });
 

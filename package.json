@@ -4,6 +4,11 @@
   "description": "Yuel Duel - gift exchange party game",
   "private": true,
   "scripts": {
+    "dev": "vite --config vite.config.mts",
+    "build": "tsc -p tsconfig.json && vite build --config vite.config.mts",
+    "preview": "vite preview --config vite.config.mts",
+    "test:unit": "vitest run --config vite.config.mts",
+    "analyze:economics": "vite-node web/src/sim/report.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -12,10 +17,25 @@
     "agents": "node agents/play.js",
     "agents:watch": "node agents/play.js --watch",
     "agents:sweep": "node agents/play.js --sweep",
-    "test:agents": "node --test agents/personas.test.js",
+    "agents:join": "node agents/play.js --watch --phones http://localhost:5173",
+    "agents:join:legacy": "node agents/play.js --watch --phones http://localhost:8080",
+    "test:agents": "node --test agents/personas.test.js agents/arena.test.js",
     "test:party": "node --test party-games.test.js scoring.test.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "firebase": "^10.14.1",
+    "qrcode-generator": "^1.4.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }
