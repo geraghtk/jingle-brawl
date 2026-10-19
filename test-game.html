@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jingle Brawl - Game Tester</title>
+    <title>Yuel Duel - Game Tester</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="firebase-config.js"></script>
     <style>
         :root {
@@ -310,9 +311,15 @@
     </div>
 
     <script>
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // Initialize Firebase (uses local emulator on localhost — see firebase-config.js)
+        const db = connectGameDatabase();
+
+        // The database rules require a signed-in user; stamp games/players with this uid
+        // the same way host.html does (hostUid / ownerUid).
+        const auth = connectGameAuth();
+        const authReady = auth.signInAnonymously()
+            .catch(err => console.error('Anonymous auth failed:', err && (err.code || err.message)));
+        const currentUid = () => auth.currentUser?.uid || null;
 
         // Test state
         let testState = {
@@ -355,8 +362,10 @@
             log('Creating test game: ' + testState.roomCode, 'system');
 
             // Create game in Firebase
+            await authReady;
             await db.ref(`games/${testState.roomCode}`).set({
                 hostId: 'test_host',
+                hostUid: currentUid(),
                 settings: { publicChips: true },
                 phase: 'lobby',
                 createdAt: Date.now(),
@@ -381,6 +390,7 @@
                     giftId: null,
                     connected: true,
                     strategy: strategy,
+                    ownerUid: currentUid(),
                     joinedAt: Date.now()
                 };
 
@@ -753,7 +763,9 @@
         // Reset test
         async function resetTest() {
             if (testState.roomCode) {
-                await db.ref(`games/${testState.roomCode}`).remove();
+                // The rules forbid deleting a whole game; it's left for GC
+                await db.ref(`games/${testState.roomCode}`).remove()
+                    .catch(err => console.warn('Game not deleted (blocked by rules):', err.code || err.message));
             }
             testState = {
                 roomCode: null,

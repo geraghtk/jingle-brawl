@@ -43,26 +43,24 @@ const firebaseConfig = {
 
 Replace the values with your actual Firebase config.
 
-## Step 5: Security Rules (Optional but Recommended)
+## Step 5: Enable Anonymous Auth and deploy the security rules
 
-In Firebase Console → Realtime Database → Rules, use:
+The app signs every device in anonymously, and the rules in `database.rules.json`
+use that identity (only a player's own device — or the host — may write their player
+node; whole-game deletion is blocked).
 
-```json
-{
-  "rules": {
-    "games": {
-      "$roomCode": {
-        ".read": true,
-        ".write": true
-      }
-    }
-  }
-}
-```
-
-For production, you'd want stricter rules, but this works for party games.
+1. Console → **Authentication → Sign-in method → Anonymous → Enable**
+2. Deploy the rules from this repo (do NOT paste "test mode" open rules):
+   ```bash
+   firebase deploy --only database
+   ```
+3. Test rule changes locally first: `npm run emulator` loads `database.rules.json` into
+   the local Realtime Database + Auth emulators, and `npm run test:e2e` runs against it.
 
 ## Step 6: Test Your Setup
+
+Locally (`python -m http.server 8080`, then http://localhost:8080/host.html) the pages use
+the **emulators**, not your project — add `?prod=1` to a URL to hit the real project.
 
 1. Open `host.html` in a browser
 2. Create a new game
@@ -73,7 +71,7 @@ For production, you'd want stricter rules, but this works for party games.
 ## Troubleshooting
 
 - **"Firebase is not defined"**: Make sure firebase-config.js has the correct values
-- **"Permission denied"**: Check your database rules are in test mode
+- **"Permission denied"**: Anonymous Auth must be enabled (Step 5); on localhost make sure the emulators are running (`npm run emulator`)
 - **Players not syncing**: Ensure all devices are on the internet
 
 ## Hosting (Optional)

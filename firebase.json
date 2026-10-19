@@ -16,11 +16,33 @@
       "**/GAME_*.md",
       "**/SELF_PLAY*.md",
       "**/spec_package.md",
-      "**/Jingle*.md"
+      "**/Jingle*.md",
+      "**/*.py",
+      "**/*.log",
+      "**/*.zip",
+      "functions/**",
+      "e2e/**",
+      "agents/**",
+      "tests/**",
+      "playwright-report/**",
+      "test-results/**",
+      "YuleDule/**",
+      "playwright.config.js",
+      "package.json",
+      "package-lock.json",
+      "database.rules.json"
     ]
   },
   "functions": {
     "source": "functions",
-    "runtime": "nodejs20"
+    "runtime": "nodejs22"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "emulators": {
+    "database": { "port": 9000 },
+    "auth": { "port": 9099 },
+    "ui": { "enabled": true, "port": 4000 }
   }
 }

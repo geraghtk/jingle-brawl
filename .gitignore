@@ -20,8 +20,21 @@ env/
 *.json
 !configs/*.yaml
 !firebase.json
+!database.rules.json
+!package.json
+!package-lock.json
 !functions/package.json
 
 # Logs
 *.log
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+# Dependencies
+node_modules/
+
+# Agent play-test reports
+/agents/reports/

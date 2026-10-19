@@ -18,8 +18,9 @@ Holds chips paid as costs and collects Santa Tax. The Bank also pays the Loser�
 
 Each gift has a Naughty Level (0, 1, 2, …).
 
-* A gift’s Naughty Level increases by \+1 every time that gift is involved in a duel, win or lose.  
-* Naughty Level never goes down.
+* A gift’s first sealed-bid duel sets its Naughty Level to the **highest bid** placed on it.  
+* After that, it increases by \+1 every time that gift is involved in a duel, win or lose.  
+* Naughty Level never goes down — except it resets to 0 when the gift goes to the Misfit pile.
 
 ## Paying for Duels (Two Types)
 
@@ -34,14 +35,15 @@ Each gift has a Naughty Level (0, 1, 2, …).
 
 ## Santa Tax
 
-If a Duel Pot is **3 chips or more**, then:
+If a Duel Pot is **2 chips or more**, then:
 
-* **1 chip** goes to the North Pole fund (Santa Tax).   
-  The **rest** goes to the duel winner
+* The duel winner takes **at most 2 chips**.  
+  The **rest** goes to the North Pole fund (Santa Tax).  
+  Examples: pot 2 → winner 2; pot 3 → winner 2, tax 1; pot 4 → winner 2, tax 2.
 
 ## Loser’s Dividend
 
-Whenever a player **loses a duel** (as Challenger or Defender), they immediately receive **\+1 chip from the North Pole fund.**
+Whenever a player **loses a duel as the Defender**, they immediately receive **\+1 chip from the North Pole fund.** A Challenger who attacks and loses gets nothing.
 
 **No dividend is paid for:**
 
@@ -89,13 +91,13 @@ The Under-16 Exception:
 
 ## 1 Unwrap
 
-* The Head Elf draws a name from the Draw Bag.  
+* The Head Elf draws a name from the Draw Bag (in the app, the host screen draws).  
 * That player becomes the Opener and opens one wrapped gift.  
 * The opened gift starts at Naughty Level \= 0\.
 
 ## 2 Sealed Bidding
 
-* Everyone except the Opener may place a sealed bid (chips hidden in their hand).  
+* Everyone except the Opener may place a sealed bid (chips hidden in their hand). The maximum bid is **4 chips**.  
 * Reveal bids simultaneously.
 
 If nobody bids:
@@ -106,8 +108,10 @@ If one or more players bid:
 
 * The highest bidder becomes Challenger 1\.  
 * If there is a second-highest bidder, they are Challenger 2\.  
-* If the highest bid is tied, resolve it with a Tie-break Duel among tied players: If there are more than 2 tied bids, randomly select two challengers.  
-  * The tie-break winner becomes Challenger 1\.  
+* If the highest bid is tied, the Opener first chooses to **fight** or **yield**:  
+  * Fight: two of the tied bidders (picked at random if more than 2 tied) hold a Tie-break Duel; the winner becomes Challenger 1 and duels the Opener.  
+  * Yield: two of the tied bidders (picked at random if more than 2 tied) duel each other as a Yield Duel.  
+  * The host can instead have a mini-game (Counterfeit Canvas or Draw Off) choose the duelists.  
   * No Loser’s Dividend is paid for tie-break duels.
 
 ## 3 The Duel (and Yielding)
@@ -132,15 +136,15 @@ Sealed bid duels create a pot. How much goes into the pot depends on whether it�
      * Example: bid of 5 → pay 2  
      * bid of 4 → pay 2
 
-The winner collects the pot, applying Santa Tax if pot ≥ 3\.
+The winner collects the pot, applying Santa Tax if pot ≥ 2 (the winner takes at most 2 chips).
 
 ### Naughty Level
 
-After the duel, the contested gift’s Naughty Level increases by \+1.
+After the duel, the contested gift’s Naughty Level increases by \+1 — or, if this is its first sealed-bid duel, it is set to the highest bid.
 
 ### Loser’s Dividend Reminder
 
-* The duel loser gets \+1 chip immediately except in:  
+* The duel loser gets \+1 chip immediately if they were the Defender, except in:  
   * misfit duels  
   * yield duels  
   * tie-break duels
@@ -151,9 +155,9 @@ After the duel:
 
 1. The winner takes the contested gift.  
 2. If the winner already had a gift, the winner’s old gift goes to the loser.  
-3. If the loser already had a gift (and just received the winner’s old gift), then, they choose which gift to put in the Misfit Gift pile.  
+3. If the loser already had a gift of their own (and just received the winner’s old gift), their original gift goes to the Misfit Gift pile.  
    * When a gift is moved to the misfit pile, it’s naughty counter is reset to zero  
-4. The player whose gift was sent to the Misfit Gift pile becomes the new Head Elf.
+4. The player whose gift was sent to the Misfit Gift pile becomes the new Head Elf (table play; the app draws for you).
 
 ## 5 Draw Bag Maintenance
 
@@ -184,14 +188,15 @@ If nobody bids on a newly opened gift:
 
 *Because reindeer kick back..*
 
-When a Grinch’s Gambit or a Sealed Bid Duel concludes, the Loser can choose an immediate Reprisal Duel.
+When a Sealed Bid Duel (Challenger vs Opener) concludes, the Loser can choose an immediate Reprisal Duel. There is no Reprisal after a Grinch’s Gambit (for either player — that’s the attacker’s risk), a Yield Duel, a Tie-break Duel or any Endgame duel.
 
 Rules for the Reprisal:
 
-* The Reprisal Challenger may challenge any gift, including Misfits (if any exist) except for the gift involved in the duel you just lost.  
+* The Reprisal Challenger may challenge any gift, including Misfits (if any exist) except for the gift involved in the duel you just lost and their own gift.  
+  * Targeting a Misfit claims it outright — there is no one to duel — and the challenger’s current gift (if any) goes to the Misfit pile.  
   * So, more of a re-directed reprisal 🙂  
 * The player must pay the Minimum Cost (based on the target gift’s Naughty Level) to the Bank.  
-* A Reprisal can trigger at most one other Reprisal (2 chained reprisals max)
+* A Reprisal cannot trigger another Reprisal (no chaining).
 
 | ![][image2] | ![][image2] | ![][image2] |
 | :---- | :---- | :---- |
@@ -281,13 +286,13 @@ Q: Do I ever pay chips to defend my gift?
 A: No. Defending is always free. Only the aggressor pays.
 
 Q: What if I run out of chips?  
-A: You can’t initiate challenges, but you can still defend. If you lose a duel (and it’s not an exempt duel), you get \+1 chip from the North Pole fund..
+A: You can’t initiate challenges, but you can still defend. If you lose a duel (and it’s not an exempt duel), and you were the Defender, you get \+1 chip from the North Pole fund.
 
 Q: Can I refuse a gift?  
 A: No. If you win it (or get stuck with it), you take it.
 
 Q: Does Naughty Level ever go down?  
-A: No. It only goes up.
+A: No. It only goes up — unless the gift lands in the Misfit pile, which resets it to 0.
 
 Q: Who decides the duel method?  
 A: The Defender unless at least one player is under 16\. In that case, the player under 16 chooses the duel method. If both players are under 16, the youngest chooses.
@@ -296,7 +301,7 @@ Q: In a "Yield Duel," what happens to the Opener?
 A: The Opener gives up the gift and steps out of the fight. The two Challengers duel for the unwrapped gift. Since the Opener is left with nothing, their name goes back into the Draw Bag, and they will get another turn to open a gift later in the game
 
 Q: Can I use a "Reindeer Reprisal" if I have 0 chips?  
-A: No. You must be able to pay the Minimum Cost to the Bank to initiate a Reprisal. However, you still collect your Loser’s Dividend (+1 chip) first, which might give you just enough to afford a Level 0 gift attack\!
+A: No. You must be able to pay the Minimum Cost to the Bank to initiate a Reprisal. However, if you lost as the Defender you collect your Loser’s Dividend (+1 chip) first, which might give you just enough to afford a Level 0 gift attack\!
 
 Q: What happens if I win a duel but my "old gift" forces the loser to trash theirs, but they really wanted to keep it?   
 A: They have a choice\! The Swap Algorithm leaves the Loser with two gifts (their original \+ your old one). They must put one into the Misfit Pile, but they get to decide which one to trash and which one to keep.

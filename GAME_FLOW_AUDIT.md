@@ -1,5 +1,9 @@
 # Jingle Brawl Game Flow Audit
 
+> Originally written Jan 2026. Updated 2026-10-18 after a full code review — the
+> fixed bugs are listed in `CODE_REVIEW.md` ("2026-10-18 review") and each has a test in
+> `e2e/regressions.spec.js`.
+
 ## Phase 1: Main Game Scenarios
 
 ### Scenario 1: No Bids (Opener Keeps Gift)
@@ -62,7 +66,7 @@
 - **Status**: ✅ Implemented
 
 ### Yield Duel (C1 vs C2)
-- **Pot**: Half bids from both (rounded up), minus tax
+- **Pot**: Half bids from both (rounded **down**, per V2 rules — fixed 2026-10-18; was rounded up), minus tax
 - **Winner**: Gets gift
 - **Loser**: No dividend, no reprisal
 - **Opener**: Becomes giftless
@@ -159,10 +163,11 @@
 **Bug**: Opener's giftId was not cleared
 **Fix**: Added logic to clear loser's giftId when winner had no gift to trade
 
-### Issue 5: Gambit - Reprisal Allowed ✅ VERIFIED OK
-**Scenario**: Opener uses Gambit, loses, should get reprisal
-**Status**: `isGambit` is NOT in the reprisal exclusion list, so reprisal works correctly
-**No fix needed**
+### Issue 5: Gambit - Reprisal ✅ RULE (rules updated 2026-10-18)
+**Scenario**: Opener uses Gambit and loses — no reprisal for either player
+**Status (2026-10-18)**: Commit `7b13ca2` deliberately added `isGambit` to the reprisal
+exclusion ("that's the attacker's risk") — so NO reprisal follows a Gambit, for either
+loser. The written rules now say the same.
 
 ---
 
@@ -174,7 +179,7 @@
 | Tiebreaker | ✅ (0) | ✅ (none) | ✅ (none) | N/A | N/A |
 | Yield Duel | ✅ | ✅ (none) | ✅ (none) | ✅ | ✅ |
 | Reprisal | ✅ (0) | ✅ | ✅ | ✅ | ✅ FIXED |
-| Gambit | ✅ (0) | ✅ | ✅ | ✅ | ✅ |
+| Gambit | ✅ (0) | ✅ | ✅ none (by rule, see Issue 5) | ✅ | ✅ |
 | Endgame Steal | ✅ (0) | ✅ | N/A | ✅ | ✅ |
 | Endgame Auction | ✅ | ✅ | N/A | ✅ | ✅ |
 | No-Bids Duel | ✅ (0) | ✅ (none) | N/A | ✅ | ✅ |
@@ -186,7 +191,7 @@
 ### Main Game Scenarios
 - [ ] Open gift, no bids → Opener keeps gift
 - [ ] Open gift, no bids → Opener uses Gambit, wins
-- [ ] Open gift, no bids → Opener uses Gambit, loses → gets reprisal
+- [ ] Open gift, no bids → Opener uses Gambit, loses → no reprisal offered
 - [ ] Open gift, one bidder → Challenger wins → gets gift, reprisal for loser
 - [ ] Open gift, one bidder → Defender wins → keeps gift, reprisal for challenger
 - [ ] Open gift, two bidders (different) → No yield → regular duel

@@ -1,39 +1,92 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-zine="subtle" data-motion="lively">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jingle Brawl - Player</title>
-    <link rel="icon" type="image/png" href="yuleduel_transparent.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <title>Yuel Duel - Player</title>
+    <link rel="icon" type="image/png" href="ydlogo2.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=Bungee&family=Permanent+Marker&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="firebase-config.js"></script>
-    <style>
+    <script src="chip-fx.js"></script>
+    <script src="mascots.js"></script>
+<style>
         :root {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: #1e2746;
-            --bg-card-hover: #253052;
-            --accent-red: #c41e3a;
-            --accent-green: #22c55e;
-            --accent-gold: #f59e0b;
-            --accent-blue: #3b82f6;
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255,255,255,0.7);
-            --text-muted: rgba(255,255,255,0.4);
-            --border: rgba(255,255,255,0.1);
+            /* ===== FROST design tokens ===== */
+            --accent:  #ff3366;
+            --accent2: #18b88a;
+            --bg:      #eceef2;
+            --bg2:     #f5f6f9;
+            --surface: #ffffff;
+            --ink:     #0d1018;
+            --ink2:    #2a2f3c;
+            --muted:   #6a7180;
+            --line:    #e4e7ee;
+            --f6-disp: 'Space Grotesk', system-ui, sans-serif;
+            --f6-body: 'Manrope', system-ui, sans-serif;
+            --f6-zine: 'Bungee', system-ui, sans-serif;
+            --f6-mark: 'Permanent Marker', cursive;
+
+            /* ===== legacy tokens remapped onto Frost ===== */
+            --bg-primary: #eceef2;
+            --bg-secondary: #f5f6f9;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f5f6f9;
+            --bg-elevated: #ffffff;
+            --accent-red: #ff3366;
+            --accent-green: #18b88a;
+            --accent-gold: #ffc53d;
+            --accent-blue: #38b6e6;
+            --success: var(--accent-green);
+            --warning: var(--accent-gold);
+            --error: var(--accent-red);
+            --text-primary: #0d1018;
+            --text-secondary: #2a2f3c;
+            --text-muted: #6a7180;
+            --border: #e4e7ee;
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 12px;
+            --space-lg: 16px;
+            --space-xl: 24px;
+            --space-2xl: 32px;
+            --text-xs: 0.75rem;
+            --text-sm: 0.875rem;
+            --text-base: 1rem;
+            --text-lg: 1.125rem;
+            --text-xl: 1.25rem;
+            --leading-tight: 1.25;
+            --leading-normal: 1.5;
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 22px;
+            --shadow-card: 0 8px 28px rgba(15,20,35,0.06);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            font-family: var(--f6-body);
+            font-size: var(--text-base);
+            line-height: var(--leading-normal);
+            background: var(--bg);
             min-height: 100vh;
             min-height: 100dvh;
-            color: var(--text-primary);
+            color: var(--ink);
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -46,7 +99,7 @@
             flex-direction: column;
         }
 
-        /* Join Screen */
+        /* Join Screen - Hero */
         .join-screen {
             flex: 1;
             display: flex;
@@ -54,32 +107,54 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 2rem;
+            padding: var(--space-2xl) var(--space-lg);
         }
 
-        .join-screen h1 {
-            margin-bottom: 1rem;
+        .join-hero {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            gap: var(--space-lg);
+            margin-bottom: var(--space-2xl);
         }
 
-        .join-screen h1 img {
-            max-width: 100%;
-            max-height: 150px;
+        .join-hero .logo-wrap img {
+            display: block;
+            max-width: min(340px, 85vw);
+            max-height: 160px;
+            min-height: 80px;
             width: auto;
             height: auto;
             object-fit: contain;
+            margin: 0 auto;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
         }
 
-        .join-screen .tagline {
-            color: var(--text-muted);
+        .join-title {
+            font-family: var(--f6-disp);
+            font-size: clamp(2rem, 7vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 0.98;
+            color: var(--ink);
+            margin: 0;
+        }
+
+        .join-tagline {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            font-family: var(--f6-body);
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--muted);
             font-style: italic;
-            margin-bottom: 2rem;
-            font-size: 0.9rem;
+            letter-spacing: 0.01em;
+            max-width: 360px;
+            margin: 0;
         }
 
-        .join-screen .tagline span { color: var(--accent-gold); }
+        .join-tagline span { color: var(--accent); font-weight: 700; }
 
         .join-form {
             width: 100%;
@@ -88,15 +163,25 @@
 
         .join-form input {
             width: 100%;
-            padding: 1rem;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 1rem;
+            min-height: 44px;
+            padding: var(--space-lg);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-md);
+            background: var(--surface);
+            color: var(--ink);
+            font-size: var(--text-base);
             text-align: center;
-            margin-bottom: 1rem;
-            font-family: 'Inter', sans-serif;
+            margin-bottom: var(--space-lg);
+            font-family: var(--f6-body);
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(15,20,35,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .join-form input:focus-visible {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
         }
 
         .join-form input::placeholder {
@@ -111,42 +196,77 @@
         }
 
         .btn {
-            padding: 1rem 2rem;
+            padding: var(--space-lg) var(--space-2xl);
+            min-height: 44px;
             border: none;
-            border-radius: 12px;
-            font-family: 'Inter', sans-serif;
+            border-radius: var(--radius-md);
+            font-family: var(--f6-body);
             font-weight: 700;
-            font-size: 1rem;
+            font-size: var(--text-base);
             cursor: pointer;
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            gap: var(--space-sm);
             width: 100%;
         }
 
-        .btn-primary {
-            background: var(--accent-green);
-            color: white;
+        .btn {
+            box-shadow: 0 8px 20px rgba(13,16,24,0.22);
         }
 
-        .btn-primary:hover { background: #16a34a; }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(13,16,24,0.28);
+        }
+
+        .btn:focus-visible {
+            outline: 3px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 36%, transparent);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 42%, transparent);
+        }
 
         .btn-secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
+            background: var(--bg2);
+            color: var(--ink);
+            border: none;
+            box-shadow: none;
         }
+
+        .btn-secondary:hover:not(:disabled) { box-shadow: 0 2px 10px rgba(15,20,35,0.06); }
+        .btn-secondary:focus-visible { outline: 3px solid var(--accent); }
 
         .btn-gold {
             background: var(--accent-gold);
-            color: #000;
+            color: var(--ink);
+            box-shadow: 0 8px 20px rgba(255,197,61,0.32);
+        }
+
+        .btn-gold:hover:not(:disabled) {
+            background: var(--accent-gold);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(255,197,61,0.4);
         }
 
         .btn-danger {
-            background: var(--accent-red);
-            color: white;
+            background: var(--ink);
+            color: #fff;
         }
 
         .btn:disabled {
@@ -162,13 +282,15 @@
         }
 
         .header {
-            background: rgba(0,0,0,0.3);
-            padding: 1rem;
+            background: var(--surface);
+            padding: var(--space-lg);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-radius: 12px;
-            margin-bottom: 1rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-lg);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-card);
         }
 
         .player-info {
@@ -178,14 +300,18 @@
         }
 
         .player-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--accent-gold);
-            border-radius: 50%;
+            width: 44px;
+            min-width: 44px;
+            height: 44px;
+            min-height: 44px;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 32%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            font-size: var(--text-xl);
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 32%, transparent);
         }
 
         .player-name {
@@ -195,53 +321,58 @@
         .chip-count {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-card);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 700;
-            color: var(--accent-gold);
+            gap: var(--space-sm);
+            background: var(--bg2);
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: 999px;
+            font-weight: 800;
+            color: var(--ink);
+            border: 1px solid var(--line);
+            font-variant-numeric: tabular-nums;
         }
 
         /* Cards */
         .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.25rem;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-lg);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-card);
         }
 
         .card-title {
-            font-size: 0.85rem;
+            font-size: var(--text-sm);
             font-weight: 700;
             color: var(--text-secondary);
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--space-md);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: var(--space-sm);
         }
 
         /* Status Card */
         .status-card {
             text-align: center;
-            padding: 2rem 1.5rem;
+            padding: var(--space-2xl) var(--space-xl);
         }
 
         .status-card.active {
-            background: linear-gradient(135deg, #1e3a5f 0%, var(--bg-card) 100%);
-            border: 2px solid var(--accent-blue);
+            background: linear-gradient(135deg, rgba(56, 182, 230, 0.12) 0%, var(--bg-card) 100%);
+            border: 2px solid rgba(56, 182, 230, 0.6);
+            box-shadow: 0 0 0 1px rgba(56, 182, 230, 0.08) inset;
             animation: glow 2s infinite;
         }
 
         .status-card.your-turn {
-            background: linear-gradient(135deg, #3d1e1e 0%, var(--bg-card) 100%);
-            border: 2px solid var(--accent-gold);
+            background: linear-gradient(135deg, rgba(255, 197, 61, 0.12) 0%, var(--bg-card) 100%);
+            border: 2px solid rgba(255, 197, 61, 0.6);
+            box-shadow: 0 0 0 1px rgba(255, 197, 61, 0.08) inset;
         }
 
         @keyframes glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.5); }
+            0%, 100% { box-shadow: 0 0 20px rgba(56, 182, 230, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(56, 182, 230, 0.5); }
         }
 
         .status-icon {
@@ -262,10 +393,11 @@
 
         /* Your Gift */
         .gift-display {
-            background: linear-gradient(135deg, #1e4620 0%, var(--bg-card) 100%);
-            border: 2px solid var(--accent-green);
+            background: linear-gradient(135deg, rgba(24, 184, 138, 0.12) 0%, var(--bg-card) 100%);
+            border: 2px solid rgba(24, 184, 138, 0.5);
             text-align: center;
-            padding: 1.5rem;
+            padding: var(--space-xl);
+            box-shadow: 0 0 0 1px rgba(24, 184, 138, 0.08) inset;
         }
 
         .gift-display .gift-icon {
@@ -292,12 +424,12 @@
 
         /* Help/Tip Box */
         .help-box {
-            background: rgba(59, 130, 246, 0.15);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-top: 1rem;
-            font-size: 0.85rem;
+            background: linear-gradient(135deg, rgba(56, 182, 230, 0.1) 0%, rgba(56, 182, 230, 0.05) 100%);
+            border: 1px solid rgba(56, 182, 230, 0.35);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            margin-top: var(--space-lg);
+            font-size: var(--text-sm);
         }
 
         .help-box .help-title {
@@ -354,10 +486,10 @@
         }
 
         .action-option {
-            background: var(--bg-card-hover);
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, var(--bg-card-hover) 100%);
             border: 2px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -365,6 +497,7 @@
         .action-option:hover:not(.disabled) {
             border-color: var(--accent-gold);
             transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
         }
 
         .action-option.disabled {
@@ -405,6 +538,14 @@
 
         .action-option .option-cost {
             font-weight: 600;
+            color: var(--accent-gold);
+            font-size: 0.9rem;
+        }
+
+        .action-option:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 197, 61, 0.4);
+        }
 
         /* Mini-Game Card */
         .minigame-card {
@@ -461,9 +602,6 @@
             cursor: pointer;
             border: none;
         }
-            color: var(--accent-gold);
-            font-size: 0.9rem;
-        }
 
         .action-option .option-cost.cant-afford {
             color: var(--accent-red);
@@ -475,36 +613,66 @@
             opacity: 0.8;
         }
 
-        /* Bid Panel */
+        /* Bid Panel — Frost v6 "Bid it. Mean it." */
         .bid-panel {
-            background: linear-gradient(135deg, #3d3d1e 0%, var(--bg-card) 100%);
-            border: 2px solid var(--accent-gold);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            text-align: left;
+        }
+
+        .bid-panel .bid-title {
+            font-size: 32px;
+            margin: 2px 0 12px;
         }
 
         .bid-panel .gift-being-bid {
-            text-align: center;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: var(--surface);
+            box-shadow: 0 2px 10px rgba(15, 20, 35, 0.05);
+            margin-bottom: 0.75rem;
         }
 
-        .bid-panel .gift-being-bid .label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+        /* Wrapped-gift tile (Frost v6 FGift) */
+        .f6-gift {
+            position: relative;
+            border-radius: 22px;
+            background: var(--gift-color, #ff7a59);
+            box-shadow: 0 6px 18px rgba(13, 16, 24, 0.18);
+            overflow: hidden;
+            flex-shrink: 0;
         }
+        .f6-gift.mini { width: 44px; height: 44px; border-radius: 12px; }
+        .f6-gift .ribbon-v { position: absolute; top: 0; bottom: 0; left: 44%; width: 12%; background: rgba(255,255,255,0.88); }
+        .f6-gift .ribbon-h { position: absolute; left: 0; right: 0; top: 44%; height: 12%; background: rgba(255,255,255,0.88); }
+        .f6-gift .bow {
+            position: absolute;
+            top: 32%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 20%;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.9);
+            box-sizing: border-box;
+        }
+        .naughty-chip { font-size: 11px; flex-shrink: 0; letter-spacing: 0.1em; }
+
+        .bid-panel .gift-being-bid .gift-lines { flex: 1; min-width: 0; }
 
         .bid-panel .gift-being-bid .name {
-            font-size: 1.25rem;
+            font-size: 1rem;
             font-weight: 700;
-            margin-top: 0.25rem;
         }
 
         .bid-panel .gift-being-bid .opener-info {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 0.5rem;
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
         }
 
         .bid-panel .bid-help {
@@ -512,95 +680,186 @@
         }
 
         .bid-slider-container {
-            padding: 1rem 0;
+            position: relative;
+            padding: 0.75rem 0 0.5rem;
         }
+
+        .allin-sticker { position: absolute; top: 2px; right: 6px; z-index: 2; }
 
         .bid-amount-display {
             text-align: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.25rem;
         }
 
         .bid-amount-display .amount {
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--accent-gold);
+            font-size: 84px;
+            color: var(--accent);
+            line-height: 1;
+            margin-top: 2px;
         }
 
         .bid-amount-display .label {
-            color: var(--text-secondary);
+            color: var(--muted);
+            font-weight: 600;
             font-size: 0.85rem;
+            margin-top: 2px;
         }
 
         .bid-slider {
             width: 100%;
-            height: 50px;
-            -webkit-appearance: none;
-            background: var(--bg-card-hover);
-            border-radius: 25px;
+            height: 40px;
+            accent-color: var(--accent);
             outline: none;
-            margin-bottom: 1rem;
-        }
-
-        .bid-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 50px;
-            height: 50px;
-            background: var(--accent-gold);
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
-        }
-
-        .bid-slider::-moz-range-thumb {
-            width: 50px;
-            height: 50px;
-            background: var(--accent-gold);
-            border-radius: 50%;
-            cursor: pointer;
-            border: none;
+            margin: 14px 0 var(--space-md);
         }
 
         .bid-quick-buttons {
             display: flex;
-            gap: 0.5rem;
+            gap: 8px;
             margin-bottom: 1rem;
+            justify-content: center;
         }
 
         .bid-quick-buttons button {
             flex: 1;
-            padding: 0.75rem;
-            background: var(--bg-card-hover);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text-primary);
+            min-height: 44px;
+            padding: 8px 13px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--ink);
             font-weight: 700;
+            font-size: 13px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .bid-panel .seal-btn {
+            width: 100%;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 16px;
+            padding: 15px 22px;
+            font-weight: 700;
+            font-size: 15px;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 36%, transparent);
+        }
+
+        .bid-quick-buttons button:focus-visible {
+            outline: none;
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(255, 197, 61, 0.25);
         }
 
         .bid-quick-buttons button:hover {
-            background: var(--bg-secondary);
-            border-color: var(--accent-gold);
+            background: var(--bg2);
+            border-color: var(--muted);
         }
 
         .bid-quick-buttons button.selected {
-            background: var(--accent-gold);
-            color: #000;
-            border-color: var(--accent-gold);
+            background: var(--ink);
+            color: #fff;
+            border-color: var(--ink);
         }
 
         .bid-status {
             text-align: center;
             padding: 1rem;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
+            background: var(--bg2);
+            border-radius: 12px;
             margin-top: 1rem;
         }
 
         .bid-status.submitted {
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid var(--accent-green);
+            background: var(--surface);
+            border: 1px solid var(--line);
         }
+
+        /* Frost v6 draw-off */
+        .critic-chip { background: color-mix(in srgb, #8a7bff 16%, white); color: #5a4bd8; }
+        .drawoff-prompt { font-size: 22px; font-style: italic; margin: 4px 0 8px; }
+        .drawoff-timer { color: var(--accent); font-size: 22px; }
+
+        /* Frost v6 phone lobby */
+        .lobby-title { font-size: 44px; margin: 6px 0 8px; }
+        .lobby-title .lobby-accent { color: var(--accent); }
+        .lobby-tag { color: var(--muted); font-weight: 600; font-size: 14px; margin-bottom: 14px; }
+        .lineup-label { text-align: left; margin: 16px 0 8px; }
+        .lineup { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+        .lineup-empty { color: var(--muted); font-size: 0.85rem; padding: 0.5rem; }
+        .lineup-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+        }
+        .lineup-nm { flex: 1; min-width: 0; text-align: left; font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lineup-chip { font-size: 11px; padding: 4px 10px; color: var(--accent2); background: color-mix(in srgb, var(--accent2) 12%, white); }
+        .lineup-chip.you { color: #fff; background: var(--ink); }
+        .f6-avatar {
+            display: inline-grid;
+            place-items: center;
+            border-radius: 32%;
+            color: #fff;
+            font-weight: 800;
+            flex-shrink: 0;
+            font-family: var(--f6-disp);
+        }
+
+        /* Frost v6 duel header */
+        .duel-you-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 8px 0 10px; flex-wrap: wrap; }
+        .duel-side { font-size: 28px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .duel-vs-mini { font-size: 18px; display: inline-block; }
+
+        /* Frost v6 final result */
+        .final-place { font-size: 40px; margin: 6px 0 12px; }
+        .final-gift-wrap { position: relative; display: inline-block; margin: 6px auto; }
+        .final-gift-tile {
+            width: 110px;
+            height: 110px;
+            border-radius: 26px;
+            background: var(--accent);
+            box-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 45%, transparent);
+            display: grid;
+            place-items: center;
+            font-size: 52px;
+        }
+        .final-champ { position: absolute; top: -12px; right: -22px; }
+        .final-gift-tile.none { background: var(--bg2); box-shadow: none; border: 1px solid var(--line); }
+        .final-gift-name { font-weight: 700; font-size: 16px; margin-top: 12px; }
+        .final-stats { display: flex; gap: 10px; margin-top: 14px; }
+        .fstat {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+        }
+        .fstat.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .fstat .fstat-v { font-size: 22px; }
+        .fstat .fstat-k { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px; opacity: 0.8; }
+
+        /* Frost v6 sealed state */
+        .sealed-state { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .sealed-title { font-size: 26px; }
+        .sealed-disc {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--accent2) 16%, white);
+            display: grid;
+            place-items: center;
+            position: relative;
+            margin: 10px 0 4px;
+        }
+        .sealed-emoji { font-size: 48px; }
+        .sealed-sticker { position: absolute; bottom: 0; right: -12px; }
+        .sealed-flinch { font-size: 20px; margin-top: 6px; }
+        .sealed-sub { color: var(--muted); font-weight: 500; font-size: 13px; max-width: 230px; }
 
         /* Action Required */
         .action-card {
@@ -675,7 +934,7 @@
             background: var(--bg-card);
             padding: 1rem 1.5rem;
             border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
             z-index: 1000;
             display: none;
             animation: slideUp 0.3s ease;
@@ -692,7 +951,7 @@
         .duel-result-modal {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.4);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -703,36 +962,48 @@
         .duel-result-modal.active { display: flex; }
 
         .duel-result-content {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            padding: 2.5rem;
-            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            padding: 2.5rem 2rem;
+            border-radius: 26px;
             max-width: 400px;
             width: 90%;
             text-align: center;
-            border: 3px solid var(--accent-gold);
-            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+            color: #fff;
+            border: none;
+            box-shadow: 0 30px 60px rgba(13, 16, 24, 0.4);
         }
 
-        .duel-result-content h2 {
-            font-family: 'Playfair Display', serif;
-            color: var(--accent-gold);
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
+        /* v6 aftermath: dark gradient toward the outcome color */
+        .duel-result-content.winner { background: linear-gradient(160deg, var(--ink) 20%, color-mix(in srgb, var(--accent2) 55%, var(--ink)) 100%); }
+        .duel-result-content.loser  { background: linear-gradient(160deg, var(--ink) 20%, color-mix(in srgb, var(--accent) 45%, var(--ink)) 100%); }
 
-        .duel-result-content.winner h2 { color: var(--accent-green); }
-        .duel-result-content.loser h2 { color: var(--accent-red); }
+        .verdict-halftone { position: absolute; inset: 0; opacity: 0.08; pointer-events: none; }
+        .verdict-title { font-size: 56px; margin: 6px 0 10px; position: relative; }
+        .verdict-chip { position: relative; background: rgba(255,255,255,0.14); color: #fff; }
+        .duel-result-content.winner .verdict-chip { background: color-mix(in srgb, var(--accent2) 45%, transparent); }
 
         .duel-result-amount {
             font-size: 3rem;
-            font-weight: bold;
-            margin: 1.5rem 0;
-            color: var(--accent-gold);
+            margin: 1.25rem 0 0.75rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
+        .duel-result-amount .f6-coin { --size: 26px; }
 
-        .duel-result-content.winner .duel-result-amount { color: var(--accent-green); }
-        .duel-result-content.loser .duel-result-amount { color: var(--accent-red); }
+        .verdict-stats { display: flex; gap: 10px; margin-top: 14px; position: relative; }
+        .vstat {
+            flex: 1;
+            padding: 10px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(4px);
+        }
+        .vstat .v { font-size: 22px; }
+        .vstat .k { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; margin-top: 2px; }
 
         .duel-result-total {
             font-size: 1.5rem;
@@ -756,31 +1027,11 @@
             overflow: hidden;
         }
 
-        .flying-coin {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-            border-radius: 50%;
-            border: 3px solid #92400e;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #92400e;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            z-index: 2101;
-        }
-
-        .flying-coin::before {
-            content: '🪙';
-            font-size: 1.5rem;
-        }
-
-        .flying-coin.outgoing {
-            background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
-            border-color: #450a0a;
+        /* Who the chips came from / went to on the verdict card */
+        .verdict-party {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
+            padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+            background: rgba(255,255,255,0.18); color: #fff;
         }
 
         /* Vibration feedback for important actions */
@@ -792,16 +1043,86 @@
             75% { transform: translateX(5px); }
         }
 
+        @media (max-width: 640px) {
+            body { font-size: 16px; }
+            .container { padding: var(--space-lg); }
+        }
+
         .hidden { display: none !important; }
+
+        /* ============================================================
+           FROST layer — helpers, zine accents, motion
+           (base is calm; zine flourishes toggle via [data-zine])
+           ============================================================ */
+        .f6-disp { font-family: var(--f6-disp); letter-spacing: -0.03em; line-height: 0.98; font-weight: 700; }
+        .f6-cap  { font-family: var(--f6-body); text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; font-weight: 700; color: var(--muted); }
+        .f6-num  { font-variant-numeric: tabular-nums; }
+        .f6-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 8px 28px rgba(15,20,35,0.06); }
+        .f6-soft { box-shadow: 0 2px 10px rgba(15,20,35,0.05); }
+        .f6-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 12px;
+            background: var(--bg); color: var(--ink);
+        }
+        .f6-chip.tint  { background: color-mix(in srgb, var(--accent) 12%, white); color: color-mix(in srgb, var(--accent) 60%, black); }
+        .f6-chip.tint2 { background: color-mix(in srgb, var(--accent2) 16%, white); color: color-mix(in srgb, var(--accent2) 55%, black); }
+
+        /* ===== zine accents ===== */
+        .fz-sticker {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-family: var(--f6-zine); font-size: 11px; letter-spacing: 0.01em;
+            color: #fff; background: var(--accent);
+            border: 2.5px solid var(--ink); border-radius: 999px;
+            padding: 5px 11px; box-shadow: 3px 3px 0 var(--ink);
+            transform: rotate(-4deg);
+        }
+        .fz-sticker.yel  { background: #ffc53d; color: var(--ink); }
+        .fz-sticker.mint { background: var(--accent2); color: #fff; }
+        .fz-sticker.ink  { background: var(--ink); color: #fff; }
+        .fz-marker { font-family: var(--f6-mark); }
+        .fz-halftone {
+            background-image: radial-gradient(var(--ink) 1.3px, transparent 1.5px);
+            background-size: 9px 9px;
+        }
+        .fz-tape {
+            position: absolute; width: 84px; height: 26px;
+            background: rgba(255,210,80,0.6);
+            border-left: 1px dashed rgba(0,0,0,0.14); border-right: 1px dashed rgba(0,0,0,0.14);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+        [data-zine="off"] .fz-sticker,
+        [data-zine="off"] .fz-tape,
+        [data-zine="off"] .fz-halftone { display: none !important; }
+        [data-zine="off"] .fz-riso { text-shadow: none !important; }
+        [data-zine="subtle"] .fz-sticker { transform: rotate(-2deg); box-shadow: 2px 2px 0 var(--ink); }
+        [data-zine="subtle"] .fz-riso { text-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+        [data-zine="subtle"] .fz-halftone { opacity: 0.05; }
+        [data-zine="subtle"] .fz-tape { opacity: 0.5; }
+        [data-zine="loud"] .fz-riso { text-shadow: 3px 3px 0 var(--accent), -2px -1.5px 0 var(--accent2); }
+        [data-zine="loud"] .fz-halftone { opacity: 0.12; }
+        [data-zine="loud"] .fz-sticker { transform: rotate(-5deg); }
+
+        /* ===== motion ===== */
+        @keyframes f6Rise { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform:none;} }
+        @keyframes f6Pop  { 0%{ transform: scale(0.8) rotate(-6deg);} 60%{ transform: scale(1.08) rotate(2deg);} 100%{ transform: scale(1) rotate(-4deg);} }
+        @keyframes f6Wiggle { 0%,100%{ transform: rotate(-4deg);} 50%{ transform: rotate(2deg);} }
+        [data-motion="lively"] .fz-sticker { animation: f6Pop 0.5s cubic-bezier(.3,1.4,.5,1) both; }
+        [data-motion="lively"] .f6-rise { animation: f6Rise 0.45s ease both; }
+        [data-motion="lively"] .f6-wiggle { animation: f6Wiggle 0.8s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- Join Screen -->
         <div id="join-screen" class="join-screen">
-            <h1><img src="yuleduel_transparent.png" alt="Jingle Brawl"></h1>
-            <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
-            
+            <div class="join-hero">
+                <div class="logo-wrap">
+                    <img src="ydlogo2.png" alt="Yuel Duel">
+                </div>
+                <h1 class="join-title fz-riso">Yuel <span style="color: var(--accent);">Duel</span></h1>
+                <div class="join-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
+            </div>
             <div class="join-form">
                 <input type="text" id="room-code-input" class="room-code-input" placeholder="ROOM" maxlength="4" autocomplete="off">
                 <input type="text" id="player-name-input" placeholder="Your name" autocomplete="off">
@@ -844,20 +1165,30 @@
 
             <!-- Bid Panel -->
             <div class="card bid-panel hidden" id="bid-panel">
+                <div class="bid-kicker f6-cap">Sealed bid</div>
+                <div class="bid-title f6-disp">Bid it. Mean it.</div>
+
                 <div class="gift-being-bid">
-                    <div class="label">🎁 Gift up for grabs</div>
-                    <div class="name" id="bid-gift-name">Mystery Gift</div>
-                    <div class="opener-info" id="bid-opener-info"></div>
-                </div>
-                
-                <div class="bid-slider-container">
-                    <div class="bid-amount-display">
-                        <div class="amount" id="bid-amount-display">0</div>
-                        <div class="label">chips</div>
+                    <div class="f6-gift mini" id="bid-gift-tile" aria-hidden="true">
+                        <span class="ribbon-v"></span><span class="ribbon-h"></span><span class="bow"></span>
                     </div>
-                    
+                    <div class="gift-lines">
+                        <div class="name" id="bid-gift-name">Mystery Gift</div>
+                        <div class="opener-info" id="bid-opener-info"></div>
+                    </div>
+                    <span class="f6-chip naughty-chip" id="bid-naughty-chip">○○○○○</span>
+                </div>
+
+                <div class="bid-slider-container">
+                    <span class="fz-sticker allin-sticker hidden" id="allin-sticker">ALL-IN!</span>
+                    <div class="bid-amount-display">
+                        <div class="f6-cap">Your bid</div>
+                        <div class="amount f6-disp fz-riso f6-num" id="bid-amount-display">0</div>
+                        <div class="label" id="bid-of-label">chips</div>
+                    </div>
+
                     <input type="range" class="bid-slider" id="bid-slider" min="0" max="4" value="0" oninput="updateBidDisplay()">
-                    
+
                     <div class="bid-quick-buttons" id="bid-quick-buttons">
                         <button onclick="setBid(0)">Pass</button>
                         <button onclick="setBid(1)">1</button>
@@ -866,8 +1197,8 @@
                     </div>
                 </div>
 
-                <button class="btn btn-gold" onclick="submitBid()" id="submit-bid-btn">
-                    🎯 Lock In Bid
+                <button class="btn btn-primary seal-btn" onclick="submitBid()" id="submit-bid-btn">
+                    Seal it — no takebacks 🔒
                 </button>
 
                 <div class="bid-status hidden" id="bid-status">
@@ -925,9 +1256,9 @@
                 </div>
             </div>
 
-            <!-- Other Players -->
+            <!-- Other Players (hidden in lobby — the lineup on the status card covers it) -->
             <div class="card" id="players-card">
-                <div class="card-title">👥 Players</div>
+                <div class="card-title">Players</div>
                 <div class="players-list" id="players-list">
                     <!-- Dynamic content -->
                 </div>
@@ -954,9 +1285,24 @@
     <div class="coin-animation-container" id="coin-animation-container"></div>
 
     <script>
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // Initialize Firebase (uses local emulator on localhost — see firebase-config.js)
+        const db = connectGameDatabase();
+
+        // Anonymous auth — the security rules require an authenticated user.
+        // Under ?testId=N we use SESSION persistence (sessionStorage is per-tab), so each
+        // test tab signs in as its OWN anonymous uid — preserving multi-tab local testing.
+        // Real players use LOCAL persistence so identity survives a refresh (for rejoin).
+        // Non-breaking until the rules deploy AND the Anonymous provider is enabled in console.
+        const auth = connectGameAuth();
+        const _isTestTab = new URLSearchParams(location.search).has('testId');
+        const authReady = auth.setPersistence(_isTestTab
+                ? firebase.auth.Auth.Persistence.SESSION
+                : firebase.auth.Auth.Persistence.LOCAL)
+            .catch(() => {})
+            .then(() => auth.signInAnonymously())
+            .then(cred => (cred && cred.user) || auth.currentUser || null)
+            .catch(err => { console.error('Anonymous auth failed (enable the Anonymous provider in the Firebase console):', err && (err.code || err.message || err)); return null; });
+        function currentUid() { return (auth.currentUser && auth.currentUser.uid) || null; }
 
         // Player state
         let playerState = {
@@ -975,21 +1321,41 @@
             phase: 'lobby'
         };
 
+        // Frost v6 avatar tiles: the design's "kind" system (emoji + color), assigned
+        // deterministically per player name. See F6_KIND in v6-frost-core.jsx.
+        const F6_KINDS = [
+            ['🧝', '#18b88a'], ['🦌', '#ff7a59'], ['😈', '#8a7bff'], ['☃️', '#38b6e6'],
+            ['⭐', '#ffc53d'], ['🐧', '#ff3d8b'], ['☕', '#c08457'], ['🎁', '#ff3366']
+        ];
+        function f6Kind(name) {
+            let h = 0;
+            for (const c of String(name || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+            return F6_KINDS[h % F6_KINDS.length];
+        }
+        function f6AvatarColor(name) { return f6Kind(name)[1]; }
+        function f6Avatar(name, size = 30) {
+            const [emoji, bg] = f6Kind(name);
+            return `<span class="f6-avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${Math.round(size * 0.5)}px">${emoji}</span>`;
+        }
+
         let currentBid = 0;
         let bidSubmitted = false;
         let lastTurnId = null; // Track last processed turn to avoid unnecessary UI resets
         let lastPhase = null; // Track last phase to detect phase changes
-        let duelInfo = null; // Store duel info: { wasInDuel: bool, pot: number, wasChallenger: bool, wasDefender: bool, chipsBeforeDuel: number }
+
+        // Multi-device testing: ?testId=1, ?testId=2 etc. use isolated localStorage so multiple tabs = different players
+        const urlParams = new URLSearchParams(window.location.search);
+        const TEST_ID = urlParams.get('testId');
+        const storageKey = (k) => k + (TEST_ID ? '_test' + TEST_ID : '');
 
         // Check for existing session or URL room code
         window.addEventListener('load', async () => {
-            const savedRoom = localStorage.getItem('jingleBrawl_player_room');
-            const savedPlayerId = localStorage.getItem('jingleBrawl_player_id');
-            const savedName = localStorage.getItem('jingleBrawl_player_name');
+            const savedRoom = localStorage.getItem(storageKey('jingleBrawl_player_room'));
+            const savedPlayerId = localStorage.getItem(storageKey('jingleBrawl_player_id'));
+            const savedName = localStorage.getItem(storageKey('jingleBrawl_player_name'));
             
             // Check URL for room code first
-            const params = new URLSearchParams(window.location.search);
-            const urlRoomCode = params.get('room');
+            const urlRoomCode = urlParams.get('room');
             
             if (savedRoom && savedPlayerId && savedName) {
                 // Check if game/player still exists
@@ -1004,25 +1370,44 @@
                 }
             }
             
-            // Fill in room code from URL if present
+            // Fill in room code and name from URL if present (helps multi-device testing)
             if (urlRoomCode) {
                 document.getElementById('room-code-input').value = urlRoomCode.toUpperCase();
+            }
+            const urlName = urlParams.get('name');
+            if (urlName) {
+                const nameEl = document.getElementById('player-name-input');
+                if (nameEl) nameEl.value = urlName;
+            }
+
+            // Auto-join when ?autoJoin=1 is present alongside room and name
+            if (urlParams.get('autoJoin') === '1' && urlRoomCode && urlName) {
+                await joinGame();
             }
         });
 
         // Show rejoin prompt
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         function showRejoinPrompt(roomCode, playerId, playerName) {
             document.getElementById('join-screen').innerHTML = `
-                <h1><img src="yuleduel_transparent.png" alt="Jingle Brawl"></h1>
-                <p class="tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</p>
-                
-                <div class="card" style="margin-top: 2rem; max-width: 300px; text-align: center;">
-                    <h3 style="margin-bottom: 0.5rem;">Welcome back, ${playerName}!</h3>
+                <div class="join-hero">
+                    <div class="logo-wrap"><img src="ydlogo2.png" alt="Yuel Duel"></div>
+                    <h1 class="join-title fz-riso">Yuel <span style="color: var(--accent);">Duel</span></h1>
+                    <div class="join-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
+                </div>
+                <div class="card" style="margin-top: 0; max-width: 320px; text-align: center;">
+                    <h3 style="margin-bottom: 0.5rem;">Welcome back, ${escapeHtml(playerName)}!</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                        Room: <strong style="color: var(--accent-gold);">${roomCode}</strong>
+                        Room: <strong style="color: var(--accent-gold);">${escapeHtml(roomCode)}</strong>
                     </p>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <button class="btn btn-primary" onclick="rejoinGame('${roomCode}', '${playerId}', '${playerName}')">
+                        <button class="btn btn-primary" id="rejoin-btn">
                             🔄 Rejoin Game
                         </button>
                         <button class="btn btn-secondary" onclick="joinDifferentGame()">
@@ -1031,6 +1416,8 @@
                     </div>
                 </div>
             `;
+            // Bound in JS, not an inline onclick string: names may contain quotes (O'Brien)
+            document.getElementById('rejoin-btn').addEventListener('click', () => rejoinGame(roomCode, playerId, playerName));
         }
 
         // Rejoin existing game
@@ -1038,6 +1425,9 @@
             playerState.roomCode = roomCode;
             playerState.playerId = playerId;
             playerState.name = playerName;
+
+            // Sign in before touching our player node (rules bind it to our uid).
+            await authReady;
 
             // Mark as connected
             await db.ref(`games/${roomCode}/players/${playerId}/connected`).set(true);
@@ -1062,9 +1452,9 @@
 
         // Clear saved session
         function clearSavedSession() {
-            localStorage.removeItem('jingleBrawl_player_room');
-            localStorage.removeItem('jingleBrawl_player_id');
-            localStorage.removeItem('jingleBrawl_player_name');
+            localStorage.removeItem(storageKey('jingleBrawl_player_room'));
+            localStorage.removeItem(storageKey('jingleBrawl_player_id'));
+            localStorage.removeItem(storageKey('jingleBrawl_player_name'));
         }
 
         // Exit game
@@ -1082,7 +1472,9 @@
         // Join game
         async function joinGame() {
             const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
-            const playerName = document.getElementById('player-name-input').value.trim();
+            // Sanitize at the source: strip angle brackets (kills tag/XSS injection into the
+            // many innerHTML sinks that render names) and cap length to match DB rules (<=60).
+            const playerName = document.getElementById('player-name-input').value.trim().replace(/[<>]/g, '').slice(0, 60);
 
             if (!roomCode || roomCode.length !== 4) {
                 showToast('Please enter a valid 4-letter room code');
@@ -1103,18 +1495,23 @@
 
             const gameData = gameRef.val();
             // Check for custom starting chips setting, otherwise use default
-            const startingChips = (gameData.settings && gameData.settings.startingChips) 
-                ? gameData.settings.startingChips 
+            const startingChips = typeof gameData.settings?.startingChips === 'number'
+                ? gameData.settings.startingChips
                 : GAME_CONFIG.getStartingChips(Object.keys(gameData.players || {}).length + 1);
+
+            // Ensure we are signed in before writing our own player node. The rules bind
+            // this node to our uid (ownerUid), so only this browser can edit it.
+            await authReady;
 
             // Create player
             const playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-            
+
             await db.ref(`games/${roomCode}/players/${playerId}`).set({
                 name: playerName,
                 chips: startingChips,
                 giftId: null,
                 connected: true,
+                ownerUid: currentUid(),
                 joinedAt: Date.now()
             });
 
@@ -1127,9 +1524,9 @@
             playerState.chips = startingChips;
 
             // Save to localStorage for persistence
-            localStorage.setItem('jingleBrawl_player_room', roomCode);
-            localStorage.setItem('jingleBrawl_player_id', playerId);
-            localStorage.setItem('jingleBrawl_player_name', playerName);
+            localStorage.setItem(storageKey('jingleBrawl_player_room'), roomCode);
+            localStorage.setItem(storageKey('jingleBrawl_player_id'), playerId);
+            localStorage.setItem(storageKey('jingleBrawl_player_name'), playerName);
 
             // Setup listeners
             setupListeners(roomCode);
@@ -1156,42 +1553,7 @@
                     const chipsChanged = oldChips !== data.chips;
                     playerState.chips = data.chips;
                     playerState.giftId = data.giftId;
-                    
-                    // Check if duel just ended and we were in it
-                    // Check if we have stored duel info and chips changed significantly (not just from other actions)
-                    if (chipsChanged && duelInfo && duelInfo.wasInDuel) {
-                        const chipChange = data.chips - oldChips;
-                        const pot = duelInfo.pot || 0;
-                        const loserDividend = 1; // Standard loser dividend
-                        
-                        // Check if this change is likely from a duel result:
-                        // - Chips increased by pot amount (winner)
-                        // - Chips changed from before duel (loser got dividend or nothing)
-                        // - We're either still in duel phase (just finished) or not (next phase)
-                        const isLikelyDuelResult = (
-                            (chipChange > 0 && chipChange >= pot) || // Winner got pot
-                            (chipChange > 0 && chipChange === loserDividend && !gameState.currentTurn) || // Loser got dividend, turn ended
-                            (chipChange === 0 && oldChips === duelInfo.chipsBeforeDuel && !gameState.currentTurn) || // Loser got nothing, turn ended
-                            (gameState.currentTurn?.phase !== 'duel') // Phase changed from duel
-                        );
-                        
-                        if (isLikelyDuelResult) {
-                            // Determine win/loss based on chip change and pot
-                            if (chipChange > 0 && chipChange >= pot) {
-                                // We won! Show winner animation
-                                showDuelResultModal(true, pot, duelInfo.chipsBeforeDuel, data.chips);
-                            } else {
-                                // We lost - might have gotten dividend, but we lost overall
-                                // Calculate what we paid (bid if challenger, 0 if defender)
-                                const paidAmount = duelInfo.wasChallenger ? (duelInfo.bidAmount || 0) : 0;
-                                showDuelResultModal(false, paidAmount, duelInfo.chipsBeforeDuel, data.chips);
-                            }
-                            
-                            // Reset duel tracking
-                            duelInfo = null;
-                        }
-                    }
-                    
+
                     document.getElementById('chip-display').textContent = data.chips;
                     updateMyGiftDisplay();
                     
@@ -1229,6 +1591,10 @@
             db.ref(`games/${roomCode}/players`).on('value', (snapshot) => {
                 gameState.players = snapshot.val() || {};
                 renderPlayers();
+                // Lobby lineup + counts live on the status card — keep them fresh as players join
+                if (gameState.phase === 'lobby' && !gameState.currentTurn) {
+                    handleTurnChange();
+                }
             });
 
             // All gifts
@@ -1267,35 +1633,25 @@
 
             // Current turn
             db.ref(`games/${roomCode}/currentTurn`).on('value', (snapshot) => {
-                const oldTurn = gameState.currentTurn;
                 gameState.currentTurn = snapshot.val();
-                
-                // Track when entering/exiting duel phase
-                const oldPhase = oldTurn?.phase;
-                const newPhase = gameState.currentTurn?.phase;
-                
-                if (oldPhase !== 'duel' && newPhase === 'duel') {
-                    // Entering duel phase - store duel info
-                    const amChallenger = gameState.currentTurn?.challengerId === playerState.playerId;
-                    const amDefender = gameState.currentTurn?.defenderId === playerState.playerId;
-                    if (amChallenger || amDefender) {
-                        // Get bid amount if we were challenger
-                        const bidAmount = amChallenger ? (gameState.currentTurn?.bids?.[playerState.playerId]?.amount || 0) : 0;
-                        duelInfo = {
-                            wasInDuel: true,
-                            pot: gameState.currentTurn?.pot || 0,
-                            wasChallenger: amChallenger,
-                            wasDefender: amDefender,
-                            chipsBeforeDuel: playerState.chips,
-                            bidAmount: bidAmount
-                        };
-                    }
-                } else if (oldPhase === 'duel' && newPhase !== 'duel') {
-                    // Exiting duel phase - will be handled by chips change listener
-                    // duelInfo is preserved so we can check when chips update
-                }
-                
                 handleTurnChange();
+                Mascots.observe(gameState, { me: playerState.playerId }); // only my own moments
+            });
+
+            // Duel outcomes, published by the host after it settles chips. The first
+            // snapshot is whatever duel happened before we (re)joined — skip it.
+            let lastDuelSeen;
+            db.ref(`games/${roomCode}/lastDuel`).on('value', (snapshot) => {
+                const result = snapshot.val();
+                const key = result ? `${result.at}|${result.winnerId}` : null;
+                if (lastDuelSeen === undefined || key === lastDuelSeen) { lastDuelSeen = key; return; }
+                lastDuelSeen = key;
+                if (!result) return;
+                if (result.winnerId === playerState.playerId) {
+                    showDuelResultModal(true, result.pot || 0, playerState.chips, 0, gameState.players[result.loserId]?.name);
+                } else if (result.loserId === playerState.playerId) {
+                    showDuelResultModal(false, result.loserPaid || 0, playerState.chips, result.dividend || 0, gameState.players[result.winnerId]?.name);
+                }
             });
 
             // Phase
@@ -1311,11 +1667,14 @@
                 
                 // Update UI when phase changes
                 handleTurnChange();
+                renderPlayers();
             });
         }
 
-        // Show duel result modal with animations
-        function showDuelResultModal(isWinner, amount, oldChips, newChips) {
+        // Show duel result modal with animations. `amount` = pot won (winner) or chips paid
+        // (loser); `dividend` = Loser's Dividend actually received; `opponent` = their name.
+        // Chips always fly loser → winner: into your count from "from X", or out to "to X".
+        function showDuelResultModal(isWinner, amount, newChips, dividend, opponent) {
             const modal = document.getElementById('duel-result-modal');
             const content = document.getElementById('duel-result-content');
             
@@ -1324,35 +1683,37 @@
             
             if (isWinner) {
                 content.innerHTML = `
-                    <h2>🏆 YOU WON!</h2>
-                    <div class="duel-result-amount">+${amount} 🪙</div>
-                    <div class="duel-result-total">New Total:</div>
-                    <div class="duel-result-new-total">${newChips} 🪙</div>
+                    <div class="fz-halftone verdict-halftone"></div>
+                    <div class="f6-cap" style="color: rgba(255,255,255,0.75);">Verdict</div>
+                    <h2 class="verdict-title f6-disp fz-riso">Spoils!</h2>
+                    <span class="f6-chip verdict-chip">Cry about it.</span>
+                    <div class="duel-result-amount f6-disp f6-num">+${amount} <span class="f6-coin"></span></div>
+                    ${opponent && amount > 0 ? `<span class="verdict-party" id="verdict-party">from ${escapeHtml(opponent)}</span>` : ''}
+                    <div class="verdict-stats">
+                        <div class="vstat"><div class="v f6-disp f6-num" id="verdict-chips">${newChips - amount}</div><div class="k">chips now</div></div>
+                        <div class="vstat"><div class="v f6-disp f6-num">+${amount}</div><div class="k">pot won</div></div>
+                    </div>
                 `;
-                
-                // Animate coins flying in
-                animateCoinsToPlayer(amount, true, () => {
-                    // Update chip display after animation
-                    document.getElementById('chip-display').textContent = newChips;
-                });
+                // after the modal is on screen (flights measure where they start and land)
+                setTimeout(() => chipFlight(document.getElementById('verdict-party'), 'verdict-chips', amount, newChips - amount, +1, newChips), 350);
             } else {
                 content.innerHTML = `
-                    <h2>💔 You Lost</h2>
-                    ${amount > 0 ? `<div class="duel-result-amount">-${amount} 🪙</div>` : ''}
-                    <div class="duel-result-total">New Total:</div>
-                    <div class="duel-result-new-total">${newChips} 🪙</div>
+                    <div class="fz-halftone verdict-halftone"></div>
+                    <div class="f6-cap" style="color: rgba(255,255,255,0.75);">Verdict</div>
+                    <h2 class="verdict-title f6-disp fz-riso">Ouch.</h2>
+                    <span class="f6-chip verdict-chip">Lose with grace? Never. Kick back.</span>
+                    ${amount > 0 ? `<div class="duel-result-amount f6-disp f6-num">−${amount} <span class="f6-coin"></span></div>` : ''}
+                    ${opponent && amount > 0 ? `<span class="verdict-party" id="verdict-party">to ${escapeHtml(opponent)}</span>` : ''}
+                    <div class="verdict-stats">
+                        <div class="vstat"><div class="v f6-disp f6-num" id="verdict-chips">${newChips - dividend}</div><div class="k">chips now</div></div>
+                        ${dividend > 0 ? `<div class="vstat" id="verdict-dividend"><div class="v f6-disp f6-num">+${dividend}</div><div class="k">dividend</div></div>` : ""}
+                    </div>
                 `;
-                
-                // Animate coins flying out (if amount > 0)
-                if (amount > 0) {
-                    animateCoinsToPlayer(amount, false, () => {
-                        // Update chip display after animation
-                        document.getElementById('chip-display').textContent = newChips;
-                    });
-                } else {
-                    // Just update display immediately if no coins to animate
-                    document.getElementById('chip-display').textContent = newChips;
-                }
+                // Chips you lost fly to the winner; then the dividend flies in from the Bank
+                const payDividend = () => chipFlight(document.getElementById('verdict-dividend'), 'verdict-chips',
+                    dividend, newChips - dividend, +1, newChips);
+                setTimeout(() => amount > 0 ? flyChips({ from: document.getElementById('verdict-chips'), to: document.getElementById('verdict-party'),
+                        count: amount, size: 30, onDone: payDividend }) : payDividend(), 350);
             }
             
             modal.classList.add('active');
@@ -1364,63 +1725,23 @@
             }, 3000);
         }
 
-        // Animate coins flying to/from player
-        function animateCoinsToPlayer(amount, incoming, callback) {
-            const container = document.getElementById('coin-animation-container');
-            container.innerHTML = ''; // Clear previous animations
-            
-            const chipDisplay = document.getElementById('chip-display');
-            if (!chipDisplay) {
-                if (callback) callback();
+        // Fly `count` chips from `source` into the counter `counterId`, ticking it from
+        // `start` by `step` per chip; the header chip count is set to `final` at the end.
+        function chipFlight(source, counterId, count, start, step, final) {
+            const counter = document.getElementById(counterId);
+            const done = () => {
+                if (counter) counter.textContent = final; // also when the flight was skipped
+                document.getElementById('chip-display').textContent = final;
+            };
+            if (!count || !source || !counter) {
+                done();
                 return;
             }
-
-            const rect = chipDisplay.getBoundingClientRect();
-            const targetX = rect.left + rect.width / 2;
-            const targetY = rect.top + rect.height / 2;
-            const startX = incoming ? window.innerWidth / 2 : targetX;
-            const startY = incoming ? window.innerHeight / 2 : targetY;
-            const endX = incoming ? targetX : window.innerWidth / 2;
-            const endY = incoming ? targetY : window.innerHeight / 2;
-
-            // Create multiple coins
-            const numCoins = Math.min(amount, 15); // Max 15 coins for performance
-            let completed = 0;
-
-            for (let i = 0; i < numCoins; i++) {
-                const coin = document.createElement('div');
-                coin.className = `flying-coin ${incoming ? '' : 'outgoing'}`;
-                coin.style.left = startX + 'px';
-                coin.style.top = startY + 'px';
-                container.appendChild(coin);
-
-                // Random delay and path for each coin
-                const delay = i * 50 + Math.random() * 100;
-                const angle = (Math.PI * 2 * i) / numCoins + Math.random() * 0.5;
-                const distance = incoming ? (150 + Math.random() * 100) : (100 + Math.random() * 50);
-                const midX = startX + Math.cos(angle) * distance;
-                const midY = startY + Math.sin(angle) * distance;
-
-                setTimeout(() => {
-                    coin.style.transition = 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                    coin.style.left = endX + 'px';
-                    coin.style.top = endY + 'px';
-                    coin.style.transform = incoming ? 'scale(1.5) rotate(720deg)' : 'scale(0.5) rotate(-720deg)';
-
-                    setTimeout(() => {
-                        coin.style.opacity = '0';
-                        completed++;
-                        if (completed === numCoins && callback) {
-                            setTimeout(callback, 200);
-                        }
-                    }, 900);
-                }, delay);
-            }
-
-            // If no coins (amount = 0), just call callback
-            if (numCoins === 0 && callback) {
-                setTimeout(callback, 500);
-            }
+            flyChips({
+                from: source, to: counter, count, size: 30,
+                onLand: (n) => { counter.textContent = start + step * n; },
+                onDone: done,
+            });
         }
 
         // Handle turn changes
@@ -1448,13 +1769,16 @@
                 // Reset states when turn/phase actually changes
                 bidPanel.classList.add('hidden');
                 actionCard.classList.add('hidden');
+                if (!['tiebreaker_pending', 'minigame_counterfeit_canvas', 'minigame_draw_off'].includes(currentPhase)) {
+                    resetMinigameUI();
+                }
                 statusCard.classList.remove('active', 'your-turn');
                 
                 // Only reset bid status if we're NOT in an active bidding phase with a submitted bid
                 if (!stillInBiddingPhase || !myExistingBid) {
                     bidSubmitted = false;
                     document.getElementById('bid-status').classList.add('hidden');
-                    document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
+                    document.getElementById('submit-bid-btn').textContent = 'Seal it — no takebacks 🔒';
                     document.getElementById('submit-bid-btn').disabled = false;
                 } else if (myExistingBid) {
                     // Player has already bid - show their locked bid
@@ -1475,6 +1799,13 @@
                             document.getElementById('bid-amount-display').textContent = currentBid;
                         }
                     }
+                } else if (stillInBiddingPhase && bidSubmitted) {
+                    // Sealed: keep the live "bids in" counter fresh
+                    const counterEl = document.getElementById('sealed-bids-in');
+                    if (counterEl) {
+                        const { bidsIn, eligible } = sealedBidCounts();
+                        counterEl.textContent = `${bidsIn}/${eligible}`;
+                    }
                 }
                 // Continue processing to ensure UI is correct, but skip the panel hide/show logic
                 // The switch statement below will handle showing the correct UI
@@ -1489,19 +1820,26 @@
                 statusCard.classList.remove('hidden');
                 
                 if (gameState.phase === 'lobby') {
-                    const playerCount = Object.keys(gameState.players).length;
-                    statusCard.innerHTML = `
-                        <div class="status-icon">🎄</div>
-                        <div class="status-title">Welcome to Jingle Brawl!</div>
-                        <div class="status-desc">${playerCount} player${playerCount !== 1 ? 's' : ''} joined. Waiting for host to start...</div>
-                        <div class="help-box">
-                            <div class="help-title">💡 Quick Overview</div>
-                            <div class="help-content">
-                                <strong>Goal:</strong> Get the best gift!<br>
-                                <strong>How:</strong> Bid chips to challenge for gifts you want.<br>
-                                <strong>Win duels</strong> to take gifts from others!
-                            </div>
+                    // Frost v6 phone lobby: "ROOM X · YOU'RE IN" + stat cards + lineup
+                    const entries = Object.entries(gameState.players);
+                    const lineup = entries.map(([id, p]) => `
+                        <div class="lineup-row">
+                            ${f6Avatar(p.name, 30)}
+                            <span class="lineup-nm">${escapeHtml(p.name)}</span>
+                            <span class="f6-chip lineup-chip${id === playerState.playerId ? ' you' : ''}">${id === playerState.playerId ? 'You' : 'Ready'}</span>
                         </div>
+                    `).join('');
+                    statusCard.innerHTML = `
+                        <div class="f6-cap">Room ${escapeHtml(playerState.roomCode || '')} · you're in</div>
+                        <div class="lobby-title f6-disp fz-riso">Yuel <span class="lobby-accent">Duel</span></div>
+                        <div class="lobby-tag">High stakes. Low blows. Questionable gifts.</div>
+                        <div class="final-stats">
+                            <div class="fstat"><div class="fstat-v f6-disp f6-num"><span class="f6-coin"></span> ${playerState.chips ?? 10}</div><div class="fstat-k">your chips</div></div>
+                            <div class="fstat accent"><div class="fstat-v f6-disp f6-num">${entries.length}</div><div class="fstat-k">in the lobby</div></div>
+                        </div>
+                        <div class="f6-cap lineup-label">Lineup</div>
+                        <div class="lineup">${lineup || '<div class="lineup-empty">Just you so far…</div>'}</div>
+                        <div class="status-desc" style="margin-top: 12px;">Waiting for the host to start…</div>
                     `;
                 } else if (gameState.phase === 'main') {
                     const hasGift = playerState.giftId != null;
@@ -1514,7 +1852,7 @@
                                 <div class="help-title">🛡️ Defending is FREE</div>
                                 <div class="help-content">
                                     If challenged, you <strong>don't pay anything</strong> to defend.<br>
-                                    If you lose, you get <strong>+1 chip</strong> (Loser's Dividend) and a <strong>Reprisal</strong> chance!
+                                    If you lose: ${dividendNote(true)} and a <strong>Reprisal</strong> chance!
                                 </div>
                             </div>
                         `;
@@ -1549,10 +1887,29 @@
                         </div>
                     `;
                 } else {
+                    // Frost v6 final result: "Nth place." + gift + stat cards
+                    const standings = Object.entries(gameState.players)
+                        .map(([id, p]) => ({ id, chips: p.chips || 0 }))
+                        .sort((a, b) => b.chips - a.chips);
+                    const myRank = standings.findIndex(e => e.id === playerState.playerId) + 1;
+                    const ordinal = n => {
+                        const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+                        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                    };
+                    const myGift = playerState.giftId ? gameState.gifts[playerState.giftId] : null;
                     statusCard.innerHTML = `
-                        <div class="status-icon">🎄</div>
-                        <div class="status-title">Game Over!</div>
-                        <div class="status-desc">Thanks for playing Jingle Brawl!</div>
+                        <div class="f6-cap">Game over · your night</div>
+                        <div class="final-place f6-disp fz-riso">${myRank > 0 ? `${ordinal(myRank)} place.` : 'Game over.'}</div>
+                        <div class="final-gift-wrap">
+                            <div class="final-gift-tile${myGift ? '' : ' none'}">${myGift ? '🎁' : '🫥'}</div>
+                            ${myRank === 1 ? '<span class="fz-sticker yel final-champ">🏆 CHAMP</span>' : ''}
+                        </div>
+                        <div class="final-gift-name">${myGift ? escapeHtml(myGift.name) : 'No gift this year'}</div>
+                        <div class="final-stats">
+                            <div class="fstat"><div class="fstat-v f6-disp f6-num">${playerState.chips ?? 0}</div><div class="fstat-k">chips</div></div>
+                            <div class="fstat accent"><div class="fstat-v f6-disp f6-num">${myGift ? `😈 ${myGift.naughtyLevel ?? 0}` : '—'}</div><div class="fstat-k">gift naughty</div></div>
+                        </div>
+                        <div class="status-desc" style="margin-top: 10px;">Thanks for playing Yuel Duel!</div>
                     `;
                 }
                 return;
@@ -1595,18 +1952,21 @@
                             const gift = gameState.gifts[turn.giftId];
                             const opener = gameState.players[turn.openerId];
                             document.getElementById('bid-gift-name').textContent = gift?.name || 'Mystery Gift';
+                            const naughtyLvl = Math.max(0, Math.min(5, gift?.naughtyLevel ?? 0));
                             document.getElementById('bid-opener-info').innerHTML = `
-                                Opened by <strong>${opener?.name || 'Player'}</strong>
+                                Opened by <strong>${opener?.name || 'Player'}</strong> · Naughty ${naughtyLvl}
                             `;
+                            document.getElementById('bid-naughty-chip').textContent = '●'.repeat(naughtyLvl) + '○'.repeat(5 - naughtyLvl);
+                            document.getElementById('bid-gift-tile').style.setProperty('--gift-color', f6AvatarColor(gift?.name || 'gift'));
                             document.getElementById('bid-help-text').innerHTML = `
                                 <div class="help-title">💡 Bidding Guide</div>
                                 <div class="help-content">
                                     <strong>Bid 0 (Pass):</strong> Don't challenge for this gift.<br>
                                     <strong>Bid chips:</strong> Highest bidder fights the opener!<br>
                                     <strong>If you win:</strong> You get the gift + keep remaining pot.<br>
-                                    <strong>If you lose:</strong> You get +1 chip back (Loser's Dividend).
+                                    <strong>If you lose:</strong> ${dividendNote(false)}.
                                     <div class="rule-chip">🎯 Winner takes pot minus Santa Tax</div>
-                                    <div class="rule-chip">💰 Santa Tax = 1 chip if pot ≥ 3</div>
+                                    <div class="rule-chip">💰 ${taxNote()}</div>
                                 </div>
                             `;
                         } else {
@@ -1681,9 +2041,7 @@
                         
                         if (revealBids.length === 0) {
                             // No bids - show Keep/Gambit options
-                            const otherGifts = Object.entries(gameState.gifts)
-                                .filter(([id]) => id !== turn.giftId);
-                            const canGambit = otherGifts.length > 0;
+                            const canGambit = gambitTargets(turn.giftId).length > 0;
                             
                             statusCard.innerHTML = `
                                 <div class="status-icon">🎁</div>
@@ -1722,7 +2080,30 @@
                             const c1Id = sorted[0][0];
                             const c2Id = sorted[1][0];
                             
-                            if (tiedBidders.length >= 2) {
+                            if (tiedBidders.length >= 3) {
+                                // 3+ way tie: rules say randomly select two challengers (picked on click)
+                                const tiedNames = tiedBidders.map(([id]) => escapeHtml(gameState.players[id]?.name)).join(', ');
+                                statusCard.innerHTML = `
+                                    <div class="status-icon">⚖️</div>
+                                    <div class="status-title">${tiedBidders.length}-WAY TIE!</div>
+                                    <div class="status-desc">${tiedNames} all bid ${highestBid}. Two will be drawn at random. You decide!</div>
+                                    <div class="help-box warning">
+                                        <div class="help-title">🏃 Fight or Yield?</div>
+                                        <div class="help-content">
+                                            <strong>Fight:</strong> The two drawn duel for the right to challenge YOU.<br>
+                                            <strong>Yield:</strong> The two drawn fight each other for your gift directly.
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                        <button class="btn btn-primary" onclick="openerChooseFight(null, null, true)">
+                                            ⚔️ Fight! (Tiebreaker first)
+                                        </button>
+                                        <button class="btn btn-gold" onclick="openerChooseYield(null, null)">
+                                            🏃 Yield! (two drawn at random)
+                                        </button>
+                                    </div>
+                                `;
+                            } else if (tiedBidders.length === 2) {
                                 // Tie situation
                                 statusCard.innerHTML = `
                                     <div class="status-icon">⚖️</div>
@@ -1779,7 +2160,7 @@
                                     <div class="help-content">
                                         <strong>Defending is FREE</strong> - you don't pay anything!<br>
                                         <strong>If you win:</strong> Keep your gift + win their bid (minus Santa Tax).<br>
-                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                        <strong>If you lose:</strong> ${dividendNote(true)}${reprisalNote(turn)}
                                     </div>
                                 </div>
                             `;
@@ -1860,8 +2241,16 @@
                             gameState.players[turn.challengerId]?.name;
                         const isDefending = amDefender;
                         statusCard.innerHTML = `
-                            <div class="status-icon">⚔️</div>
-                            <div class="status-title">DUEL TIME!</div>
+                            <div class="f6-cap">Duel</div>
+                            <div class="duel-you-row">
+                                <span class="duel-side f6-disp" style="color: var(--accent);">YOU</span>
+                                <span class="duel-vs-mini f6-disp fz-riso f6-wiggle">vs</span>
+                                <span class="duel-side f6-disp" style="color: var(--accent2);">${escapeHtml((opponent || 'Unknown').toUpperCase())}</span>
+                            </div>
+                            ${turn.pot ? `
+                            <div class="final-stats" style="margin: 4px 0 10px;">
+                                <div class="fstat"><div class="fstat-v f6-disp f6-num">${turn.pot} <span class="f6-coin"></span></div><div class="fstat-k">to the winner</div></div>
+                            </div>` : ''}
                             <div class="status-desc">You're ${isDefending ? 'defending against' : 'challenging'} ${opponent || 'Unknown'}!</div>
                             <div class="help-box ${isDefending ? 'success' : 'warning'}">
                                 <div class="help-title">${isDefending ? '🛡️ You\'re Defending!' : '⚔️ You\'re the Challenger!'}</div>
@@ -1869,11 +2258,11 @@
                                     ${isDefending ? `
                                         <strong>Defending is FREE</strong> - you don't pay anything!<br>
                                         <strong>If you win:</strong> Keep your gift + win the pot.<br>
-                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                        <strong>If you lose:</strong> ${dividendNote(true)}${reprisalNote(turn)}
                                     ` : `
                                         You've paid your bid into the pot.<br>
                                         <strong>If you win:</strong> Take the gift + pot (minus Santa Tax).<br>
-                                        <strong>If you lose:</strong> Get +1 chip (Loser's Dividend) + Reprisal chance!
+                                        <strong>If you lose:</strong> ${dividendNote(false)}${reprisalNote(turn)}
                                     `}
                                 </div>
                             </div>
@@ -1893,7 +2282,7 @@
                                 <div class="help-title">📋 Duel Rules</div>
                                 <div class="help-content">
                                     The <strong>Defender chooses the duel method</strong>.<br>
-                                    Loser gets <strong>+1 chip</strong> and a <strong>Reprisal</strong> opportunity!
+                                    ${spectatorLoserNote(turn)}
                                 </div>
                             </div>
                             ${!turn.isTiebreak ? `
@@ -2207,6 +2596,8 @@
                         statusCard.classList.add('hidden');
                         document.getElementById('bid-gift-name').textContent = turn.misfitName || 'Misfit Gift';
                         document.getElementById('bid-opener-info').innerHTML = `<strong>🎰 Misfit Auction!</strong>`;
+                        document.getElementById('bid-naughty-chip').textContent = '';
+                        document.getElementById('bid-gift-tile').style.setProperty('--gift-color', f6AvatarColor(turn.misfitName || 'misfit'));
                         document.getElementById('bid-help-text').innerHTML = `
                             <div class="help-title">💡 Auction Rules</div>
                             <div class="help-content">
@@ -2216,7 +2607,18 @@
                             </div>
                         `;
                         updateBidSliderMax();
-                        setBid(0);
+                        // Re-runs on every rival bid: only reset on entry, and keep a locked bid
+                        const lockedBid = turn.bids?.[playerState.playerId];
+                        if (lockedBid) {
+                            currentBid = lockedBid.amount;
+                            bidSubmitted = true;
+                            document.getElementById('bid-slider').value = currentBid;
+                            renderSealedState();
+                            document.getElementById('submit-bid-btn').textContent = '✅ Bid Submitted';
+                            document.getElementById('submit-bid-btn').disabled = true;
+                        } else if (turnChanged || phaseChanged) {
+                            setBid(0);
+                        }
                     } else {
                         statusCard.classList.add('active');
                         const activePlayer = gameState.players[turn.activePlayerId];
@@ -2254,6 +2656,37 @@
             }
         }
 
+        // Rule blurbs that follow the host's settings (GAME_CONFIG is synced from them)
+        // instead of hard-coding the printed rules, which differ from the defaults.
+        function dividendNote(asDefender) {
+            const rule = GAME_CONFIG.loserDividendRule;
+            const pays = rule === 'everyone' || (rule === 'defenders' && asDefender);
+            return pays ? `Get <strong>+${GAME_CONFIG.loserDividend} chip</strong> (Loser's Dividend)`
+                        : `No Loser's Dividend${rule === 'defenders' ? ' for attackers' : ''}`;
+        }
+        // Mirrors the host's canReprisal check in recordDuelWinner
+        function reprisalPossible(turn) {
+            return !turn.isGambit && !turn.isYieldDuel && !turn.isMisfitDuel && !turn.isTiebreak &&
+                (turn.reprisalDepth || 0) < GAME_CONFIG.maxReprisalDepth;
+        }
+        function reprisalNote(turn) {
+            return reprisalPossible(turn) ? ' + Reprisal chance!' : '';
+        }
+        // What a spectator is told the loser of THIS duel gets
+        function spectatorLoserNote(turn) {
+            const rule = GAME_CONFIG.loserDividendRule;
+            const noDividend = turn.isYieldDuel || turn.isMisfitDuel || turn.isTiebreak || rule === 'nobody';
+            const dividend = noDividend ? 'no dividend'
+                : rule === 'defenders' ? `<strong>+${GAME_CONFIG.loserDividend} chip</strong> if they were defending`
+                : `<strong>+${GAME_CONFIG.loserDividend} chip</strong>`;
+            return `Loser gets ${dividend}${reprisalPossible(turn) ? ' and a <strong>Reprisal</strong> chance' : ''}.`;
+        }
+        function taxNote() {
+            const { taxThreshold, maxWinnerPayout } = GAME_CONFIG;
+            if (taxThreshold >= 99 || maxWinnerPayout >= 99) return 'No Santa Tax this game';
+            return `Santa Tax: pots of ${taxThreshold}+ pay the winner at most ${maxWinnerPayout} (rest → Bank)`;
+        }
+
         // Update my gift display
         function updateMyGiftDisplay() {
             const card = document.getElementById('your-gift-card');
@@ -2287,7 +2720,14 @@
             const slider = document.getElementById('bid-slider');
             currentBid = parseInt(slider.value);
             document.getElementById('bid-amount-display').textContent = currentBid;
-            
+
+            // "of N chips" caption + ALL-IN sticker at max bid
+            const maxBid = parseInt(slider.max) || 0;
+            const ofLabel = document.getElementById('bid-of-label');
+            if (ofLabel) ofLabel.textContent = maxBid > 0 ? `of ${maxBid} chips` : 'chips';
+            const allinSticker = document.getElementById('allin-sticker');
+            if (allinSticker) allinSticker.classList.toggle('hidden', !(maxBid > 0 && currentBid === maxBid));
+
             // Update button selection
             const buttons = document.querySelectorAll('#bid-quick-buttons button');
             buttons.forEach(btn => {
@@ -2340,21 +2780,7 @@
 
             // Update UI to show submitted bid with option to change
             bidSubmitted = true;
-            document.getElementById('bid-status').classList.remove('hidden');
-            document.getElementById('bid-status').classList.add('submitted');
-            document.getElementById('bid-status').innerHTML = `
-                <div style="text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 800; color: var(--accent-gold);">
-                        ${currentBid > 0 ? `🎯 ${currentBid} chips` : '👋 Pass'}
-                    </div>
-                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.5rem 0;">
-                        Bid locked in! Waiting for reveal...
-                    </div>
-                    <button class="btn btn-secondary" onclick="changeBid()" style="margin-top: 0.5rem; font-size: 0.85rem;">
-                        🔄 Change Bid
-                    </button>
-                </div>
-            `;
+            renderSealedState();
             
             // Keep the bid panel visible but update submit button
             document.getElementById('submit-bid-btn').textContent = '✅ Bid Submitted';
@@ -2365,10 +2791,19 @@
         }
 
         // Opener chooses to fight (triggers tiebreaker if needed, then duel)
+        // Two random ids from the bidders tied at the top bid (3+ way tie rule)
+        function randomTiedPair() {
+            const bids = Object.entries(gameState.currentTurn?.bids || {}).filter(([, b]) => b.amount > 0);
+            const top = Math.max(...bids.map(([, b]) => b.amount));
+            return bids.filter(([, b]) => b.amount === top).map(([id]) => id)
+                .sort(() => Math.random() - 0.5).slice(0, 2);
+        }
+
         async function openerChooseFight(c1Id, c2Id, isTie) {
             showToast('You chose to FIGHT! 💪');
             vibrate();
-            
+            if (isTie && !c1Id) [c1Id, c2Id] = randomTiedPair();
+
             if (isTie) {
                 // Start tiebreaker - let host know
                 await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
@@ -2391,7 +2826,8 @@
         async function openerChooseYield(c1Id, c2Id) {
             showToast('You chose to YIELD! 🏃');
             vibrate();
-            
+            if (!c1Id) [c1Id, c2Id] = randomTiedPair();
+
             await db.ref(`games/${playerState.roomCode}/currentTurn`).update({
                 openerChoice: 'yield',
                 phase: 'yield_pending',
@@ -2400,23 +2836,73 @@
             });
         }
 
+        // Frost v6 sealed state (scene 4 phone): envelope + live "bids in" / "chips left"
+        function sealedBidCounts() {
+            const turn = gameState.currentTurn;
+            const bidsIn = Object.keys(turn?.bids || {}).length;
+            // Main game: everyone but the opener bids; endgame auction: everyone but the active player
+            const sitter = turn?.openerId || turn?.activePlayerId;
+            const eligible = Object.keys(gameState.players).filter(id => id !== sitter).length;
+            return { bidsIn, eligible };
+        }
+
+        function renderSealedState() {
+            const { bidsIn, eligible } = sealedBidCounts();
+            const chipsLeft = Math.max(0, (playerState.chips ?? 0) - currentBid);
+            const statusEl = document.getElementById('bid-status');
+            statusEl.classList.remove('hidden');
+            statusEl.classList.add('submitted');
+            statusEl.innerHTML = `
+                <div class="sealed-state">
+                    <div class="sealed-title f6-disp">${currentBid > 0 ? `Locked at <span style="color: var(--accent);">${currentBid}</span>.` : 'Passed.'}</div>
+                    <div class="sealed-disc">
+                        <span class="sealed-emoji">✉️</span>
+                        <span class="fz-sticker mint sealed-sticker">SEALED</span>
+                    </div>
+                    <div class="sealed-flinch f6-disp">Don't flinch.</div>
+                    <div class="sealed-sub">Everyone else is still sweating. Good.</div>
+                    <div class="final-stats" style="width: 100%; margin-top: 12px;">
+                        <div class="fstat"><div class="fstat-v f6-disp f6-num" id="sealed-bids-in">${bidsIn}/${eligible}</div><div class="fstat-k">bids in</div></div>
+                        <div class="fstat"><div class="fstat-v f6-disp f6-num">${chipsLeft} <span class="f6-coin"></span></div><div class="fstat-k">chips left</div></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="changeBid()" style="margin-top: 0.75rem; font-size: 0.85rem;">
+                        🔄 Change Bid
+                    </button>
+                </div>
+            `;
+        }
+
         // Allow changing bid before reveal
         function changeBid() {
             bidSubmitted = false;
             document.getElementById('bid-status').classList.add('hidden');
             document.getElementById('bid-status').classList.remove('submitted');
-            document.getElementById('submit-bid-btn').textContent = '🎯 Lock In Bid';
+            document.getElementById('submit-bid-btn').textContent = 'Seal it — no takebacks 🔒';
             document.getElementById('submit-bid-btn').disabled = false;
             showToast('You can change your bid now');
+        }
+
+        // Legal Reprisal targets: any gift except the one just lost and our own (Misfits allowed).
+        // Mirrors reprisalTargets() in host.html.
+        function reprisalTargets(excludedGiftId) {
+            return Object.entries(gameState.gifts).filter(([id, g]) =>
+                id !== excludedGiftId && g.ownerId !== playerState.playerId &&
+                (g.ownerId === 'misfit' || gameState.players[g.ownerId]));
+        }
+
+        // Legal Gambit targets: another player's gift (no Misfits — nobody to duel).
+        // Mirrors gambitTargets() in host.html.
+        function gambitTargets(openedGiftId) {
+            return Object.entries(gameState.gifts).filter(([id, g]) =>
+                id !== openedGiftId && g.ownerId !== playerState.playerId && gameState.players[g.ownerId]);
         }
 
         // Render reprisal options
         function renderReprisalOptions() {
             const turn = gameState.currentTurn;
             const container = document.getElementById('action-options');
-            
-            const availableGifts = Object.entries(gameState.gifts)
-                .filter(([id]) => id !== turn.excludedGiftId);
+
+            const availableGifts = reprisalTargets(turn.excludedGiftId);
 
             // Sort by type (player gifts first, then misfits) and then by cost
             availableGifts.sort(([,a], [,b]) => {
@@ -2539,9 +3025,8 @@
         // Show Gambit options
         function showGambitOptions() {
             const turn = gameState.currentTurn;
-            const otherGifts = Object.entries(gameState.gifts)
-                .filter(([id]) => id !== turn.giftId);
-            
+            const otherGifts = gambitTargets(turn.giftId);
+
             if (otherGifts.length === 0) {
                 showToast('No other gifts to challenge!');
                 return;
@@ -2589,8 +3074,8 @@
 
         // Cancel gambit selection
         function cancelGambit() {
-            // Re-render to go back to Keep/Gambit choice
-            renderPlayerUI();
+            // Re-render the reveal phase to go back to the Keep/Gambit choice
+            handleTurnChange();
         }
 
         // Execute Gambit
@@ -2664,7 +3149,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
                                         <div style="font-weight: 600;">${gift?.name || 'Unknown'}</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Owner: ${player.name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Owner: ${escapeHtml(player.name)}</div>
                                     </div>
                                     <div style="text-align: right;">
                                         ${naughtyBadge}
@@ -2757,7 +3242,7 @@
                             <div class="action-option" 
                                  onclick="executeNoBidsDuel('${id}')"
                                  style="background: var(--bg-card-hover); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
-                                <div style="font-weight: 600;">⚔️ Challenge ${player.name}</div>
+                                <div style="font-weight: 600;">⚔️ Challenge ${escapeHtml(player.name)}</div>
                             </div>
                         `;
                     }).join('')}
@@ -2790,6 +3275,9 @@
             const players = Object.entries(gameState.players)
                 .filter(([id]) => id !== playerState.playerId);
 
+            // In the lobby the status card's lineup already lists everyone
+            document.getElementById('players-card')?.classList.toggle('hidden', gameState.phase === 'lobby');
+
             if (players.length === 0) {
                 container.innerHTML = '<span style="color: var(--text-muted);">Waiting for other players...</span>';
                 return;
@@ -2802,7 +3290,7 @@
                 
                 return `
                     <div class="player-chip ${hasGift ? 'has-gift' : ''}">
-                        <span>${player.name}</span>
+                        <span>${escapeHtml(player.name)}</span>
                         ${hasGift ? '<span>🎁</span>' : ''}
                         ${chipsDisplay}
                     </div>
@@ -2841,6 +3329,19 @@
         let lastY = 0;
         let drawingStrokes = []; // Local stroke history for undo
         let minigameListener = null;
+
+        // Mini-game over: hide the card and drop drawing state, so the next mini-game
+        // doesn't start with this one's strokes or a stale "whose turn" marker.
+        function resetMinigameUI() {
+            document.getElementById('minigame-card')?.classList.add('hidden');
+            drawingStrokes.length = 0;
+            isDrawing = false;
+            delete window.minigameCurrentTurnPlayerId;
+            window.drawOffMode = false;
+            drawOffSubmitted = false;
+            if (drawOffTimerInterval) { clearInterval(drawOffTimerInterval); drawOffTimerInterval = null; }
+            redrawCanvas();
+        }
 
         // Initialize canvas
         // Resize canvas function (exposed globally so it can be called when card becomes visible)
@@ -3116,8 +3617,11 @@
 
         function redrawCanvas() {
             if (!ctx || !canvas) return;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Opaque white, not clearRect: Draw Off submits canvas.toDataURL(), and a
+            // transparent PNG reads as black to vision models (hiding black strokes).
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Redraw all strokes
             drawingStrokes.forEach(stroke => {
@@ -3170,51 +3674,15 @@
                 
                 // Handle clear (removed - too destructive, undo button is sufficient)
                 
-                // Handle strokes from other players (only during drawing phase)
-                if (minigameData.phase === 'drawing' && minigameData.strokes && ctx && canvas) {
-                    const strokes = Object.values(minigameData.strokes);
-                    strokes.forEach(stroke => {
-                        if (stroke.playerId !== playerState.playerId) {
-                            // Convert normalized coordinates to actual canvas coordinates
-                            const fromX = (stroke.normalizedFrom?.x || stroke.from?.x || 0) * canvas.width;
-                            const fromY = (stroke.normalizedFrom?.y || stroke.from?.y || 0) * canvas.height;
-                            const toX = (stroke.normalizedTo?.x || stroke.to?.x || 0) * canvas.width;
-                            const toY = (stroke.normalizedTo?.y || stroke.to?.y || 0) * canvas.height;
-                            
-                            // Only draw if not already in our history
-                            const exists = drawingStrokes.some(s => {
-                                const sFromX = s.normalizedFrom ? s.normalizedFrom.x * canvas.width : s.from.x;
-                                const sFromY = s.normalizedFrom ? s.normalizedFrom.y * canvas.height : s.from.y;
-                                const sToX = s.normalizedTo ? s.normalizedTo.x * canvas.width : s.to.x;
-                                const sToY = s.normalizedTo ? s.normalizedTo.y * canvas.height : s.to.y;
-                                return Math.abs(sFromX - fromX) < 1 && Math.abs(sFromY - fromY) < 1 &&
-                                       Math.abs(sToX - toX) < 1 && Math.abs(sToY - toY) < 1;
-                            });
-                            
-                            if (!exists) {
-                                ctx.strokeStyle = stroke.color;
-                                ctx.lineWidth = stroke.size;
-                                ctx.lineCap = 'round';
-                                ctx.lineJoin = 'round';
-                                ctx.beginPath();
-                                ctx.moveTo(fromX, fromY);
-                                ctx.lineTo(toX, toY);
-                                ctx.stroke();
-                                
-                                drawingStrokes.push({
-                                    type: stroke.type,
-                                    color: stroke.color,
-                                    size: stroke.size,
-                                    from: { x: fromX, y: fromY },
-                                    to: { x: toX, y: toY },
-                                    normalizedFrom: stroke.normalizedFrom || { x: fromX / canvas.width, y: fromY / canvas.height },
-                                    normalizedTo: stroke.normalizedTo || { x: toX / canvas.width, y: toY / canvas.height },
-                                    playerId: stroke.playerId, // Track which player made this stroke
-                                    timestamp: stroke.timestamp || Date.now()
-                                });
-                            }
-                        }
-                    });
+                // Counterfeit Canvas: Firebase holds every stroke (ours included — draw()
+                // syncs each segment), so mirror it exactly. Rebuilding rather than
+                // appending means another artist's Undo disappears here too.
+                if (minigameData.type !== 'draw_off' && minigameData.phase === 'drawing' && ctx && canvas) {
+                    drawingStrokes.length = 0;
+                    Object.values(minigameData.strokes || {})
+                        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+                        .forEach(stroke => drawingStrokes.push(stroke));
+                    redrawCanvas();
                 }
             });
         }
@@ -3321,6 +3789,7 @@
         // Draw Off: individual canvas, submit when done
         let drawOffSubmitted = false;
         let drawOffTimerInterval = null;
+        let drawOffCanvasFor = null; // startedAt of the Draw Off whose canvas is initialized
 
         function updateDrawOffUI(minigame, statusEl, canvasContainer, controlsContainer, doneBtn) {
             const titleEl = document.getElementById('minigame-card-title');
@@ -3334,10 +3803,9 @@
             switch (minigame.phase) {
                 case 'prompt_reveal':
                     statusEl.innerHTML = `
-                        <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
-                            Draw: "${prompt}"
-                        </div>
-                        <div style="color: var(--text-secondary);">Drawing starts in 10 seconds. Get ready!</div>
+                        <div style="margin-bottom: 6px;"><span class="f6-chip critic-chip">🤖 AI critic</span></div>
+                        <div class="drawoff-prompt f6-disp">“${escapeHtml(prompt)}”</div>
+                        <div style="color: var(--muted);">Drawing starts in 10 seconds. Get ready!</div>
                     `;
                     if (canvasContainer) canvasContainer.style.display = 'none';
                     if (controlsContainer) controlsContainer.style.display = 'none';
@@ -3367,10 +3835,12 @@
                         // Clear and init draw-off canvas (local strokes only)
                         window.drawOffMode = true;
                         window.minigameCurrentTurnPlayerId = playerState.playerId;
-                        drawingStrokes.length = 0; // Clear for fresh draw
-                        if (canvas && ctx) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        // This re-runs on EVERY minigame update (e.g. a rival submitting), so
+                        // only start a fresh canvas once per Draw Off — never mid-drawing.
+                        if (drawOffCanvasFor !== minigame.startedAt) {
+                            drawOffCanvasFor = minigame.startedAt;
+                            drawingStrokes.length = 0;
+                            redrawCanvas();
                         }
                         if (canvasContainer) canvasContainer.style.display = 'block';
                         const colorPickerRow = document.getElementById('drawing-color')?.parentElement;
@@ -3389,12 +3859,11 @@
                             canvas.style.cursor = 'crosshair';
                         }
                         statusEl.innerHTML = `
-                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">
-                                Draw: "${prompt}"
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px;">
+                                <span class="f6-chip critic-chip">🤖 AI critic</span>
+                                <span class="drawoff-timer f6-disp f6-num" id="drawoff-timer">${secLeft}s</span>
                             </div>
-                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                ⏱️ ${secLeft} seconds remaining
-                            </div>
+                            <div class="drawoff-prompt f6-disp">“${escapeHtml(prompt)}”</div>
                         `;
                         startDrawOffTimer(statusEl, minigame);
                     }
@@ -3404,7 +3873,7 @@
                 case 'judging':
                     window.drawOffMode = false;
                     statusEl.innerHTML = `
-                        <div style="font-size: 1.1rem; color: var(--accent-gold);">Draw: "${prompt}"</div>
+                        <div style="font-size: 1.1rem; color: var(--accent-gold);">Draw: "${escapeHtml(prompt)}"</div>
                         <div style="color: var(--text-secondary); margin-top: 0.5rem;">🤖 AI is judging all drawings...</div>
                     `;
                     if (canvasContainer) canvasContainer.style.display = 'none';
@@ -3417,10 +3886,22 @@
                     const scores = minigame.scores || {};
                     const myRank = rankings.indexOf(playerState.playerId) + 1;
                     const myScore = scores[playerState.playerId];
+                    const wittyHtml = minigame.wittyVerdict
+                        ? `<div style="background: var(--bg-card-hover); border-left: 4px solid var(--accent-gold); padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.9rem; font-style: italic;">🎭 ${escapeHtml(minigame.wittyVerdict)}</div>`
+                        : '';
+                    const rawBlock = (myScore?.rawVisionResponse || myScore?.rawRateResponse) ? `
+                        <details style="margin-top: 0.5rem; font-size: 0.8rem;">
+                            <summary style="cursor: pointer; color: var(--text-muted);">📋 Raw LLM output for your drawing</summary>
+                            ${myScore.rawVisionResponse ? `<div style="margin-top: 0.35rem;"><strong>Vision:</strong> ${escapeHtml(myScore.rawVisionResponse)}</div>` : ''}
+                            ${myScore.rawRateResponse ? `<div style="margin-top: 0.35rem;"><strong>Rating:</strong> ${escapeHtml(myScore.rawRateResponse)}</div>` : ''}
+                        </details>
+                    ` : '';
                     statusEl.innerHTML = `
-                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">Draw: "${prompt}"</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">Draw: "${escapeHtml(prompt)}"</div>
+                        ${wittyHtml}
                         <div style="font-weight: 700; margin-bottom: 0.5rem;">Your result: #${myRank || '?'} (${myScore?.rating || 0}/100)</div>
-                        ${myScore?.critique ? `<div style="font-size: 0.9rem; font-style: italic;">${myScore.critique}</div>` : ''}
+                        ${myScore?.critique ? `<div style="font-size: 0.9rem; font-style: italic;">${escapeHtml(myScore.critique)}</div>` : ''}
+                        ${rawBlock}
                     `;
                     if (canvasContainer) canvasContainer.style.display = 'none';
                     if (controlsContainer) controlsContainer.style.display = 'none';
@@ -3436,8 +3917,8 @@
             drawOffTimerInterval = setInterval(async () => {
                 const endTime = minigame.drawingEndTime || Date.now();
                 const secLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-                const timerDiv = statusEl.querySelector('div:last-child');
-                if (timerDiv) timerDiv.textContent = `⏱️ ${secLeft} seconds remaining`;
+                const timerEl = statusEl.querySelector('#drawoff-timer') || statusEl.querySelector('div:last-child');
+                if (timerEl) timerEl.textContent = timerEl.id === 'drawoff-timer' ? `${secLeft}s` : `⏱️ ${secLeft} seconds remaining`;
                 if (secLeft <= 0) {
                     clearInterval(drawOffTimerInterval);
                     drawOffTimerInterval = null;
@@ -3699,9 +4180,9 @@
             const aiCriticHtml = aiCritic && !aiCritic.error ? `
                 <div style="background: var(--bg-card-hover); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--accent-gold);">
                     <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 0.5rem;">🤖 AI Art Critic</div>
-                    <div style="font-size: 0.85rem;">${aiCritic.description || ''}</div>
+                    <div style="font-size: 0.85rem;">${escapeHtml(aiCritic.description)}</div>
                     <div style="margin-top: 0.5rem; font-weight: 600;">Score: ${aiCritic.rating}/100</div>
-                    ${aiCritic.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${aiCritic.critique}</div>` : ''}
+                    ${aiCritic.critique ? `<div style="font-size: 0.85rem; font-style: italic;">${escapeHtml(aiCritic.critique)}</div>` : ''}
                 </div>
             ` : '';
             
@@ -3759,9 +4240,7 @@
                 
                 await db.ref(`games/${playerState.roomCode}/currentTurn/duelVotes/${playerState.playerId}`).set(vote);
                 showToast(`Voted for ${gameState.players[votedForId]?.name}! 🗳️`, 'success');
-                
-                // Refresh UI
-                updateTurnDisplay();
+                // The currentTurn listener re-renders the duel card with "You voted for…"
             } catch (error) {
                 console.error('Error voting on duel:', error);
                 showToast('Error submitting vote', 'error');

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jingle Brawl Rules</title>
+    <title>Yuel Duel Rules</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -329,7 +329,7 @@
             <a href="quick-reference.html" class="header-link">📋 Quick Ref</a>
         </div>
         <div class="header-content">
-            <h1 class="logo-title">🎄 Jingle <span class="brawl">Brawl</span> 🥊</h1>
+            <h1 class="logo-title">🎄 Yuel <span class="brawl">Duel</span> 🥊</h1>
             <p class="logo-subtitle">A game of high stakes, low blows, and questionable gifts.</p>
         </div>
     </header>
@@ -352,7 +352,7 @@
             <ol class="steps">
                 <li><strong>Distribute Chips:</strong> Give each player <span class="term">10 chips</span> (or 12 for groups larger than 10)</li>
                 <li><strong>Draw Bag:</strong> Put all player names in the <span class="term">Santa Sack</span></li>
-                <li><strong>Head Elf:</strong> Choose the organizer as the first Head Elf</li>
+                <li><strong>Head Elf:</strong> Choose the organizer as the first Head Elf (in the app, the host screen does the drawing)</li>
                 <li><strong>Duel Methods:</strong> Agree on how duels will be resolved (coin flip, rock-paper-scissors, etc.)</li>
             </ol>
         </section>
@@ -369,19 +369,21 @@
             
             <h3>Santa Tax</h3>
             <div class="highlight">
-                <strong>If a Duel Pot is 3+ chips:</strong><br>
-                1 chip → Bank (tax)<br>
-                Rest → Winner
+                <strong>If a Duel Pot is 2+ chips:</strong><br>
+                Winner takes at most 2 chips<br>
+                Rest → Bank (tax)<br>
+                <em>Pot 2 → winner 2 · pot 3 → winner 2, tax 1 · pot 4 → winner 2, tax 2</em>
             </div>
             
             <h3>Loser's Dividend</h3>
             <div class="highlight info">
-                <strong>When you LOSE a duel:</strong> Immediately receive +1 chip from the Bank<br>
+                <strong>When you LOSE a duel as the Defender:</strong> Immediately receive +1 chip from the Bank<br>
+                Attackers who lose get nothing — that's the risk of attacking!<br>
                 <em>Exception: No dividend for misfit, yield, or tie-break duels</em>
             </div>
 
             <h3>Naughty Level</h3>
-            <p>Each gift has a Naughty Level starting at 0. It increases by +1 every time that gift is involved in a duel. Naughty Level determines the <span class="term">Minimum Cost</span> to challenge for that gift.</p>
+            <p>Each gift has a Naughty Level starting at 0. A gift's <strong>first sealed-bid duel sets it to the highest bid</strong> placed on it; every duel after that adds +1. It resets to 0 if the gift goes to the Misfit Pile. Naughty Level determines the <span class="term">Minimum Cost</span> to challenge for that gift.</p>
         </section>
 
         <!-- Main Game -->
@@ -391,14 +393,14 @@
 
             <h3>1. Unwrap</h3>
             <ul>
-                <li>Head Elf draws a name from the bag</li>
+                <li>Head Elf (the host screen) draws a name from the bag</li>
                 <li>That player (the <span class="term">Opener</span>) opens one gift</li>
                 <li>Gift starts at Naughty Level 0</li>
             </ul>
 
             <h3>2. Sealed Bidding</h3>
             <ul>
-                <li>Everyone <em>except</em> the Opener may bid (chips hidden in hand)</li>
+                <li>Everyone <em>except</em> the Opener may bid (chips hidden in hand) — max bid <span class="term">4 chips</span></li>
                 <li>Reveal simultaneously</li>
             </ul>
             
@@ -406,7 +408,9 @@
                 <strong>If nobody bids:</strong> Opener keeps the gift OR can use <em>Grinch's Gambit</em>
             </div>
             
-            <p><strong>If bids exist:</strong> Highest bidder becomes Challenger 1. Second-highest becomes Challenger 2. Ties → tie-break duel.</p>
+            <p><strong>If bids exist:</strong> Highest bidder becomes Challenger 1. Second-highest becomes Challenger 2.</p>
+
+            <p><strong>Tied top bid?</strong> The Opener chooses <em>first</em>: <strong>Fight</strong> — two of the tied bidders (picked at random) hold a tie-break duel and the winner faces the Opener — or <strong>Yield</strong> — two of the tied bidders (picked at random) duel each other for the gift. The host can have a mini-game (Counterfeit Canvas / Draw Off) pick instead.</p>
 
             <h3>3. The Duel</h3>
             <p>Challenger 1 vs Opener (by default). <strong>The Defender chooses the duel method.</strong></p>
@@ -430,9 +434,9 @@
             <ol class="steps">
                 <li><strong>Winner</strong> takes the contested gift</li>
                 <li>If winner had a gift, it goes to the <strong>Loser</strong></li>
-                <li>If loser now has 2 gifts, they <strong>choose</strong> which one goes to the Misfit Pile</li>
+                <li>If the loser also had a gift of their own, <strong>their original gift</strong> goes to the Misfit Pile (they keep the winner's old gift)</li>
                 <li>That gift's Naughty Level <strong>resets to 0</strong></li>
-                <li>Whoever's gift went to Misfits becomes the new <strong>Head Elf</strong></li>
+                <li>Whoever's gift went to Misfits becomes the new <strong>Head Elf</strong> (table play only — the app draws for you)</li>
             </ol>
 
             <h3>5. Bag Maintenance</h3>
@@ -457,10 +461,11 @@
             <h3>Reindeer Reprisal</h3>
             <p><em>"Because reindeer kick back..."</em></p>
             <div class="highlight warning">
-                <strong>When you LOSE a Grinch's Gambit or Sealed Bid Duel:</strong><br>
-                You may immediately challenge any gift (except the one you just lost the duel for).<br>
+                <strong>When you LOSE a Sealed Bid Duel (Challenger vs Opener):</strong><br>
+                You may immediately challenge any gift — Misfits included — except the one you just lost and your own.<br>
+                Picking a Misfit claims it outright (no duel); your current gift goes to the Misfit Pile.<br>
                 Pay the Minimum Cost to the Bank.<br>
-                <em>A Reprisal can trigger one more Reprisal (max 2 chain).</em>
+                <em>No Reprisal after a Grinch's Gambit (for either player), a yield duel, a tie-break or an Endgame duel. A Reprisal can't trigger another Reprisal.</em>
             </div>
         </section>
 
@@ -534,8 +539,12 @@
             <div class="highlight">
                 <strong>Remember:</strong><br>
                 • Defending is always FREE<br>
-                • Naughty Level +1 after every duel involving that gift<br>
+                • First sealed-bid duel sets Naughty Level to the highest bid; +1 after every later duel<br>
                 • When a gift goes to Misfit Pile, Naughty Level resets to 0
+            </div>
+
+            <div class="highlight info">
+                <strong>House settings:</strong> these are the app's defaults. On the setup screen the host can change Santa Tax (max winner payout and threshold), Loser's Dividend, Reprisal chain depth, max bid, starting chips, base challenge cost and the tiebreaker method.
             </div>
         </section>
     </main>

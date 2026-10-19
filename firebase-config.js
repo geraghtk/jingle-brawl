@@ -1,5 +1,5 @@
-// Firebase Configuration for Jingle Brawl
-// 
+// Firebase Configuration for Yuel Duel
+//
 // Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyDOPkYyZ6qFNoBB7iVbZRtyjk3W_uf7POA",
@@ -10,6 +10,34 @@ const firebaseConfig = {
     messagingSenderId: "778188643750",
     appId: "1:778188643750:web:be573c1c5f88cd61a48367"
 };
+
+// On localhost both the database and auth go to the local emulators (see firebase.json)
+// so testing never touches production data OR creates real anonymous users in the
+// production Auth project. Add ?prod=1 to the URL to opt out.
+function useLocalEmulators() {
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(location.hostname);
+    return isLocalhost && !new URLSearchParams(location.search).has('prod');
+}
+
+// Initialize Firebase and return the Realtime Database handle.
+function connectGameDatabase() {
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    if (useLocalEmulators()) {
+        db.useEmulator('127.0.0.1', 9000);
+        console.info('Firebase: using local emulators (start them with "npm run emulator"; add ?prod=1 for production)');
+    }
+    return db;
+}
+
+// Return the Auth handle (call after connectGameDatabase, before signing in).
+function connectGameAuth() {
+    const auth = firebase.auth();
+    if (useLocalEmulators()) {
+        auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
+    }
+    return auth;
+}
 
 // Game configuration defaults
 const GAME_CONFIG = {
@@ -24,7 +52,7 @@ const GAME_CONFIG = {
     
     // Minimum cost formula (uses baseCost setting)
     getMinCost: function(naughtyLevel) { 
-        return (this.baseCost || 1) + naughtyLevel; 
+        return (this.baseCost ?? 1) + naughtyLevel; // ?? not ||: "0 + Naughty" is a real setting
     },
     
     // Max chips winner receives from pot (rest goes to bank as Santa Tax)

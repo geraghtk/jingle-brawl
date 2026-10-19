@@ -38,11 +38,13 @@ pip install -r ai_art_critic_requirements.txt
    Server runs at `http://localhost:5050` by default.
 
 3. **Create a Jingle Brawl game** with:
-   - Tiebreaker: **The Counterfeit Canvas Mini-Game**
+   - Tiebreaker: **The Counterfeit Canvas Mini-Game** or **AI Draw Off** (Draw Off requires the critic and auto-enables it)
    - ✅ **Enable AI Art Critic**
+   - Engine: **Ollama** (local, free) or **OpenAI** (paste a key; it stays in the host's browser session and is only sent to this local server)
    - Server URL: `http://localhost:5050` (default)
 
-When the drawing phase ends, the AI will analyze the canvas and its rating will appear during the voting phase.
+Counterfeit Canvas: when drawing ends, the AI rates the shared canvas and the rating appears during voting.
+Draw Off: after 3 minutes the AI scores each submission, then `/witty-verdict` writes a critic's verdict and picks the winner (falls back to the highest score if that call fails).
 
 ## Environment variables
 
@@ -51,6 +53,10 @@ When the drawing phase ends, the AI will analyze the canvas and its rating will 
 | `PORT` | 5050 | Server port |
 | `OLLAMA_HOST` | http://localhost:11434 | Ollama API URL |
 | `OLLAMA_VISION_MODEL` | llava | Vision model name |
+| `OPENAI_VISION_MODEL` | gpt-5.2 | OpenAI model when a key is supplied |
+| `OPENAI_API_KEY` | — | Server-side key (used if the host sends none) |
+
+Unit tests for the reply parsing (no model needed): `python -m unittest discover -s tests`.
 
 ---
 
@@ -76,9 +82,9 @@ Uses Firebase / Vertex AI Gemini. No secrets to manage – uses your project cre
    https://us-central1-YOUR_PROJECT.cloudfunctions.net/critiqueDrawingGemini
    ```
 
-### Option B: OpenAI GPT-4
+### Option B: OpenAI
 
-Uses OpenAI GPT-4 Vision. Requires an API key.
+Uses an OpenAI vision model (`gpt-5.2` by default). Requires an API key.
 
 1. **Set secret**
    ```bash
@@ -95,6 +101,24 @@ Uses OpenAI GPT-4 Vision. Requires an API key.
    ```
    https://us-central1-YOUR_PROJECT.cloudfunctions.net/critiqueDrawing
    ```
+
+### Choosing models (Cloud Functions)
+
+Model IDs are configuration, not code — they get retired (`gemini-2.0-flash-001` was
+retired 2026-06-01, which broke the old Gemini function). Set them in `functions/.env`
+and redeploy:
+
+```
+GEMINI_MODEL=gemini-3.8-flash        # check the Vertex AI "Model versions" page for a current stable ID
+OPENAI_VISION_MODEL=gpt-5.2
+```
+
+`GET .../health` reports which models a deployed function is using. The Gemini function
+uses the Google Gen AI SDK (`@google/genai`); the old `@google-cloud/vertexai` generative
+module was removed by Google on 2026-06-24. Parser tests: `cd functions && npm test`.
+
+**Draw Off on Cloud Functions:** there is no `witty-verdict` function, so the verdict
+step is skipped and the highest AI score wins. Use the local server for verdicts.
 
 ### Firebase Blaze plan
 

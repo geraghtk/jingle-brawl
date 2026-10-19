@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jingle Brawl - Quick Reference</title>
+    <title>Yuel Duel - Quick Reference</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -371,9 +371,11 @@
             <div class="ref-section info">
                 <h3><span class="emoji">🦌</span> Reindeer Reprisal</h3>
                 <ul>
-                    <li>Triggers when you <strong>LOSE</strong> a duel</li>
-                    <li>Challenge any gift <em>(except the one you just lost)</em></li>
-                    <li>Max 2 chained reprisals</li>
+                    <li>Triggers when you <strong>LOSE</strong> a sealed-bid duel</li>
+                    <li>Challenge any gift <em>(except the one you just lost and your own)</em></li>
+                    <li>None after a Gambit, yield, tie-break or endgame duel</li>
+                    <li>No chaining — one Reprisal per duel</li>
+                    <li>Pick a Misfit? Claim it — no duel</li>
                     <li>Pay Minimum Cost to Bank</li>
                 </ul>
                 <p class="tagline">"Because reindeer kick back..."</p>
@@ -394,25 +396,26 @@
                 <ul>
                     <li><strong>Winner</strong> takes contested gift</li>
                     <li>Winner's old gift → Loser</li>
-                    <li>If Loser has 2 gifts → choose one for Misfit</li>
+                    <li>If Loser had a gift → their original goes to Misfit</li>
                     <li>Gift to Misfit resets to <strong>Naughty 0</strong></li>
-                    <li>Player who loses gift to Misfit → new <strong>Head Elf</strong></li>
+                    <li>Player who loses gift to Misfit → new <strong>Head Elf</strong> (table play)</li>
                 </ul>
             </div>
 
             <div class="ref-section danger">
                 <h3><span class="emoji">🏦</span> Santa Tax</h3>
                 <ul>
-                    <li>Applies to sealed bid pots of <strong>3+ chips</strong></li>
-                    <li>1 chip → Bank (tax)</li>
-                    <li>Rest → Winner</li>
+                    <li>Applies to sealed bid pots of <strong>2+ chips</strong></li>
+                    <li>Winner takes at most <strong>2 chips</strong></li>
+                    <li>Rest → Bank (tax)</li>
                 </ul>
             </div>
 
             <div class="ref-section warning">
                 <h3><span class="emoji">💸</span> Loser's Dividend</h3>
                 <ul>
-                    <li>Lose a duel? Get <strong>+1 chip</strong> from Bank</li>
+                    <li>Lose a duel <strong>as the Defender</strong>? Get <strong>+1 chip</strong> from Bank</li>
+                    <li>Attackers who lose get nothing</li>
                     <li><em>Exception: No dividend for misfit, yield, or tie-break duels</em></li>
                 </ul>
             </div>

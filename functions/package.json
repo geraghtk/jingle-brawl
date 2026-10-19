@@ -2,13 +2,16 @@
   "name": "jingle-brawl-functions",
   "description": "Cloud Functions for Jingle Brawl AI Art Critic",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "firebase-functions": "^4.5.0",
     "firebase-admin": "^11.11.0",
     "openai": "^4.20.0",
-    "@google-cloud/vertexai": "^1.10.0"
+    "@google/genai": "^2.30.0"
   }
 }

@@ -1,0 +1,20 @@
+{
+  "name": "jingle-brawl",
+  "version": "1.0.0",
+  "description": "Yuel Duel - gift exchange party game",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:flows": "playwright test e2e/game-flows.spec.js --reporter=list",
+    "emulator": "firebase emulators:start --only database,auth --project jingle-brawl-e8308",
+    "agents": "node agents/play.js",
+    "agents:watch": "node agents/play.js --watch",
+    "agents:sweep": "node agents/play.js --sweep",
+    "test:agents": "node --test agents/personas.test.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
