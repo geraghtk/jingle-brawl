@@ -370,7 +370,8 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test("Draw Off: one artist submitting doesn't wipe another artist's canvas", async ({ browser }) => {
+  // AI Draw Off is no longer a tiebreaker (ties are whole-table party games) — pending a new home
+  test.skip("Draw Off: one artist submitting doesn't wipe another artist's canvas", async ({ browser }) => {
     test.setTimeout(90000);
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, {
       'tiebreaker-method': 'draw_off',
@@ -408,8 +409,10 @@ test.describe('Regressions (2026-10 review)', () => {
   });
 
   test('3-way tie, opener yields from the phone: the duelists are two of the TIED bidders', async ({ browser }) => {
+    test.setTimeout(90000); // a whole party game is played
     const FOUR = ['Alice', 'Bob', 'Charlie', 'Dave'];
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, {}, FOUR);
+    // Sketch-Off: the outcome follows the votes the test casts (Whack-an-Elf phones report live scores)
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'sketch_off' }, FOUR);
     try {
       const turn = await H.drawGift(host, roomCode, 'Triple Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
@@ -418,15 +421,14 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.revealBids(host);
       await expect(pages[opener].locator('#status-card')).toContainText('3-WAY TIE');
       await H.openerYields(pages[opener]);
-      const pending = await H.waitForTurnPhase(roomCode, 'yield_pending');
+      await H.waitForTurnPhase(roomCode, 'yield_pending');
+      await H.clickStartYieldDuel(host); // 3+ tied: the whole table's party game picks the two
       const p = await H.playersByName(roomCode);
       const tiedIds = tied.map((n) => p[n].id);
-      expect(tiedIds).toContain(pending.yieldC1);
-      expect(tiedIds).toContain(pending.yieldC2);
-      expect(pending.yieldC1).not.toBe(pending.yieldC2);
-
-      await H.clickStartYieldDuel(host);
-      const duel = await H.waitForTurnPhase(roomCode, 'duel');
+      // the best two TIED bidders in the party game are the two who duel (votes: tiedIds[2] most, then tiedIds[0])
+      const duel = await H.settlePartyTie(host, roomCode, [tiedIds[2], tiedIds[0], p[opener].id, tiedIds[1]]);
+      expect(duel.isYieldDuel).toBe(true);
+      expect([duel.challengerId, duel.defenderId].sort()).toEqual([tiedIds[2], tiedIds[0]].sort());
       const winner = Object.keys(p).find((n) => p[n].id === duel.challengerId);
       await H.declareWinner(host, winner);
       await H.waitForTurnPhase(roomCode, null);
@@ -437,7 +439,7 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test('Draw Off picking 2 for a yield ends in the yield duel (no endless re-run) and hides the card', async ({ browser }) => {
+  test.skip('Draw Off picking 2 for a yield ends in the yield duel (no endless re-run) and hides the card', async ({ browser }) => {
     test.setTimeout(60000);
     const FOUR = ['Alice', 'Bob', 'Charlie', 'Dave'];
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'draw_off' }, FOUR);
@@ -657,30 +659,6 @@ test.describe('Regressions (2026-10 review)', () => {
       const p = await H.playersByName(roomCode);
       expect(p[high].chips, 'half of 4 paid once').toBe(8);
       expect(p[low].chips, 'half of 2 paid once').toBe(9);
-      assertNoPageErrors();
-    } finally {
-      await cleanup();
-    }
-  });
-
-  test('double-tapping the tiebreak winner starts the main duel once', async ({ browser }) => {
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
-    try {
-      const turn = await H.drawGift(host, roomCode, 'Double Tiebreak');
-      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
-      const [c1, c2] = NAMES.filter((n) => n !== opener);
-      await H.allBid(pages, opener, { [c1]: 2, [c2]: 2 });
-      await H.revealBids(host);
-      await H.openerFights(pages[opener]);
-      await H.waitForTurnPhase(roomCode, 'tiebreaker_pending');
-      await H.clickStartTiebreakerDuel(host);
-      const tb = await H.waitForGame(roomCode, (g) => (g.currentTurn?.isTiebreak ? g.currentTurn : false), { label: 'tiebreak duel' });
-      const p0 = await H.playersByName(roomCode);
-      const winner = tb.challengerId === p0[c1].id ? c1 : c2;
-      await host.locator('#action-buttons').getByRole('button', { name: new RegExp(`${winner} Wins`, 'i') }).dblclick();
-      await H.waitForGame(roomCode, (g) => (g.currentTurn?.phase === 'duel' && !g.currentTurn.isTiebreak ? g : false), { label: 'main duel' });
-      await host.waitForTimeout(1500);
-      expect((await H.playersByName(roomCode))[winner].chips, 'tiebreak winner pays their bid of 2 once').toBe(8);
       assertNoPageErrors();
     } finally {
       await cleanup();

@@ -10,7 +10,9 @@ export type Owner = PlayerId | typeof MISFIT;
 
 export type GamePhase = 'lobby' | 'main' | 'endgame' | 'ended';
 export type DividendRule = 'everyone' | 'defenders' | 'nobody';
-export type TiebreakerMethod = 'random' | 'sketch_off' | 'whack_elf' | 'draw_off' | 'minigame';
+// Ties are always settled by a whole-table party game. 'random' / 'draw_off' / 'minigame' are only
+// read from older saved games (config() maps them).
+export type TiebreakerMethod = 'party_mix' | 'sketch_off' | 'whack_elf' | 'random' | 'draw_off' | 'minigame';
 export type PartyPrize = 'points_chips' | 'points' | 'none';
 
 export interface Settings {

@@ -4,13 +4,15 @@
 // are rock-paper-scissors, thumb wars…). Thousands of games run in seconds.
 import * as A from '../core/actions';
 import * as D from '../core/duel';
+import type { PartyGame } from '../core/party';
+import { advanceParty, reportWhack, submitSketch, voteSketch } from '../core/partyflow';
 import { rng as makeRng } from '../core/rng';
 import type { Rng } from '../core/rng';
 import { gambitTargets, misfitPile, reprisalTargets, stealTargets, topTiedBidders, wrappedGifts } from '../core/rules';
 import { config, minCost } from '../core/settings';
 import { getPath, applyUpdates } from '../core/tx';
 import type { Game, Plan, PlayerId, Settings } from '../core/types';
-import type { Strategy, View } from './strategies';
+import type { Strategy, Target, View } from './strategies';
 
 export interface Ledger {
   start: number;          // chips in play after Start
@@ -19,6 +21,7 @@ export interface Ledger {
   costsBurned: number;    // Gambit / Reprisal / Endgame-steal costs (paid to nobody)
   dividendsMinted: number;// Loser's Dividends (created from nothing)
   tollsMoved: number;     // Misfit toll: player → player (zero-sum)
+  elfBonusMinted: number; // party games: +1 chip to the best finisher outside the tie
 }
 
 export interface GameResult {
@@ -35,6 +38,7 @@ export interface GameResult {
   maxNaughty: number;
   steps: number;
   ended: boolean;
+  partyGames: Record<string, number>; // ties settled by each party game
 }
 
 const NOW = 1_700_000_000_000;
@@ -55,9 +59,47 @@ export interface SimOptions {
   maxSteps?: number;
 }
 
+/** A choice the game is waiting on: whose it is, what they see, and what they may choose from.
+ *  `game` is the state at that moment (for traces); `view` is what the strategy reads. */
+export type Decision =
+  | { kind: 'bid'; player: PlayerId; giftId: string; max: number; view: View; game: Game }
+  | { kind: 'gambit'; player: PlayerId; targets: Target[]; view: View; game: Game }
+  | { kind: 'fight'; player: PlayerId; giftId: string; view: View; game: Game }
+  | { kind: 'reprisal'; player: PlayerId; targets: Target[]; view: View; game: Game }
+  | { kind: 'steal'; player: PlayerId; targets: Target[]; misfitId: string; view: View; game: Game };
+
+export interface StepOptions {
+  settings?: Settings;
+  names: string[];          // one per seat (seat i is player "p<i>")
+  seed: number;
+  maxSteps?: number;
+}
+
+/** What a strategy decides at a decision. */
+export function answer(s: Strategy, d: Decision): number | string | boolean | null {
+  switch (d.kind) {
+    case 'bid': return s.bid(d.view, d.giftId);
+    case 'gambit': return s.gambit(d.view, d.targets);
+    case 'fight': return s.fight(d.view, d.giftId);
+    case 'reprisal': return s.reprisal(d.view, d.targets);
+    case 'steal': return s.steal(d.view, d.targets, d.misfitId);
+  }
+}
+
+/** One game, played by strategies (each seat's answers its own decisions). */
 export function playGame(o: SimOptions): GameResult {
+  const it = steps({ settings: o.settings, names: o.strategies.map((s) => s.name), seed: o.seed, maxSteps: o.maxSteps });
+  let s = it.next();
+  while (!s.done) s = it.next(answer(o.strategies[Number(s.value.player.slice(1))], s.value));
+  return s.value;
+}
+
+/** One game as a sequence of decisions: it pauses at every choice a player makes and resumes
+ *  with their answer (playGame answers from strategies; sim/bridge.ts from outside). The same
+ *  code and the same random draws either way. */
+export function* steps(o: StepOptions): Generator<Decision, GameResult, unknown> {
   const r: Rng = makeRng(o.seed);
-  const n = o.strategies.length;
+  const n = o.names.length;
   const ctx = () => ({ now: NOW, rng: r });
   // valuations: a shared quality per gift + each player's own taste (as in the agent harness)
   const quality: number[] = Array.from({ length: n }, () => 1 + Math.floor(r() * 10));
@@ -74,8 +116,8 @@ export function playGame(o: SimOptions): GameResult {
 
   const res: GameResult = {
     seats: [], duels: [], bidsPlaced: 0, bidsByAmount: {}, gambits: 0, reprisals: 0, yields: 0, steals: 0, auctions: 0,
-    maxNaughty: 0, steps: 0, ended: false,
-    ledger: { start: sum(g), end: 0, taxBurned: 0, costsBurned: 0, dividendsMinted: 0, tollsMoved: 0 },
+    maxNaughty: 0, steps: 0, ended: false, partyGames: {},
+    ledger: { start: sum(g), end: 0, taxBurned: 0, costsBurned: 0, dividendsMinted: 0, tollsMoved: 0, elfBonusMinted: 0 },
   };
   const spent: Record<PlayerId, number> = Object.fromEntries(ids.map((id) => [id, 0]));
   let opened = 0;
@@ -89,7 +131,6 @@ export function playGame(o: SimOptions): GameResult {
       value: (giftId: string) => valueOf(seat(id), giftIdx(giftId)),
     };
   };
-  const strat = (id: PlayerId) => o.strategies[seat(id)];
   const run = (plan: Plan) => {
     g = apply(g, plan);
     if (plan.then === 'drawEndgamePlayer') g = apply(g, D.drawEndgamePlayer(g, r));
@@ -134,7 +175,8 @@ export function playGame(o: SimOptions): GameResult {
         const gift = t.giftId!;
         for (const id of ids) {
           if (id === t.openerId || t.bids?.[id]) continue;
-          const amt = Math.max(0, Math.min(strat(id).bid(view(id), gift), cfg.maxBid, g.players![id].chips));
+          const max = Math.min(cfg.maxBid, g.players![id].chips);
+          const amt = Math.max(0, Math.min(Number(yield { kind: 'bid', player: id, giftId: gift, max, view: view(id), game: g }) || 0, max));
           run(A.submitBid(g, id, amt, NOW));
           if (amt > 0) { res.bidsPlaced++; res.bidsByAmount[amt] = (res.bidsByAmount[amt] || 0) + 1; }
         }
@@ -146,14 +188,14 @@ export function playGame(o: SimOptions): GameResult {
         const bids = Object.entries(t.bids || {}).filter(([, b]) => b.amount > 0).sort(([, a], [, b]) => b.amount - a.amount);
         if (!bids.length) {
           const targets = gambitTargets(g, t.giftId, opener).map(([id, x]) => ({ id, cost: minCost(cfg, x.naughtyLevel || 0) }));
-          const pick = strat(opener).gambit(view(opener), targets.filter((x) => x.cost <= g.players![opener].chips));
+          const pick = (yield { kind: 'gambit', player: opener, targets: targets.filter((x) => x.cost <= g.players![opener].chips), view: view(opener), game: g }) as string | null;
           if (pick) { pay(opener, minCost(cfg, g.gifts![pick].naughtyLevel || 0)); res.ledger.costsBurned += minCost(cfg, g.gifts![pick].naughtyLevel || 0); res.gambits++; run(A.gambit(g, pick)); }
           else run(A.keepGift(g));
           break;
         }
         if (bids.length === 1) { pay(bids[0][0], bids[0][1].amount); run(A.startDuel(g, bids[0][0], opener)); break; }
         const tied = topTiedBidders(t);
-        const fight = strat(opener).fight(view(opener), t.giftId!);
+        const fight = Boolean(yield { kind: 'fight', player: opener, giftId: t.giftId!, view: view(opener), game: g });
         if (tied.length >= 2) run(fight ? A.openerFight(g, null, null, true, r) : A.openerYield(g, null, null, r));
         else run(fight ? A.openerFight(g, bids[0][0], bids[1][0], false, r) : A.openerYield(g, bids[0][0], bids[1][0], r));
         if (!fight) res.yields++;
@@ -182,7 +224,7 @@ export function playGame(o: SimOptions): GameResult {
       case 'reprisal': {
         const pid = t.reprisalPlayerId!;
         const targets = reprisalTargets(g, t.excludedGiftId, pid).map(([id, x]) => ({ id, cost: minCost(cfg, x.naughtyLevel || 0) }));
-        const pick = strat(pid).reprisal(view(pid), targets.filter((x) => x.cost <= g.players![pid].chips));
+        const pick = (yield { kind: 'reprisal', player: pid, targets: targets.filter((x) => x.cost <= g.players![pid].chips), view: view(pid), game: g }) as string | null;
         if (pick) {
           const cost = minCost(cfg, g.gifts![pick].naughtyLevel || 0);
           pay(pid, cost); res.ledger.costsBurned += cost; res.reprisals++;
@@ -194,7 +236,7 @@ export function playGame(o: SimOptions): GameResult {
         const pid = t.activePlayerId!;
         const targets = stealTargets(g, pid).map(([id, x]) => ({ id, cost: minCost(cfg, x.naughtyLevel || 0) }))
           .filter((x) => x.cost <= g.players![pid].chips);
-        const pick = strat(pid).steal(view(pid), targets, t.misfitId!);
+        const pick = (yield { kind: 'steal', player: pid, targets, misfitId: t.misfitId!, view: view(pid), game: g }) as string | null;
         if (pick) {
           const cost = minCost(cfg, g.gifts![pick].naughtyLevel || 0);
           pay(pid, cost); res.ledger.costsBurned += cost; res.steals++;
@@ -205,7 +247,8 @@ export function playGame(o: SimOptions): GameResult {
       case 'endgame_bidding': {
         for (const id of ids) {
           if (id === t.activePlayerId || t.bids?.[id]) continue;
-          const amt = Math.max(0, Math.min(strat(id).bid(view(id), t.misfitId!), cfg.maxBid, g.players![id].chips));
+          const max = Math.min(cfg.maxBid, g.players![id].chips);
+          const amt = Math.max(0, Math.min(Number(yield { kind: 'bid', player: id, giftId: t.misfitId!, max, view: view(id), game: g }) || 0, max));
           run(A.submitBid(g, id, amt, NOW));
           if (amt > 0) { res.bidsPlaced++; res.bidsByAmount[amt] = (res.bidsByAmount[amt] || 0) + 1; }
         }
@@ -223,6 +266,37 @@ export function playGame(o: SimOptions): GameResult {
         run(D.noBidsDuel(g, others[Math.floor(r() * others.length)]));
         break;
       }
+      case 'minigame_party': {
+        // Every tie is a whole-table party game. Skill isn't modelled: scores / votes are random.
+        const mg = g.minigame as PartyGame;
+        if (mg.phase === 'intro') { res.partyGames[mg.type] = (res.partyGames[mg.type] || 0) + 1; run(advanceParty(g, 'intro', NOW)); break; }
+        if (mg.phase === 'playing') {
+          if (mg.type === 'whack_elf') for (const id of mg.participants) run(reportWhack(g, id, Math.floor(r() * 20), true));
+          else for (const id of mg.participants) run(submitSketch(g, id, 'data:sketch'));
+        }
+        if (mg.phase === 'voting') {
+          for (const id of mg.participants) {
+            const others = mg.participants.filter((x) => x !== id);
+            run(voteSketch(g, id, others[Math.floor(r() * others.length)]));
+          }
+        }
+        if (mg.phase === 'playing' || mg.phase === 'voting') {
+          const from = (g.minigame as PartyGame).phase;
+          run(advanceParty(g, from, NOW));
+          const after = g.minigame as PartyGame;
+          if (after.phase === 'results' && after.results?.bonus && after.prize === 'points_chips') res.ledger.elfBonusMinted += 1;
+          break;
+        }
+        if (mg.phase === 'results') {
+          // the tie winner(s) now pay their bids and duel (pick_one) / duel each other (pick_two)
+          const goal = mg.minigameGoal;
+          const winners = mg.results?.winners || [];
+          if (goal === 'pick_two') for (const c of winners) pay(c, Math.floor((t.bids?.[c]?.amount || 0) / 2));
+          else if (winners[0]) pay(winners[0], t.bids?.[winners[0]]?.amount || 0);
+          run(advanceParty(g, 'results', NOW));
+        }
+        break;
+      }
       default:
         throw new Error(`sim: unhandled turn phase ${t.phase}`);
     }
@@ -232,7 +306,7 @@ export function playGame(o: SimOptions): GameResult {
   res.seats = ids.map((id, i) => {
     const p = g.players![id];
     return {
-      id, strategy: o.strategies[i].name, chipsLeft: p.chips, gotGift: !!p.giftId, spent: spent[id],
+      id, strategy: o.names[i], chipsLeft: p.chips, gotGift: !!p.giftId, spent: spent[id],
       giftValue: p.giftId ? valueOf(i, giftIdx(p.giftId)) : 0,
     };
   });

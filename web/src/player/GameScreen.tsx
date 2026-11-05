@@ -23,7 +23,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const iBid = t && ((t.phase === 'bidding' && t.openerId !== me) || (t.phase === 'endgame_bidding' && t.activePlayerId !== me));
   const myReprisal = t?.phase === 'reprisal' && t.reprisalPlayerId === me;
   const party = t?.phase === 'minigame_party';
-  const drawOff = t?.phase === 'minigame_draw_off' || (t?.phase === 'tiebreaker_pending' && cfg.tiebreakerMethod === 'draw_off');
+  const drawOff = t?.phase === 'minigame_draw_off'; // games saved before ties became party games
   const showStatus = !iBid && !myReprisal && !party && !drawOff;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;

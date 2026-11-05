@@ -3,7 +3,7 @@ import type { Rng } from './rng';
 import { GAMES, RESULTS_MS, SKETCH_PROMPTS, results as partyResults } from './party';
 import type { PartyGame, PartyType } from './party';
 import { pick } from './rng';
-import { config, isMinigameMethod } from './settings';
+import { config } from './settings';
 import { potAndTax, topTiedBidders, yieldPayment } from './rules';
 import { refuse, Tx } from './tx';
 import type { Game, Plan, PlayerId } from './types';
@@ -87,4 +87,4 @@ export function voteSketch(game: Game, voter: PlayerId, target: PlayerId): Plan 
 export const reportWhack = (game: Game, pid: PlayerId, score: number, final: boolean): Plan =>
   new Tx(game).set(`minigame/scores/${pid}`, { score, final }).plan();
 
-export { isMinigameMethod, topTiedBidders };
+export { topTiedBidders };

@@ -24,6 +24,7 @@ env/
 !package.json
 !package-lock.json
 !functions/package.json
+!showrunner.json
 
 # Logs
 *.log

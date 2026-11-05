@@ -12,8 +12,8 @@ const H = require('./helpers');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 
-async function setup(browser) {
-  const { host, hostCtx, roomCode, errors: hostErrors } = await H.createGame(browser);
+async function setup(browser, settings = {}) {
+  const { host, hostCtx, roomCode, errors: hostErrors } = await H.createGame(browser, settings);
   const { pages, contexts, errors: playerErrors } = await H.joinPlayers(browser, roomCode, NAMES);
   await H.startGame(host, roomCode);
 
@@ -218,8 +218,10 @@ test.describe('Game flow permutations', () => {
     }
   });
 
-  test('tied bids, opener fights: random tiebreak, then opener defends', async ({ browser }) => {
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
+  test('tied bids, opener fights: the whole table plays a party game, the better tied bidder duels the opener', async ({ browser }) => {
+    test.setTimeout(90000); // a whole party game is played
+    // Sketch-Off: the outcome follows the votes the test casts (Whack-an-Elf phones report live scores)
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'sketch_off' });
     try {
       const turn = await H.drawGift(host, roomCode, 'Gag Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
@@ -228,25 +230,11 @@ test.describe('Game flow permutations', () => {
       await H.allBid(pages, opener, { [c1]: 2, [c2]: 2 });
       await H.revealBids(host);
       await H.openerFights(pages[opener]);
-      const tb = await H.waitForTurnPhase(roomCode, 'tiebreaker_pending');
-      await H.clickStartTiebreakerDuel(host);
-
-      // Tiebreak duel between the two tied bidders (no modal for tiebreaks)
-      const tbDuel = await H.waitForGame(
-        roomCode,
-        (g) => (g.currentTurn?.phase === 'duel' && g.currentTurn?.isTiebreak ? g.currentTurn : false),
-        { label: 'tiebreak duel' }
-      );
+      // a tie is a party game for everyone (no two-player tiebreak duel any more)
       const p0 = await H.playersByName(roomCode);
-      const tbWinnerName = tbDuel.challengerId === p0[c1].id ? c1 : c2;
-      await H.declareTiebreakWinner(host, tbWinnerName);
-
-      // Now the main duel: tiebreak winner vs opener
-      const mainDuel = await H.waitForGame(
-        roomCode,
-        (g) => (g.currentTurn?.phase === 'duel' && !g.currentTurn?.isTiebreak ? g.currentTurn : false),
-        { label: 'main duel after tiebreak' }
-      );
+      const tbWinnerName = c2; // c2 places above c1 (and above the opener)
+      const mainDuel = await H.settlePartyTie(host, roomCode, [p0[c2].id, p0[opener].id, p0[c1].id]);
+      expect(mainDuel.isTiebreak).toBeFalsy();
       const p1 = await H.playersByName(roomCode);
       expect(mainDuel.challengerId).toBe(p1[tbWinnerName].id);
       expect(mainDuel.defenderId).toBe(p1[opener].id);

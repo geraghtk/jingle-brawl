@@ -1,6 +1,6 @@
 import type { PartyType } from './party';
 // House settings: defaults + reading what a game stored.
-import type { DividendRule, PartyPrize, Settings, TiebreakerMethod } from './types';
+import type { DividendRule, PartyPrize, Settings } from './types';
 
 export interface Config {
   publicChips: boolean;
@@ -12,7 +12,7 @@ export interface Config {
   loserDividendRule: DividendRule;
   taxThreshold: number;
   baseCost: number;
-  tiebreakerMethod: Exclude<TiebreakerMethod, 'minigame'>;
+  tiebreakerMethod: 'party_mix' | 'sketch_off' | 'whack_elf';
   partyPrize: PartyPrize;
   spectatorBets: number;
   voteWindow: number;
@@ -33,7 +33,7 @@ export const DEFAULTS: Config = {
   loserDividendRule: 'defenders',
   taxThreshold: 2,
   baseCost: 1,
-  tiebreakerMethod: 'random',
+  tiebreakerMethod: 'party_mix',
   partyPrize: 'points_chips',
   spectatorBets: 0,
   voteWindow: 30,
@@ -56,8 +56,9 @@ export function config(settings: Settings | undefined): Config {
     loserDividendRule: s.loserDividendRule ?? DEFAULTS.loserDividendRule,
     taxThreshold: s.taxThreshold ?? DEFAULTS.taxThreshold,
     baseCost: s.baseCost ?? DEFAULTS.baseCost,
-    // 'minigame' = the retired Counterfeit Canvas; old saved games run a Sketch-Off
-    tiebreakerMethod: method === 'minigame' ? 'sketch_off' : method,
+    // Ties are whole-table party games only. Older saved games: 'minigame' (the retired Counterfeit
+    // Canvas) → Sketch-Off; 'random' / 'draw_off' (two-player tiebreaks) → the party mix
+    tiebreakerMethod: method === 'minigame' ? 'sketch_off' : method === 'sketch_off' || method === 'whack_elf' ? method : 'party_mix',
     partyPrize: s.partyPrize ?? DEFAULTS.partyPrize,
     spectatorBets: s.spectatorBets ?? DEFAULTS.spectatorBets,
     voteWindow: s.voteWindow ?? DEFAULTS.voteWindow,
@@ -75,5 +76,6 @@ export const variableStartingChips = (playerCount: number) => (playerCount <= 10
 /** Minimum Cost for Gambits, Reprisals and Endgame Steals. */
 export const minCost = (cfg: Config, naughtyLevel: number) => cfg.baseCost + (naughtyLevel || 0);
 
-export const isPartyMethod = (m: Config['tiebreakerMethod']) => m === 'sketch_off' || m === 'whack_elf';
-export const isMinigameMethod = (m: Config['tiebreakerMethod']) => m === 'draw_off' || isPartyMethod(m);
+/** Which party game settles this tie ('party_mix' picks one per tie). */
+export const partyGameFor = (m: Config['tiebreakerMethod'], r: () => number): 'sketch_off' | 'whack_elf' =>
+  m === 'party_mix' ? (r() < 0.5 ? 'whack_elf' : 'sketch_off') : m;

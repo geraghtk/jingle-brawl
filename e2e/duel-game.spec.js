@@ -106,32 +106,6 @@ test('the Under-16 Exception: a player who joined as under 16 picks the duel, ev
   }
 });
 
-// Found by the agent sweep: the tiebreak's winner buttons (turn panel, no modal) were locked
-// while the wheel spun and never re-rendered when it stopped.
-test('a tiebreak duel spins the wheel; its winner buttons unlock when the wheel stops', async ({ browser }) => {
-  const { host, hostCtx, roomCode } = await H.createGame(browser, { 'vote-window': '0', 'duel-pick': 'defender', 'duel-games': 'Thumb War\nArm Wrestle' });
-  const { pages, contexts } = await H.joinPlayers(browser, roomCode, NAMES);
-  try {
-    await H.startGame(host, roomCode);
-    const turn = await H.drawGift(host, roomCode, 'Tie Gift');
-    const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
-    const [a, b] = NAMES.filter((n) => n !== opener);
-    await H.allBid(pages, opener, { [a]: 2, [b]: 2 });
-    await H.revealBids(host);
-    await pages[opener].getByTestId('fight').click(); // tiebreak first
-    await H.waitForTurnPhase(roomCode, 'tiebreaker_pending');
-    await host.getByTestId('start-tiebreaker').click();
-    const t = await H.waitForGame(roomCode, (g) => (g.currentTurn?.isTiebreak && g.currentTurn.phase === 'duel' ? g.currentTurn : false), { label: 'tiebreak duel' });
-    const btn = host.getByTestId(`tiebreak-winner-${t.challengerId}`);
-    await expect(host.getByTestId('duel-wheel')).toBeVisible();
-    await expect(btn).toBeDisabled();
-    await expect(btn).toBeEnabled({ timeout: 8000 });
-  } finally {
-    await hostCtx.close();
-    for (const c of contexts) await c.close();
-  }
-});
-
 test('an in-app duel game settles it: everyone plays Whack-an-Elf, the better-placed duellist wins the duel', async ({ browser }) => {
   test.setTimeout(90000);
   const s = await setup(browser, { 'duel-pick': 'wheel', 'duel-games': '', 'duel-app-whack_elf': 'on' });

@@ -12,7 +12,7 @@ import { GAMES } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { advanceParty } from '../core/partyflow';
 import { gambitTargets, giftless, rankedBids, reprisalTargets, topTiedBidders, wrappedGifts } from '../core/rules';
-import { isMinigameMethod, minCost } from '../core/settings';
+import { minCost } from '../core/settings';
 import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, Plan, Turn } from '../core/types';
 import { usingEmulators } from '../firebase/app';
@@ -261,7 +261,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           ...base,
           details: <>No bids!<br /><span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {opener} to choose: Keep or Gambit?</span></>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" onClick={() => act(A.keepGift)}>✅ Opener Keeps Gift</button>
+            <button className="btn btn-primary" data-testid="override-keep" onClick={() => act(A.keepGift)}>✅ Opener Keeps Gift</button>
             <button className="btn btn-gold" onClick={() => {
               const targets = gambitTargets(game, t.giftId, t.openerId!);
               if (!targets.length) return alert('No other gifts to challenge!');
@@ -277,20 +277,20 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       const tied = topTiedBidders(t);
       const [[c1, top], second] = bids;
       if (tied.length >= 2) {
-        const mini = isMinigameMethod(cfg.tiebreakerMethod);
-        const hidden = mini ? `${tied.length === 2 ? '2' : tied.length} players (hidden until tiebreaker concludes)` : null;
+        // a party game settles it, so the tied names stay hidden until it does
+        const hidden = `${tied.length === 2 ? '2' : tied.length} players (hidden until the party game settles it)`;
         return {
           ...base,
           details: <>
             <strong style={{ color: 'var(--accent-gold)' }}>{tied.length === 2 ? 'TIE!' : `${tied.length}-WAY TIE`}</strong>{' '}
-            {tied.length === 2 ? <>{hidden ?? `${nm(game, tied[0])} & ${nm(game, tied[1])}`} both bid {top}.</> : <>at {top} chips: {hidden ?? tied.map((id) => nm(game, id)).join(', ')}</>}<br />
+            {tied.length === 2 ? <>{hidden} both bid {top}.</> : <>at {top} chips: {hidden}</>}<br />
             <span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {opener} to choose: Fight or Yield?</span>
           </>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" onClick={() => act((g) => A.hostTieFight(g, { now: Date.now(), rng: freshRng() }))}>⚔️ Opener Fights → {mini ? 'Mini-Game to Pick 1' : tied.length === 2 ? 'Tiebreaker Duel' : 'Random Tiebreaker'}</button>
+            <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.hostTieFight(g, { now: Date.now(), rng: freshRng() }))}>⚔️ Opener Fights → Party Game picks 1</button>
             {tied.length === 2
-              ? <button className="btn btn-gold" onClick={() => act((g) => A.startYieldDuel(g, tied[0], tied[1], false, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → {mini ? '2 players fight' : `${nm(game, tied[0])} vs ${nm(game, tied[1])}`}</button>
-              : <button className="btn btn-gold" onClick={() => act((g) => A.hostTieYield(g, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → {mini ? 'Mini-Game to Pick 2' : 'Random Selection'}</button>}
+              ? <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, tied[0], tied[1], false, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → the 2 fight</button>
+              : <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.hostTieYield(g, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → Party Game picks 2</button>}
           </>} />,
         };
       }
@@ -299,8 +299,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           ...base,
           details: <>Highest bid: <strong>{nm(game, c1)}</strong> ({top} chips). Second: {nm(game, second[0])}<br /><span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {opener} to choose: Fight or Yield?</span></>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" onClick={() => act((g) => A.startDuel(g, c1, t.openerId!))}>⚔️ Duel: {nm(game, c1)} vs Opener</button>
-            <button className="btn btn-secondary" onClick={() => act((g) => A.startYieldDuel(g, c1, second[0], false, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields</button>
+            <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.startDuel(g, c1, t.openerId!))}>⚔️ Duel: {nm(game, c1)} vs Opener</button>
+            <button className="btn btn-secondary" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, c1, second[0], false, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields</button>
           </>} />,
         };
       }
@@ -316,8 +316,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: '🎲 SELECTED', badgeClass: 'reveal', action: `${a} & ${b} Selected!`,
         details: <>Both bid {t.bids?.[t.selectedC1!]?.amount || 0} chips.<br /><span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {nm(game, t.openerId)} to choose: Fight or Yield?</span></>,
         buttons: <Waiting who="Opener" what={`${nm(game, t.openerId)} is choosing on their device`} override={<>
-          <button className="btn btn-primary" onClick={() => act((g) => A.startTiebreaker(g, t.selectedC1!, t.selectedC2!, { now: Date.now(), rng: freshRng() }))}>⚔️ Tiebreaker → Winner vs Opener</button>
-          <button className="btn btn-gold" onClick={() => act((g) => A.startYieldDuel(g, t.selectedC1!, t.selectedC2!, true, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → {a} vs {b}</button>
+          <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.startTiebreaker(g, t.selectedC1!, t.selectedC2!, { now: Date.now(), rng: freshRng() }))}>⚔️ Tiebreaker → Winner vs Opener</button>
+          <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, t.selectedC1!, t.selectedC2!, true, { now: Date.now(), rng: freshRng() }))}>🏃 Opener Yields → {a} vs {b}</button>
         </>} />,
       };
     }
@@ -342,17 +342,10 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       };
 
     case 'tiebreaker_pending': {
+      // Ties are whole-table party games; they start themselves (useHostAutomation)
       const method = cfg.tiebreakerMethod;
-      if (isMinigameMethod(method)) {
-        // Mini-game tiebreakers start themselves (useHostAutomation)
-        const label = method === 'draw_off' ? 'AI Draw Off' : GAMES[method as keyof typeof GAMES].label;
-        return { badge: '⚖️ TIEBREAKER', badgeClass: 'duel', action: `🎨 Starting ${label}...`, details: 'Everyone plays — the best-placed tied bidder wins the tie.' };
-      }
-      return {
-        badge: '⚖️ TIEBREAKER', badgeClass: 'duel', action: 'Opener chose to FIGHT!',
-        details: <>{nm(game, t.tiebreakerC1)} vs {nm(game, t.tiebreakerC2)} for the right to challenge the opener.<br /><span style={{ color: 'var(--text-muted)' }}>Click to start the tiebreaker duel.</span></>,
-        buttons: <button className="btn btn-gold" data-testid="start-tiebreaker" onClick={() => act((g) => A.startTiebreaker(g, t.tiebreakerC1!, t.tiebreakerC2!, { now: Date.now(), rng: freshRng() }))}>⚔️ Start Tiebreaker Duel!</button>,
-      };
+      const label = method === 'party_mix' ? 'a party game' : GAMES[method].label;
+      return { badge: '⚖️ TIEBREAKER', badgeClass: 'duel', action: `🎉 Starting ${label}…`, details: 'Everyone plays — the best-placed tied bidder wins the tie.' };
     }
 
     case 'duel': {
@@ -380,7 +373,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
               const cost = minCost(cfg, g.naughtyLevel);
               return { key: id, title: g.name, desc: `Owner: ${g.ownerId === 'misfit' ? 'Misfit Pile' : nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); act((x) => D.chooseReprisal(x, id, Date.now())); } };
             })} />)}>🎯 Choose Target for Them</button>
-          <button className="btn btn-secondary" onClick={() => act(D.skipReprisal)}>⏭️ Skip Reprisal</button>
+          <button className="btn btn-secondary" data-testid="override-skip-reprisal" onClick={() => act(D.skipReprisal)}>⏭️ Skip Reprisal</button>
         </>} />,
       };
     }
@@ -392,7 +385,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         details: <>Target: "{t.misfitName}"<br /><span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {who} to choose path...</span></>,
         buttons: <Waiting who="Player" what={`${who} is choosing on their device`} override={<>
           <button className="btn btn-primary" onClick={() => stealModal()}>🎯 Path A: Steal a Gift</button>
-          <button className="btn btn-gold" onClick={() => act(D.startAuction)}>🎰 Path B: Auction for Misfit</button>
+          <button className="btn btn-gold" data-testid="override-auction" onClick={() => act(D.startAuction)}>🎰 Path B: Auction for Misfit</button>
         </>} />,
       };
     }
@@ -409,7 +402,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return {
         badge: '🎰 NO BIDS', badgeClass: 'reveal', action: `No Bids! ${who} Chooses Defender`,
         details: <span style={{ color: 'var(--accent-green)' }}>⏳ Waiting for {who} to choose...</span>,
-        buttons: <Waiting who="Player" what={`${who} is choosing a defender on their device`} override={<button className="btn btn-gold" onClick={() => defenderModal()}>👤 Choose Defender for Them</button>} />,
+        buttons: <Waiting who="Player" what={`${who} is choosing a defender on their device`} override={<button className="btn btn-gold" data-testid="override-defender" onClick={() => defenderModal()}>👤 Choose Defender for Them</button>} />,
       };
     }
     case 'endgame_bidding':
@@ -460,7 +453,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
   function defenderModal() {
     setModal(<OptionList title="🎯 Choose Your Defender" intro={`${nm(game, t!.activePlayerId)} picks someone to duel. Win = free misfit. Lose = pay 1 chip toll.`} onCancel={close}
       options={Object.entries(game.players || {}).filter(([id]) => id !== t!.activePlayerId)
-        .map(([id, p]) => ({ key: id, title: p.name, onPick: () => { close(); act((x) => D.noBidsDuel(x, id)); } }))} />);
+        .map(([id, p]) => ({ key: id, title: p.name, testid: `override-defender-${id}`, onPick: () => { close(); act((x) => D.noBidsDuel(x, id)); } }))} />);
   }
 }
 

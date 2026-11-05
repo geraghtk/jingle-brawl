@@ -27,7 +27,7 @@ function Select({ id, label, hint, value, onChange, options }: {
 export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: string) => void }) {
   const [s, setS] = useState({
     'reprisal-depth': '1', 'max-bid': '4', 'max-payout': '2', 'starting-chips': '', 'loser-dividend': 'defenders',
-    'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'random', 'party-prize': 'points_chips',
+    'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'party_mix', 'party-prize': 'points_chips',
   });
   const [publicChips, setPublicChips] = useState(false);
   const [duelGames, setDuelGames] = useState(DEFAULT_DUEL_GAMES.join(NL));
@@ -119,10 +119,10 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
             <span>👁️ Show everyone's chip counts</span>
           </label>
         </div>
-        <Select id="tiebreaker-method" label="⚖️ Tiebreaker Method" value={method} onChange={set('tiebreaker-method')}
-          hint="How to resolve ties when multiple players bid the same amount. In the party games the whole table plays: the best-placed tied bidder wins the tie."
-          options={[['random', 'Random Selection (fast)'], ['sketch_off', '✏️ Sketch-Off (everyone draws, everyone votes)'], ['whack_elf', '🔨 Whack-an-Elf (everyone plays, 20 s)'], ['draw_off', 'AI Draw Off (3 min, AI judges & ranks)']]} />
-        {PARTY.includes(method) && (
+        <Select id="tiebreaker-method" label="⚖️ Tiebreaker Party Game" value={method} onChange={set('tiebreaker-method')}
+          hint="A tied top bid is always settled by a party game the whole table plays: the best-placed tied bidder wins the tie, everyone else plays for party points."
+          options={[['party_mix', '🎉 Mix it up (a random party game each tie)'], ['whack_elf', '🔨 Whack-an-Elf (everyone plays, 20 s)'], ['sketch_off', '✏️ Sketch-Off (everyone draws, everyone votes)']]} />
+        {(PARTY.includes(method) || method === 'party_mix') && (
           <div id="party-prize-setting">
             <Select id="party-prize" label="🎉 Party Game Prizes" value={s['party-prize']} onChange={set('party-prize')}
               hint="Top 3 score 3/2/1 party points (shown at the final tally). The Elf Bonus: the best finisher who wasn't in the tie gets +1 chip from the North Pole Fund."

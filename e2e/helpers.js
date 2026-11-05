@@ -231,6 +231,41 @@ const clickStartYieldDuel = (host) => host.getByRole('button', { name: /Start Yi
 const clickStartTiebreakerDuel = (host) => host.getByRole('button', { name: /Start Tiebreaker Duel/i }).click();
 
 /** Normal duel winner — button lives in the duel modal footer. */
+/**
+ * Play a tie's party game to the end from the host, with a chosen finishing order. Use it with
+ * Sketch-Off for a guaranteed order: Whack-an-Elf phones keep reporting their own live scores.
+ *
+ * (`ranking` = player ids, best first; the rest of the table scores nothing). Works for
+ * Whack-an-Elf (scores) and Sketch-Off (votes). Returns the duel turn that follows.
+ */
+async function settlePartyTie(host, roomCode, ranking) {
+  const phase = (ph) => waitForGame(roomCode, (g) => (g.minigame?.phase === ph ? g.minigame : false), { label: `party ${ph}`, timeout: 20000 });
+  // The host moves on by itself once everyone is done — so "Skip ahead" only if it hasn't
+  // (a skip that lands on the NEXT phase would jump right past it).
+  const moveOn = async (from, to) => {
+    await host.waitForTimeout(1200);
+    if ((await dbGet(roomCode, 'minigame/phase')) === from) await host.getByTestId('skip-party-phase').click();
+    return phase(to);
+  };
+  const mg = await phase('intro');
+  await moveOn('intro', 'playing');
+  if (mg.type === 'whack_elf') {
+    await dbPatch(roomCode, Object.fromEntries(ranking.map((id, i) => [`minigame/scores/${id}`, { score: 10 * (ranking.length - i), final: true }])));
+    await moveOn('playing', 'results');
+  } else {
+    // Sketch-Off: everyone hands in, then the votes follow the ranking
+    await dbPatch(roomCode, Object.fromEntries(mg.participants.map((id) => [`minigame/submissions/${id}`, 'data:,'])));
+    await moveOn('playing', 'voting');
+    // everyone backs ranking[0]; ranking[0] backs ranking[1] → that order on top
+    await dbPatch(roomCode, Object.fromEntries(mg.participants.map((voter) =>
+      [`minigame/votes/${voter}`, voter === ranking[0] ? ranking[1] : ranking[0]])));
+    await moveOn('voting', 'results');
+  }
+  await host.waitForTimeout(1200);
+  if ((await dbGet(roomCode, 'minigame/phase')) === 'results') await host.getByTestId('skip-party-phase').click();
+  return waitForTurnPhase(roomCode, 'duel');
+}
+
 /** Click "X wins" in the duel modal; then tap the TV verdict away (unless the test watches it). */
 async function declareWinner(host, name, { keepVerdict = false } = {}) {
   const btn = host.locator('#duel-modal-content').getByRole('button', { name: new RegExp(`${name} wins`, 'i') });
@@ -281,6 +316,6 @@ module.exports = {
   createGame, joinPlayers, playersByName, startGame, drawGift, openerNameOf,
   submitBid, allBid, revealBids,
   clickStartDuel, clickStartYieldDuel, clickStartTiebreakerDuel,
-  declareWinner, dismissVerdict, declareTiebreakWinner,
+  declareWinner, dismissVerdict, declareTiebreakWinner, settlePartyTie,
   openerKeeps, openerFights, openerYields, skipReprisal, resolveDuel,
 };

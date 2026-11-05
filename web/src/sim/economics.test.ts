@@ -29,7 +29,7 @@ function sealedDuel(bid: number, winner: 'challenger' | 'defender', settings: Se
 }
 
 describe('invariants: the chip ledger', () => {
-  it('in every simulated game, chips only change through Santa Tax, costs, dividends (and zero-sum tolls)', () => {
+  it('in every simulated game, chips only change through Santa Tax, costs, dividends, the Elf Bonus (and zero-sum tolls)', () => {
     const mixes = [[aggressive(2), passive, aggressive(4), valueScaled, random, aggressive(1)], Array(8).fill(random), Array(4).fill(aggressive(4))];
     const settingsList: Settings[] = [{}, { loserDividendRule: 'everyone' }, { taxThreshold: 99 }, { maxWinnerPayout: 3, taxThreshold: 3, baseCost: 0 }];
     let games = 0;
@@ -37,7 +37,7 @@ describe('invariants: the chip ledger', () => {
       const r = playGame({ strategies, seed, settings });
       const l = r.ledger;
       expect(r.ended, `game ended (seed ${seed})`).toBe(true);
-      expect(l.end, `ledger (seed ${seed}, ${JSON.stringify(settings)})`).toBe(l.start - l.taxBurned - l.costsBurned + l.dividendsMinted);
+      expect(l.end, `ledger (seed ${seed}, ${JSON.stringify(settings)})`).toBe(l.start - l.taxBurned - l.costsBurned + l.dividendsMinted + l.elfBonusMinted);
       for (const s of r.seats) expect(s.chipsLeft).toBeGreaterThanOrEqual(0);
       games++;
     }

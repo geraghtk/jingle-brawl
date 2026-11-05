@@ -1,0 +1,15 @@
+{
+  "id": "yule-duel",
+  "title": "Yule Duel",
+  "short": "Yule Duel",
+  "kind": "game",
+  "watch": {
+    "adapter": "simlab_adapters.yule_duel.party:PartyAdapter",
+    "minds": "simlab_adapters.yule_duel.party_minds:watch_minds",
+    "players": 6,
+    "backends": {
+      "engine": "The rules engine (instant, on a virtual clock)",
+      "live": "The real app: the host page and every phone open in browser windows (real time; needs the dev server and the emulators)"
+    }
+  }
+}

@@ -24,7 +24,9 @@ export default defineConfig({
       },
     },
   },
-  server: { port: 5173, strictPort: true },
+  // Polling: on Windows the native watcher missed edits and kept serving stale modules (the host
+  // and phones then ran different versions of the same rules)
+  server: { port: 5173, strictPort: true, watch: { usePolling: true, interval: 300 } },
   preview: { port: 4173, strictPort: true },
   test: {
     root: '.',

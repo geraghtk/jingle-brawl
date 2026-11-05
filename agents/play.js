@@ -233,7 +233,7 @@ async function main() {
   for (const p of lineup || []) if (!PERSONAS[p]) throw new Error(`Unknown persona ${p}. Known: ${Object.keys(PERSONAS).join(', ')}`);
   const players = lineup ? lineup.length : (o.players ?? (o.join ? 4 : 6));
   if (players < 2 || players > 12) throw new Error('--players must be 2-12');
-  const base = { 'tiebreaker-method': 'random', ...o.set };
+  const base = { ...o.set }; // ties: the house default (a party game mix)
   const configs = o.sweep
     ? PRESETS.filter((p) => !o.presets || o.presets.includes(p.name)).map((p) => ({ name: p.name, settings: { ...base, ...p.settings }, lineup, players }))
     : [{ name: Object.keys(o.set).length ? 'custom' : 'default', settings: base, lineup, players }];

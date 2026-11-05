@@ -1,18 +1,11 @@
-// Everything the host does on its own: phase timers, the AI Draw Off pipeline, starting
-// mini-game tiebreakers, opening the duel vote, and the mascots.
+// Everything the host does on its own: the steps in core/hostauto.ts (phase timers, starting
+// tie party games, opening the duel vote, the wheel), the AI Draw Off pipeline, and the mascots.
 // Timers are re-armed from state, so a refreshed host picks up where it left off; every
 // step is a claimed plan, so a timer racing a button can't apply it twice.
 import { useEffect, useRef } from 'react';
-import * as A from '../core/actions';
 import * as DO from '../core/drawoff';
 import type { DrawOff, DrawOffScore } from '../core/drawoff';
-import { everyoneDone, GAMES } from '../core/party';
-import type { PartyGame } from '../core/party';
-import { advanceParty } from '../core/partyflow';
-import { openVoting } from '../core/voting';
-import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from '../core/duelgame';
-import { resolveDuel } from '../core/duel';
-import { isMinigameMethod } from '../core/settings';
+import { hostAuto } from '../core/hostauto';
 import { useServerOffset } from '../firebase/game';
 import { observe as mascotsObserve } from '../ui/mascots';
 import { critique, openaiKeyFor, wittyVerdict } from './critic';
@@ -26,49 +19,20 @@ export function useHostAutomation() {
 
   useEffect(() => { mascotsObserve(game); }, [game]);
 
-  // --- party games: one timer per phase; move on early when everyone's done --------------------
-  const party = mg && (mg as PartyGame).type in GAMES ? (mg as PartyGame) : null;
+  // --- the host's own steps (core/hostauto.ts): party phases, opening the duel vote, the wheel,
+  // in-app duel winners, ties. One timer per step, armed once per key (a changed key re-arms)
+  const steps = hostAuto(game);
+  const armed = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   useEffect(() => {
-    if (!party) return;
-    const from = party.phase;
-    if (everyoneDone(party)) { act((g) => advanceParty(g, from, Date.now() + offset), { quiet: true }); return; }
-    const grace = from === 'playing' && party.type === 'whack_elf' ? 1500 : 250; // last scores land
-    const wait = Math.max(0, party.phaseEndsAt - (Date.now() + offset)) + grace;
-    const id = setTimeout(() => act((g) => advanceParty(g, from, Date.now() + offset), { quiet: true }), wait);
-    return () => clearTimeout(id);
-  }, [party?.seed, party?.phase, party && everyoneDone(party)]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // --- duel voting opens as soon as a duel starts (server time, so every phone shows one clock) ----
-  // …once the table knows which duel it is (after the wheel stops)
-  const step = duelGameStep(game);
-  const duelKey = t?.phase === 'duel' ? `${t.challengerId}|${t.defenderId}|${t.giftId}|${!!t.isTiebreak}` : null;
-  const voteKey = duelKey && !t!.isTiebreak && t!.voteEndsAt == null && !step ? duelKey : null;
-  const spunAt = typeof t?.wheel?.spunAt === 'number' ? t.wheel.spunAt : null;
-  useEffect(() => {
-    if (!voteKey) return;
-    const wait = spunAt == null ? 0 : Math.max(0, spunAt + SPIN_MS - (Date.now() + offset));
-    const id = setTimeout(() => act((g) => openVoting(g, Date.now() + offset), { quiet: true }), wait);
-    return () => clearTimeout(id);
-  }, [voteKey, spunAt]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // --- the wheel picks the duel when nobody is really defending (or the house always spins) -------
-  const spinKey = step === 'wheel' ? duelKey : null;
-  useEffect(() => {
-    if (spinKey) act((g) => spinDuelGame(g, { now: Date.now() + offset, rng: freshRng() }), { quiet: true });
-  }, [spinKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // --- an in-app duel game decided it: settle the duel with that winner ---------------------------
-  const appWinner = duelAppWinner(t);
-  useEffect(() => {
-    if (appWinner) act((g) => resolveDuel(g, appWinner, Date.now() + offset), { quiet: true });
-  }, [appWinner, t?.duelAppStartedAt]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // --- mini-game tiebreakers start themselves (once per turn) -------------------------------------
-  const tieKey = t?.phase === 'tiebreaker_pending' ? `${t.giftId}|${t.openerId}` : null;
-  useEffect(() => {
-    if (!tieKey || !t || !isMinigameMethod(config(game))) return;
-    act((g) => A.startTiebreaker(g, t.tiebreakerC1!, t.tiebreakerC2!, { now: Date.now() + offset, rng: freshRng() }));
-  }, [tieKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const live = new Set(steps.map((s) => s.key));
+    for (const [k, id] of armed.current) if (!live.has(k)) { clearTimeout(id); armed.current.delete(k); }
+    for (const s of steps) {
+      if (armed.current.has(s.key)) continue;
+      const wait = s.at === 0 ? 0 : Math.max(0, s.at - (Date.now() + offset));
+      armed.current.set(s.key, setTimeout(() => act((g) => s.run(g, { now: Date.now() + offset, rng: freshRng() }), { quiet: s.quiet }), wait));
+    }
+  }, [steps.map((s) => s.key).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { for (const id of armed.current.values()) clearTimeout(id); armed.current.clear(); }, []);
 
   // --- AI Draw Off -----------------------------------------------------------------------------------
   const drawOff = mg && (mg as DrawOff).type === 'draw_off' ? (mg as DrawOff) : null;
@@ -109,7 +73,3 @@ export function useHostAutomation() {
   // (the duel verdict — chips flying loser → winner — lives in DuelVerdict.tsx)
 }
 
-const config = (game: ReturnType<typeof useHost>['game']) => {
-  const m = game.settings?.tiebreakerMethod || 'random';
-  return m === 'minigame' ? 'sketch_off' : m;
-};

@@ -153,15 +153,28 @@ describe('sealed-bid duels', () => {
 });
 
 describe('ties', () => {
-  it('random method, fight: two tied bidders tie-break, the winner pays and duels the Opener', () => {
-    let g = opened(table(3));
-    g = bid(g, { p2: 2, p3: 2 });
-    g = apply(g, A.openerFight(g, 'p2', 'p3', true, ctx().rng));
-    g = apply(g, A.startTiebreaker(g, 'p2', 'p3', ctx()));
-    expect(g.currentTurn).toMatchObject({ isTiebreak: true, pot: 0 });
-    g = apply(g, A.recordTiebreakWinner(g, 'p3'));
-    expect(g.currentTurn).toMatchObject({ phase: 'duel', challengerId: 'p3', defenderId: 'p1', isTiebreak: false });
-    expect(chipsOf(g)).toMatchObject({ p2: 10, p3: 8 });
+  it('a tie is always a whole-table party game: the default mixes Whack-an-Elf and Sketch-Off, never a two-player tiebreak duel', () => {
+    const types = new Set<string>();
+    for (let seed = 1; seed <= 12; seed++) {
+      let g = opened(table(4));
+      g = bid(g, { p2: 2, p3: 2, p4: 0 });
+      g = apply(g, A.openerFight(g, 'p2', 'p3', true, ctx(seed).rng));
+      g = apply(g, A.startTiebreaker(g, 'p2', 'p3', ctx(seed)));
+      expect(g.currentTurn?.phase).toBe('minigame_party');
+      expect(g.currentTurn?.isTiebreak).toBeFalsy();
+      expect(g.minigame).toMatchObject({ phase: 'intro', tiedBidders: ['p2', 'p3'], participants: ['p1', 'p2', 'p3', 'p4'] });
+      types.add((g.minigame as { type: string }).type);
+    }
+    expect(types).toEqual(new Set(['whack_elf', 'sketch_off']));
+  });
+
+  it('games saved with the retired methods ("random", "draw_off") now settle ties with a party game too', () => {
+    for (const tiebreakerMethod of ['random', 'draw_off'] as const) {
+      let g = opened(table(3, { tiebreakerMethod }));
+      g = bid(g, { p2: 2, p3: 2 });
+      g = apply(g, A.hostTieFight(g, ctx()));
+      expect(g.currentTurn?.phase, tiebreakerMethod).toBe('minigame_party');
+    }
   });
 
   it('Whack-an-Elf: everyone plays, the better tied bidder wins, the best other player gets the Elf Bonus', () => {

@@ -16,25 +16,25 @@
   // --- the cast (flat vector, 120×120) ---------------------------------------------
   const SVG = {
     santa: `<svg viewBox="0 0 120 120" aria-hidden="true">
-      <path d="M26 52 C30 18 74 8 96 30 L104 50 Z" fill="#d7263d"/>
-      <circle cx="104" cy="54" r="9" fill="#fff"/>
-      <rect x="20" y="46" width="72" height="14" rx="7" fill="#fff"/>
       <circle cx="56" cy="70" r="24" fill="#f6c7a6"/>
       <path d="M28 72 C30 106 82 106 84 72 C76 86 66 90 56 90 C46 90 36 86 28 72 Z" fill="#fff"/>
       <path d="M40 80 C46 74 52 76 56 80 C60 76 66 74 72 80 C66 86 60 84 56 82 C52 84 46 86 40 80 Z" fill="#f1f1f1" stroke="#e2e2e2"/>
       <circle cx="47" cy="66" r="3" fill="#2b2b2b"/><circle cx="65" cy="66" r="3" fill="#2b2b2b"/>
       <circle cx="40" cy="74" r="4" fill="#f4a3a3" opacity=".7"/><circle cx="72" cy="74" r="4" fill="#f4a3a3" opacity=".7"/>
       <circle cx="56" cy="74" r="4" fill="#e8908a"/>
+      <path d="M26 52 C30 18 74 8 96 30 L104 50 Z" fill="#d7263d"/>
+      <circle cx="104" cy="54" r="9" fill="#fff"/>
+      <rect x="20" y="46" width="72" height="14" rx="7" fill="#fff"/>
     </svg>`,
     elf: `<svg viewBox="0 0 120 120" aria-hidden="true">
-      <path d="M30 56 C34 24 60 10 92 6 C80 20 82 36 86 56 Z" fill="#1f9d55"/>
-      <circle cx="92" cy="8" r="6" fill="#f6c343"/>
-      <rect x="28" y="50" width="62" height="12" rx="6" fill="#d7263d"/>
       <path d="M30 70 L12 58 L32 82 Z" fill="#f2c1a0"/><path d="M88 70 L106 58 L86 82 Z" fill="#f2c1a0"/>
       <circle cx="59" cy="76" r="25" fill="#f8d2b5"/>
       <circle cx="50" cy="72" r="3" fill="#2b2b2b"/><circle cx="68" cy="72" r="3" fill="#2b2b2b"/>
       <path d="M49 84 C54 90 64 90 69 84" stroke="#b5533c" stroke-width="3" fill="none" stroke-linecap="round"/>
       <circle cx="44" cy="81" r="4" fill="#f4a3a3" opacity=".7"/><circle cx="74" cy="81" r="4" fill="#f4a3a3" opacity=".7"/>
+      <path d="M30 56 C34 24 60 10 92 6 C80 20 82 36 86 56 Z" fill="#1f9d55"/>
+      <circle cx="92" cy="8" r="6" fill="#f6c343"/>
+      <rect x="28" y="50" width="62" height="12" rx="6" fill="#d7263d"/>
     </svg>`,
     reindeer: `<svg viewBox="0 0 120 120" aria-hidden="true">
       <g stroke="#7a4b24" stroke-width="5" stroke-linecap="round" fill="none">

@@ -1,7 +1,7 @@
 // Every game action as a pure function: (game, …) → Plan (one atomic write + log lines).
 // Host and phones call the same functions; the Firebase layer applies the plan.
 // Ported rule-for-rule from the original host.html / player.html.
-import { config, isMinigameMethod, isPartyMethod, minCost, variableStartingChips } from './settings';
+import { config, minCost, partyGameFor, variableStartingChips } from './settings';
 import type { Config } from './settings';
 import type { Rng } from './rng';
 import { pick, shuffle } from './rng';
@@ -198,10 +198,9 @@ function startYieldDuelTx(tx: Tx, c1: PlayerId, c2: PlayerId) {
 export function startYieldDuel(game: Game, c1: PlayerId, c2: PlayerId, challengersChosen: boolean, ctx: Ctx): Plan {
   const t = game.currentTurn;
   if (!t) return refuse('No current turn');
-  const cfg = cfgOf(game);
   const tied = topTiedBidders(t);
   const tx = new Tx(game);
-  if (!challengersChosen && isMinigameMethod(cfg.tiebreakerMethod) && tied.length >= 3) {
+  if (!challengersChosen && tied.length >= 3) {
     startMinigameTiebreakTx(tx, 'pick_two', tied, 'yield', ctx);
   } else {
     startYieldDuelTx(tx, c1, c2);
@@ -209,25 +208,19 @@ export function startYieldDuel(game: Game, c1: PlayerId, c2: PlayerId, challenge
   return tx.plan();
 }
 
-/** Tie-break duel between two tied bidders (no pot); the winner then duels the Opener. */
+/** A tied top bid, Opener fights: the whole table plays a party game; the best-placed tied
+ *  bidder then duels the Opener. (p1/p2 only matter when the tie wasn't recorded on the turn.) */
 export function startTiebreaker(game: Game, p1: PlayerId, p2: PlayerId, ctx: Ctx): Plan {
   const t = game.currentTurn;
   if (!t) return refuse('No current turn');
   const tied = t.tiedBidders && t.tiedBidders.length >= 2 ? t.tiedBidders
     : topTiedBidders(t).length >= 2 ? topTiedBidders(t) : [p1, p2];
   const tx = new Tx(game);
-  if (isMinigameMethod(cfgOf(game).tiebreakerMethod)) {
-    startMinigameTiebreakTx(tx, 'pick_one', tied, 'fight', ctx);
-  } else {
-    tx.set('currentTurn/phase', 'duel').set('currentTurn/challengerId', p1).set('currentTurn/defenderId', p2)
-      .set('currentTurn/pot', 0).set('currentTurn/isTiebreak', true)
-      .set('currentTurn/tiebreakerBids', { [p1]: t.bids?.[p1]?.amount || 0, [p2]: t.bids?.[p2]?.amount || 0 })
-      .event(`⚔️ Tiebreaker: ${name(game, p1)} vs ${name(game, p2)}!`, 'duel');
-  }
+  startMinigameTiebreakTx(tx, 'pick_one', tied, 'fight', ctx);
   return tx.plan();
 }
 
-/** Tie-break winner becomes the challenger and duels the Opener (no dividend for the loser). */
+/** Winner of a tie-break duel (games saved before ties became party games) → duels the Opener. */
 export function recordTiebreakWinner(game: Game, winnerId: PlayerId): Plan {
   const t = game.currentTurn;
   if (!t?.openerId) return refuse('No opener');
@@ -236,26 +229,21 @@ export function recordTiebreakWinner(game: Game, winnerId: PlayerId): Plan {
   return tx.plan();
 }
 
-/** Host override for a tied top bid: Opener fights (mini-game picks 1, or a random pair duels). */
+/** Host override for a tied top bid: Opener fights (the party game picks 1). */
 export function hostTieFight(game: Game, ctx: Ctx): Plan {
   const tied = topTiedBidders(game.currentTurn);
   if (tied.length < 2) return refuse('Not enough tied bidders');
   const tx = new Tx(game);
-  if (isMinigameMethod(cfgOf(game).tiebreakerMethod)) {
-    startMinigameTiebreakTx(tx, 'pick_one', tied, 'fight', ctx);
-    return tx.plan();
-  }
-  const [a, b] = shuffle(tied, ctx.rng);
-  return startTiebreaker(game, a, b, ctx);
+  startMinigameTiebreakTx(tx, 'pick_one', tied, 'fight', ctx);
+  return tx.plan();
 }
 
-/** Host override for a 3+ way tie: Opener yields (mini-game picks 2, or two at random). */
+/** Host override for a 3+ way tie: Opener yields (the party game picks 2). */
 export function hostTieYield(game: Game, ctx: Ctx): Plan {
   const tied = topTiedBidders(game.currentTurn);
   if (tied.length < 3) return refuse('Need 3+ tied bidders for this scenario');
   const tx = new Tx(game);
-  if (isMinigameMethod(cfgOf(game).tiebreakerMethod)) startMinigameTiebreakTx(tx, 'pick_two', tied, 'yield', ctx);
-  else { const [a, b] = shuffle(tied, ctx.rng); startYieldDuelTx(tx, a, b); }
+  startMinigameTiebreakTx(tx, 'pick_two', tied, 'yield', ctx);
   return tx.plan();
 }
 
@@ -266,12 +254,10 @@ export function randomTiebreaker(game: Game, r: Rng): Plan {
   return new Tx(game).set('currentTurn/phase', 'yield_choice').set('currentTurn/selectedC1', c1).set('currentTurn/selectedC2', c2).plan();
 }
 
-/** Hand a tie to the configured mini-game. */
+/** Hand a tie to a whole-table party game (the house's pick, or one at random per tie). */
 function startMinigameTiebreakTx(tx: Tx, goal: 'pick_one' | 'pick_two', tied: PlayerId[], choice: 'fight' | 'yield', ctx: Ctx) {
   tx.set('currentTurn/openerChoice', choice).set('currentTurn/minigameGoal', goal).set('currentTurn/tiedBidders', tied);
-  const method = cfgOf(tx.game).tiebreakerMethod;
-  if (isPartyMethod(method)) startPartyGame(tx, method as 'sketch_off' | 'whack_elf', goal, tied, ctx);
-  else tx.set('currentTurn/phase', 'minigame_draw_off'); // Draw Off: the host page runs the AI judging
+  startPartyGame(tx, partyGameFor(cfgOf(tx.game).tiebreakerMethod, ctx.rng), goal, tied, ctx);
 }
 
 /** Spectator vote on someone else's duel (stakes 1 chip when spectator bets are on). */
