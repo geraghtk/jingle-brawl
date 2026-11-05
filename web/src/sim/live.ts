@@ -10,13 +10,14 @@ import { createRequire } from 'node:module';
 import type { Browser, Page } from '@playwright/test';
 import type { PartyGame } from '../core/party';
 import { GAMES } from '../core/party';
+import { rng as makeRng } from '../core/rng';
 import { HOST, isOffered, offers } from '../core/table';
 import type { Offer, Who } from '../core/table';
 import type { Game, PlayerId, Settings } from '../core/types';
 import type { Observation, TableEvent } from './table';
 import { describe as describeOffer } from './table';
-import { drawingsOf, GIFTS, PatientHost, Physics, situation } from './world';
-import type { HostOptions, Person } from './world';
+import { avatarLabel, drawingsOf, GIFTS, PatientHost, Physics, pickAvatar, situation } from './world';
+import type { AvatarPicks, HostOptions, Person } from './world';
 
 const require = createRequire(import.meta.url);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -61,6 +62,7 @@ export class LiveTable {
   private drawn: Record<PlayerId, number> = {};      // drawings these hands made, and how good
   private busy: Promise<unknown>[] = [];
   private whacking = new Set<string>();             // people playing Whack-an-Elf right now
+  readonly avatars: AvatarPicks = {};                // who picked which avatar as they joined
   private t0 = Date.now();
   private lastKey = '';
   private H: any;                                    // e2e/helpers.js (emulator REST, setup)
@@ -83,7 +85,11 @@ export class LiveTable {
     t.hostPage = host;
     t.room = roomCode;
     t.watch(host, 'HOST');
+    const r = makeRng(o.seed + 7919), taken = new Set<string>();                  // the avatar picker, as each joins
     for (const [i, p] of o.people.entries()) {
+      const { press, avatar } = pickAvatar(p, taken, r);
+      taken.add(avatar);
+      t.avatars[p.id] = { avatar, label: avatarLabel(avatar), picked: !!press };
       const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await ctx.newPage();
       t.watch(page, p.name);
@@ -92,6 +98,11 @@ export class LiveTable {
         if (p.age != null && p.age < 16) {
           await page.getByTestId('under-16').check();
           await page.getByTestId('age').selectOption(String(p.age));
+        }
+        if (press) {
+          const opt = page.locator(`[data-avatar="${press}"]`);
+          await opt.click();
+          await page.waitForFunction((el) => el?.getAttribute('aria-pressed') === 'true', await opt.elementHandle());
         }
         await page.getByTestId('join').click();
         await page.waitForSelector('#game-screen', { state: 'visible', timeout: 15000 });

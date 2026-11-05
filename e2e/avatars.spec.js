@@ -43,3 +43,40 @@ test('a player picks an avatar when they join and the TV shows it; no pick gets 
     await hostCtx.close();
   }
 });
+
+test('the VS screens show both duellists by their avatars: the TV and every phone', async ({ browser }) => {
+  const names = ['Alice', 'Bob', 'Cleo'];
+  const { host, hostCtx, roomCode } = await H.createGame(browser);
+  const { pages, contexts } = await H.joinPlayers(browser, roomCode, names);
+  try {
+    await H.startGame(host, roomCode);
+    const turn = await H.drawGift(host, roomCode, 'VS Gift');
+    const p = await H.playersByName(roomCode);
+    const opener = H.openerNameOf(turn, p);
+    const [bidder, spectator] = names.filter((n) => n !== opener);
+    const av = (n) => p[n].avatar;
+    await H.allBid(pages, opener, { [bidder]: 2, [spectator]: 1 });
+    await H.revealBids(host);
+    await H.openerFights(pages[opener]);
+    await H.waitForTurnPhase(roomCode, 'duel_pending');
+    const pending = host.locator('.duel-pending-row .f6-avatar');
+    await expect(pending).toHaveCount(2);
+    await expect(pending.first()).toHaveAttribute('data-avatar', av(bidder));
+    await expect(pending.last()).toHaveAttribute('data-avatar', av(opener));
+    await H.clickStartDuel(host);
+    await H.waitForTurnPhase(roomCode, 'duel');
+    await expect(host.locator(`.duel-corner.red .f6-avatar[data-avatar="${av(bidder)}"]`)).toBeVisible();
+    await expect(host.locator(`.duel-corner.green .f6-avatar[data-avatar="${av(opener)}"]`)).toBeVisible();
+    // the duellists' phones: YOU (your avatar) vs THEM (theirs)
+    const mine = pages[bidder].locator('.duel-you-row .f6-avatar');
+    await expect(mine).toHaveCount(2);
+    await expect(mine.first()).toHaveAttribute('data-avatar', av(bidder));
+    await expect(mine.last()).toHaveAttribute('data-avatar', av(opener));
+    // a spectator calling it sees both corners by their avatars
+    await expect(pages[spectator].locator(`.callit-corner.red .f6-avatar[data-avatar="${av(bidder)}"]`)).toBeVisible();
+    await expect(pages[spectator].locator(`.callit-corner.green .f6-avatar[data-avatar="${av(opener)}"]`)).toBeVisible();
+  } finally {
+    await hostCtx.close();
+    for (const c of contexts) await c.close();
+  }
+});

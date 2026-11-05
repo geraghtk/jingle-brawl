@@ -17,8 +17,8 @@ import { HOST, isOffered, offers, perform } from '../core/table';
 import type { Offer, Who } from '../core/table';
 import { applyUpdates, getPath } from '../core/tx';
 import type { Game, Plan, Settings } from '../core/types';
-import { drawingsOf, GIFTS, PatientHost, Physics, situation } from './world';
-import type { HostOptions, Person, Situation } from './world';
+import { avatarLabel, drawingsOf, GIFTS, PatientHost, Physics, pickAvatar, situation } from './world';
+import type { AvatarPicks, HostOptions, Person, Situation } from './world';
 
 export const START = 1_700_000_000_000;
 
@@ -46,6 +46,7 @@ export class Table {
   readonly log: TableEvent[] = [];
   readonly did: Record<Who, Record<string, number>> = {};
   readonly physics: Physics;
+  readonly avatars: AvatarPicks = {};
   private r: Rng;
   private fired = new Set<string>();
   private host: PatientHost | null;
@@ -57,7 +58,14 @@ export class Table {
     const ah = o.autoHost === true ? {} : o.autoHost || null;
     this.host = ah ? new PatientHost(ah, this.now) : null;
     let g = A.newGame({ hostId: HOST, hostUid: null, settings: { ...o.settings }, now: this.now });
-    for (const p of o.people) g = this.applyTo(g, A.joinPlayer(g, { playerId: p.id, name: p.name, uid: null, now: this.now, age: p.age ?? null }));
+    const r = makeRng(o.seed + 7919), taken = new Set<string>();                  // the avatar picker, as each joins
+    for (const p of o.people) {
+      const { press, avatar } = pickAvatar(p, taken, r);
+      g = this.applyTo(g, A.joinPlayer(g, { playerId: p.id, name: p.name, uid: null, now: this.now, age: p.age ?? null, avatar: press }));
+      const got = g.players?.[p.id]?.avatar || avatar;
+      taken.add(got);
+      this.avatars[p.id] = { avatar: got, label: avatarLabel(got), picked: !!press };
+    }
     this.game = g;
   }
 

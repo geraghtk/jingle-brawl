@@ -4,6 +4,7 @@ import { startDuelApp } from '../core/duelgame';
 import { DuelGameStage, useDuelGame } from './DuelGameStage';
 import { freshRng, useHost } from './HostContext';
 import { useVoteGate, VotePanel } from './VoteGate';
+import { Avatar } from '../ui/avatar';
 
 export function DuelModal() {
   const { game, act, takeSnapshot } = useHost();
@@ -27,6 +28,7 @@ export function DuelModal() {
               <div className="duel-corner red" data-duel-corner={t.challengerId}>
                 <div className="fz-halftone corner-halftone" />
                 <span className="fz-sticker ink corner-sticker">RED CORNER</span>
+                <div className="corner-avatar"><Avatar name={name(t.challengerId)} avatar={game.players?.[t.challengerId!]?.avatar} size={96} /></div>
                 <div className="corner-name f6-disp">{name(t.challengerId).toUpperCase()}</div>
                 <div className="corner-role">Challenger · put chips on the line</div>
               </div>
@@ -34,6 +36,7 @@ export function DuelModal() {
               <div className="duel-corner green" data-duel-corner={t.defenderId}>
                 <div className="fz-halftone corner-halftone" />
                 <span className="fz-sticker ink corner-sticker">GREEN CORNER</span>
+                <div className="corner-avatar"><Avatar name={name(t.defenderId)} avatar={game.players?.[t.defenderId!]?.avatar} size={96} /></div>
                 <div className="corner-name f6-disp">{name(t.defenderId).toUpperCase()}</div>
                 <div className="corner-role">{t.isYieldDuel ? 'Challenger · put chips on the line' : 'Defender · defends for free'}</div>
               </div>

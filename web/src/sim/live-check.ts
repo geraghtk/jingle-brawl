@@ -39,7 +39,10 @@ async function wholeGame() {
     const tv = jpegHeight((await t.frames()).tv);
     return [out('random guests and the scripted host play a whole game on the real pages, with no page errors or missing buttons',
       res.ended && !res.issues.length && res.seats.every((s) => s.gift), { minutes: res.minutes, issues: res.issues, room: res.room }),
-    out("the TV's picture is the whole host page, below the fold too", tall > seen && tv >= tall, { picture: tv, page: tall, window: seen })];
+    out("the TV's picture is the whole host page, below the fold too", tall > seen && tv >= tall, { picture: tv, page: tall, window: seen }),
+    out('guests pick their avatars on the join screen; the app has each one they picked (or gave them)',
+      Object.values(t.avatars).some((a) => a.picked) && people.every((p) => t.game.players?.[t['idOf'][p.id]]?.avatar === t.avatars[p.id].avatar),
+      { picks: t.avatars, app: Object.fromEntries(people.map((p) => [p.id, t.game.players?.[t['idOf'][p.id]]?.avatar])) })];
   } finally { await t.close(); }
 }
 

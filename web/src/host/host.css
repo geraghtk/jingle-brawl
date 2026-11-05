@@ -1579,3 +1579,7 @@
         /* Sticker icons (ui/icons.tsx): sized to the text they sit in */
         .yd-icon { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; object-fit: contain; }
         .status-icon .yd-icon, .final-gift-tile .yd-icon { width: 1.2em; height: 1.2em; vertical-align: middle; }
+
+        /* the duellists' avatars on the VS screens */
+        .duel-corner .corner-avatar { position: relative; margin-top: 14px; }
+        .duel-corner .corner-avatar .f6-avatar, .duel-pending-row .f6-avatar { box-shadow: 0 0 0 3px #fff, 0 6px 16px rgba(13, 16, 24, .2); }

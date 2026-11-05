@@ -7,6 +7,7 @@
 //   whack  Whack-an-Elf: reaction time against the real pop-up sequence
 //   sketch Sketch-Off: how good the drawing looks to the people voting on it
 // A gift's value to a person is its quality plus their own taste (as in the economics sim).
+import { AVATARS, freeAvatar } from '../core/avatars';
 import { whackPoints, whackSequence } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { rng as makeRng } from '../core/rng';
@@ -23,7 +24,30 @@ export const GIFTS = [
 ];
 
 export interface Skills { duel: number; whack: number; sketch: number }
-export interface Person { id: string; name: string; age?: number; skills?: Partial<Skills> }
+export interface Person {
+  id: string; name: string; age?: number; skills?: Partial<Skills>;
+  avatar?: string | null;           // the avatar they pick on the join screen (null: they let the app pick); else chosen as they join
+}
+
+/** Who has which avatar after joining, and whether they picked it themselves. */
+export type AvatarPicks = Record<string, { avatar: string; label: string; picked: boolean }>;
+
+const LABEL = Object.fromEntries(AVATARS.map((a) => [a.id, a.label]));
+
+/** What a guest does at the avatar picker, given what the table has already taken: most pick one
+ * that's free (taken ones are greyed out), about one in six don't bother and the app picks for them.
+ * -> what they press (null: nothing) and the avatar they end up with. */
+export function pickAvatar(p: Person, taken: Set<string>, r: Rng): { press: string | null; avatar: string } {
+  const wants = p.avatar !== undefined ? p.avatar : r() < 0.16 ? null : undefined;
+  if (wants && !taken.has(wants)) return { press: wants, avatar: wants };
+  if (wants === undefined) {
+    const free = AVATARS.filter((a) => !taken.has(a.id));
+    if (free.length) { const a = free[Math.floor(r() * free.length)].id; return { press: a, avatar: a }; }
+  }
+  return { press: null, avatar: freeAvatar(p.name, taken) };
+}
+
+export const avatarLabel = (id: string) => LABEL[id] || id;
 
 export const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));

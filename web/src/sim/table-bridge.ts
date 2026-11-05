@@ -6,7 +6,8 @@
 //
 //   {"cmd": "new", "backend": "engine", "seed": 1, "settings": {}, "autoHost": true,
 //    "people": [{"id": "ada", "name": "Ada", "age": 12, "skills": {"duel": 0.7, "whack": 0.4, "sketch": 0.9}}]}
-//                                     → {"ok": true, "people": [...ids], "host": "host", "room"?}
+//                                     → {"ok": true, "people": [...ids], "host": "host", "room"?,
+//                                        "avatars": {id: {avatar, label, picked}}}   (what each picked as they joined)
 //   {"cmd": "observe", "who": "ada"}  → {now, tv, phone, offers, buttons, you, focus, roles, gifts, values, drawings?}
 //                                     ("host": the console; buttons: each offer in words, for whoever watches)
 //   {"cmd": "act", "who": "ada", "offer": {"type": "bid", "amount": 2}}  → {ok, error?, ended}
@@ -35,7 +36,7 @@ async function handle(req: any): Promise<unknown> {
     const o = { seed: Number(req.seed) || 0, people: req.people || [], settings: req.settings || {}, autoHost: req.autoHost ?? true };
     if (!o.people.length) return { error: 'seat some people' };
     table = req.backend === 'live' ? await LiveTable.open({ ...o, base: req.base, headed: !!req.headed, slowMo: req.slowMo }) : new Table(o);
-    return { ok: true, people: o.people.map((p: { id: string }) => p.id), host: HOST, ...(table instanceof LiveTable ? { room: table.room } : {}) };
+    return { ok: true, people: o.people.map((p: { id: string }) => p.id), host: HOST, avatars: table.avatars, ...(table instanceof LiveTable ? { room: table.room } : {}) };
   }
   if (!table) return { error: 'no table yet: send "new" first' };
   const t = table;

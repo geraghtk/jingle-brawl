@@ -1222,3 +1222,7 @@ button.callit-corner:focus-visible { outline: 3px solid var(--ink); outline-offs
         /* Sticker icons (ui/icons.tsx): sized to the text they sit in */
         .yd-icon { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; object-fit: contain; }
         .status-icon .yd-icon, .final-gift-tile .yd-icon { width: 1.2em; height: 1.2em; vertical-align: middle; }
+
+        /* the duellists' avatars on the VS screens */
+        .duel-you-row .f6-avatar, .callit-corner .f6-avatar { box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(13, 16, 24, .18); }
+        .callit-corner .f6-avatar { margin: 6px auto 2px; }

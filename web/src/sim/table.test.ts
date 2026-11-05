@@ -145,3 +145,20 @@ describe('the host waits for the table', () => {
       .toEqual(['backs Ada', "votes for Bo's drawing"]);
   });
 });
+
+describe('joining', () => {
+  it('guests pick an avatar on the join screen as people do: most pick one nobody has, a few let the app pick', () => {
+    const t = new Table({ seed: 4, people: people(12), settings: {} });
+    const picks = t.avatars;
+    const picked = Object.values(picks).filter((a) => a.picked);
+    expect(picked.length).toBeGreaterThan(6);
+    expect(picked.length).toBeLessThan(12);
+    for (const p of t.people) expect(t.game.players![p.id].avatar).toBe(picks[p.id].avatar);
+    expect(new Set(Object.values(picks).map((a) => a.avatar)).size).toBe(12);       // nobody shares
+    expect(new Table({ seed: 4, people: people(12), settings: {} }).avatars).toEqual(picks);
+    // a person who has a favourite picks it
+    const fav = new Table({ seed: 4, people: [{ id: 'a', name: 'Ada', avatar: 'sloth' }, { id: 'b', name: 'Bo', avatar: null }], settings: {} });
+    expect(fav.avatars).toMatchObject({ a: { avatar: 'sloth', picked: true }, b: { picked: false } });
+  });
+});
+

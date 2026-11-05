@@ -351,9 +351,11 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: '⚔️ DUEL', badgeClass: 'duel',
         action: <span className="f6-chip tint" style={{ verticalAlign: 'middle', marginRight: 10 }}>Opener chose to fight</span>,
         details: <div className="duel-pending-row">
+          <Avatar name={nm(game, t.challengerId)} avatar={game.players?.[t.challengerId!]?.avatar} size={52} />
           <span className="dp-side f6-disp" style={{ color: 'var(--accent)' }}>{nm(game, t.challengerId).toUpperCase()}</span>
           <span className="dp-vs f6-disp fz-riso f6-wiggle">VS</span>
           <span className="dp-side f6-disp" style={{ color: 'var(--accent2)' }}>{nm(game, t.openerId).toUpperCase()}</span>
+          <Avatar name={nm(game, t.openerId)} avatar={game.players?.[t.openerId!]?.avatar} size={52} />
         </div>,
         buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => act((g) => A.startDuel(g, t.challengerId!, t.openerId!))}><Icon name="duel" /> Start Duel!</button>,
       };

@@ -401,14 +401,17 @@ function Duel({ t }: { t: Turn }) {
 
   if (mine) {
     const defending = t.defenderId === me;
-    const opponent = nm(game, defending ? t.challengerId : t.defenderId);
+    const opponentId = defending ? t.challengerId : t.defenderId;
+    const opponent = nm(game, opponentId);
     return (
       <Card tone="your-turn">
         <div className="f6-cap">Duel</div>
         <div className="duel-you-row">
+          <Avatar name={player.name} avatar={player.avatar} size={40} />
           <span className="duel-side f6-disp" style={{ color: 'var(--accent)' }}>YOU</span>
           <span className="duel-vs-mini f6-disp fz-riso f6-wiggle">vs</span>
           <span className="duel-side f6-disp" style={{ color: 'var(--accent2)' }}>{opponent.toUpperCase()}</span>
+          <Avatar name={opponent} avatar={opponentId ? game.players?.[opponentId]?.avatar : undefined} size={40} />
         </div>
         {!!t.pot && (
           <div className="final-stats" style={{ margin: '4px 0 10px' }}>
@@ -445,6 +448,7 @@ function Duel({ t }: { t: Turn }) {
     const inner = (
       <>
         <span className="callit-corner-tag">{side === 'red' ? 'Red corner' : 'Green corner'}</span>
+        <Avatar name={nm(game, id)} avatar={game.players?.[id]?.avatar} size={48} />
         <span className="callit-name f6-disp">{nm(game, id)}</span>
         <span className="callit-record">{record(id)}</span>
         {myVote === id && <span className="fz-sticker yel callit-pick">Your pick</span>}
