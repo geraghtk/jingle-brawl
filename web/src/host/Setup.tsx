@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { DEFAULT_DUEL_GAMES } from '../core/settings';
 import type { PartyType } from '../core/party';
 import type { Settings } from '../core/types';
+import { Glyphs, Icon } from '../ui/icons';
 
 const PARTY = ['sketch_off', 'whack_elf'];
 const NL = '\n'; // the duel list is one per line
@@ -15,7 +16,7 @@ function Select({ id, label, hint, value, onChange, options }: {
 }) {
   return (
     <div className="form-group">
-      <label className="label">{label}</label>
+      <label className="label"><Glyphs>{label}</Glyphs></label>
       <select id={`setting-${id}`} className="select" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
       </select>
@@ -88,7 +89,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
         <Select id="loser-dividend" label="🎁 Loser Dividend" hint={'"Defenders only" makes attacking riskier'} value={s['loser-dividend']} onChange={set('loser-dividend')}
           options={[['everyone', 'Everyone who loses (+1)'], ['defenders', 'Defenders only (+1)'], ['nobody', 'Nobody (harsh!)']]} />
         <Select id="spectator-bets" label="🎲 Spectator Bets (experiment)" hint="Right callers split the wrong callers' chips. Correct calls always add to the Party Score." value={s['spectator-bets']} onChange={set('spectator-bets')}
-          options={[['0', 'Off — voting is free'], ['1', 'On — each duel vote stakes 1 chip']]} />
+          options={[['0', 'Off: voting is free'], ['1', 'On: each duel vote stakes 1 chip']]} />
         <Select id="duel-pick" label="🎡 Picking the Duel" value={s['duel-pick']} onChange={set('duel-pick')}
           hint="Yield duels and tiebreaks always spin the wheel: nobody is really defending."
           options={[['defender', 'The defender picks (or spins)'], ['wheel', 'Always spin the wheel'], ['off', "Off: the duellists agree on one"]]} />
@@ -101,7 +102,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
               {(['whack_elf', 'sketch_off'] as PartyType[]).map((a) => (
                 <label key={a} className="duel-app-game">
                   <input type="checkbox" id={`setting-duel-app-${a}`} checked={duelApps.includes(a)} onChange={() => toggleApp(a)} />
-                  <span>{a === 'whack_elf' ? '🔨 Whack-an-Elf' : '✏️ Sketch-Off'} <small>on phones; everyone plays, the better-placed duellist wins</small></span>
+                  <span><Glyphs>{a === 'whack_elf' ? '🔨 Whack-an-Elf' : '✏️ Sketch-Off'}</Glyphs> <small>on phones; everyone plays, the better-placed duellist wins</small></span>
                 </label>
               ))}
             </div>
@@ -116,7 +117,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
         <div className="form-group">
           <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
             <input type="checkbox" id="setting-public-chips" className="input" style={{ width: 'auto', minHeight: 'auto' }} checked={publicChips} onChange={(e) => setPublicChips(e.target.checked)} />
-            <span>👁️ Show everyone's chip counts</span>
+            <span><Icon name="eye" /> Show everyone's chip counts</span>
           </label>
         </div>
         <Select id="tiebreaker-method" label="⚖️ Tiebreaker Party Game" value={method} onChange={set('tiebreaker-method')}
@@ -131,7 +132,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
         )}
         {method === 'draw_off' && (
           <div id="ai-critic-setting" className="form-group">
-            <label className="label">🤖 AI Art Critic</label>
+            <label className="label"><Icon name="critic" /> AI Art Critic</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
               <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
                 <input type="checkbox" id="setting-ai-critic-enabled" style={{ width: 'auto', minHeight: 'auto' }} checked={critic.enabled} onChange={(e) => setCritic({ ...critic, enabled: e.target.checked })} />

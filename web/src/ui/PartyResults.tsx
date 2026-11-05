@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { GAMES } from '../core/party';
 import type { PartyGame } from '../core/party';
 import type { Game } from '../core/types';
+import { Glyphs } from './icons';
 
 export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?: string }) {
   const r = mg.results!;
@@ -11,7 +12,7 @@ export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?:
   const unit = mg.type === 'sketch_off' ? 'vote' : 'pt';
   return (
     <>
-      <h3>{GAMES[mg.type].emoji} Results</h3>
+      <h3><Glyphs>{GAMES[mg.type].emoji}</Glyphs> Results</h3>
       <p className="pg-sub">
         {r.winners.map(name).join(' & ')} {r.winners.length > 1 ? 'win' : 'wins'} the tie
         {mg.minigameGoal === 'pick_two' ? ' and duel for the gift' : ' and duel the Opener'}.
@@ -23,7 +24,7 @@ export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?:
             <li key={id} className={`${tied.includes(id) ? 'tied' : ''} ${r.winners.includes(id) ? 'win' : ''}`}>
               <span className="pos">{i + 1}</span>
               <span className="nm">{name(id)}{id === me ? ' (you)' : ''}</span>
-              <span>{s == null ? '—' : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>
+              <span>{s == null ? "didn't play" : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>
               {r.winners.includes(id) ? <span className="tag">wins the tie</span> : tied.includes(id) ? <span className="tag">tied</span> : null}
               {!!r.points?.[id] && <span className="tag">+{r.points[id]} party pts</span>}
               {r.bonus === id && <span className="tag">+1 chip Elf Bonus</span>}

@@ -65,5 +65,40 @@ class WinnerParsing(unittest.TestCase):
         self.assertEqual(data["wittyVerdict"], "What a night of art.")
 
 
+EM = "\u2014"
+
+
+class NoEmDashes(unittest.TestCase):
+    """Players never see an em dash: the prompts ask for none, and replies are cleaned anyway."""
+
+    def test_no_dashes_reads_naturally(self):
+        self.assertEqual(critic.no_dashes(f"Bold lines {EM} a true penguin."), "Bold lines, a true penguin.")
+        self.assertEqual(critic.no_dashes(f"Bold{EM}brave."), "Bold, brave.")
+        self.assertEqual(critic.no_dashes(f"A cat {EM}."), "A cat.")
+        self.assertEqual(critic.no_dashes(f"{EM} Alice wins."), "Alice wins.")
+        self.assertEqual(critic.no_dashes("Bold \u2013 brave, pages 1\u20135."), "Bold, brave, pages 1\u20135.")
+        self.assertIsNone(critic.no_dashes(None))
+
+    def test_critique_and_verdict_come_back_without_em_dashes(self):
+        client = fake_ollama(f"A penguin {EM} wobbly.", f"SCORE: 80 | CRITIQUE: Charming {EM} truly.")
+        with mock.patch.object(critic, "get_ollama_client", return_value=client), \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
+            data = critic.app.test_client().post("/critique", json={"image": "aGk=", "secretWord": "Penguin"}).get_json()
+        self.assertEqual(data["critique"], "Charming, truly.")
+        self.assertEqual(data["description"], "A penguin, wobbly.")
+        for prompt in (c.kwargs["messages"][0]["content"] for c in client.chat.call_args_list):
+            self.assertIn("Do not use em dashes", prompt)
+            self.assertNotIn(EM, prompt)
+
+        client = fake_ollama(f"What a night {EM} of art.\nWINNER: Alice")
+        with mock.patch.object(critic, "get_ollama_client", return_value=client), \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
+            data = critic.app.test_client().post("/witty-verdict", json={"prompt": "Cat", "scores": WinnerParsing.SCORES}).get_json()
+        self.assertEqual(data["wittyVerdict"], "What a night, of art.")
+        prompt = client.chat.call_args.kwargs["messages"][0]["content"]
+        self.assertIn("Do not use em dashes", prompt)
+        self.assertNotIn(EM, prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

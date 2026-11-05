@@ -44,6 +44,7 @@ export interface Player {
   connected?: boolean;
   joinedAt?: number;
   age?: number;                    // only for under-16s (the Under-16 Exception); adults aren't asked
+  avatar?: string;                 // the avatar they picked (core/avatars.ts); else one follows from the name
   isBot?: boolean;
   duelWins?: number;
   duelLosses?: number;

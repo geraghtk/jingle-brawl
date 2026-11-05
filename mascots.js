@@ -124,6 +124,172 @@
 
   const pick = (lines) => lines[Math.floor(Math.random() * lines.length)];
 
+  // --- what they say -----------------------------------------------------------------
+  // One pool per moment; `line(moment, x)` picks one at random. Lines that need a name or a
+  // number are functions of it. Keep them speech-bubble short and free of em dashes.
+  // Santa: knowing, judgy about the naughty list, dad jokes. Rudy: dramatic, competitive,
+  // devoted to the Misfit pile and carrots. Jingles the Elf: overworked and a gossip.
+  const chips = (n) => `${n} chip${n === 1 ? '' : 's'}`;
+  const LINES = {
+    start: [ // santa, the game begins
+      'Ho ho ho! Let the brawl begin.',
+      'Ho ho ho! Play nice. Or don\'t. That\'s the game.',
+      'I\'ve checked the list twice. Some of you are on it a LOT.',
+      'Welcome! Please keep your elbows inside the sleigh.',
+      'Chips out, smiles on, grudges optional. Ho ho ho!',
+      'Let the brawl begin! I\'m not saying who\'s naughty. Yet.',
+      'I see you when you\'re bidding. I know when you\'re bluffing.',
+      'What do elves learn at school? The elf-abet! Ho ho. Let\'s play.',
+      'Reading glasses: on. Naughty list: open. Begin!',
+      'Ho ho ho! May the best gift-grabber win.',
+      'Why is my sack so full? Re-gifts, mostly. Let\'s go!',
+    ],
+    endgame: [ // santa, every gift is open
+      'All unwrapped! Time for the Misfit Lottery.',
+      'Every gift is open. Now the Misfits get their moment.',
+      'Misfit Lottery! One person\'s re-gift is another\'s treasure.',
+      'All unwrapped! Steal or auction, choose wisely. I\'m taking notes.',
+      'Final stretch! Even the naughty list is on the edge of its seat.',
+      'The Misfit pile is calling. Ho ho, I hope someone answers.',
+      'Last chance for glory. Or at least for a better candle.',
+      'Endgame! My favourite part, after cookies. And naps.',
+    ],
+    ended: [ // santa, game over
+      'That\'s a wrap! Santa saw everything. Everything.',
+      'Game over! I\'ll be updating the naughty list tonight.',
+      'That\'s a wrap! It\'s the thought that counts. Mostly.',
+      'Well played! A few of you are definitely getting coal.',
+      'Ho ho ho! Same time next year? I\'ll bring a longer list.',
+      'Game over! Leftover chips don\'t buy cookies, you know.',
+      'That\'s a wrap. Say thank you for your gift. Even the candle.',
+      'Why did the gift go to therapy? It felt re-wrapped. Goodnight!',
+    ],
+    misfit: [ // rudy, a gift lands in the Misfit pile
+      'Another one for the Island of Misfit Gifts!',
+      'Into the Misfit pile you go.',
+      'Welcome to the Misfit pile, little buddy. I\'ll guard you with my life.',
+      'The Misfit pile grows! My kingdom expands!',
+      'Misfit pile, party of one more! I\'ll get the carrots.',
+      'Don\'t cry, little gift. The Misfits are the best family.',
+      'To the Misfits! I\'ve always said they\'re underrated.',
+      'MISFIT PILE! I live for this. Well, this and carrots.',
+      'One more for the pile! I call it "my collection".',
+      'Another Misfit! Honestly? Best gift on the table.',
+    ],
+    bidding: [ // jingles, chatter while sealed bids go in
+      'Sealed bids are secret. Even from me. Especially from me.',
+      'Ooh, shiny. Who wants it?',
+      'Bid with your heart. Or your chips. Mostly chips.',
+      'I wrapped that one. I\'m sworn to secrecy. And very tired.',
+      'Psst. I heard someone\'s been saving chips all game.',
+      'Fourteen-hour shift and still wrapping. Bid something, please.',
+      'Don\'t look at me. I don\'t know who brought the fruitcake.',
+      'Between us? Rudy bids with his nose. It\'s very wet.',
+      'Sealed bids! Nobody tells me anything anyway.',
+      'I wrapped four thousand gifts this week. Make this one count.',
+      'Rumour has it Santa wanted this one. You didn\'t hear it from me.',
+    ],
+    noBids: [ // jingles, nobody bid; (opener's name)
+      (n) => `Nobody?! ${n}, Grinch's Gambit is RIGHT there…`,
+      (n) => `Zero bids! ${n}, the Gambit is calling your name.`,
+      (n) => `Tumbleweeds. ${n}, maybe go full Grinch?`,
+      (n) => `No takers?! ${n}, either it's amazing or it's a candle.`,
+      (n) => `Not one chip! ${n}, keep it, or steal something better?`,
+      (n) => `Silence! ${n}, that's either respect or fear.`,
+      (n) => `Zero bids. ${n}, I'm telling everyone. It's my job.`,
+      (n) => `Nobody wants it?! ${n}, I'd gossip, but there's nothing to say.`,
+    ],
+    tie: [ // rudy, tied top bid
+      'A tie! This is getting spicy.',
+      'A TIE! Somebody hold my carrots.',
+      'Tied bids! I haven\'t been this excited since the Misfit pile.',
+      'Same bid?! Great minds think alike. So do greedy ones.',
+      'A tie! I\'d bet my antlers on this. Ooh, drama.',
+      'Tie! I trained my whole life for a moment like this.',
+      'Dead heat! Like the time I raced Dasher. I won. Allegedly.',
+      'A tie! Nobody blink. Except me. I\'m very dramatic.',
+    ],
+    bigBid: [ // santa, a big winning bid; (the amount)
+      (n) => `${chips(n)}! Somebody really wants this.`,
+      (n) => `${chips(n)}?! Ho ho, that's either love or spite.`,
+      (n) => `${chips(n)}. I've seen less effort for a pony.`,
+      (n) => `${chips(n)}! Bold. I'm writing that down.`,
+      (n) => `${chips(n)}! Leftover chips don't buy cookies, after all.`,
+      (n) => `Ho ho! ${chips(n)}. Big spender alert.`,
+      (n) => `${chips(n)}! Somebody's been very good. Or very bad.`,
+      (n) => `${chips(n)} for this? I'm intrigued and a little worried.`,
+    ],
+    gambit: [ // jingles, a Grinch's Gambit duel starts; (the challenger)
+      (n) => `${n} is going full Grinch!`,
+      (n) => `Grinch's Gambit! ${n} has chosen chaos.`,
+      (n) => `Ooh! ${n} just took a page from the Grinch's book.`,
+      (n) => `${n} goes Grinch! I'm telling everyone. Everyone.`,
+      (n) => `Gasp! ${n} is coming for someone's gift!`,
+      (n) => `${n}, your heart just shrank three sizes. Respect.`,
+      (n) => `Grinch mode: ON. ${n}, bold move!`,
+      (n) => `${n} pulls a Gambit! Somebody get me snacks.`,
+    ],
+    reprisal: [ // rudy, a Reindeer Reprisal; (who gets it)
+      (n) => `Reindeer kick back! ${n} gets a Reprisal.`,
+      (n) => `Reprisal time! ${n}, aim those hooves.`,
+      (n) => `${n} gets a Reprisal! Hold my carrots.`,
+      (n) => `Not so fast! ${n} kicks back with a Reprisal.`,
+      (n) => `REPRISAL! ${n}, I trained you for this.`,
+      (n) => `Kick back, ${n}! Revenge is a dish best served with carrots.`,
+      (n) => `${n} gets a Reprisal! Somebody's gift is in danger.`,
+      (n) => `Hooves up! ${n} has a Reprisal and nothing to lose.`,
+    ],
+    tax: [ // santa, duel tax paid; (the amount)
+      (n) => `Ho ho. ${n} for the North Pole Fund. Thank you kindly.`,
+      (n) => `${chips(n)} to the North Pole Fund. The reindeer need snacks.`,
+      (n) => `${chips(n)} in tax. Sleighs don't polish themselves.`,
+      (n) => `The North Pole thanks you for your ${chips(n)}. Ho ho.`,
+      (n) => `${chips(n)} for the Fund! Elf cocoa isn't free, you know.`,
+      (n) => `Tax time! ${chips(n)} to the North Pole. It's for the carrots.`,
+      (n) => `Ho ho, ${chips(n)} for the Fund. Beard trimmers aren't cheap.`,
+      (n) => `${chips(n)} for the Fund. Consider it a nice-list donation.`,
+    ],
+    phoneOpener: [ // santa, on your phone: you're the opener
+      'You\'re up! Unwrap it and look pleased.',
+      'Your turn! Unwrap it like you\'ve never seen paper before.',
+      'You\'re up! Whatever it is, say "Oh, I love it!"',
+      'Your turn to unwrap! I\'m watching your face. Very closely.',
+      'You\'re up! Remember, it\'s the thought that counts. Mostly.',
+      'Unwrap time! Practise your surprised face. Ho ho.',
+      'You\'re up! Pro tip: shake it first. Unless it sloshes.',
+      'Your turn! Rip it or peel it, Santa doesn\'t judge. Much.',
+    ],
+    phoneReprisal: [ // rudy, on your phone: you've got a Reprisal
+      'Lost? Kick back! Pick a target… or let it go.',
+      'Kick back! Pick a gift to challenge, or let it go.',
+      'You lost? Not on my watch! Pick a target.',
+      'Reprisal time! Choose wisely. I\'m rooting for chaos.',
+      'Hooves up! Pick a target, or walk away with dignity.',
+      'Revenge? In THIS economy? Pick a target. Or don\'t.',
+      'Pick a Misfit if you like. They\'re lovely. I\'d know.',
+      'Get back in there, champ! Pick a target… or let it go.',
+    ],
+    phoneEndgame: [ // jingles, on your phone: your Misfit Lottery choice
+      'Misfit Lottery! Steal a gift, or auction the Misfit?',
+      'Your call! Steal something shiny, or auction the Misfit?',
+      'Steal or auction? I know what I\'d do. I\'m not telling.',
+      'Misfit Lottery! Choose fast, I\'m on my break.',
+      'Your move! Steal a gift, or take your chances at auction.',
+      'Psst. The Misfit isn\'t as bad as it looks. Probably. Steal or auction?',
+    ],
+    idle: [ // jingles, bidding has sat still for 30 seconds
+      'Psst… those chips won\'t bid themselves.',
+      'Still thinking? I\'ve wrapped three gifts since you started.',
+      'Hello? The bid button is the shiny one.',
+      'Take your time. I\'ll just be here. Aging.',
+      'Tick tock! Even Rudy has decided, and he\'s mostly carrots.',
+      'Psst. Leftover chips are worth nothing at the end. Just saying.',
+      'Twenty-hour shift over here. Please bid so I can sit down.',
+      'I\'d peek at the bids, but I\'m too tired to stand on tiptoe.',
+    ],
+  };
+  const line = (moment, x) => { const l = pick(LINES[moment]); return typeof l === 'function' ? l(x) : l; };
+
   // --- reacting to the game ----------------------------------------------------------
   let prev = null;
   let idleTimer = null;
@@ -146,31 +312,27 @@
     const turnChanged = t?.phase !== pt?.phase || t?.giftId !== pt?.giftId;
     if (me) return observePhone(snap, was, me, turnChanged, name);
 
-    if (was.phase === 'lobby' && snap.phase === 'main') {
-      say('santa', pick(['Ho ho ho! Let the brawl begin.', 'Ho ho ho! Play nice. Or don\'t — that\'s the game.']), { hop: true });
-    }
-    if (was.phase !== 'endgame' && snap.phase === 'endgame') say('santa', 'All unwrapped! Time for the Misfit Lottery.', { hop: true });
-    if (was.phase !== 'ended' && snap.phase === 'ended') say('santa', 'That\'s a wrap! Santa saw everything. Everything.', { hop: true });
-    if (snap.misfits > was.misfits) say('reindeer', pick(['Another one for the Island of Misfit Gifts!', 'Into the Misfit pile you go.']));
+    if (was.phase === 'lobby' && snap.phase === 'main') say('santa', line('start'), { hop: true });
+    if (was.phase !== 'endgame' && snap.phase === 'endgame') say('santa', line('endgame'), { hop: true });
+    if (was.phase !== 'ended' && snap.phase === 'ended') say('santa', line('ended'), { hop: true });
+    if (snap.misfits > was.misfits) say('reindeer', line('misfit'));
     if (!t || !turnChanged) return idle(snap);
 
-    if (t.phase === 'bidding' && Math.random() < 0.3) {
-      say('elf', pick(['Sealed bids are secret. Even from me. Especially from me.', 'Ooh, shiny. Who wants it?', 'Bid with your heart. Or your chips. Mostly chips.']), { chatter: true });
-    }
+    if (t.phase === 'bidding' && Math.random() < 0.3) say('elf', line('bidding'), { chatter: true });
     if (t.phase === 'reveal') {
       const bids = Object.values(t.bids || {}).filter((b) => b.amount > 0).map((b) => b.amount);
       const top = Math.max(0, ...bids);
-      if (!bids.length) say('elf', `Nobody?! ${name(t.openerId)}, Grinch's Gambit is RIGHT there…`);
-      else if (bids.filter((b) => b === top).length >= 2) say('reindeer', 'A tie! This is getting spicy.', { hop: true });
-      else if (top >= 4) say('santa', `${top} chips! Somebody really wants this.`, { chatter: true });
+      if (!bids.length) say('elf', line('noBids', name(t.openerId)));
+      else if (bids.filter((b) => b === top).length >= 2) say('reindeer', line('tie'), { hop: true });
+      else if (top >= 4) say('santa', line('bigBid', top), { chatter: true });
     }
-    if (t.phase === 'duel' && t.isGambit) say('elf', `${name(t.challengerId)} is going full Grinch!`, { side: 'left' });
+    if (t.phase === 'duel' && t.isGambit) say('elf', line('gambit', name(t.challengerId)), { side: 'left' });
     if (t.phase === 'reprisal') {
-      say('reindeer', `Reindeer kick back! ${name(t.reprisalPlayerId)} gets a Reprisal.`, {
+      say('reindeer', line('reprisal', name(t.reprisalPlayerId)), {
         hop: true, kick: document.querySelector('#turn-panel, .turn-panel, main'),
       });
     }
-    if (pt?.phase === 'duel' && (pt.tax || 0) > 0 && t.phase !== 'duel') say('santa', `Ho ho — ${pt.tax} for the North Pole Fund. Thank you kindly.`);
+    if (pt?.phase === 'duel' && (pt.tax || 0) > 0 && t.phase !== 'duel') say('santa', line('tax', pt.tax));
     idle(snap);
   }
 
@@ -178,9 +340,9 @@
   function observePhone(snap, was, me, turnChanged, name) {
     const t = snap.turn;
     if (!t || !turnChanged) return;
-    if (t.phase === 'bidding' && t.openerId === me) say('santa', 'You\'re up! Unwrap it and look pleased.', { side: 'left' });
-    if (t.phase === 'reprisal' && t.reprisalPlayerId === me) say('reindeer', 'Lost? Kick back! Pick a target… or let it go.', { hop: true });
-    if (t.phase === 'endgame_choice' && t.activePlayerId === me) say('elf', 'Misfit Lottery! Steal a gift, or auction the Misfit?');
+    if (t.phase === 'bidding' && t.openerId === me) say('santa', line('phoneOpener'), { side: 'left' });
+    if (t.phase === 'reprisal' && t.reprisalPlayerId === me) say('reindeer', line('phoneReprisal'), { hop: true });
+    if (t.phase === 'endgame_choice' && t.activePlayerId === me) say('elf', line('phoneEndgame'));
   }
 
   /** The elf nudges if bidding sits still for a while. */
@@ -190,8 +352,8 @@
     if (key === idleKey) return;
     idleKey = key;
     clearTimeout(idleTimer);
-    if (key) idleTimer = setTimeout(() => say('elf', 'Psst… those chips won\'t bid themselves.', { side: 'left', chatter: true }), 30000);
+    if (key) idleTimer = setTimeout(() => say('elf', line('idle'), { side: 'left', chatter: true }), 30000);
   }
 
-  window.Mascots = { say, observe, svg: SVG };
+  window.Mascots = { say, observe, svg: SVG, lines: LINES };
 })();

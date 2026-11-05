@@ -4,6 +4,7 @@ import { reprisalTargets } from '../core/rules';
 import { minCost } from '../core/settings';
 import { MISFIT } from '../core/types';
 import { usePlayer } from './PlayerContext';
+import { Glyphs, Icon } from '../ui/icons';
 
 export function ReprisalCard() {
   const { game, me, player, cfg, act } = usePlayer();
@@ -20,15 +21,15 @@ export function ReprisalCard() {
 
   return (
     <div className="card action-card" id="action-card">
-      <div className="card-title">⚡ Your Turn!</div>
-      <div id="action-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>🦌 Reindeer Reprisal!</div>
+      <div className="card-title"><Icon name="zap" /> Your Turn!</div>
+      <div id="action-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}><Icon name="reprisal" /> Reindeer Reprisal!</div>
       <div id="action-desc" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         You lost the duel but get a <strong>revenge chance</strong>!<br />
         Challenge any gift (except "{game.gifts?.[t.excludedGiftId!]?.name || 'the one you lost'}").
       </div>
       <div id="action-help">
         <div className="help-box warning">
-          <div className="help-title">💡 Reprisal Tips</div>
+          <div className="help-title"><Icon name="idea" /> Reprisal Tips</div>
           <div className="help-content">
             <strong>Cost:</strong> Pay Minimum Cost ({cfg.baseCost} + Naughty Level) to the Bank.<br />
             <strong>Misfits:</strong> You can claim unclaimed Misfit gifts too!<br />
@@ -45,7 +46,7 @@ export function ReprisalCard() {
         ) : !affordable.length ? (
           <>
             <div style={{ textAlign: 'center', color: 'var(--accent-gold)', padding: '1rem' }}>
-              😢 Not enough chips! You need at least {Math.min(...targets.map(([, g]) => minCost(cfg, g.naughtyLevel)))} chip(s).
+              <Icon name="sad" /> Not enough chips! You need at least {Math.min(...targets.map(([, g]) => minCost(cfg, g.naughtyLevel)))} chip(s).
             </div>
             {skip('Skip Reprisal')}
           </>
@@ -60,11 +61,11 @@ export function ReprisalCard() {
                   onClick={afford ? () => act((g) => D.chooseReprisal(g, id, Date.now())) : undefined}>
                   <div className="option-header">
                     <div className="option-title">{gift.name}</div>
-                    {gift.naughtyLevel > 0 && <span className="naughty-badge">😈 {gift.naughtyLevel}</span>}
+                    {gift.naughtyLevel > 0 && <span className="naughty-badge"><Icon name="naughty" /> {gift.naughtyLevel}</span>}
                   </div>
-                  <div className="option-desc">{misfit ? '🎯 Auto-claim (no duel!)' : `⚔️ Duel ${game.players?.[gift.ownerId]?.name || 'Unknown'}`}</div>
+                  <div className="option-desc"><Glyphs>{misfit ? '🎯 Auto-claim (no duel!)' : `⚔️ Duel ${game.players?.[gift.ownerId]?.name || 'Unknown'}`}</Glyphs></div>
                   <div className={`option-cost ${afford ? '' : 'cant-afford'}`}>
-                    💰 {cost} chip{cost > 1 ? 's' : ''}{!afford && <span>(need {cost - player.chips} more)</span>}
+                    <Icon name="moneybag" /> {cost} chip{cost > 1 ? 's' : ''}{!afford && <span>(need {cost - player.chips} more)</span>}
                   </div>
                 </div>
               );

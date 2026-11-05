@@ -9,6 +9,17 @@ const H = require('./helpers');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 
+// The mascots pick a line at random from a pool per moment (mascots.js and web/src/ui/mascots.ts
+// say the same lines; a unit test keeps them in step): match any line of the pool.
+const MASCOT_LINES = (() => {
+  const win = {};
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'mascots.js'), 'utf8');
+  new Function('window', 'location', src)(win, { search: '' });
+  return win.Mascots.lines;
+})();
+const saysOneOf = (moment, x) => new RegExp(MASCOT_LINES[moment]
+  .map((l) => (typeof l === 'function' ? l(x) : l).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'));
+
 async function setup(browser, settings = {}, names = NAMES) {
   const { host, hostCtx, roomCode, errors: hostErrors } = await H.createGame(browser, settings);
   const { pages, contexts, errors: playerErrors } = await H.joinPlayers(browser, roomCode, names);
@@ -766,13 +777,13 @@ test.describe('Regressions (2026-10 review)', () => {
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
       const santa = host.locator('[data-mascot="santa"]');
-      await expect(santa).toContainText(/Ho ho ho/);
+      await expect(santa).toContainText(saysOneOf('start'));
       expect(await santa.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
 
       const keeper = await keepRound(host, roomCode, pages, 'Kept Gift'); // clicks work with mascots up
       const turn = await H.drawGift(host, roomCode, 'Contested Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
-      await expect(pages[opener].locator('[data-mascot="santa"]')).toContainText(/You're up/);
+      await expect(pages[opener].locator('[data-mascot="santa"]')).toContainText(saysOneOf('phoneOpener'));
       const bidder = NAMES.find((n) => n !== opener && n !== keeper);
       await H.allBid(pages, opener, { [bidder]: 2 });
       await H.revealBids(host);
@@ -781,8 +792,8 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.declareWinner(host, bidder);
       await H.waitForTurnPhase(roomCode, 'reprisal');
       await Promise.all([ // each is only up for a few seconds
-        expect(host.locator('[data-mascot="reindeer"]')).toContainText(/Reindeer kick back/, { timeout: 15000 }),
-        expect(pages[opener].locator('[data-mascot="reindeer"]')).toContainText(/Kick back/i, { timeout: 15000 }),
+        expect(host.locator('[data-mascot="reindeer"]')).toContainText(saysOneOf('reprisal', opener), { timeout: 15000 }),
+        expect(pages[opener].locator('[data-mascot="reindeer"]')).toContainText(saysOneOf('phoneReprisal'), { timeout: 15000 }),
       ]);
       assertNoPageErrors();
     } finally {

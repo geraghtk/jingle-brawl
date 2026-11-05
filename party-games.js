@@ -21,7 +21,7 @@
     },
     whack_elf: {
       label: 'Whack-an-Elf', emoji: '🔨', introMs: 7000, playMs: 20000,
-      rules: 'Tap the elves as they pop up — the faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grinch and lose 3!',
+      rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grinch and lose 3!',
     },
   };
   const RESULTS_MS = 9000; // how long the results stay up before the duel starts
@@ -32,6 +32,14 @@
     'An elf lifting weights', 'The Grinch doing yoga', 'A penguin opening a present',
     'A gingerbread house on fire', 'Rudolph with a cold', 'A Christmas tree in a tiny car',
     'Mrs Claus riding a motorbike', 'A polar bear ice skating', 'A sleigh with a flat tyre',
+    'A cat attacking the wrapping paper', 'Santa on a treadmill', 'A reindeer at the dentist',
+    'An elf asleep on the job', 'A snowman with a sunburn', 'The ugliest Christmas sweater ever',
+    'A present that is obviously a bike', 'Grandma winning a snowball fight', 'A turkey hiding from the cook',
+    'A gift wrapped by a toddler', 'A Christmas tree falling over', 'A penguin delivering presents',
+    'A sleigh stuck in traffic', 'A dog wearing antlers and hating it', 'Mistletoe in an awkward place',
+    'A stocking that is far too full', 'The Grinch at a gift exchange', 'A reindeer singing karaoke',
+    'A fruitcake used as a doorstop', 'A gingerbread man running late', 'Carolers nobody asked for',
+    'A candle that smells like socks', 'An elf on a coffee break', 'Santa squeezing into his suit',
   ];
 
   /** Seeded PRNG (mulberry32): every phone generates the same Whack-an-Elf sequence. */
@@ -238,7 +246,7 @@
     screen = { key, cleanup: null };
     const g = GAMES[mg.type];
     const tied = (mg.tiedBidders || []).includes(ctx.me);
-    const stake = tied ? '<b>You\'re in the tie</b> — beat the other tied bidders to win it.' : 'Not in the tie? Play for party points' + (mg.prize === 'points_chips' ? ' and the Elf Bonus chip!' : '!');
+    const stake = tied ? '<b>You\'re in the tie!</b> Beat the other tied bidders to win it.' : 'Not in the tie? Play for party points' + (mg.prize === 'points_chips' ? ' and the Elf Bonus chip!' : '!');
     el.classList.add('pg');
     if (mg.phase === 'intro') {
       el.innerHTML = `<h3>${g.emoji} ${g.label}!</h3><p class="pg-sub">${g.rules}</p>
@@ -250,7 +258,7 @@
     } else if (mg.phase === 'playing' && mg.type === 'whack_elf') {
       whackBoard(el, mg, ctx);
     } else if (mg.phase === 'voting') {
-      el.innerHTML = `<h3>🗳️ Vote for the best drawing</h3><p class="pg-sub">“${esc(mg.prompt)}” — not your own!</p>
+      el.innerHTML = `<h3>🗳️ Vote for the best drawing</h3><p class="pg-sub">“${esc(mg.prompt)}” (not your own!)</p>
         <div class="pg-timer"></div><div class="pg-gallery"></div>`;
       timer(el.querySelector('.pg-timer'), mg);
       refreshPhone(el, mg, ctx);
@@ -390,7 +398,7 @@
       const s = r.scoreOf?.[id];
       return `<li class="${tied.includes(id) ? 'tied' : ''} ${r.winners.includes(id) ? 'win' : ''}">
         <span class="pos">${i + 1}</span><span class="nm">${name(id)}${id === me ? ' (you)' : ''}</span>
-        <span>${s == null ? '—' : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>${tags}</li>`;
+        <span>${s == null ? 'didn\'t play' : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>${tags}</li>`;
     }).join('');
     const who = r.winners.map(name).join(' & ');
     return `<h3>${GAMES[mg.type].emoji} Results</h3>
@@ -409,7 +417,7 @@
     if (mg.phase === 'intro') {
       el.innerHTML = `<h3>${g.emoji} ${g.label}!</h3><p class="pg-sub">${g.rules}</p>
         ${mg.prompt ? `<div class="pg-prompt">“${esc(mg.prompt)}”</div>` : ''}
-        <p class="pg-sub">Tied: <b>${(mg.tiedBidders || []).map(name).join(', ')}</b> — everyone else plays for party points${mg.prize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.</p>
+        <p class="pg-sub">Tied: <b>${(mg.tiedBidders || []).map(name).join(', ')}</b>. Everyone else plays for party points${mg.prize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.</p>
         <div class="pg-timer"></div>`;
     } else if (mg.phase === 'playing' && mg.type === 'sketch_off') {
       const n = Object.keys(mg.submissions || {}).length;

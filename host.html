@@ -1577,8 +1577,8 @@
             <div class="form-group">
                 <label class="label">🎲 Spectator Bets (experiment)</label>
                 <select id="setting-spectator-bets" class="select">
-                    <option value="0" selected>Off — voting is free</option>
-                    <option value="1">On — each duel vote stakes 1 chip</option>
+                    <option value="0" selected>Off: voting is free</option>
+                    <option value="1">On: each duel vote stakes 1 chip</option>
                 </select>
                 <div class="hint">Right callers split the wrong callers' chips. Correct calls always add to the Party Score.</div>
             </div>
@@ -1805,7 +1805,7 @@
                             <div class="card-title">Controls</div>
                             <div id="lobby-controls" style="display: flex; flex-direction: column; gap: 0.5rem;">
                                 <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin: 0.25rem 0;">
-                                    Waiting in the lobby — start the game from the room-code card.
+                                    Waiting in the lobby. Start the game from the room-code card.
                                 </p>
                             </div>
                             <div id="game-controls" class="hidden" style="display: flex; flex-direction: column; gap: 0.5rem;">
@@ -2264,7 +2264,7 @@ minigameModalListener: null
                 roomCode = generateRoomCode();
             }
             if (!claimed) {
-                alert('Could not create a game right now — please try again.');
+                alert('Could not create a game right now. Please try again.');
                 return;
             }
 
@@ -2564,7 +2564,7 @@ minigameModalListener: null
                                 ${f6Avatar(stat.name)}
                                 <div class="who">
                                     <div class="nm">${escapeHtml(stat.name)}</div>
-                                    <div class="sub">${stat.wins}W – ${stat.losses}L · ${stat.total} duel${stat.total > 1 ? 's' : ''}</div>
+                                    <div class="sub">${stat.wins}W, ${stat.losses}L · ${stat.total} duel${stat.total > 1 ? 's' : ''}</div>
                                 </div>
                                 <div class="stat">
                                     <div class="big" style="color: ${ratioColor};">${stat.ratio}%</div>
@@ -2778,9 +2778,26 @@ minigameModalListener: null
                             '“I can hear it ticking. That\'s normal, right?”',
                             '“Whoever wrapped this used an entire roll of tape.”',
                             '“It\'s either socks or a lawsuit.”',
-                            '“Re-gifted? That\'s MY handwriting on the tag.”'
+                            '“Re-gifted? That\'s MY handwriting on the tag.”',
+                            '“It\'s soft. Please don\'t be socks. Please be socks.”',
+                            '“Why is it heavy? Why is it sloshing?”',
+                            '“That\'s a mug. I can spot a mug through three layers of paper.”',
+                            '“The tag just says \'To: Whoever\'. Very personal.”',
+                            '“Somebody wrapped a shoebox. The question is what\'s IN the shoebox.”',
+                            '“I spent exactly the limit. To the cent. Did anyone else?”',
+                            '“That bow is doing a LOT of heavy lifting.”',
+                            '“It\'s shaped like a book. It\'s always shaped like a book.”',
+                            '“A gift bag with one sad tissue. Somebody gave up.”',
+                            '“I wrapped mine in the comics section. It\'s called style.”',
+                            '“If it\'s another bath set, I\'m moving to the North Pole.”',
+                            '“Is that a fruitcake? Nobody has ever eaten a fruitcake.”',
+                            '“I\'m bidding three chips and pretending I don\'t want it.”',
+                            '“If it beeps, I\'m out.”',
+                            '“There\'s a gift receipt taped to the outside. Subtle.”',
+                            '“I brought the candle. Please act surprised.”'
                         ];
-                        const quote = overheard[(wrappedGifts + playersInBag) % overheard.length];
+                        const roomSeed = [...(gameState.roomCode || '')].reduce((sum, c) => sum + c.charCodeAt(0), 0);
+                        const quote = overheard[(roomSeed + wrappedGifts + playersInBag) % overheard.length];
                         document.getElementById('bids-container-title').textContent = 'Next up';
                         document.getElementById('bids-grid').innerHTML = `
                             <div class="unwrap-tease">
@@ -3230,7 +3247,7 @@ minigameModalListener: null
                                 // Party game - starts automatically, the whole table plays
                                 const g = PartyGames.GAMES[method];
                                 currentAction.textContent = `${g.emoji} Starting ${g.label}...`;
-                                actionDetails.innerHTML = `Everyone plays — the best-placed tied bidder wins the tie.`;
+                                actionDetails.innerHTML = `Everyone plays, and the best-placed tied bidder wins the tie.`;
                                 actionButtons.innerHTML = '';
                                 autoStartTiebreaker(turn);
                             } else if (method === 'draw_off') {
@@ -3290,7 +3307,7 @@ minigameModalListener: null
                     const g = PartyGames.GAMES[mg?.type] || { emoji: '🎉', label: 'Party game' };
                     phaseBadge.textContent = `${g.emoji} ${g.label.toUpperCase()}`;
                     phaseBadge.className = 'phase-badge reveal';
-                    currentAction.textContent = `${g.emoji} ${g.label} — everyone plays!`;
+                    currentAction.textContent = `${g.emoji} ${g.label}: everyone plays!`;
                     actionDetails.innerHTML = 'Tied bidders play for the tie; everyone else for party points.';
                     renderPartyPanel();
                     break;
@@ -4598,7 +4615,37 @@ minigameModalListener: null
             'A fish wearing tiny sunglasses, lounging in a coral chair.',
             'A snail winning a race by crossing the finish line first.',
             'A giraffe trying to use a vending machine.',
-            'A group of ghosts having a tea party in a haunted mansion.'
+            'A group of ghosts having a tea party in a haunted mansion.',
+            'A reindeer trying on Christmas sweaters in front of a mirror.',
+            'An elf buried under a mountain of wrapping paper, waving for help.',
+            'Santa stuck in a chimney while a cat watches, unimpressed.',
+            'A snowman building a tiny person out of snow.',
+            'A penguin and a polar bear arguing over the last cookie.',
+            'A family photo where the dog is the only one smiling.',
+            'A Christmas tree tiptoeing out of the front door.',
+            'A gift box with legs sneaking away from the party.',
+            'The Grinch secretly enjoying a mug of hot cocoa.',
+            'Grandpa asleep in an armchair, wearing a paper crown.',
+            'A gingerbread man running from a very hungry fox.',
+            'A sleigh with a flat tyre and three annoyed reindeer.',
+            'A stocking so full it has burst at the seams.',
+            'An elf on roller skates delivering a stack of presents.',
+            'A snowball fight where one side brought a catapult.',
+            'A cat sitting in the empty box, ignoring the present.',
+            'A turkey in sunglasses escaping on a sled.',
+            'Carolers singing to a house where everyone is hiding.',
+            'A reindeer at the gym lifting candy cane dumbbells.',
+            'A scented candle so strong the houseplants are fainting.',
+            'Mrs Claus fixing the sleigh engine while Santa reads the manual.',
+            'An octopus wrapping eight presents at once.',
+            'A hedgehog trying to hug a balloon.',
+            'A child unwrapping a pair of socks, reacting dramatically.',
+            'A dog that ate the tinsel and looks very proud.',
+            'A snowman in a sauna, deeply regretting it.',
+            'Two elves fighting over the last roll of tape.',
+            'A goldfish wearing a tiny Santa hat in its bowl.',
+            'A lighthouse covered in far too many fairy lights.',
+            'A gift exchange where everyone brought the same mug.'
         ];
 
         // Call AI Art Critic API (local server has /critique path; Cloud Function URL is the full endpoint)
@@ -4641,7 +4688,7 @@ minigameModalListener: null
             await db.ref(`games/${gameState.roomCode}/minigame`).set(minigame);
             await db.ref(`games/${gameState.roomCode}/currentTurn`).update({ phase: 'minigame_party', minigameStatus: `${g.emoji} ${g.label}` });
             const names = tiedBidders.map((id) => gameState.players[id]?.name).join(', ');
-            addEvent(`${g.emoji} ${g.label}! Everyone plays — ${names} are tied`, 'bid');
+            addEvent(`${g.emoji} ${g.label}! Everyone plays. Tied: ${names}`, 'bid');
         }
 
         /** Called on every minigame update: arm the timer for the current phase once. */
@@ -6418,7 +6465,7 @@ minigameModalListener: null
                     const winnerNames = winnersArr.map(id => gameState.players[id]?.name || 'Unknown').filter(Boolean);
                     const winnerNote = minigame.winnerSource && winnerNames.length
                         ? `<div style="font-size: 0.9rem; margin-bottom: 1rem; padding: 0.75rem; background: rgba(24, 184, 138, 0.15); border-radius: 8px; border-left: 4px solid var(--accent-green);">
-                            🏆 <strong>${winnersArr.length === 1 ? 'Winner (Challenger)' : 'Winners (will duel)'}:</strong> ${winnerNames.join(' & ')} — selected by ${minigame.winnerSource}
+                            🏆 <strong>${winnersArr.length === 1 ? 'Winner (Challenger)' : 'Winners (will duel)'}:</strong> ${winnerNames.join(' & ')} (selected by ${minigame.winnerSource})
                         </div>`
                         : '';
                     const winnerIds = new Set(minigame.winners || (rankings.length ? [rankings[0]] : []));

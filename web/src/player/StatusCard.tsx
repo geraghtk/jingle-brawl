@@ -17,6 +17,7 @@ import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../firebase/game';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
+import { Glyphs, Icon } from '../ui/icons';
 
 const r = () => rng(Date.now() ^ Math.floor(Math.random() * 1e9));
 
@@ -26,7 +27,7 @@ function Card({ tone, children }: { tone?: 'your-turn' | 'active' | 'callit'; ch
 
 const Simple = ({ icon, title, desc, tone }: { icon: string; title: ReactNode; desc?: ReactNode; tone?: 'your-turn' | 'active' }) => (
   <Card tone={tone}>
-    <div className="status-icon">{icon}</div>
+    <div className="status-icon"><Glyphs>{icon}</Glyphs></div>
     <div className="status-title">{title}</div>
     {desc != null && <div className="status-desc">{desc}</div>}
   </Card>
@@ -77,7 +78,7 @@ function Lobby() {
       <div className="lineup">
         {entries.length ? entries.map(([id, p]) => (
           <div className="lineup-row" key={id}>
-            <Avatar name={p.name} />
+            <Avatar name={p.name} avatar={p.avatar} />
             <span className="lineup-nm">{p.name}</span>
             <span className={`f6-chip lineup-chip${id === me ? ' you' : ''}`}>{id === me ? 'You' : 'Ready'}</span>
           </div>
@@ -93,11 +94,11 @@ function Idle() {
   if (player.giftId) {
     return (
       <Card>
-        <div className="status-icon">✅</div>
+        <div className="status-icon"><Icon name="check" /></div>
         <div className="status-title">You have a gift!</div>
         <div className="status-desc">Watch the main screen - someone might challenge you!</div>
         <div className="help-box success">
-          <div className="help-title">🛡️ Defending is FREE</div>
+          <div className="help-title"><Icon name="shield" /> Defending is FREE</div>
           <div className="help-content">
             If challenged, you <strong>don't pay anything</strong> to defend.<br />
             If you lose: {dividendNote(cfg, true)} and a <strong>Reprisal</strong> chance!
@@ -108,11 +109,11 @@ function Idle() {
   }
   return (
     <Card tone="active">
-      <div className="status-icon">🎅</div>
+      <div className="status-icon"><Icon name="santa" /></div>
       <div className="status-title">You're in the bag!</div>
       <div className="status-desc">Waiting to be drawn to open a gift...</div>
       <div className="help-box">
-        <div className="help-title">💡 What happens next?</div>
+        <div className="help-title"><Icon name="idea" /> What happens next?</div>
         <div className="help-content">
           When drawn, you'll open a gift. Others can <strong>bid chips</strong> to challenge you for it.<br />
           No bids? Use <strong>Grinch's Gambit</strong> to steal someone else's gift!
@@ -126,11 +127,11 @@ function EndgameIdle() {
   const { player } = usePlayer();
   return (
     <Card tone="active">
-      <div className="status-icon">🎰</div>
+      <div className="status-icon"><Icon name="bid" /></div>
       <div className="status-title">Misfit Lottery!</div>
       <div className="status-desc">{player.giftId ? 'You have a gift! Watch for auction opportunities.' : 'You need a gift - watch for your turn!'}</div>
       <div className="help-box warning">
-        <div className="help-title">🎪 Endgame Rules</div>
+        <div className="help-title"><Icon name="tent" /> Endgame Rules</div>
         <div className="help-content">
           <strong>Path A:</strong> Giftless player can steal any player's gift (loser takes misfit)<br />
           <strong>Path B:</strong> Auction for misfit - anyone can bid!
@@ -151,14 +152,14 @@ function Final() {
       <div className="f6-cap">Game over · your night</div>
       <div className="final-place f6-disp fz-riso">{rank > 0 ? `${ordinal(rank)} place.` : 'Game over.'}</div>
       <div className="final-gift-wrap">
-        <div className={`final-gift-tile${gift ? '' : ' none'}`}>{gift ? '🎁' : '🫥'}</div>
-        {rank === 1 && <span className="fz-sticker yel final-champ">🏆 CHAMP</span>}
+        <div className={`final-gift-tile${gift ? '' : ' none'}`}>{gift ? <Icon name="gift" /> : '🫥'}</div>
+        {rank === 1 && <span className="fz-sticker yel final-champ"><Icon name="trophy" /> CHAMP</span>}
       </div>
       <div className="final-gift-name">{gift ? gift.name : 'No gift this year'}</div>
       <div className="final-stats">
         <div className="fstat"><div className="fstat-v f6-disp f6-num">{player.chips}</div><div className="fstat-k">chips</div></div>
-        <div className="fstat accent"><div className="fstat-v f6-disp f6-num">{gift ? `😈 ${gift.naughtyLevel ?? 0}` : '—'}</div><div className="fstat-k">gift naughty</div></div>
-        {score > 0 && <div className="fstat"><div className="fstat-v f6-disp f6-num">🏅 {score}</div><div className="fstat-k">party score</div></div>}
+        <div className="fstat accent"><div className="fstat-v f6-disp f6-num">{gift ? <><Icon name="naughty" /> {gift.naughtyLevel ?? 0}</> : 'none'}</div><div className="fstat-k">gift naughty</div></div>
+        {score > 0 && <div className="fstat"><div className="fstat-v f6-disp f6-num"><Icon name="medal" /> {score}</div><div className="fstat-k">party score</div></div>}
       </div>
       <div className="status-desc" style={{ marginTop: 10 }}>Thanks for playing Yuel Duel!</div>
     </Card>
@@ -170,11 +171,11 @@ function OpenerWaiting({ t }: { t: Turn }) {
   const gift = t.giftId ? game.gifts?.[t.giftId] : undefined;
   return (
     <Card tone="your-turn">
-      <div className="status-icon">🎁</div>
+      <div className="status-icon"><Icon name="gift" /></div>
       <div className="status-title">You opened "{gift?.name || 'a gift'}"!</div>
       <div className="status-desc">Waiting for others to bid...</div>
       <div className="help-box warning">
-        <div className="help-title">⏳ What's happening?</div>
+        <div className="help-title"><Icon name="wait" /> What's happening?</div>
         <div className="help-content">
           Others are deciding if they want to <strong>challenge you</strong> for this gift.<br /><br />
           <strong>If someone bids:</strong> Highest bidder fights you in a duel.<br />
@@ -195,14 +196,14 @@ function Reveal({ t }: { t: Turn }) {
   if (t.openerId !== me) {
     return (
       <Card tone="active">
-        <div className="status-icon">👁️</div>
+        <div className="status-icon"><Icon name="eye" /></div>
         <div className="status-title">Bids Revealed!</div>
         <div className="status-desc">
           {bids.length === 0 ? 'No bids! Opener decides next...' : `${bids.length} bid${bids.length > 1 ? 's' : ''} placed. ${myBid > 0 ? `Your bid: ${myBid}` : ''}`}
         </div>
         {myBid > 0 && (
           <div className="help-box">
-            <div className="help-title">💡 What's Next?</div>
+            <div className="help-title"><Icon name="idea" /> What's Next?</div>
             <div className="help-content">If you're the highest bidder, you'll duel the opener!<br />If there's a tie, there may be a tiebreaker first.</div>
           </div>
         )}
@@ -214,7 +215,7 @@ function Reveal({ t }: { t: Turn }) {
     const canGambit = gambitTargets(game, t.giftId, me).length > 0;
     return (
       <Card tone="your-turn">
-        <div className="status-icon">🎁</div>
+        <div className="status-icon"><Icon name="gift" /></div>
         <div className="status-title">No Challengers!</div>
         <div className="status-desc">Nobody bid. You can keep your gift or use Grinch's Gambit!</div>
         <div className="help-box success">
@@ -225,9 +226,9 @@ function Reveal({ t }: { t: Turn }) {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-          <button className="btn btn-primary" data-testid="keep-gift" onClick={() => act(A.keepGift)}>🎁 Keep My Gift</button>
+          <button className="btn btn-primary" data-testid="keep-gift" onClick={() => act(A.keepGift)}><Icon name="gift" /> Keep My Gift</button>
           {canGambit
-            ? <button className="btn btn-gold" data-testid="gambit" onClick={() => setPicking(true)}>😈 Grinch's Gambit</button>
+            ? <button className="btn btn-gold" data-testid="gambit" onClick={() => setPicking(true)}><Icon name="gambit" /> Grinch's Gambit</button>
             : <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No other gifts to challenge yet</div>}
         </div>
       </Card>
@@ -237,11 +238,11 @@ function Reveal({ t }: { t: Turn }) {
     const [cid, amount] = bids[0];
     return (
       <Card tone="your-turn">
-        <div className="status-icon">⚔️</div>
+        <div className="status-icon"><Icon name="duel" /></div>
         <div className="status-title">Duel Time!</div>
         <div className="status-desc">{nm(game, cid)} bid {amount} chips to challenge you!</div>
         <div className="help-box">
-          <div className="help-title">🛡️ Get Ready to Defend!</div>
+          <div className="help-title"><Icon name="shield" /> Get Ready to Defend!</div>
           <div className="help-content">
             <strong>Defending is FREE</strong> - you don't pay anything!<br />
             <strong>If you win:</strong> Keep your gift + win their bid (minus Santa Tax).<br />
@@ -257,11 +258,11 @@ function Reveal({ t }: { t: Turn }) {
   const yieldTo = (a: string | null, b: string | null) => act((g) => A.openerYield(g, a, b, r()));
   const choice = (title: ReactNode, desc: ReactNode, fightHelp: ReactNode, yieldHelp: ReactNode, fightBtn: ReactNode, yieldBtn: ReactNode, onFight: () => void, onYield: () => void, icon = '⚖️') => (
     <Card tone="your-turn">
-      <div className="status-icon">{icon}</div>
+      <div className="status-icon"><Glyphs>{icon}</Glyphs></div>
       <div className="status-title">{title}</div>
       <div className="status-desc">{desc}</div>
       <div className="help-box warning">
-        <div className="help-title">🏃 Fight or Yield?</div>
+        <div className="help-title"><Icon name="run" /> Fight or Yield?</div>
         <div className="help-content"><strong>Fight:</strong> {fightHelp}<br /><strong>Yield:</strong> {yieldHelp}</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
@@ -289,7 +290,7 @@ function GambitPicker({ t, onCancel }: { t: Turn; onCancel: () => void }) {
   const { game, me, player, cfg, act } = usePlayer();
   return (
     <Card tone="your-turn">
-      <div className="status-icon">😈</div>
+      <div className="status-icon"><Icon name="naughty" /></div>
       <div className="status-title">Grinch's Gambit!</div>
       <div className="status-desc">Choose a gift to challenge:</div>
       <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0' }}>
@@ -317,8 +318,8 @@ export function TargetOption({ title, sub, naughty, cost, afford, onPick, testid
           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{sub}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {naughty > 0 && <span style={{ background: 'var(--accent-red)', padding: '2px 6px', borderRadius: 4, fontSize: '0.75rem' }}>😈 {naughty}</span>}
-          <div style={{ fontSize: '0.85rem', color: afford ? 'var(--accent-gold)' : 'var(--accent-red)' }}>💰 {cost} chip{cost > 1 ? 's' : ''}</div>
+          {naughty > 0 && <span style={{ background: 'var(--accent-red)', padding: '2px 6px', borderRadius: 4, fontSize: '0.75rem' }}><Icon name="naughty" /> {naughty}</span>}
+          <div style={{ fontSize: '0.85rem', color: afford ? 'var(--accent-gold)' : 'var(--accent-red)' }}><Icon name="moneybag" /> {cost} chip{cost > 1 ? 's' : ''}</div>
         </div>
       </div>
     </div>
@@ -332,16 +333,16 @@ function YieldChoice({ t }: { t: Turn }) {
   if (t.openerId !== me) return <Simple icon="🎲" tone="active" title={`${a} & ${b} Selected!`} desc={`Waiting for ${nm(game, t.openerId)} to choose: Fight or Yield?`} />;
   return (
     <Card tone="your-turn">
-      <div className="status-icon">🎲</div>
+      <div className="status-icon"><Icon name="dice" /></div>
       <div className="status-title">{a} & {b} Selected!</div>
       <div className="status-desc">Both bid {amount} chips. Your choice!</div>
       <div className="help-box warning">
-        <div className="help-title">🏃 Fight or Yield?</div>
+        <div className="help-title"><Icon name="run" /> Fight or Yield?</div>
         <div className="help-content"><strong>Fight:</strong> They duel for the right to challenge YOU.<br /><strong>Yield:</strong> They fight each other for your gift directly.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-        <button className="btn btn-primary" data-testid="fight" onClick={() => act((g) => A.openerFight(g, t.selectedC1!, t.selectedC2!, true, r()))}>⚔️ Fight! (Tiebreaker first)</button>
-        <button className="btn btn-gold" data-testid="yield" onClick={() => act((g) => A.openerYield(g, t.selectedC1!, t.selectedC2!, r()))}>🏃 Yield! ({a} vs {b})</button>
+        <button className="btn btn-primary" data-testid="fight" onClick={() => act((g) => A.openerFight(g, t.selectedC1!, t.selectedC2!, true, r()))}><Icon name="duel" /> Fight! (Tiebreaker first)</button>
+        <button className="btn btn-gold" data-testid="yield" onClick={() => act((g) => A.openerYield(g, t.selectedC1!, t.selectedC2!, r()))}><Icon name="run" /> Yield! ({a} vs {b})</button>
       </div>
     </Card>
   );
@@ -364,9 +365,9 @@ function Duel({ t }: { t: Turn }) {
   const duelGameLine = t.wheel && spinning
     ? <DuelWheel spin={t.wheel} offset={offset} size={230} />
     : t.duelGame
-      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong>{appName(t.duelGame)}</strong>{t.duelGame.kind === 'app' && <small>on your phone · everyone plays</small>}</div>
-      : step === 'picker' && picker !== me ? <div className="duel-game-line pending">🎯 {nm(game, picker)} is picking the duel…</div>
-      : step === 'wheel' ? <div className="duel-game-line pending">🎡 Spinning the wheel…</div> : null;
+      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong><Glyphs>{appName(t.duelGame)}</Glyphs></strong>{t.duelGame.kind === 'app' && <small>on your phone · everyone plays</small>}</div>
+      : step === 'picker' && picker !== me ? <div className="duel-game-line pending"><Icon name="target" /> {nm(game, picker)} is picking the duel…</div>
+      : step === 'wheel' ? <div className="duel-game-line pending"><Icon name="wheel" /> Spinning the wheel…</div> : null;
 
   // The picker (the defender, or an under-16 duellist) chooses what gets played — or hands it to the wheel
   if (step === 'picker' && picker === me) {
@@ -380,13 +381,13 @@ function Duel({ t }: { t: Turn }) {
         <div className="duel-picker" role="list">
           {duelOptions(game).map((o, i) => (
             <button key={o.name} role="listitem" className="duel-pick" data-testid={`duel-game-${i}`} onClick={() => act((g) => chooseDuelGame(g, me, i))}>
-              <span className="duel-pick-name">{appName(o)}</span>
+              <span className="duel-pick-name"><Glyphs>{appName(o)}</Glyphs></span>
               {o.kind === 'app' && <small>played on phones · everyone joins in</small>}
             </button>
           ))}
         </div>
         <button className="btn btn-secondary" data-testid="duel-game-spin" style={{ width: '100%', marginTop: 10 }}
-          onClick={() => act((g) => spinDuelGame(g, { now: Date.now() + offset, rng: r() }, me))}>🎡 Let the wheel pick</button>
+          onClick={() => act((g) => spinDuelGame(g, { now: Date.now() + offset, rng: r() }, me))}><Icon name="wheel" /> Let the wheel pick</button>
       </Card>
     );
   }
@@ -469,7 +470,7 @@ function Duel({ t }: { t: Turn }) {
       </div>
       {!t.isTiebreak && (
         <div className="callit-foot">
-          {myVote ? <>✅ You voted for <strong>{nm(game, myVote)}</strong></>
+          {myVote ? <><Icon name="check" /> You voted for <strong>{nm(game, myVote)}</strong></>
             : picking ? <>Voting opens once the duel is picked.</>
             : canVote ? <>Tap a corner to back them. {voteStakeNote(cfg, player.chips)}</>
             : <>Voting closed. Watch the TV.</>}
@@ -490,7 +491,7 @@ function ReprisalWatch({ t }: { t: Turn }) {
   const target = Object.values(game.gifts || {}).some((g) => g.ownerId === me);
   return (
     <Card tone="active">
-      <div className="status-icon">🦌</div>
+      <div className="status-icon"><Icon name="reprisal" /></div>
       <div className="status-title">Reindeer Reprisal!</div>
       <div className="status-desc">{who || 'Player'} is choosing a target...</div>
       {target && (
@@ -509,11 +510,11 @@ function EndgameChoice({ t }: { t: Turn }) {
   const canSteal = stealTargets(game, me).length > 0;
   return (
     <Card tone="your-turn">
-      <div className="status-icon">🎰</div>
+      <div className="status-icon"><Icon name="bid" /></div>
       <div className="status-title">Your Misfit Lottery Turn!</div>
       <div className="status-desc">Target: "{t.misfitName}"</div>
       <div className="help-box warning">
-        <div className="help-title">🎯 Choose Your Path</div>
+        <div className="help-title"><Icon name="target" /> Choose Your Path</div>
         <div className="help-content">
           <strong>Path A - Steal:</strong> Challenge any player's gift. Loser takes the misfit.<br />
           <strong>Path B - Auction:</strong> Let everyone bid on the misfit. You duel the highest bidder.
@@ -521,9 +522,9 @@ function EndgameChoice({ t }: { t: Turn }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
         {canSteal
-          ? <button className="btn btn-primary" data-testid="path-a" onClick={() => act(D.chooseSteal)}>🎯 Path A: Steal a Gift</button>
+          ? <button className="btn btn-primary" data-testid="path-a" onClick={() => act(D.chooseSteal)}><Icon name="target" /> Path A: Steal a Gift</button>
           : <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '0.5rem' }}>No gifts to steal yet</div>}
-        <button className="btn btn-gold" data-testid="path-b" onClick={() => act(D.startAuction)}>🎰 Path B: Auction for Misfit</button>
+        <button className="btn btn-gold" data-testid="path-b" onClick={() => act(D.startAuction)}><Icon name="bid" /> Path B: Auction for Misfit</button>
       </div>
     </Card>
   );
@@ -534,7 +535,7 @@ function StealSelect({ t }: { t: Turn }) {
   if (t.activePlayerId !== me) {
     return (
       <Card tone="active">
-        <div className="status-icon">🎯</div>
+        <div className="status-icon"><Icon name="target" /></div>
         <div className="status-title">Steal in Progress!</div>
         <div className="status-desc">{nm(game, t.activePlayerId)} is choosing a gift to steal...</div>
         {player.giftId && <div className="help-box warning"><div className="help-title">⚠️ You could be targeted!</div><div className="help-content">They might challenge YOUR gift!</div></div>}
@@ -543,7 +544,7 @@ function StealSelect({ t }: { t: Turn }) {
   }
   return (
     <Card tone="your-turn">
-      <div className="status-icon">🎯</div>
+      <div className="status-icon"><Icon name="target" /></div>
       <div className="status-title">Path A: Steal a Gift!</div>
       <div className="status-desc">Choose a gift to challenge. Loser takes "{t.misfitName}"</div>
       <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0' }}>
@@ -564,7 +565,7 @@ function NoBids({ t }: { t: Turn }) {
   const others = Object.entries(game.players || {}).filter(([id]) => id !== me);
   return (
     <Card tone="your-turn">
-      <div className="status-icon">🎰</div>
+      <div className="status-icon"><Icon name="bid" /></div>
       <div className="status-title">No Bids! Choose Your Challenger</div>
       <div className="status-desc">Duel someone for "{t.misfitName}". You get it either way!</div>
       <div className="help-box"><div className="help-content"><strong>Win:</strong> Get misfit FREE!<br /><strong>Lose:</strong> Get misfit, but pay 1 chip toll to defender.</div></div>
@@ -572,7 +573,7 @@ function NoBids({ t }: { t: Turn }) {
         {others.map(([id, p]) => (
           <div key={id} className="action-option" data-testid={`nobids-defender-${id}`} onClick={() => act((g) => D.noBidsDuel(g, id))}
             style={{ background: 'var(--bg-card-hover)', padding: '1rem', borderRadius: 8, marginBottom: '0.5rem', cursor: 'pointer' }}>
-            <div style={{ fontWeight: 600 }}>⚔️ Challenge {p.name}</div>
+            <div style={{ fontWeight: 600 }}><Icon name="duel" /> Challenge {p.name}</div>
           </div>
         ))}
       </div>
@@ -585,7 +586,7 @@ function EndgameAuction({ t }: { t: Turn }) {
   if (t.activePlayerId === me && t.phase === 'endgame_bidding') {
     return (
       <Card tone="your-turn">
-        <div className="status-icon">🎰</div>
+        <div className="status-icon"><Icon name="bid" /></div>
         <div className="status-title">Auction in Progress!</div>
         <div className="status-desc">Others are bidding on "{t.misfitName}"</div>
         <div className="help-box"><div className="help-content">Wait for bids, then you'll duel the highest bidder (or choose a defender if no bids).</div></div>

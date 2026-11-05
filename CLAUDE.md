@@ -79,6 +79,8 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 - Target-legality helpers exist on both sides — `reprisalTargets()` / `gambitTargets()` / `topTiedBidders()` — use them instead of re-filtering gifts.
 - Inline `onclick` strings must only interpolate ids, never names (names may contain quotes).
 - Escape user/AI text with `escapeHtml()` before `innerHTML`.
+- Avatars and icons are sticker pictures (`web/public/art`, made with `tools/art`, see its README): a player picks an avatar when they join (`core/avatars.ts`, `players/{id}/avatar`); emoji in the React app render as icons through `<Icon>`/`<Glyphs>` (`ui/icons.tsx`, alt text = the emoji, so role names in tests are unchanged).
+- No em dashes in anything players see (screens, mascots, rule pages, critic replies): `web/src/ui/copy.test.ts` checks.
 
 ## Economics
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yuel Duel — Quick Launch</title>
+    <title>Yuel Duel: Quick Launch</title>
     <link rel="icon" type="image/png" href="ydlogo2.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Righteous&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -243,7 +243,7 @@
                 localStorage.setItem('jingleBrawl_host_room', roomCode);
                 localStorage.setItem('jingleBrawl_host_id', hostId);
 
-                setStatus(`✅ Room ${roomCode} created — opening ${playerCount + 1} tabs…`, 'ok');
+                setStatus(`✅ Room ${roomCode} created, opening ${playerCount + 1} tabs…`, 'ok');
 
                 // Small stagger so the browser doesn't block popups
                 window.open(`${getBase()}host.html?autoLoad=1`, '_blank', 'noopener');
@@ -253,7 +253,7 @@
                     setTimeout(() => window.open(url, '_blank', 'noopener'), i * 150);
                 }
 
-                setStatus(`✅ Room ${roomCode} — host + ${playerCount} player tabs opened!`, 'ok');
+                setStatus(`✅ Room ${roomCode}: host + ${playerCount} player tabs opened!`, 'ok');
             } catch (err) {
                 setStatus('❌ Error: ' + err.message, 'err');
             } finally {

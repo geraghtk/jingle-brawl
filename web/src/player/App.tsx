@@ -2,12 +2,14 @@
 import { onDisconnect, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { cleanName, joinPlayer } from '../core/actions';
+import { AVATARS, avatarOf } from '../core/avatars';
 import { signedIn } from '../firebase/app';
 import { applyPlan, gameRef, readGame, useGame } from '../firebase/game';
 import { GameScreen } from './GameScreen';
 import { PlayerProvider, useToast } from './PlayerContext';
 import { clearSession, loadSession, saveSession } from './session';
 import type { Session } from './session';
+import { Glyphs, Icon } from '../ui/icons';
 
 const params = new URLSearchParams(location.search);
 
@@ -42,7 +44,7 @@ export function App() {
     });
   }, []);
 
-  async function join(room: string, rawName: string, age: number | null) {
+  async function join(room: string, rawName: string, age: number | null, avatar: string | null = null) {
     room = room.trim().toUpperCase();
     const name = cleanName(rawName);
     if (room.length !== 4) return toast('Please enter a valid 4-letter room code');
@@ -50,10 +52,10 @@ export function App() {
     const game = await readGame(room);
     if (!game) return toast('Game not found! Check the room code.');
     const uid = await signedIn();
-    if (!uid) return toast('Could not sign in — check your connection and try again');
+    if (!uid) return toast('Could not sign in. Check your connection and try again.');
     const playerId = `player_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const joined = await applyPlan(room, joinPlayer(game, { playerId, name, uid, now: Date.now(), age })).catch(() => false);
-    if (!joined) return toast('Could not join — try again');
+    const joined = await applyPlan(room, joinPlayer(game, { playerId, name, uid, now: Date.now(), age, avatar })).catch(() => false);
+    if (!joined) return toast('Could not join. Please try again.');
     const s = { room, playerId, name };
     saveSession(s);
     onDisconnect(gameRef(room, `players/${playerId}/connected`)).set(false);
@@ -76,20 +78,34 @@ export function App() {
           : saved ? <Rejoin s={saved} onRejoin={() => rejoin(saved)} onOther={() => { clearSession(); setSaved(null); }} />
           : <Join onJoin={join} />}
       </div>
-      <div className={`toast${show ? ' show' : ''}`} id="toast">{msg}</div>
+      <div className={`toast${show ? ' show' : ''}`} id="toast"><Glyphs>{msg}</Glyphs></div>
     </>
   );
 }
 
-function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | null) => void }) {
+function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | null, avatar: string | null) => void }) {
   const [room, setRoom] = useState((params.get('room') || '').toUpperCase());
   const [name, setName] = useState(params.get('name') || '');
   // Only under-16s are asked their age: the youngest duellist picks the duel (V2 Under-16 Exception)
   const [young, setYoung] = useState(false);
   const [age, setAge] = useState('');
   const ageValue = young && age ? Number(age) : null;
+  const [avatar, setAvatar] = useState<string | null>(null);
+  // avatars already at the table (once the room code is in): one each, so they're greyed out
+  const [taken, setTaken] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (params.get('autoJoin') === '1' && room && name) onJoin(room, name, null);
+    if (room.trim().length !== 4) { setTaken(new Set()); return; }
+    let live = true;
+    readGame(room.trim()).then((g) => {
+      if (!live) return;
+      const ids = new Set(Object.values(g?.players || {}).map((p) => avatarOf(p.name, p.avatar).id));
+      setTaken(ids);
+      setAvatar((a) => (a && ids.has(a) ? null : a));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [room]);
+  useEffect(() => {
+    if (params.get('autoJoin') === '1' && room && name) onJoin(room, name, null, params.get('avatar'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div id="join-screen" className="join-screen">
@@ -98,6 +114,18 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
         <input type="text" id="room-code-input" className="room-code-input" placeholder="ROOM" maxLength={4} autoComplete="off"
           value={room} onChange={(e) => setRoom(e.target.value.toUpperCase())} />
         <input type="text" id="player-name-input" placeholder="Your name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
+        <fieldset className="avatar-pick" data-testid="avatar-pick">
+          <legend>Pick your avatar <small>{avatar ? AVATARS.find((a) => a.id === avatar)?.label : "or we'll pick one for you"}</small></legend>
+          <div className="avatar-grid">
+            {AVATARS.map((a) => (
+              <button key={a.id} type="button" className={`avatar-opt${avatar === a.id ? ' on' : ''}`} style={{ background: a.color }}
+                aria-label={taken.has(a.id) ? `${a.label} (taken)` : a.label} aria-pressed={avatar === a.id} data-avatar={a.id}
+                disabled={taken.has(a.id)} onClick={() => setAvatar(avatar === a.id ? null : a.id)}>
+                <img src={`art/avatars/${a.id}.webp`} alt="" draggable={false} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <label className="young-toggle">
           <input type="checkbox" data-testid="under-16" checked={young} onChange={(e) => setYoung(e.target.checked)} />
           <span>I'm under 16 <small>you'll get to pick your duels</small></span>
@@ -111,7 +139,7 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
             </select>
           </label>
         )}
-        <button className="btn btn-primary" data-testid="join" disabled={young && !age} onClick={() => onJoin(room, name, ageValue)}>🎮 Join Game</button>
+        <button className="btn btn-primary" data-testid="join" disabled={young && !age} onClick={() => onJoin(room, name, ageValue, avatar)}>🎮 Join Game</button>
       </div>
       <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ask the host for the room code</p>
     </div>
@@ -128,7 +156,7 @@ function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; on
           Room: <strong style={{ color: 'var(--accent-gold)' }}>{s.room}</strong>
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button className="btn btn-primary" id="rejoin-btn" data-testid="rejoin" onClick={onRejoin}>🔄 Rejoin Game</button>
+          <button className="btn btn-primary" id="rejoin-btn" data-testid="rejoin" onClick={onRejoin}><Icon name="swap" /> Rejoin Game</button>
           <button className="btn btn-secondary" onClick={onOther}>🆕 Join Different Game</button>
         </div>
       </div>

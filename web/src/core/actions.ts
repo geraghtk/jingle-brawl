@@ -1,6 +1,7 @@
 // Every game action as a pure function: (game, …) → Plan (one atomic write + log lines).
 // Host and phones call the same functions; the Firebase layer applies the plan.
 // Ported rule-for-rule from the original host.html / player.html.
+import { avatarOf, freeAvatar, isAvatar } from './avatars';
 import { config, minCost, partyGameFor, variableStartingChips } from './settings';
 import type { Config } from './settings';
 import type { Rng } from './rng';
@@ -33,7 +34,7 @@ export function newGame(opts: { hostId: string; hostUid: string | null; settings
 /** Names are rendered in many places: strip tag brackets and cap the length (rules allow 60). */
 export const cleanName = (raw: string) => raw.trim().replace(/[<>]/g, '').slice(0, 60);
 
-export function joinPlayer(game: Game, p: { playerId: PlayerId; name: string; uid: string | null; now: number; age?: number | null }): Plan {
+export function joinPlayer(game: Game, p: { playerId: PlayerId; name: string; uid: string | null; now: number; age?: number | null; avatar?: string | null }): Plan {
   const nm = cleanName(p.name);
   if (!nm) return refuse('Please enter your name');
   const cfg = cfgOf(game);
@@ -46,6 +47,8 @@ export function joinPlayer(game: Game, p: { playerId: PlayerId; name: string; ui
     ...(p.uid ? { ownerUid: p.uid } : {}),
     // kept only for under-16s: it decides who picks the duel (the Under-16 Exception)
     ...(typeof p.age === 'number' && p.age >= 1 && p.age < 16 ? { age: Math.floor(p.age) } : {}),
+    // their pick, else the one their name gives (or the next one nobody at the table has)
+    avatar: isAvatar(p.avatar) ? p.avatar : freeAvatar(nm, Object.values(game.players || {}).map((q) => avatarOf(q.name, q.avatar).id)),
   };
   return new Tx(game).set(`players/${p.playerId}`, player).plan();
 }

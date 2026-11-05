@@ -60,7 +60,7 @@ export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: Pla
         <span className="fz-sticker yel mvp-sticker">The extra prize</span>
         <div className="mvp-heading f6-disp">{heading}</div>
         <div className="mvp-roll" aria-live="polite">
-          {!rolling && mvps.length === 1 && <Avatar name={top?.name || '?'} size={variant === 'tv' ? 96 : 64} />}
+          {!rolling && mvps.length === 1 && <Avatar name={top?.name || '?'} avatar={top?.avatar} size={variant === 'tv' ? 96 : 64} />}
           <span className="mvp-name f6-disp fz-riso" data-testid="mvp-name">{rolling ? shown : winnerLabel}</span>
         </div>
         {!rolling && top && (

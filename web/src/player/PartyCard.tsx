@@ -9,6 +9,7 @@ import { svg as mascotSvg } from '../ui/mascots';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { usePlayer } from './PlayerContext';
+import { Glyphs, Icon } from '../ui/icons';
 
 export function PartyCard() {
   const { game, me } = usePlayer();
@@ -30,11 +31,11 @@ function Screen({ mg }: { mg: PartyGame }) {
     const tied = (mg.tiedBidders || []).includes(me);
     return (
       <>
-        <h3>{g.emoji} {g.label}!</h3>
+        <h3><Glyphs>{g.emoji}</Glyphs> {g.label}!</h3>
         <p className="pg-sub">{g.rules}</p>
         {mg.prompt && <div className="pg-prompt">“{mg.prompt}”</div>}
         <p className="pg-sub">
-          {tied ? <><b>You're in the tie</b> — beat the other tied bidders to win it.</>
+          {tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
             : `Not in the tie? Play for party points${cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip!' : '!'}`}
         </p>
         <div className="pg-timer">{secs}s</div>
@@ -94,7 +95,7 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
 
   return (
     <>
-      <h3>✏️ Draw: “{mg.prompt}”</h3>
+      <h3><Icon name="pencil" /> Draw: “{mg.prompt}”</h3>
       <div className="pg-timer">{secs}s</div>
       <canvas ref={canvas} className="pg-pad" width={640} height={640}
         onPointerDown={(e) => { if (submitted) return; canvas.current!.setPointerCapture?.(e.pointerId); current.current = { color, pts: [at(e)] }; strokes.current.push(current.current); paint(); }}
@@ -150,7 +151,7 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
 
   return (
     <>
-      <h3>🔨 Whack-an-Elf!</h3>
+      <h3><Icon name="mallet" /> Whack-an-Elf!</h3>
       <div className="pg-timer">{secs}s</div>
       <div className="whack-score">{score}</div>
       <div className="whack-grid">
@@ -178,8 +179,8 @@ function Voting({ mg, secs }: { mg: PartyGame; secs: number }) {
   const order = rank(Object.keys(mg.submissions || {}), {}, mg.seed); // stable shuffle
   return (
     <>
-      <h3>🗳️ Vote for the best drawing</h3>
-      <p className="pg-sub">“{mg.prompt}” — not your own!</p>
+      <h3><Icon name="vote" /> Vote for the best drawing</h3>
+      <p className="pg-sub">“{mg.prompt}” (not your own!)</p>
       <div className="pg-timer">{secs}s</div>
       <div className="pg-gallery">
         {order.length ? order.map((pid, i) => (

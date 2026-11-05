@@ -22,8 +22,8 @@ export function startPartyGame(tx: Tx, type: PartyType, goal: PartyGame['minigam
   };
   tx.set('minigame', mg).set('currentTurn/phase', 'minigame_party').set('currentTurn/minigameStatus', `${g.emoji} ${g.label}`)
     .event(goal === 'duel'
-      ? `${g.emoji} ${g.label} decides ${tied.map((id) => name(tx.game, id)).join(' vs ')} — everyone plays`
-      : `${g.emoji} ${g.label}! Everyone plays — ${tied.map((id) => name(tx.game, id)).join(', ')} are tied`, 'bid');
+      ? `${g.emoji} ${g.label} decides ${tied.map((id) => name(tx.game, id)).join(' vs ')}. Everyone plays!`
+      : `${g.emoji} ${g.label}! Everyone plays. Tied: ${tied.map((id) => name(tx.game, id)).join(', ')}`, 'bid');
 }
 
 /**

@@ -20,7 +20,7 @@ Each gift has a Naughty Level (0, 1, 2, …).
 
 * A gift’s first sealed-bid duel sets its Naughty Level to the **highest bid** placed on it.  
 * After that, it increases by \+1 every time that gift is involved in a duel, win or lose.  
-* Naughty Level never goes down — except it resets to 0 when the gift goes to the Misfit pile.
+* Naughty Level never goes down, except that it resets to 0 when the gift goes to the Misfit pile.
 
 ## Paying for Duels (Two Types)
 
@@ -146,7 +146,7 @@ The winner collects the pot, applying Santa Tax if pot ≥ 2 (the winner takes a
 
 ### Naughty Level
 
-After the duel, the contested gift’s Naughty Level increases by \+1 — or, if this is its first sealed-bid duel, it is set to the highest bid.
+After the duel, the contested gift’s Naughty Level increases by \+1 or, if this is its first sealed-bid duel, it is set to the highest bid.
 
 ### Loser’s Dividend Reminder
 
@@ -194,12 +194,12 @@ If nobody bids on a newly opened gift:
 
 *Because reindeer kick back..*
 
-When a Sealed Bid Duel (Challenger vs Opener) concludes, the Loser can choose an immediate Reprisal Duel. There is no Reprisal after a Grinch’s Gambit (for either player — that’s the attacker’s risk), a Yield Duel, a Tie-break Duel or any Endgame duel.
+When a Sealed Bid Duel (Challenger vs Opener) concludes, the Loser can choose an immediate Reprisal Duel. There is no Reprisal after a Grinch’s Gambit (for either player; that’s the attacker’s risk), a Yield Duel, a Tie-break Duel or any Endgame duel.
 
 Rules for the Reprisal:
 
 * The Reprisal Challenger may challenge any gift, including Misfits (if any exist) except for the gift involved in the duel you just lost and their own gift.  
-  * Targeting a Misfit claims it outright — there is no one to duel — and the challenger’s current gift (if any) goes to the Misfit pile.  
+  * Targeting a Misfit claims it outright (there is no one to duel), and the challenger’s current gift (if any) goes to the Misfit pile.  
   * So, more of a re-directed reprisal 🙂  
 * The player must pay the Minimum Cost (based on the target gift’s Naughty Level) to the Bank.  
 * A Reprisal cannot trigger another Reprisal (no chaining).
@@ -298,7 +298,7 @@ Q: Can I refuse a gift?
 A: No. If you win it (or get stuck with it), you take it.
 
 Q: Does Naughty Level ever go down?  
-A: No. It only goes up — unless the gift lands in the Misfit pile, which resets it to 0.
+A: No. It only goes up, unless the gift lands in the Misfit pile, which resets it to 0.
 
 Q: Who decides the duel method?  
 A: The Defender unless at least one player is under 16\. In that case, the player under 16 chooses the duel method. If both players are under 16, the youngest chooses.

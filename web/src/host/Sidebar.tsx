@@ -8,6 +8,7 @@ import { giftless, wrappedGifts } from '../core/rules';
 import { MISFIT } from '../core/types';
 import { useHost } from './HostContext';
 import { useModal } from './Modal';
+import { Glyphs, Icon } from '../ui/icons';
 
 type Tab = 'game' | 'events' | 'admin';
 
@@ -58,7 +59,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
         <div className="card-title">Controls</div>
         {game.phase === 'lobby' ? (
           <div id="lobby-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', margin: '0.25rem 0' }}>Waiting in the lobby — start the game from the room-code card.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', margin: '0.25rem 0' }}>Waiting in the lobby. Start the game from the room-code card.</p>
           </div>
         ) : (
           <div id="game-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -66,7 +67,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setModal(<AddGiftModal onClose={() => setModal(null)} />)}>Add Gift</button>
               <button className="btn btn-secondary" id="btn-endgame" data-testid="endgame" disabled={!canEndgame} style={{ flex: 1 }} onClick={() => act(startEndgame)}>
-                {game.phase === 'endgame' ? '🎰 In Endgame' : 'Endgame'}
+                <Glyphs>{game.phase === 'endgame' ? '🎰 In Endgame' : 'Endgame'}</Glyphs>
               </button>
             </div>
           </div>
@@ -137,7 +138,7 @@ function EventLog() {
       <div className="event-log" id="event-log">
         {log.map((e, i) => (
           <div key={`${e.at}-${i}`} className={`event ${e.kind}`}>
-            <div>{e.text}</div>
+            <div><Glyphs>{e.text}</Glyphs></div>
             <div className="time">{new Date(e.at).toLocaleTimeString()}</div>
           </div>
         ))}
@@ -169,7 +170,7 @@ function AdminPanel() {
   return (
     <>
       <div className="card" id="debug-panel" style={{ border: '2px dashed var(--accent-gold)' }}>
-        <div className="card-title">🤖 Bots &amp; auto-pilot</div>
+        <div className="card-title"><Icon name="critic" /> Bots &amp; auto-pilot</div>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
           Replaced by the agent play-testing harness: <code>npm run agents:watch</code> plays a whole game with persona agents on real phones.
         </div>
@@ -180,7 +181,7 @@ function AdminPanel() {
           <div id="admin-content" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" title="Force skip current phase" onClick={() => { if (confirm('Skip current phase? This may cause unexpected state.')) act(Admin.resetTurn); }}>⏭️ Skip Phase</button>
-              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) act(Admin.resetTurn); }}>🔄 Reset Turn</button>
+              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) act(Admin.resetTurn); }}><Icon name="swap" /> Reset Turn</button>
               <button className="btn btn-secondary" title="Undo the last duel" onClick={() => {
                 if (!snapshot) return alert('No state to undo. Undo captures state before each duel is resolved.');
                 if (confirm('Restore players and gifts to before the last duel?')) { act((g) => Admin.restore(g, snapshot)); clearSnapshot(); }
@@ -197,16 +198,16 @@ function AdminPanel() {
               {pid && (
                 <div id="admin-player-controls">
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flex: 1 }}>🪙 <input type="number" id="admin-player-chips" min={0} max={99} value={chips} onChange={(e) => setChips(parseInt(e.target.value) || 0)} style={{ ...field, width: 60 }} /></label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flex: 1 }}><Icon name="chip" /> <input type="number" id="admin-player-chips" min={0} max={99} value={chips} onChange={(e) => setChips(parseInt(e.target.value) || 0)} style={{ ...field, width: 60 }} /></label>
                     <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => act((g) => Admin.setChips(g, pid, chips))}>Save</button>
                   </div>
-                  <button className="btn btn-secondary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.removePlayerGift(g, pid, now()))}>🎁 Remove Gift</button>
+                  <button className="btn btn-secondary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.removePlayerGift(g, pid, now()))}><Icon name="gift" /> Remove Gift</button>
                 </div>
               )}
             </div>
 
             <div style={{ background: 'var(--bg-card-hover)', padding: '0.75rem', borderRadius: 8 }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>🎁 Edit Gift</div>
+              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}><Icon name="gift" /> Edit Gift</div>
               <select id="admin-gift-select" value={gid} style={{ width: '100%', padding: '0.5rem', borderRadius: 6, marginBottom: '0.5rem' }} onChange={(e) => loadGift(e.target.value)}>
                 <option value="">Select gift...</option>
                 {gifts.map(([id, g]) => <option key={id} value={id}>{g.name} ({g.ownerId === MISFIT ? 'Misfit' : game.players?.[g.ownerId]?.name || 'Unknown'}, 😈{g.naughtyLevel || 0})</option>)}
@@ -215,7 +216,7 @@ function AdminPanel() {
                 <div id="admin-gift-controls">
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <input type="text" id="admin-gift-name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} style={{ ...field, flex: 1 }} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>😈 <input type="number" id="admin-gift-naughty" min={0} max={20} value={edit.naughty} onChange={(e) => setEdit({ ...edit, naughty: parseInt(e.target.value) || 0 })} style={{ ...field, width: 50 }} /></label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Icon name="naughty" /> <input type="number" id="admin-gift-naughty" min={0} max={20} value={edit.naughty} onChange={(e) => setEdit({ ...edit, naughty: parseInt(e.target.value) || 0 })} style={{ ...field, width: 50 }} /></label>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <select id="admin-gift-owner" value={edit.owner} onChange={(e) => setEdit({ ...edit, owner: e.target.value })} style={{ ...field, flex: 1 }}>

@@ -41,7 +41,7 @@ export const GAMES: Record<PartyType, { label: string; emoji: string; introMs: n
   },
   whack_elf: {
     label: 'Whack-an-Elf', emoji: '🔨', introMs: 7000, playMs: 20000,
-    rules: 'Tap the elves as they pop up — the faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grinch and lose 3!',
+    rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grinch and lose 3!',
   },
 };
 export const METHODS = Object.keys(GAMES) as PartyType[];
@@ -53,6 +53,14 @@ export const SKETCH_PROMPTS = [
   'An elf lifting weights', 'The Grinch doing yoga', 'A penguin opening a present',
   'A gingerbread house on fire', 'Rudolph with a cold', 'A Christmas tree in a tiny car',
   'Mrs Claus riding a motorbike', 'A polar bear ice skating', 'A sleigh with a flat tyre',
+  'A cat attacking the wrapping paper', 'Santa on a treadmill', 'A reindeer at the dentist',
+  'An elf asleep on the job', 'A snowman with a sunburn', 'The ugliest Christmas sweater ever',
+  'A present that is obviously a bike', 'Grandma winning a snowball fight', 'A turkey hiding from the cook',
+  'A gift wrapped by a toddler', 'A Christmas tree falling over', 'A penguin delivering presents',
+  'A sleigh stuck in traffic', 'A dog wearing antlers and hating it', 'Mistletoe in an awkward place',
+  'A stocking that is far too full', 'The Grinch at a gift exchange', 'A reindeer singing karaoke',
+  'A fruitcake used as a doorstop', 'A gingerbread man running late', 'Carolers nobody asked for',
+  'A candle that smells like socks', 'An elf on a coffee break', 'Santa squeezing into his suit',
 ];
 
 export type WhackKind = 'elf' | 'gold' | 'grinch';

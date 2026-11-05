@@ -4,6 +4,7 @@ import { submitSketch } from '../core/partyflow';
 import { useServerOffset } from '../firebase/game';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
+import { Icon } from '../ui/icons';
 
 interface DrawOff {
   type: 'draw_off'; phase: 'prompt_reveal' | 'drawing' | 'judging' | 'results';
@@ -62,38 +63,38 @@ export function DrawOffCard() {
   };
 
   if (!mg || mg.type !== 'draw_off') {
-    return <div className="card minigame-card" id="minigame-card"><div id="minigame-status" style={{ textAlign: 'center' }}>⏳ Initializing AI Draw Off...</div></div>;
+    return <div className="card minigame-card" id="minigame-card"><div id="minigame-status" style={{ textAlign: 'center' }}><Icon name="wait" /> Initializing AI Draw Off...</div></div>;
   }
   const myScore = mg.scores?.[me];
   const myRank = (mg.rankings || []).indexOf(me) + 1;
   return (
     <div className="card minigame-card" id="minigame-card" data-testid="drawoff-card">
-      <div className="card-title" id="minigame-card-title">🎨 AI Draw Off</div>
+      <div className="card-title" id="minigame-card-title"><Icon name="palette" /> AI Draw Off</div>
       <div id="minigame-status" style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         {mg.phase === 'prompt_reveal' && <>
-          <div style={{ marginBottom: 6 }}><span className="f6-chip critic-chip">🤖 AI critic</span></div>
+          <div style={{ marginBottom: 6 }}><span className="f6-chip critic-chip"><Icon name="critic" /> AI critic</span></div>
           <div className="drawoff-prompt f6-disp">“{mg.prompt}”</div>
           <div style={{ color: 'var(--muted)' }}>Drawing starts in 10 seconds. Get ready!</div>
         </>}
         {mg.phase === 'drawing' && !participant && <div>You're not in this Draw Off. Watch the host screen.</div>}
         {mg.phase === 'drawing' && participant && submitted && <>
-          <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}>✅ Submitted!</div>
+          <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}><Icon name="check" /> Submitted!</div>
           <div>Waiting for others... {secs}s left</div>
         </>}
         {drawing && <>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
-            <span className="f6-chip critic-chip">🤖 AI critic</span>
+            <span className="f6-chip critic-chip"><Icon name="critic" /> AI critic</span>
             <span className="drawoff-timer f6-disp f6-num" id="drawoff-timer">{secs}s</span>
           </div>
           <div className="drawoff-prompt f6-disp">“{mg.prompt}”</div>
         </>}
         {mg.phase === 'judging' && <>
           <div style={{ fontSize: '1.1rem', color: 'var(--accent-gold)' }}>Draw: "{mg.prompt}"</div>
-          <div style={{ marginTop: '0.5rem' }}>🤖 AI is judging all drawings...</div>
+          <div style={{ marginTop: '0.5rem' }}><Icon name="critic" /> AI is judging all drawings...</div>
         </>}
         {mg.phase === 'results' && <>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '0.5rem' }}>Draw: "{mg.prompt}"</div>
-          {mg.wittyVerdict && <div style={{ background: 'var(--bg-card-hover)', borderLeft: '4px solid var(--accent-gold)', padding: '0.75rem', borderRadius: 8, marginBottom: '0.75rem', fontStyle: 'italic' }}>🎭 {mg.wittyVerdict}</div>}
+          {mg.wittyVerdict && <div style={{ background: 'var(--bg-card-hover)', borderLeft: '4px solid var(--accent-gold)', padding: '0.75rem', borderRadius: 8, marginBottom: '0.75rem', fontStyle: 'italic' }}><Icon name="masks" /> {mg.wittyVerdict}</div>}
           <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Your result: #{myRank || '?'} ({myScore?.rating || 0}/100)</div>
           {myScore?.critique && <div style={{ fontStyle: 'italic' }}>{myScore.critique}</div>}
         </>}
@@ -120,7 +121,7 @@ export function DrawOffCard() {
         </div>
         <div id="drawing-controls-container" style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
           <button className="btn btn-secondary" onClick={() => { strokes.current.pop(); setCount(strokes.current.length); paint(); }} style={{ flex: 1 }}>↶ Undo</button>
-          <button className="btn btn-primary" data-testid="drawoff-submit" onClick={submit} style={{ flex: 1 }}>✅ Submit Drawing</button>
+          <button className="btn btn-primary" data-testid="drawoff-submit" onClick={submit} style={{ flex: 1 }}><Icon name="check" /> Submit Drawing</button>
         </div>
       </>}
     </div>

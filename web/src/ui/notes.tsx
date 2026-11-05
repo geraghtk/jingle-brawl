@@ -32,6 +32,6 @@ export function spectatorLoserNote(cfg: Config, turn: Turn): ReactNode {
 /** What a vote on someone else's duel is worth. */
 export function voteStakeNote(cfg: Config, chips: number): string {
   if (!cfg.spectatorBets) return 'A correct call adds 1 to your Party Score 🏅';
-  if (chips < 1) return 'No chips to bet — your vote still counts for your Party Score 🏅';
+  if (chips < 1) return 'No chips to bet, but your vote still counts for your Party Score 🏅';
   return "You bet 1 chip: right callers split the wrong callers' chips. Correct calls also add to your Party Score 🏅";
 }

@@ -13,6 +13,7 @@ import { Modal, ModalCtx } from './Modal';
 import { Sidebar } from './Sidebar';
 import { TurnPanel } from './TurnPanel';
 import { useHostAutomation } from './useHostAutomation';
+import { Icon } from '../ui/icons';
 
 export function GameScreen({ onExit }: { onExit: () => void }) {
   const [modal, setModal] = useState<ReactNode | null>(null);
@@ -71,7 +72,7 @@ function PlayersCard() {
           ? <div style={{ color: 'var(--text-muted)', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Waiting for players to join...</div>
           : players.map(([id, p]) => (
             <div key={id} className={`player-card ${game.currentTurn?.activePlayerId === id ? 'active' : ''}`} data-player-id={id}>
-              <Avatar name={p.name} size={34} />
+              <Avatar name={p.name} avatar={p.avatar} size={34} />
               <div className="who"><div className="nm">{p.name}</div><div className={`sub${p.giftId ? ' gift' : ''}`}>{p.giftId ? 'Has gift' : 'In bag'}</div></div>
               {cfg.publicChips && <span className="roster-chips"><span className="f6-coin" /> {p.chips}</span>}
             </div>
@@ -102,7 +103,7 @@ function GiftsCard() {
               <div className="f6-gift mini" style={{ ['--gift-color' as string]: avatarColor(g.name) }}><span className="ribbon-v" /><span className="ribbon-h" /><span className="bow" /></div>
               <div className="gift-lines">
                 <div className="gift-name">{g.name}</div>
-                <div className="gift-owner">{misfit ? '🧸 Misfit pile' : game.players?.[g.ownerId]?.name || 'Unknown'} · min {cost} chip{cost > 1 ? 's' : ''}</div>
+                <div className="gift-owner">{misfit ? <><Icon name="teddy" /> Misfit pile</> : game.players?.[g.ownerId]?.name || 'Unknown'} · min {cost} chip{cost > 1 ? 's' : ''}</div>
               </div>
               <span className="f6-chip naughty-meter" title={`Naughty ${lvl}`}>{'●'.repeat(lvl)}{'○'.repeat(5 - lvl)}</span>
             </div>
@@ -126,8 +127,8 @@ function Records() {
       {rs.map((r, i) => (
         <div key={r.id} className={`f6-row${i === 0 ? ' top' : ''}`}>
           <span className="rank f6-num">{String(i + 1).padStart(2, '0')}</span>
-          <Avatar name={r.name} />
-          <div className="who"><div className="nm">{r.name}{crown && i === 0 ? ' 👑' : ''}</div><div className="sub">{sub(r)}</div></div>
+          <Avatar name={r.name} avatar={game.players?.[r.id]?.avatar} />
+          <div className="who"><div className="nm">{r.name}{crown && i === 0 && <> <Icon name="crown" /></>}</div><div className="sub">{sub(r)}</div></div>
           <div className="stat"><div className="big" style={{ color: r.ratio >= 50 ? 'var(--accent2)' : 'var(--accent)' }}>{r.ratio}%</div><div className="small">{label}</div></div>
         </div>
       ))}
@@ -139,7 +140,7 @@ function Records() {
         <div className="card" id="card-duel-records">
           <div className="card-title">Duel records</div>
           <div className="f6-cap" style={{ marginBottom: 10 }}>Use this when voting on duel winners</div>
-          <div id="player-performance-container">{list(duels, (r) => `${r.w}W – ${r.l}L · ${r.total} duel${r.total > 1 ? 's' : ''}`, 'win rate')}</div>
+          <div id="player-performance-container">{list(duels, (r) => `${r.w}W, ${r.l}L · ${r.total} duel${r.total > 1 ? 's' : ''}`, 'win rate')}</div>
         </div>
       )}
       {votes.length > 0 && (
@@ -147,7 +148,7 @@ function Records() {
           <div className="card-title">Betting leaderboard</div>
           <div id="voting-leaderboard-container">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-              <span className="f6-chip tint">🏅 Each correct call = 1 Party Score point</span>
+              <span className="f6-chip tint"><Icon name="medal" /> Each correct call = 1 Party Score point</span>
               <span className="f6-cap" style={{ fontSize: 9 }}>win % × participation</span>
             </div>
             {list(votes, (r) => `${r.w}–${r.l} record · ${r.total} vote${r.total > 1 ? 's' : ''}`, 'correct', true)}

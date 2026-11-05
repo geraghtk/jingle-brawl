@@ -30,6 +30,19 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llava")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OPENAI_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-5.2")
 
+# House style for everything players see: no em dashes. Asked for in every prompt, and
+# stripped from replies anyway (models love them).
+NO_DASHES = "Do not use em dashes; use commas, colons or full stops instead. "
+
+
+def no_dashes(text):
+    """Replace em dashes (and en dashes spaced like them) with commas; drop a leading one."""
+    if not text:
+        return text
+    text = re.sub(r"(^|\n)[ \t]*(?:\u2014|\u2013)[ \t]*", r"\1", text)
+    text = re.sub(r"[ \t]*\u2014[ \t]*|[ \t]+\u2013[ \t]+", ", ", text)
+    return re.sub(r",\s*([,.!?;:])", r"\1", text)
+
 
 def get_ollama_client():
     """Lazy import to avoid startup failure if ollama not installed."""
@@ -62,6 +75,7 @@ def run_openai_critique(image_b64, secret_word, api_key):
         f'1. Describe what you see in detail.\n'
         f'2. Rate 0-100 how well it matches the prompt. Be forgiving of technical quality.\n'
         f'3. Give a brief, witty one-sentence critique.\n\n'
+        f'{NO_DASHES}'
         f'Format EXACTLY as:\nDESCRIPTION: [description]\nSCORE: [number]\nCRITIQUE: [one sentence]'
     )
 
@@ -96,7 +110,7 @@ def run_openai_critique(image_b64, secret_word, api_key):
         if len(parts) > 1:
             critique_text = parts[1].strip()
 
-    return description, rating, critique_text, text, model_used
+    return no_dashes(description), rating, no_dashes(critique_text), text, model_used
 
 
 @app.route("/critique", methods=["POST"])
@@ -162,9 +176,10 @@ def critique():
         # Step 1: Get detailed description of what's in the image
         describe_prompt = (
             "This is a drawing made on a phone or tablet with a finger or stylus. "
-            "Expect messy lines, blocky shapes, and rough proportions—that's normal for device drawings. "
+            "Expect messy lines, blocky shapes, and rough proportions. That's normal for device drawings. "
             "Describe in detail what you see: shapes, objects, figures, colors, composition. "
-            "What does the drawing depict? Be specific but concise. Focus on intent and recognition, not technical polish."
+            "What does the drawing depict? Be specific but concise. Focus on intent and recognition, not technical polish. "
+            + NO_DASHES
         )
         
         try:
@@ -176,7 +191,7 @@ def critique():
                     "images": [image_b64],
                 }],
             )
-            description = describe_response.message.content or "Could not analyze the image."
+            description = no_dashes(describe_response.message.content) or "Could not analyze the image."
         except Exception as e:
             return jsonify({
                 "error": f"Vision model error: {str(e)}. Is Ollama running? Run: ollama pull llava",
@@ -196,7 +211,8 @@ def critique():
             "Rate how well the drawing matches the prompt from 0-100. "
             "Give a single number (0-100) and a brief, WITTY, snarky one-sentence critique "
             "(like a roguish art critic - playful, not mean). "
-            "Format your response as: SCORE: [number] | CRITIQUE: [your witty one sentence]"
+            + NO_DASHES
+            + "Format your response as: SCORE: [number] | CRITIQUE: [your witty one sentence]"
         )
         
         try:
@@ -233,7 +249,7 @@ def critique():
         return jsonify({
             "description": description,
             "rating": rating,
-            "critique": critique_text,
+            "critique": no_dashes(critique_text),
             "rawVisionResponse": description,  # What Ollama "saw" (first call)
             "rawRateResponse": rate_text,      # Full LLM output before parsing (second call)
             "backend": "ollama",
@@ -299,14 +315,14 @@ def witty_verdict():
         names_list = ", ".join(s.get("name", f"Player_{pid[:8]}") for pid, s in scores.items())
 
         verdict_prompt = (
-            f'You are a witty, roguish art critic hosting an art competition—like a mix of Simon Cowell and a gallery owner who\'s seen it all. '
+            f'You are a witty, roguish art critic hosting an art competition, like a mix of a sharp-tongued talent-show judge and a gallery owner who\'s seen it all. '
             f'The prompt artists were given was: "{prompt}".\n\n'
-            f'These were drawn on phones/tablets (finger or stylus), so lines can be messy and shapes blocky—judge on creativity and intent, not polish.\n\n'
+            f'These were drawn on phones/tablets (finger or stylus), so lines can be messy and shapes blocky. Judge on creativity and intent, not polish.\n\n'
             f'Here are the submissions with full analysis:\n\n{summary}\n\n'
             f'Write an IN-DEPTH, WITTY verdict (4-8 sentences). '
             f'Address each submission: reference what was actually drawn, riff on the descriptions, and deliver sharp but playful commentary. '
-            f'Build tension. Be specific—mention details from the descriptions. Then announce the overall winner with dramatic flair. '
-            f'Make it memorable and fun, not generic.\n\n'
+            f'Build tension. Be specific: mention details from the descriptions. Then announce the overall winner with dramatic flair. '
+            f'Make it memorable and fun, not generic. {NO_DASHES}\n\n'
             f'After your verdict, on a new line write exactly: WINNER: [name]\n'
             f'Use one of these names: {names_list}'
         )
@@ -349,7 +365,7 @@ def witty_verdict():
         if not winner_id:
             winner_id = max(scores.keys(), key=lambda p: scores[p].get("rating", 0))
 
-        verdict_text = re.split(r"WINNER:", text, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+        verdict_text = no_dashes(re.split(r"WINNER:", text, maxsplit=1, flags=re.IGNORECASE)[0].strip())
 
         return jsonify({
             "wittyVerdict": verdict_text,

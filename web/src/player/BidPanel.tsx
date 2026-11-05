@@ -4,6 +4,7 @@ import * as A from '../core/actions';
 import { avatarColor } from '../ui/avatar';
 import { dividendNote, taxNote } from '../ui/notes';
 import { usePlayer } from './PlayerContext';
+import { Glyphs, Icon } from '../ui/icons';
 
 export function BidPanel() {
   const { game, me, player, cfg, act } = usePlayer();
@@ -38,7 +39,7 @@ export function BidPanel() {
         <div className="gift-lines">
           <div className="name" id="bid-gift-name">{giftName}</div>
           <div className="opener-info" id="bid-opener-info">
-            {endgame ? <strong>🎰 Misfit Auction!</strong> : <>Opened by <strong>{game.players?.[t.openerId!]?.name || 'Player'}</strong> · Naughty {naughty}</>}
+            {endgame ? <strong><Icon name="bid" /> Misfit Auction!</strong> : <>Opened by <strong>{game.players?.[t.openerId!]?.name || 'Player'}</strong> · Naughty {naughty}</>}
           </div>
         </div>
         <span className="f6-chip naughty-chip" id="bid-naughty-chip">{endgame ? '' : '●'.repeat(naughty) + '○'.repeat(5 - naughty)}</span>
@@ -63,21 +64,21 @@ export function BidPanel() {
       </div>
 
       <button className="btn btn-primary seal-btn" id="submit-bid-btn" data-testid="seal-bid" disabled={sealed} onClick={seal}>
-        {sealed ? '✅ Bid Submitted' : 'Seal it — no takebacks 🔒'}
+        <Glyphs>{sealed ? '✅ Bid Submitted' : 'Seal it, no takebacks 🔒'}</Glyphs>
       </button>
 
       {sealed && (
         <div className="bid-status submitted" id="bid-status">
           <div className="sealed-state">
             <div className="sealed-title f6-disp">{locked!.amount > 0 ? <>Locked at <span style={{ color: 'var(--accent)' }}>{locked!.amount}</span>.</> : 'Passed.'}</div>
-            <div className="sealed-disc"><span className="sealed-emoji">✉️</span><span className="fz-sticker mint sealed-sticker">SEALED</span></div>
+            <div className="sealed-disc"><span className="sealed-emoji"><Icon name="envelope" /></span><span className="fz-sticker mint sealed-sticker">SEALED</span></div>
             <div className="sealed-flinch f6-disp">Don't flinch.</div>
             <div className="sealed-sub">Everyone else is still sweating. Good.</div>
             <div className="final-stats" style={{ width: '100%', marginTop: 12 }}>
               <div className="fstat"><div className="fstat-v f6-disp f6-num" id="sealed-bids-in">{bidsIn}/{eligible}</div><div className="fstat-k">bids in</div></div>
               <div className="fstat"><div className="fstat-v f6-disp f6-num">{Math.max(0, player.chips - locked!.amount)} <span className="f6-coin" /></div><div className="fstat-k">chips left</div></div>
             </div>
-            <button className="btn btn-secondary" data-testid="change-bid" onClick={() => { setBid(locked!.amount); setEditing(true); }} style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>🔄 Change Bid</button>
+            <button className="btn btn-secondary" data-testid="change-bid" onClick={() => { setBid(locked!.amount); setEditing(true); }} style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}><Icon name="swap" /> Change Bid</button>
           </div>
         </div>
       )}

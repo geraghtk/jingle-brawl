@@ -33,7 +33,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
     <div id="game-screen" className="game-screen">
       <div className="header">
         <div className="player-info">
-          <Avatar name={player.name} size={40} />
+          <Avatar name={player.name} avatar={player.avatar} size={40} />
           <div className="player-name" id="display-name">{player.name}</div>
         </div>
         <div className="chip-count" aria-label={`${player.chips} chips`}><span className="jb-chip" /><span id="chip-display">{player.chips}</span></div>
@@ -65,7 +65,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
                 {others.length === 0 ? <span className="table-row-empty">Nobody else yet</span>
                   : others.map(([id, p]) => (
                     <span key={id} className={`table-seat ${p.giftId ? 'has-gift' : ''}`} title={`${p.name}: ${p.giftId ? 'has a gift' : 'in the bag'}`}>
-                      <Avatar name={p.name} size={30} />
+                      <Avatar name={p.name} avatar={p.avatar} size={30} />
                       <span className="table-seat-name">{p.name}</span>
                       {cfg.publicChips && <span className="table-seat-chips f6-num">{p.chips}</span>}
                     </span>

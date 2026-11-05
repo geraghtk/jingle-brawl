@@ -347,12 +347,12 @@ export class LiveTable {
   /** The pages as pictures (the TV and each phone, JPEG base64), for whoever watches; a page that
    *  can't be captured right now is left out. */
   async frames(): Promise<Record<string, string>> {
-    const shot = async (page: Page | undefined) => {
-      try { return page ? (await page.screenshot({ type: 'jpeg', quality: 55, timeout: 3000 })).toString('base64') : null; } catch { return null; }
+    const shot = async (page: Page | undefined, fullPage = false) => {
+      try { return page ? (await page.screenshot({ type: 'jpeg', quality: 55, timeout: 3000, fullPage })).toString('base64') : null; } catch { return null; }
     };
     const out: Record<string, string> = {};
     const all = await Promise.all([['tv', this.hostPage] as const, ...this.o.people.map((p) => [p.id, this.phones[p.id]] as const)]
-      .map(async ([k, page]) => [k, await shot(page)] as const));
+      .map(async ([k, page]) => [k, await shot(page, k === 'tv')] as const));   // the TV whole: its boards below the fold too
     for (const [k, b] of all) if (b) out[k] = b;
     return out;
   }

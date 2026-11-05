@@ -1575,3 +1575,7 @@
 .dgs-by { font-size: 13px; color: var(--muted); }
 .duel-app-btn { background: var(--ink); color: #fff; }
 .dgs-rule { font: 600 14px var(--f6-body); color: var(--accent); }
+
+        /* Sticker icons (ui/icons.tsx): sized to the text they sit in */
+        .yd-icon { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; object-fit: contain; }
+        .status-icon .yd-icon, .final-gift-tile .yd-icon { width: 1.2em; height: 1.2em; vertical-align: middle; }

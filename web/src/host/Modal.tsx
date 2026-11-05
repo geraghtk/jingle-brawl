@@ -1,6 +1,7 @@
 // The host's general-purpose modal (manual overrides, Add Gift …).
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
+import { Glyphs } from '../ui/icons';
 
 export const ModalCtx = createContext<(content: ReactNode | null) => void>(() => {});
 export const useModal = () => useContext(ModalCtx);
@@ -21,7 +22,7 @@ export function OptionList({ title, intro, options, onCancel }: {
 }) {
   return (
     <>
-      <h2>{title}</h2>
+      <h2><Glyphs>{title}</Glyphs></h2>
       <p style={{ color: 'var(--text-secondary)' }}>{intro}</p>
       <div className="options">
         {options.map((o) => (

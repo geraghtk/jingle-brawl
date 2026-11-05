@@ -43,6 +43,8 @@ const critiquePrompt = (secretWord) => `Look at this drawing. It may be a collab
 2. The intended subject was: "${secretWord}". Rate how well the drawing matches this from 0-100.
 3. Give a brief one-sentence critique.
 
+Do not use em dashes; use commas, colons or full stops instead.
+
 Format your response EXACTLY as:
 DESCRIPTION: [your detailed description]
 SCORE: [number 0-100]
@@ -75,12 +77,18 @@ function readCritiqueRequest(req, res) {
   return { image, secretWord };
 }
 
+/** No em dashes in anything players see (models use them anyway): commas instead, a leading one dropped. */
+const noDashes = (text) => text
+  .replace(/(^|\n)[ \t]*[\u2014\u2013][ \t]*/g, "$1")
+  .replace(/[ \t]*\u2014[ \t]*|[ \t]+\u2013[ \t]+/g, ", ")
+  .replace(/,\s*([,.!?;:])/g, "$1");
+
 /** Parse the DESCRIPTION / SCORE / CRITIQUE reply format. */
 function parseCritique(text) {
-  const description = (text.match(/DESCRIPTION:\s*(.+?)(?=SCORE:|$)/s)?.[1] || "").trim();
+  const description = noDashes((text.match(/DESCRIPTION:\s*(.+?)(?=SCORE:|$)/s)?.[1] || "").trim());
   const score = text.match(/SCORE:\s*(\d{1,3})/i);
   const rating = score ? Math.min(100, Math.max(0, parseInt(score[1], 10))) : 50;
-  const critique = (text.match(/CRITIQUE:\s*(.+)/s)?.[1] || text).trim();
+  const critique = noDashes((text.match(/CRITIQUE:\s*(.+)/s)?.[1] || text).trim());
   return { description, rating, critique, error: null };
 }
 
@@ -162,4 +170,4 @@ exports.critiqueDrawingGemini = onRequest(
 );
 
 // Exported for unit tests
-exports._internal = { parseCritique, critiquePrompt };
+exports._internal = { parseCritique, critiquePrompt, noDashes };

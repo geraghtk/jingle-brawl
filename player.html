@@ -1200,7 +1200,7 @@
                 </div>
 
                 <button class="btn btn-primary seal-btn" onclick="submitBid()" id="submit-bid-btn">
-                    Seal it — no takebacks 🔒
+                    Seal it, no takebacks 🔒
                 </button>
 
                 <div class="bid-status hidden" id="bid-status">
@@ -1778,7 +1778,7 @@
                 if (!stillInBiddingPhase || !myExistingBid) {
                     bidSubmitted = false;
                     document.getElementById('bid-status').classList.add('hidden');
-                    document.getElementById('submit-bid-btn').textContent = 'Seal it — no takebacks 🔒';
+                    document.getElementById('submit-bid-btn').textContent = 'Seal it, no takebacks 🔒';
                     document.getElementById('submit-bid-btn').disabled = false;
                 } else if (myExistingBid) {
                     // Player has already bid - show their locked bid
@@ -1907,7 +1907,7 @@
                         <div class="final-gift-name">${myGift ? escapeHtml(myGift.name) : 'No gift this year'}</div>
                         <div class="final-stats">
                             <div class="fstat"><div class="fstat-v f6-disp f6-num">${playerState.chips ?? 0}</div><div class="fstat-k">chips</div></div>
-                            <div class="fstat accent"><div class="fstat-v f6-disp f6-num">${myGift ? `😈 ${myGift.naughtyLevel ?? 0}` : '—'}</div><div class="fstat-k">gift naughty</div></div>
+                            <div class="fstat accent"><div class="fstat-v f6-disp f6-num">${myGift ? `😈 ${myGift.naughtyLevel ?? 0}` : 'none'}</div><div class="fstat-k">gift naughty</div></div>
                         </div>
                         <div class="status-desc" style="margin-top: 10px;">Thanks for playing Yuel Duel!</div>
                     `;
@@ -2675,7 +2675,7 @@ if (minigame) {
         // What a vote on someone else's duel is worth
         function voteStakeNote() {
             if (!betsOn()) return 'A correct call adds 1 to your Party Score 🏅';
-            if ((playerState.chips || 0) < 1) return 'No chips to bet — your vote still counts for your Party Score 🏅';
+            if ((playerState.chips || 0) < 1) return 'No chips to bet, but your vote still counts for your Party Score 🏅';
             return 'You bet 1 chip: right callers split the wrong callers\' chips. Correct calls also add to your Party Score 🏅';
         }
         function taxNote() {
@@ -2874,7 +2874,7 @@ if (minigame) {
             bidSubmitted = false;
             document.getElementById('bid-status').classList.add('hidden');
             document.getElementById('bid-status').classList.remove('submitted');
-            document.getElementById('submit-bid-btn').textContent = 'Seal it — no takebacks 🔒';
+            document.getElementById('submit-bid-btn').textContent = 'Seal it, no takebacks 🔒';
             document.getElementById('submit-bid-btn').disabled = false;
             showToast('You can change your bid now');
         }

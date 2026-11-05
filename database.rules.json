@@ -34,6 +34,7 @@
               ".validate": "newData.val() === auth.uid || auth.uid === root.child('games').child($room).child('hostUid').val()"
             },
             "name": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "avatar": { ".validate": "newData.isString() && newData.val().length <= 24" },
             "chips": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" }
           }
         },

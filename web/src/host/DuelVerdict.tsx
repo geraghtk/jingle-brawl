@@ -87,7 +87,7 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
 
         <div className="verdict-purse">
           <div className="purse-tile loser" ref={loser} data-duel-corner={duel.loserId}>
-            <Avatar name={name(duel.loserId)} size={56} />
+            <Avatar name={name(duel.loserId)} avatar={game.players?.[duel.loserId]?.avatar} size={56} />
             <div className="purse-name">{name(duel.loserId)}</div>
             <div className="purse-note">
               {duel.loserPaid > 0 ? `paid ${duel.loserPaid}` : 'defended for free'}
@@ -96,7 +96,7 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
           </div>
           <div className="purse-arc" aria-hidden />
           <div className="purse-tile winner" ref={winner} data-duel-corner={duel.winnerId}>
-            <Avatar name={name(duel.winnerId)} size={56} />
+            <Avatar name={name(duel.winnerId)} avatar={game.players?.[duel.winnerId]?.avatar} size={56} />
             <div className="purse-name">{name(duel.winnerId)}</div>
             <div className="purse-chips f6-num" data-testid="verdict-winner-chips"><span className="jb-chip" />{chips}</div>
           </div>

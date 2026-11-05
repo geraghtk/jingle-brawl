@@ -9,6 +9,16 @@ const out = (check: string, ok: boolean, detail: unknown = '') => { console.log(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const brisk = { paceMs: 1000, duelMs: 1500, patienceMs: 15000 };
 
+/** A JPEG's height in pixels (its start-of-frame marker). */
+function jpegHeight(b64 = ''): number {
+  const b = Buffer.from(b64, 'base64');
+  for (let i = 2; i + 8 < b.length && b[i] === 0xff;) {
+    if (b[i + 1] >= 0xc0 && b[i + 1] <= 0xc3) return b.readUInt16BE(i + 5);
+    i += 2 + b.readUInt16BE(i + 2);
+  }
+  return 0;
+}
+
 async function wholeGame() {
   const people = ['Ada', 'Bo', 'Cy'].map((name, i) => ({ id: name.toLowerCase(), name, skills: { duel: 0.3 * i, whack: 0.5, sketch: 0.5 } }));
   const t = await LiveTable.open({ seed: 1, people, settings: { voteWindow: 0, duelPick: 'off' }, autoHost: brisk });
@@ -24,8 +34,12 @@ async function wholeGame() {
       await t.advance(500);
     }
     const res = t.result();
-    return out('random guests and the scripted host play a whole game on the real pages, with no page errors or missing buttons',
-      res.ended && !res.issues.length && res.seats.every((s) => s.gift), { minutes: res.minutes, issues: res.issues, room: res.room });
+    // the TV's picture is the whole host page: the boards below the fold too (the Studio scrolls it)
+    const [tall, seen] = await t['hostPage'].evaluate(() => [document.documentElement.scrollHeight, innerHeight]);
+    const tv = jpegHeight((await t.frames()).tv);
+    return [out('random guests and the scripted host play a whole game on the real pages, with no page errors or missing buttons',
+      res.ended && !res.issues.length && res.seats.every((s) => s.gift), { minutes: res.minutes, issues: res.issues, room: res.room }),
+    out("the TV's picture is the whole host page, below the fold too", tall > seen && tv >= tall, { picture: tv, page: tall, window: seen })];
   } finally { await t.close(); }
 }
 
@@ -49,6 +63,6 @@ async function whackOnce() {
 }
 
 (async () => {
-  const results = [await whackOnce(), await wholeGame()];
+  const results = [await whackOnce(), ...(await wholeGame())];
   process.exit(results.every(Boolean) ? 0 : 1);
 })().catch((e) => { out('crashed', false, String(e?.stack || e)); process.exit(1); });

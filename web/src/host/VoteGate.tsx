@@ -33,7 +33,7 @@ export function VotePanel() {
       <div className="vote-gate-seats">
         {status.eligible.map((id) => (
           <span key={id} className={`vote-seat${pick(id) ? ' in' : ''}`} data-voter={id}>
-            <Avatar name={game.players?.[id]?.name || '?'} size={26} />
+            <Avatar name={game.players?.[id]?.name || '?'} avatar={game.players?.[id]?.avatar} size={26} />
             <span className="vote-seat-name">{game.players?.[id]?.name}</span>
             {/* who they backed stays secret until the duel is called */}
             <span className="vote-seat-state">{pick(id) ? '✓' : '…'}</span>

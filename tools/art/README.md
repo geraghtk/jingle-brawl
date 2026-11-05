@@ -1,0 +1,22 @@
+# Game art: avatars and icons
+
+The sticker avatars (`web/public/art/avatars/`) and icons (`web/public/art/icons/`) are made with
+Flux schnell in a local ComfyUI, then cut out of their plain background.
+
+```bash
+# ComfyUI running on :8188 with models/checkpoints/flux1-schnell-fp8.safetensors
+# (here: C:\Users\Kevin\Apps\ComfyUI, `.venv\Scripts\python main.py --port 8188`)
+PY=/c/Users/Kevin/Apps/ComfyUI/.venv/Scripts/python.exe     # has numpy, scipy, Pillow
+$PY tools/art/gen.py tools/art/prompts.json out --seeds 2 [--only av-fox,duel]
+$PY tools/art/grid.py sheet.png out '^av-'                  # a labelled sheet to pick from
+```
+
+`prompts.json` holds the shared style (die-cut vinyl sticker, thick outline, flat bright colours)
+and one subject per item: `av-<id>` for avatars, the rest are icons. Each item renders once per
+seed into `out/raw/`, and `out/cut/` has it cut out, trimmed and squared. Pick the best take, then
+save it as WebP: avatars at 256 px, icons at 160 px (`<name>.webp`).
+
+- A new avatar also needs a line in `web/src/core/avatars.ts` (id, label, tile colour).
+- A new icon needs its emoji mapped in `web/src/ui/icons.tsx`.
+- Unit tests check that every avatar and icon has its picture.
+- `naughty.webp` is the imp avatar, reused as the icon for a gift's naughty level.
