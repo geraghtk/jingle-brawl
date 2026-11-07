@@ -20,3 +20,17 @@ save it as WebP: avatars at 256 px, icons at 160 px (`<name>.webp`).
 - A new icon needs its emoji mapped in `web/src/ui/icons.tsx`.
 - Unit tests check that every avatar and icon has its picture.
 - `naughty.webp` is the imp avatar, reused as the icon for a gift's naughty level.
+
+## Whack-an-Elf (Blender)
+
+`whack.py` builds the Whack-an-Elf pieces from primitives in Blender (cel shading + inverted-hull
+outline, to sit with the stickers) and renders them with one camera, so the layers line up:
+
+```bash
+/c/Users/Kevin/Apps/blender-5.2.3-windows-x64/blender.exe -b --python tools/art/whack.py -- out --size 384
+```
+
+`hole-back` + `hole-front` (the near lip, drawn over the pop-up), `elf` / `gold` / `grinch` and their
+`-bonk` faces, `mallet`. Save them as WebP in `web/public/art/whack/` (384 px, mallet 256 px). The
+script prints `CLIP_LINE_PCT`, where a pop-up disappears into the hole; `.wh-pit` in
+`web/src/ui/party.css` clips at it (`inset(... 19% ...)` for 81).

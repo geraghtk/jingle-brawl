@@ -7,6 +7,7 @@ import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { useHost } from './HostContext';
 import { Glyphs, Icon } from '../ui/icons';
+import { WhackLegend } from '../ui/whack';
 
 export function PartyPanel({ mg }: { mg: PartyGame }) {
   const { game, cfg } = useHost();
@@ -20,6 +21,7 @@ export function PartyPanel({ mg }: { mg: PartyGame }) {
     body = <>
       <h3><Glyphs>{g.emoji}</Glyphs> {g.label}!</h3>
       <p className="pg-sub">{g.rules}</p>
+      {mg.type === 'whack_elf' && <WhackLegend />}
       {mg.prompt && <div className="pg-prompt">“{mg.prompt}”</div>}
       <p className="pg-sub">Tied: <b>{(mg.tiedBidders || []).map(name).join(', ')}</b>. Everyone else plays for party points{cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.</p>
       <div className="pg-timer">{secs}s</div>

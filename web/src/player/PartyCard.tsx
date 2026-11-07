@@ -4,12 +4,13 @@ import { GAMES, rank, whackPoints, whackSequence } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { reportWhack, submitSketch, voteSketch } from '../core/partyflow';
 import { useServerOffset } from '../firebase/game';
-import { GRINCH_SVG } from '../ui/grinch';
-import { svg as mascotSvg } from '../ui/mascots';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
+import { WhackHole, WhackLegend, preloadWhackArt } from '../ui/whack';
+import type { HoleState } from '../ui/whack';
+import type { WhackKind } from '../core/party';
 
 export function PartyCard() {
   const { game, me } = usePlayer();
@@ -33,6 +34,7 @@ function Screen({ mg }: { mg: PartyGame }) {
       <>
         <h3><Glyphs>{g.emoji}</Glyphs> {g.label}!</h3>
         <p className="pg-sub">{g.rules}</p>
+        {mg.type === 'whack_elf' && <WhackLegend />}
         {mg.prompt && <div className="pg-prompt">“{mg.prompt}”</div>}
         <p className="pg-sub">
           {tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
@@ -123,8 +125,11 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
   const scoreRef = useRef(0);
   const sent = useRef<number | null>(null);
   const t0 = mg.playStartAt || 0;
+  // what each hole showed last, so a pop-up slides back down (or stays bonked) after its time is up
+  const last = useRef<({ kind: WhackKind; hit: boolean } | undefined)[]>([]);
 
   useEffect(() => {
+    preloadWhackArt();
     const frame = setInterval(() => setNow(Date.now() + offset), 40);
     const report = (final: boolean) => {
       if (final || sent.current !== scoreRef.current) { sent.current = scoreRef.current; act((g) => reportWhack(g, me, scoreRef.current, final)); }
@@ -153,15 +158,20 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
     <>
       <h3><Icon name="mallet" /> Whack-an-Elf!</h3>
       <div className="pg-timer">{secs}s</div>
-      <div className="whack-score">{score}</div>
+      <div className="whack-score" key={score}>{score}</div>
       <div className="whack-grid">
         {showing.map((idx, c) => {
           const it = idx >= 0 ? items[idx] : undefined;
-          const up = !!it && !hit.current.has(idx);
+          const wasHit = idx >= 0 && hit.current.has(idx);
+          const up = !!it && !wasHit;
+          if (it) last.current[c] = { kind: it.kind, hit: wasHit };
+          const shown = last.current[c];
+          const state: HoleState = up ? 'up' : shown?.hit ? 'hit' : 'down';
           return (
-            <button key={c} className={`whack-cell${up ? ' up' : ''}${it?.kind === 'gold' ? ' gold' : ''}`} data-cell={c} data-kind={it ? it.kind : ''}
+            <button key={c} className={`whack-cell wh-cell ${state}${shown ? ` ${shown.kind}` : ''}`} data-cell={c} data-kind={it ? it.kind : ''}
               onPointerDown={() => tap(c)}>
-              <div className="pop" dangerouslySetInnerHTML={{ __html: it ? (it.kind === 'grinch' ? GRINCH_SVG : mascotSvg.elf) : '' }} />
+              <WhackHole kind={shown?.kind} state={state} />
+              <span className="wh-hit" />
               {floats.filter((f) => f.cell === c).map((f) => (
                 <div key={f.id} className="whack-float" style={{ color: f.v > 0 ? '#1f9d55' : '#d7263d' }}>{f.v > 0 ? `+${f.v}` : f.v}</div>
               ))}

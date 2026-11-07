@@ -13,6 +13,12 @@ test('Party MVP: highest score, ties share it, nobody if nobody scored', () => {
   assert.deepStrictEqual(S.partyMvps({ a: {}, b: { votingLosses: 2 } }), []);
 });
 
+test('Party Score standings: best first, ties share a place, then by name', () => {
+  const t = S.partyStandings({ a: { name: 'Cy', partyPoints: 2 }, b: { name: 'Al', votingWins: 3 }, c: { name: 'Bo', partyPoints: 1, votingWins: 1 }, d: { name: 'Di' } });
+  assert.deepStrictEqual(t.map((r) => [r.name, r.score, r.place]), [['Al', 3, 1], ['Bo', 2, 2], ['Cy', 2, 2], ['Di', 0, 4]]);
+  assert.deepStrictEqual([t[1].points, t[1].calls], [1, 1]);
+});
+
 test('bets: wrong callers pay 1 each, split between right callers; odd chip to the Bank', () => {
   const r = S.settleBets({
     s1: { votedFor: 'w', stake: 1 }, s2: { votedFor: 'w', stake: 1 },

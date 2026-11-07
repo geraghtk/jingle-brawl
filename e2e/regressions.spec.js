@@ -878,6 +878,9 @@ test.describe('Regressions (2026-10 review)', () => {
       expect(after[t1].chips, 'tie winner paid the bid of 2').toBe(8);
       expect(after[t1].partyPoints).toBe(3);
       expect(after[opener].partyPoints).toBe(2);
+      // the TV's overall leaderboard has it live, before the game ends
+      await expect(host.locator('#card-party-score .f6-row').first()).toContainText(t1);
+      await expect(host.locator(`#card-party-score [data-player-id="${p[opener].id}"]`)).toContainText('2 party pts');
       expect(after[t2].partyPoints ?? 0).toBe(0);
       expect(await H.dbGet(roomCode, 'minigame')).toBeNull();
       await expect(pages[t1].locator('#party-card')).toBeHidden();

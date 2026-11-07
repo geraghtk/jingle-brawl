@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { giftless, wrappedGifts } from '../core/rules';
+import { partyStandings } from '../core/scoring';
 import { minCost } from '../core/settings';
 import type { Game } from '../core/types';
 import { Avatar, avatarColor } from '../ui/avatar';
@@ -27,6 +28,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
         <div className="container">
           <div className="main-area">
             <TurnPanel />
+            <PartyScoreCard />
             <PlayersCard />
             <GiftsCard />
             <Records />
@@ -109,6 +111,34 @@ function GiftsCard() {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** The overall leaderboard: Party Score (party points + correct duel calls); the top is the Party MVP. */
+function PartyScoreCard() {
+  const { game } = useHost();
+  if (game.phase === 'lobby' || game.phase === 'ended') return null;
+  const table = partyStandings(game.players);
+  if (!table.length) return null;
+  const leader = table[0].score > 0;
+  return (
+    <div className="card" id="card-party-score">
+      <div className="card-title">Party Score</div>
+      <div className="f6-cap" style={{ marginBottom: 10 }}>Party games + correct duel calls. Top score is the Party MVP.</div>
+      <div className="f6-rows">
+        {table.map((r) => (
+          <div key={r.id} className={`f6-row${leader && r.place === 1 ? ' top' : ''}`} data-player-id={r.id}>
+            <span className="rank f6-num">{String(r.place).padStart(2, '0')}</span>
+            <Avatar name={r.name} avatar={game.players?.[r.id]?.avatar} />
+            <div className="who">
+              <div className="nm">{r.name}{leader && r.place === 1 && <> <Icon name="crown" /></>}</div>
+              <div className="sub">{r.points} party pt{r.points === 1 ? '' : 's'} · {r.calls} correct call{r.calls === 1 ? '' : 's'}</div>
+            </div>
+            <div className="stat"><div className="big">{r.score}</div><div className="small">score</div></div>
+          </div>
+        ))}
       </div>
     </div>
   );

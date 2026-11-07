@@ -12,6 +12,14 @@ export function partyMvps(players: Record<PlayerId, Partial<Player>> | undefined
   return best > 0 ? scores.filter(([, s]) => s === best).map(([id]) => id) : [];
 }
 
+/** The Party Score table, best first; ties share a place (1, 2, 2, 4). */
+export function partyStandings(players: Record<PlayerId, Partial<Player>> | undefined) {
+  const rows = Object.entries(players || {})
+    .map(([id, p]) => ({ id, name: p.name || '?', points: p.partyPoints || 0, calls: p.votingWins || 0, score: partyScore(p) }))
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  return rows.map((r) => ({ ...r, place: 1 + rows.findIndex((x) => x.score === r.score) }));
+}
+
 export function settleBets(votes: Record<PlayerId, DuelVote> | undefined, winnerId: PlayerId) {
   const delta: Record<PlayerId, number> = {};
   const staked = Object.entries(votes || {}).filter(([, v]) => (v?.stake || 0) > 0);

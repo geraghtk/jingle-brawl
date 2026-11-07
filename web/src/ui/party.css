@@ -12,16 +12,37 @@
 .pg .pg-colors { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 .pg .pg-colors button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
 .pg .pg-colors button.on { border-color: var(--ink, #111); }
-.pg .whack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 340px; margin: 0 auto; }
-.pg .whack-cell { aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; cursor: pointer; position: relative; overflow: hidden;
-  background: radial-gradient(circle at 50% 75%, #3b2a1e 0 38%, #6b4a33 39% 60%, #d9e7c4 61%); }
-.pg .whack-cell .pop { position: absolute; inset: 8% 12% 18%; transform: translateY(130%); transition: transform .12s ease-out; pointer-events: none; }
-.pg .whack-cell.up .pop { transform: translateY(0); }
-.pg .whack-cell.gold .pop { filter: sepia(1) saturate(4) hue-rotate(5deg) brightness(1.1); }
-.pg .whack-cell.hit .pop { transform: translateY(130%) scale(.8); transition-duration: .2s; }
-.pg .whack-cell svg { width: 100%; height: 100%; }
-.pg .whack-score { font: 800 26px/1 system-ui, sans-serif; margin-bottom: 8px; }
-.pg .whack-float { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-weight: 900; pointer-events: none; animation: pgFloat .6s ease-out forwards; }
+.pg .whack-grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 4px; max-width: 380px; margin: 0 auto; padding: 0 8px 8px; border-radius: 22px;
+  background: radial-gradient(circle at 20% 15%, #fff 0 2px, transparent 3px) 0 0 / 46px 52px, radial-gradient(circle at 70% 60%, #fff 0 1.5px, transparent 2.5px) 0 0 / 38px 44px,
+    linear-gradient(#dcebfb, #b9d3ef); box-shadow: inset 0 -6px 0 rgba(60, 90, 140, .12); }
+/* rows overlap (each cell is mostly headroom for its pop-up), so a cell only takes taps in its .wh-hit:
+   the pop-up and its hole, which the next row's hit area never reaches */
+.pg .whack-grid .wh-cell:nth-child(n+4) { margin-top: -13%; }
+.pg .whack-cell { border: 0; padding: 0; background: none; pointer-events: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pg .whack-cell .wh-hit { position: absolute; inset: 22% 8% 6%; pointer-events: auto; cursor: pointer; }
+
+/* One hole (ui/whack.tsx): back of the mound, the pit (clips the pop-up at the front lip), the lip. */
+.wh-cell { position: relative; aspect-ratio: 1; margin: 0; }
+.wh-cell > img, .wh-cell .wh-pit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; }
+.wh-cell .wh-pit { clip-path: inset(-20% 0 19% 0); }
+.wh-cell .wh-pop { position: absolute; inset: 0; width: 100%; height: 100%; transform: translateY(80%); transform-origin: 50% 81%; }
+.wh-cell.up .wh-pop { animation: whUp .2s cubic-bezier(.3, 1.6, .6, 1) forwards; }
+.wh-cell.down .wh-pop { animation: whDown .14s ease-in forwards; }
+.wh-cell.hit .wh-pop { animation: whHit .6s ease-in forwards; }
+.wh-cell.gold.up .wh-pop { filter: drop-shadow(0 0 6px rgba(255, 210, 63, .9)); }
+.wh-cell.grinch.hit { animation: whShake .3s; }
+.wh-cell .wh-mallet { inset: -4% -18% auto auto; width: 75%; height: 75%; transform-origin: 80% 85%; animation: whSwing .32s ease-out forwards; z-index: 2; }
+@keyframes whUp { from { transform: translateY(80%); } to { transform: translateY(0); } }
+@keyframes whDown { from { transform: translateY(0); } to { transform: translateY(80%); } }
+@keyframes whHit { 0% { transform: translateY(0) scale(1.08, .86); } 18% { transform: translateY(0) scale(.96, 1.04); } 55% { transform: translateY(0); } 100% { transform: translateY(80%); } }
+@keyframes whSwing { 0% { transform: rotate(55deg); opacity: 1; } 40% { transform: rotate(-30deg); opacity: 1; } 70% { transform: rotate(-22deg); opacity: 1; } 100% { transform: rotate(-22deg); opacity: 0; } }
+@keyframes whShake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+.wh-legend { display: flex; justify-content: center; gap: 6px; margin: 4px auto 10px; max-width: 420px; }
+.wh-legend figure { flex: 1; max-width: 130px; margin: 0; }
+.wh-legend figcaption { margin-top: -4px; font-weight: 900; font-size: 14px; color: var(--ink, #111); }
+.pg .whack-score { font: 800 26px/1 system-ui, sans-serif; margin-bottom: 8px; animation: pgBump .25s ease-out; }
+@keyframes pgBump { 40% { transform: scale(1.25); } }
+.pg .whack-float { position: absolute; left: 32%; top: 8%; z-index: 3; font-size: 22px; text-shadow: 0 2px 0 #fff, 0 0 6px #fff; transform: translateX(-50%); font-weight: 900; pointer-events: none; animation: pgFloat .6s ease-out forwards; }
 @keyframes pgFloat { to { transform: translate(-50%, -30px); opacity: 0; } }
 .pg .pg-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 .pg .pg-gallery figure { margin: 0; background: #fff; border-radius: 12px; padding: 6px; box-shadow: 0 2px 10px rgba(15,20,35,.08); position: relative; }
