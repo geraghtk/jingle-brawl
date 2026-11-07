@@ -86,8 +86,8 @@ PC: node room server                 same server on Fly.io / Railway / Cloud Run
 6. `game.minigame` is already a union (PartyGame | DrawOff); the new runtime gets its own field.
 
 ## Roadmap
-Plan: P0.1 retire the original pages (done 2026-11-07) → S1 intents + single commit path → S2
-per-viewer projections → S3 room server → S4 client transport → S5 tests on the server → S6
+Plan: P0.1 retire the original pages → S1 intents + single commit path → S2
+per-viewer projections → S3 room server (P0.1-S3 done 2026-11-07) → S4 client transport → S5 tests on the server → S6
 flip default + LAN join QR → S7 remove Firebase → S8 separate TV view → M1 mini-game runtime
 contracts → M2 Pass the Gremlin. Production track alongside: deploy (Docker + Fly.io), CI, abuse
 limits, room TTL, observability, privacy page, reconnect UX. Ring Toss (M4) and the Gift Conveyor

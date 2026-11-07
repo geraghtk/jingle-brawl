@@ -43,3 +43,5 @@ node_modules/
 
 # Vite build output
 dist/
+dist-server/
+rooms.db*

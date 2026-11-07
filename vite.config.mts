@@ -30,7 +30,7 @@ export default defineConfig({
   preview: { port: 4173, strictPort: true },
   test: {
     root: '.',
-    include: ['web/src/**/*.test.ts', 'web/src/**/*.test.tsx'],
+    include: ['web/src/**/*.test.ts', 'web/src/**/*.test.tsx', 'server/src/**/*.test.ts'],
     globals: true,
   },
 });

@@ -5,7 +5,10 @@
   "private": true,
   "scripts": {
     "dev": "vite --config vite.config.mts",
-    "build": "tsc -p tsconfig.json && vite build --config vite.config.mts",
+    "build": "tsc -p tsconfig.json && tsc -p server/tsconfig.json && vite build --config vite.config.mts && npm run build:server",
+    "build:server": "esbuild server/src/node/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/index.mjs",
+    "server": "vite-node server/src/node/main.ts --",
+    "start": "node dist-server/index.mjs",
     "preview": "vite preview --config vite.config.mts",
     "test:unit": "vitest run --config vite.config.mts",
     "analyze:economics": "vite-node web/src/sim/report.ts",
@@ -25,6 +28,7 @@
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
@@ -34,6 +38,7 @@
     "firebase": "^10.14.1",
     "qrcode-generator": "^1.4.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "ws": "^8.22.1"
   }
 }

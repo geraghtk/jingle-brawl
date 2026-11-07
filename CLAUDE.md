@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install                      # Playwright
 npm run emulator                 # local Realtime Database (:9000) + Auth (:9099) emulators — needs Java 21+
 npm run dev                      # the app on :5173 (Vite); Playwright builds + previews on :4173 itself
+npm run server -- --db :memory:  # the room server (dev, TS via vite-node) on :8787; --host 0.0.0.0 for phones on Wi-Fi
+npm run build && npm start       # build the app + the server bundle (dist-server/), run it (rooms in rooms.db)
 
 npm run test:e2e                 # full Playwright suite (boots server + emulators if not running)
 npm run test:flows               # game-flow permutations only
@@ -59,6 +61,7 @@ On localhost the app talks to the **emulators**, never production (`web/src/fire
 - `jingle_brawl_env.py` — Deep RL self-play simulation for balance testing
 - `e2e/` — Playwright specs + `helpers.js` (invariants, emulator REST helpers)
 - `agents/` — persona-agent play-testing harness (playability + settings/balance sweeps); see `agents/README.md`
+- `server/` — the room server (own `tsconfig.json`: no DOM, so `web/src/core` must stay DOM-free). `room/actor.ts` is one room's referee (intent → checks → `dispatch` → commit → save → timers from `hostAuto` → each screen its `projectGame` view), runtime-agnostic (Clock/Store/Conn); `room/rooms.ts` the registry + token secret; `store/` SQLite (`node:sqlite`) or memory; `node/` HTTP API (`/api/rooms`, join, lobby), WebSocket (`/ws`), static `dist/`, and `--debug-api` (localhost-only test helpers). Wire types: `web/src/net/protocol.ts`. Screens still talk to Firebase until the client switch (plan S4, `ARCHITECTURE.md`).
 
 **Real-time data flow:** host creates `games/{roomCode}` (claimed atomically by transaction) → all clients attach listeners → state changes propagate. Key paths: `players`, `gifts`, `currentTurn` (turn state machine), `phase`, `settings`, `minigame`, `lastDuel` (outcome the host publishes so phones show the right verdict).
 
