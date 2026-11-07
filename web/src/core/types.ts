@@ -143,6 +143,8 @@ export interface Game {
   currentTurn?: Turn | null;
   minigame?: import('./party').PartyGame | import('./drawoff').DrawOff | null;
   lastDuel?: LastDuel | null;
+  /** players + gifts as they were before the last duel was resolved (Admin → Undo); never shown. */
+  undo?: Pick<Game, 'players' | 'gifts'> | null;
 }
 
 /** RTDB server timestamp placeholder ({".sv": "timestamp"} is what serverTimestamp() sends). */

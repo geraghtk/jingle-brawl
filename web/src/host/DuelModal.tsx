@@ -1,24 +1,22 @@
 // The duel modal on the TV: red corner vs green corner, pot and tax, "X wins" buttons.
-import { resolveDuel } from '../core/duel';
-import { startDuelApp } from '../core/duelgame';
 import { DuelGameStage, useDuelGame } from './DuelGameStage';
-import { freshRng, useHost } from './HostContext';
+import { useHost } from './HostContext';
 import { useVoteGate, VotePanel } from './VoteGate';
 import { Avatar } from '../ui/avatar';
 
 export function DuelModal() {
-  const { game, act, takeSnapshot } = useHost();
+  const { game, send } = useHost();
   const t = game.currentTurn;
   const open = t?.phase === 'duel' && !t.isTiebreak;
   const name = (id?: string) => (id && game.players?.[id]?.name) || 'Unknown';
   const gift = t?.giftId ? game.gifts?.[t.giftId] : undefined;
   const pot = t?.pot || 0;
   const tax = t?.tax || 0;
-  const { locked: votesPending, now } = useVoteGate();
+  const { locked: votesPending } = useVoteGate();
   const { ready, choice } = useDuelGame();
   const locked = votesPending || !ready;
   const app = ready && choice?.kind === 'app' ? choice : null; // not before the wheel stops (spoiler)
-  const win = (id: string) => { if (locked) return; takeSnapshot(); act((g) => resolveDuel(g, id, now())); };
+  const win = (id: string) => { if (!locked) send({ type: 'duel_winner', id }); };
   return (
     <div className={`modal-overlay${open ? ' active' : ''}`} id="duel-modal-overlay">
       <div className="modal duel-modal" id="duel-modal-content">
@@ -53,7 +51,7 @@ export function DuelModal() {
                 {app ? (
                   <div className="duel-actions-row">
                     <button className="duel-win-btn duel-app-btn" disabled={locked} data-testid="start-duel-app"
-                      onClick={() => { takeSnapshot(); act((g) => startDuelApp(g, { now: now(), rng: freshRng() })); }}>▶ Start {app.name}</button>
+                      onClick={() => send({ type: 'start_duel_app' })}>▶ Start {app.name}</button>
                   </div>
                 ) : (
                 <div className="duel-actions-row">

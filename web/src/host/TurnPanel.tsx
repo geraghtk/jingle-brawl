@@ -4,20 +4,16 @@ import { DuelGameStage, useDuelGame } from './DuelGameStage';
 import { useVoteGate } from './VoteGate';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import * as A from '../core/actions';
-import * as D from '../core/duel';
-import * as DO from '../core/drawoff';
 import type { DrawOff } from '../core/drawoff';
 import { GAMES } from '../core/party';
 import type { PartyGame } from '../core/party';
-import { advanceParty } from '../core/partyflow';
 import { gambitTargets, giftless, rankedBids, reprisalTargets, topTiedBidders, wrappedGifts } from '../core/rules';
 import { minCost } from '../core/settings';
 import { partyMvps, partyScore } from '../core/scoring';
-import type { Game, Plan, Turn } from '../core/types';
+import type { Game, Turn } from '../core/types';
 import { usingEmulators } from '../firebase/app';
 import { Avatar, avatarColor } from '../ui/avatar';
-import { freshRng, useHost } from './HostContext';
+import { useHost } from './HostContext';
 import { OptionList, useModal } from './Modal';
 import { PartyPanel } from './PartyPanel';
 import { Glyphs, Icon } from '../ui/icons';
@@ -51,7 +47,7 @@ export function TurnPanel() {
 // --- the lobby ------------------------------------------------------------------------------
 
 function LobbyHero() {
-  const { game, room, act, cfg } = useHost();
+  const { game, room, send, cfg } = useHost();
   const players = Object.entries(game.players || {});
   const url = `${location.origin}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
   const svg = useMemo(() => {
@@ -75,7 +71,7 @@ function LobbyHero() {
             <div className="room-code" id="room-code-display">{room}</div>
           </div>
           <button className="btn btn-primary lobby-start-btn" id="btn-start-game" aria-label="Start Game" disabled={players.length < 2}
-            onClick={() => act(A.startGame)}>Start →</button>
+            onClick={() => send({ type: 'start' })}>Start →</button>
         </div>
         <div className="join-url" id="join-url">{url}</div>
         <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : 'Everyone in? Hit Start.'}</p>
@@ -228,7 +224,7 @@ const roomSeed = (room: string) => [...room].reduce((sum, c) => sum + c.charCode
 // --- which panel for which moment -------------------------------------------------------------
 
 function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof useModal>): Panel {
-  const { game, act, cfg, room } = host;
+  const { game, send, cfg, room } = host;
   const t = game.currentTurn;
   const close = () => setModal(null);
 
@@ -267,8 +263,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         action: <><span className="f6-chip tint" style={{ verticalAlign: 'middle', marginRight: 10 }}>Drawn from the sack</span>{nm(game, t.activePlayerId)} opened a gift!</>,
         area: <SealedBids t={t} />,
         buttons: <>
-          <button className="btn btn-gold" data-testid="reveal-bids" onClick={() => act(A.revealBids)}><Icon name="eye" /> Reveal All Bids</button>
-          <button className="btn btn-secondary" onClick={() => act(A.skipBidding)}>⏭️ No Bids (Skip)</button>
+          <button className="btn btn-gold" data-testid="reveal-bids" onClick={() => send({ type: 'reveal' })}><Icon name="eye" /> Reveal All Bids</button>
+          <button className="btn btn-secondary" onClick={() => send({ type: 'skip_bidding' })}>⏭️ No Bids (Skip)</button>
         </>,
       };
 
@@ -285,14 +281,14 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           ...base,
           details: <>No bids!<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {opener} to choose: Keep or Gambit?</span></>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" data-testid="override-keep" onClick={() => act(A.keepGift)}><Icon name="check" /> Opener Keeps Gift</button>
+            <button className="btn btn-primary" data-testid="override-keep" onClick={() => send({ type: 'keep' })}><Icon name="check" /> Opener Keeps Gift</button>
             <button className="btn btn-gold" onClick={() => {
               const targets = gambitTargets(game, t.giftId, t.openerId!);
               if (!targets.length) return alert('No other gifts to challenge!');
               setModal(<OptionList title="😈 Grinch's Gambit" intro={`${opener} can challenge anyone's gift!`} onCancel={close}
                 options={targets.map(([id, g]) => {
                   const cost = minCost(cfg, g.naughtyLevel);
-                  return { key: id, title: g.name, desc: `Owner: ${nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); act((x) => A.gambit(x, id)); } };
+                  return { key: id, title: g.name, desc: `Owner: ${nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); send({ type: 'gambit', giftId: id }); } };
                 })} />);
             }}><Icon name="gambit" /> Grinch's Gambit</button>
           </>} />,
@@ -311,10 +307,10 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
             <span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {opener} to choose: Fight or Yield?</span>
           </>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.hostTieFight(g, { now: Date.now(), rng: freshRng() }))}><Icon name="duel" /> Opener Fights → Party Game picks 1</button>
+            <button className="btn btn-primary" data-testid="override-fight" onClick={() => send({ type: 'fight' })}><Icon name="duel" /> Opener Fights → Party Game picks 1</button>
             {tied.length === 2
-              ? <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, tied[0], tied[1], false, { now: Date.now(), rng: freshRng() }))}><Icon name="run" /> Opener Yields → the 2 fight</button>
-              : <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.hostTieYield(g, { now: Date.now(), rng: freshRng() }))}><Icon name="run" /> Opener Yields → Party Game picks 2</button>}
+              ? <button className="btn btn-gold" data-testid="override-yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Opener Yields → the 2 fight</button>
+              : <button className="btn btn-gold" data-testid="override-yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Opener Yields → Party Game picks 2</button>}
           </>} />,
         };
       }
@@ -323,14 +319,14 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           ...base,
           details: <>Highest bid: <strong>{nm(game, c1)}</strong> ({top} chips). Second: {nm(game, second[0])}<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {opener} to choose: Fight or Yield?</span></>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
-            <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.startDuel(g, c1, t.openerId!))}><Icon name="duel" /> Duel: {nm(game, c1)} vs Opener</button>
-            <button className="btn btn-secondary" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, c1, second[0], false, { now: Date.now(), rng: freshRng() }))}><Icon name="run" /> Opener Yields</button>
+            <button className="btn btn-primary" data-testid="override-fight" onClick={() => send({ type: 'fight' })}><Icon name="duel" /> Duel: {nm(game, c1)} vs Opener</button>
+            <button className="btn btn-secondary" data-testid="override-yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Opener Yields</button>
           </>} />,
         };
       }
       return {
         ...base, details: `Highest bid: ${nm(game, c1)} (${top} chips)`,
-        buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => act((g) => A.startDuel(g, c1, t.openerId!))}><Icon name="duel" /> Start Duel</button>,
+        buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => send({ type: 'start_duel' })}><Icon name="duel" /> Start Duel</button>,
       };
     }
 
@@ -340,8 +336,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: '🎲 SELECTED', badgeClass: 'reveal', action: `${a} & ${b} Selected!`,
         details: <>Both bid {t.bids?.[t.selectedC1!]?.amount || 0} chips.<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {nm(game, t.openerId)} to choose: Fight or Yield?</span></>,
         buttons: <Waiting who="Opener" what={`${nm(game, t.openerId)} is choosing on their device`} override={<>
-          <button className="btn btn-primary" data-testid="override-fight" onClick={() => act((g) => A.startTiebreaker(g, t.selectedC1!, t.selectedC2!, { now: Date.now(), rng: freshRng() }))}><Icon name="duel" /> Tiebreaker → Winner vs Opener</button>
-          <button className="btn btn-gold" data-testid="override-yield" onClick={() => act((g) => A.startYieldDuel(g, t.selectedC1!, t.selectedC2!, true, { now: Date.now(), rng: freshRng() }))}><Icon name="run" /> Opener Yields → {a} vs {b}</button>
+          <button className="btn btn-primary" data-testid="override-fight" onClick={() => send({ type: 'fight' })}><Icon name="duel" /> Tiebreaker → Winner vs Opener</button>
+          <button className="btn btn-gold" data-testid="override-yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Opener Yields → {a} vs {b}</button>
         </>} />,
       };
     }
@@ -357,14 +353,14 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           <span className="dp-side f6-disp" style={{ color: 'var(--accent2)' }}>{nm(game, t.openerId).toUpperCase()}</span>
           <Avatar name={nm(game, t.openerId)} avatar={game.players?.[t.openerId!]?.avatar} size={52} />
         </div>,
-        buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => act((g) => A.startDuel(g, t.challengerId!, t.openerId!))}><Icon name="duel" /> Start Duel!</button>,
+        buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => send({ type: 'start_duel' })}><Icon name="duel" /> Start Duel!</button>,
       };
 
     case 'yield_pending':
       return {
         badge: '🏃 YIELD', badgeClass: 'reveal', action: `${nm(game, t.openerId)} chose to YIELD!`,
         details: <>{nm(game, t.yieldC1)} vs {nm(game, t.yieldC2)} will fight for the gift directly.<br /><span style={{ color: 'var(--text-muted)' }}>Click to start the yield duel (both pay half bids).</span></>,
-        buttons: <button className="btn btn-gold" data-testid="start-yield-duel" onClick={() => act((g) => A.startYieldDuel(g, t.yieldC1!, t.yieldC2!, false, { now: Date.now(), rng: freshRng() }))}><Icon name="run" /> Start Yield Duel!</button>,
+        buttons: <button className="btn btn-gold" data-testid="start-yield-duel" onClick={() => send({ type: 'start_yield_duel' })}><Icon name="run" /> Start Yield Duel!</button>,
       };
 
     case 'tiebreaker_pending': {
@@ -376,7 +372,6 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
 
     case 'duel': {
       const gift = t.giftId ? game.gifts?.[t.giftId] : undefined;
-      const record = t.isTiebreak ? A.recordTiebreakWinner : (g: Game, id: string) => D.resolveDuel(g, id, Date.now());
       return {
         badge: t.isTiebreak ? '⚖️ TIEBREAK' : '⚔️ DUEL', badgeClass: 'duel',
         action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}`,
@@ -384,7 +379,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           {t.isTiebreak ? <span style={{ color: 'var(--accent-gold)' }}>Winner becomes the Challenger!</span> : <>Fighting for: "<strong>{gift?.name}</strong>"</>}
           {t.isTiebreak && <DuelGameStage compact />}
         </>,
-        buttons: <DuelWinnerButtons t={t} record={record} />,
+        buttons: <DuelWinnerButtons t={t} />,
       };
     }
 
@@ -397,9 +392,9 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           <button className="btn btn-gold" onClick={() => setModal(<OptionList title="🦌 Choose Reprisal Target" intro="Select a gift to challenge (costs Min Cost to Bank)" onCancel={close}
             options={reprisalTargets(game, t.excludedGiftId, t.reprisalPlayerId!).map(([id, g]) => {
               const cost = minCost(cfg, g.naughtyLevel);
-              return { key: id, title: g.name, desc: `Owner: ${g.ownerId === 'misfit' ? 'Misfit Pile' : nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); act((x) => D.chooseReprisal(x, id, Date.now())); } };
+              return { key: id, title: g.name, desc: `Owner: ${g.ownerId === 'misfit' ? 'Misfit Pile' : nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); send({ type: 'reprisal', giftId: id }); } };
             })} />)}><Icon name="target" /> Choose Target for Them</button>
-          <button className="btn btn-secondary" data-testid="override-skip-reprisal" onClick={() => act(D.skipReprisal)}>⏭️ Skip Reprisal</button>
+          <button className="btn btn-secondary" data-testid="override-skip-reprisal" onClick={() => send({ type: 'skip_reprisal' })}>⏭️ Skip Reprisal</button>
         </>} />,
       };
     }
@@ -411,7 +406,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         details: <>Target: "{t.misfitName}"<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {who} to choose path...</span></>,
         buttons: <Waiting who="Player" what={`${who} is choosing on their device`} override={<>
           <button className="btn btn-primary" onClick={() => stealModal()}><Icon name="target" /> Path A: Steal a Gift</button>
-          <button className="btn btn-gold" data-testid="override-auction" onClick={() => act(D.startAuction)}><Icon name="bid" /> Path B: Auction for Misfit</button>
+          <button className="btn btn-gold" data-testid="override-auction" onClick={() => send({ type: 'path', path: 'auction' })}><Icon name="bid" /> Path B: Auction for Misfit</button>
         </>} />,
       };
     }
@@ -436,8 +431,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: '🎰 AUCTION', badgeClass: 'bidding', action: `Auction for "${t.misfitName}"`,
         details: 'Everyone can bid! Active player duels highest bidder.', area: <SealedBids t={t} />,
         buttons: <>
-          <button className="btn btn-gold" data-testid="reveal-auction" onClick={() => act(D.revealAuction)}><Icon name="eye" /> Reveal Bids</button>
-          <button className="btn btn-secondary" onClick={() => act(D.skipAuction)}>⏭️ No Bids</button>
+          <button className="btn btn-gold" data-testid="reveal-auction" onClick={() => send({ type: 'reveal_auction' })}><Icon name="eye" /> Reveal Bids</button>
+          <button className="btn btn-secondary" onClick={() => send({ type: 'skip_auction' })}>⏭️ No Bids</button>
         </>,
       };
     case 'endgame_reveal': {
@@ -446,7 +441,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: '👁️ REVEAL', badgeClass: 'reveal', action: 'Auction Bids Revealed!', area: <RevealChart t={t} />,
         details: bids.length ? `Highest: ${nm(game, bids[0][0])} (${bids[0][1]} chips)` : 'No bids! Active player chooses a defender.',
         buttons: bids.length
-          ? <button className="btn btn-primary" data-testid="auction-duel" onClick={() => act((g) => D.auctionDuel(g, bids[0][0]))}><Icon name="duel" /> Duel Highest Bidder</button>
+          ? <button className="btn btn-primary" data-testid="auction-duel" onClick={() => send({ type: 'auction_duel' })}><Icon name="duel" /> Duel Highest Bidder</button>
           : <button className="btn btn-primary" onClick={() => defenderModal()}><Icon name="target" /> Choose Defender</button>,
       };
     }
@@ -458,12 +453,12 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: `${g.emoji} ${g.label.toUpperCase()}`, badgeClass: 'reveal', action: `${g.emoji} ${g.label}: everyone plays!`,
         details: 'Tied bidders play for the tie; everyone else for party points.',
         areaTitle: 'Party game', area: mg ? <PartyPanel mg={mg} /> : null,
-        buttons: mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => act((x) => advanceParty(x, mg.phase, Date.now()), { quiet: true })}>
+        buttons: mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => send({ type: 'skip_party' }, { quiet: true })}>
           <Glyphs>{mg.phase === 'results' ? '⚔️ Continue to the duel' : '⏭ Skip ahead'}</Glyphs>
         </button>,
       };
     }
-    case 'minigame_draw_off': return drawOffPanel(game, act);
+    case 'minigame_draw_off': return drawOffPanel(game, send);
     default: return { badge: t.phase, action: 'Waiting…' };
   }
 
@@ -473,13 +468,13 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
     setModal(<OptionList title="🎯 Path A: Steal a Gift" intro={`${nm(game, t!.activePlayerId)} challenges a player. Loser takes the misfit.`} onCancel={close}
       options={targets.map(([id, g]) => {
         const cost = minCost(cfg, g.naughtyLevel);
-        return { key: id, title: g.name, desc: `Owner: ${nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); act((x) => D.executeSteal(x, id)); } };
+        return { key: id, title: g.name, desc: `Owner: ${nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); send({ type: 'steal', giftId: id }); } };
       })} />);
   }
   function defenderModal() {
     setModal(<OptionList title="🎯 Choose Your Defender" intro={`${nm(game, t!.activePlayerId)} picks someone to duel. Win = free misfit. Lose = pay 1 chip toll.`} onCancel={close}
       options={Object.entries(game.players || {}).filter(([id]) => id !== t!.activePlayerId)
-        .map(([id, p]) => ({ key: id, title: p.name, testid: `override-defender-${id}`, onPick: () => { close(); act((x) => D.noBidsDuel(x, id)); } }))} />);
+        .map(([id, p]) => ({ key: id, title: p.name, testid: `override-defender-${id}`, onPick: () => { close(); send({ type: 'nobids_defender', playerId: id }); } }))} />);
   }
 }
 
@@ -516,7 +511,7 @@ function finalTally(game: Game): Panel {
   };
 }
 
-function drawOffPanel(game: Game, act: ReturnType<typeof useHost>['act']): Panel {
+function drawOffPanel(game: Game, send: ReturnType<typeof useHost>['send']): Panel {
   const mg = game.minigame as DrawOff | undefined;
   if (!mg || mg.type !== 'draw_off') return { badge: '🎨 DRAW OFF', badgeClass: 'reveal', action: 'AI Draw Off', details: 'Loading...' };
   const players = game.players || {};
@@ -564,7 +559,7 @@ function drawOffPanel(game: Game, act: ReturnType<typeof useHost>['act']): Panel
             </>, winners.has(pid));
           })}</div>
         </>,
-        buttons: <button className="btn btn-gold" onClick={() => act(DO.completeDrawOff)} style={{ fontSize: '1.1rem', padding: '1rem 2rem' }}><Icon name="duel" /> Continue to Duel</button>,
+        buttons: <button className="btn btn-gold" onClick={() => send({ type: 'complete_drawoff' })} style={{ fontSize: '1.1rem', padding: '1rem 2rem' }}><Icon name="duel" /> Continue to Duel</button>,
       };
     }
   }
@@ -578,8 +573,8 @@ function DrawOffTimer({ endsAt }: { endsAt?: number }) {
 
 /** "X Wins" in the turn panel (tiebreaks have no modal). A component, so the wheel's and the
  *  vote's timers re-render it — the lock lifts the moment the wheel stops / the votes are in. */
-function DuelWinnerButtons({ t, record }: { t: Turn; record: (g: Game, id: string) => Plan }) {
-  const { game, act, takeSnapshot } = useHost();
+function DuelWinnerButtons({ t }: { t: Turn }) {
+  const { game, send } = useHost();
   const { ready, choice } = useDuelGame();
   const { locked: votesPending } = useVoteGate();
   const locked = !ready || (!t.isTiebreak && votesPending) || choice?.kind === 'app';
@@ -591,7 +586,7 @@ function DuelWinnerButtons({ t, record }: { t: Turn; record: (g: Game, id: strin
       <div style={{ display: 'flex', gap: '1rem' }}>
         {[t.challengerId!, t.defenderId!].map((id) => (
           <button key={id} className="btn btn-duel" disabled={locked} data-testid={`${t.isTiebreak ? 'tiebreak' : 'duel'}-winner-${id}`}
-            onClick={() => { if (!t.isTiebreak) takeSnapshot(); act((g) => record(g, id)); }}><Icon name="trophy" /> {nm(game, id)} Wins</button>
+            onClick={() => send({ type: 'duel_winner', id })}><Icon name="trophy" /> {nm(game, id)} Wins</button>
         ))}
       </div>
     </>

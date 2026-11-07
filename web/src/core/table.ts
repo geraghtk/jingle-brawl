@@ -4,15 +4,19 @@
 // button's click does. Simulated guests (sim/table.ts) and the live-app driver
 // (agents/live.js) both act through these, so they press exactly what a person could.
 //
-// Two offers carry what the person did with their hands, filled in by whoever plays them:
+// Some offers carry what the person did with their hands, filled in by whoever plays them:
 //   whack   {score, final}   their Whack-an-Elf score so far (final: time's up)
-//   sketch  {drawing}        their Sketch-Off drawing (an image data URL)
+//   sketch  {drawing}        their Sketch-Off / Draw Off drawing (an image data URL)
+//   draw    {giftName, seed} the gift being opened; the seed lets the console name who is drawn first
 import * as A from './actions';
 import * as D from './duel';
+import * as DO from './drawoff';
+import type { DrawOff } from './drawoff';
 import { chooseDuelGame, duelAppWinner, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, startDuelApp } from './duelgame';
 import { GAMES } from './party';
 import type { PartyGame } from './party';
 import { advanceParty, reportWhack, submitSketch, voteSketch } from './partyflow';
+import { rng as seeded } from './rng';
 import type { Rng } from './rng';
 import { gambitTargets, giftless, misfitPile, rankedBids, reprisalTargets, stealTargets, topTiedBidders, wrappedGifts } from './rules';
 import { config, minCost } from './settings';
@@ -44,8 +48,9 @@ export type Offer =
   | { type: 'vote_sketch'; pick: PlayerId }
   // the host's console
   | { type: 'start' }
-  | { type: 'draw'; giftName?: string }
+  | { type: 'draw'; giftName?: string; seed?: number }
   | { type: 'reveal' }
+  | { type: 'skip_bidding' }
   | { type: 'start_duel' }
   | { type: 'start_yield_duel' }
   | { type: 'host_spin' }
@@ -55,6 +60,8 @@ export type Offer =
   | { type: 'skip_party' }
   | { type: 'endgame' }
   | { type: 'reveal_auction' }
+  | { type: 'skip_auction' }
+  | { type: 'complete_drawoff' }
   | { type: 'auction_duel' }
   | { type: 'end' };
 
@@ -144,6 +151,10 @@ function phoneOffers(game: Game, me: PlayerId, now: number): Offer[] {
       }
       return [];
     }
+    case 'minigame_draw_off': {
+      const mg = game.minigame as DrawOff | undefined;
+      return mg?.type === 'draw_off' && mg.phase === 'drawing' && mg.participants.includes(me) && !mg.submissions?.[me] ? [{ type: 'sketch' }] : [];
+    }
     default:
       return [];
   }
@@ -163,16 +174,23 @@ function hostOffers(game: Game, now: number): Offer[] {
     return out;
   }
   switch (t.phase) {
-    case 'bidding': return [{ type: 'reveal' }];
-    // the console's Manual Override (for a player who can't use their phone): keep, fight / yield,
-    // skip the Reprisal, the auction, a defender
+    case 'bidding': return [{ type: 'reveal' }, { type: 'skip_bidding' }];
+    // the console's Manual Override (for a player who can't use their phone): keep or a Gambit,
+    // fight / yield, the Reprisal, the endgame path, the auction, a defender
     case 'reveal': {
       const n = rankedBids(t).filter(([, a]) => a > 0).length;
-      return n === 0 ? [{ type: 'keep' }] : n === 1 ? [{ type: 'start_duel' }] : [{ type: 'fight' }, { type: 'yield' }];
+      if (n === 0) return [{ type: 'keep' }, ...affordable(game, t.openerId!, gambitTargets(game, t.giftId, t.openerId!)).map((id): Offer => ({ type: 'gambit', giftId: id }))];
+      return n === 1 ? [{ type: 'start_duel' }] : [{ type: 'fight' }, { type: 'yield' }];
     }
     case 'yield_choice': return [{ type: 'fight' }, { type: 'yield' }];
-    case 'reprisal': return [{ type: 'skip_reprisal' }];
-    case 'endgame_choice': return [{ type: 'path', path: 'auction' }];
+    case 'reprisal': return [
+      ...affordable(game, t.reprisalPlayerId!, reprisalTargets(game, t.excludedGiftId, t.reprisalPlayerId!)).map((id): Offer => ({ type: 'reprisal', giftId: id })),
+      { type: 'skip_reprisal' },
+    ];
+    case 'endgame_choice': return [
+      ...affordable(game, t.activePlayerId!, stealTargets(game, t.activePlayerId!)).map((id): Offer => ({ type: 'steal', giftId: id })),
+      { type: 'path', path: 'auction' },
+    ];
     case 'endgame_nobids': return Object.keys(game.players || {}).filter((id) => id !== t.activePlayerId).map((id) => ({ type: 'nobids_defender', playerId: id }));
     case 'duel_pending': return [{ type: 'start_duel' }];
     case 'yield_pending': return [{ type: 'start_yield_duel' }];
@@ -187,16 +205,33 @@ function hostOffers(game: Game, now: number): Offer[] {
       return [...out, { type: 'duel_winner', id: t.challengerId! }, { type: 'duel_winner', id: t.defenderId! }];
     }
     case 'minigame_party': return game.minigame && (game.minigame as PartyGame).type in GAMES ? [{ type: 'skip_party' }] : [];
-    case 'endgame_bidding': return [{ type: 'reveal_auction' }];
+    case 'endgame_bidding': return [{ type: 'reveal_auction' }, { type: 'skip_auction' }];
+    case 'minigame_draw_off': {
+      const mg = game.minigame as DrawOff | undefined;
+      return mg?.type === 'draw_off' && mg.phase === 'results' && mg.winners?.length ? [{ type: 'complete_drawoff' }] : [];
+    }
     case 'endgame_reveal': return rankedBids(t).length ? [{ type: 'auction_duel' }] : [];
     default: return [];
   }
 }
 
+/** Fields a person fills in (not compared with what's offered). */
+export const HAND_FILLED = ['score', 'final', 'drawing', 'giftName', 'seed', 'name'];
+
 /** Is this offer one of `who`'s right now? (Fields a player fills in aren't compared.) */
 export function isOffered(game: Game, who: Who, offer: Offer, now: number): boolean {
-  const fixed = (o: Offer) => JSON.stringify(Object.entries(o).filter(([k]) => !['score', 'final', 'drawing', 'giftName', 'name'].includes(k)).sort());
+  if (offer.type === 'bid' && who !== HOST && changesBid(game, who, offer.amount)) return true;
+  const fixed = (o: Offer) => JSON.stringify(Object.entries(o).filter(([k]) => !HAND_FILLED.includes(k)).sort());
   return offers(game, who, now).some((o) => fixed(o) === fixed(offer));
+}
+
+/** A sealed bid can be changed until the reveal (the phone's Change Bid; offers() lists only first bids). */
+function changesBid(game: Game, me: PlayerId, amount: number): boolean {
+  const t = game.currentTurn;
+  const p = game.players?.[me];
+  if (!t || !p || !t.bids?.[me] || (t.phase !== 'bidding' && t.phase !== 'endgame_bidding')) return false;
+  const owner = t.phase === 'bidding' ? t.openerId : t.activePlayerId;
+  return me !== owner && Number.isInteger(amount) && amount >= 0 && amount <= Math.min(p.chips, config(game.settings).maxBid);
 }
 
 /** The plan that pressing `offer` produces (the same action the button's click runs). */
@@ -219,7 +254,7 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'pick_duel': return chooseDuelGame(game, who, offer.index);
     case 'spin': return spinDuelGame(game, ctx, who);
     case 'call_duel': return A.voteOnDuel(game, who, offer.pick, ctx.now);
-    case 'reprisal': return D.chooseReprisal(game, offer.giftId, ctx.now);
+    case 'reprisal': return D.chooseReprisal(game, offer.giftId, ctx.now);   // the phone's, or the host's for them
     case 'skip_reprisal': return D.skipReprisal(game);
     case 'path': return offer.path === 'steal' ? D.chooseSteal(game) : D.startAuction(game);
     case 'steal': return D.executeSteal(game, offer.giftId);
@@ -229,8 +264,9 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'sketch': return submitSketch(game, who, offer.drawing || 'data:,');
     case 'vote_sketch': return voteSketch(game, who, offer.pick);
     case 'start': return A.startGame(game);
-    case 'draw': return A.drawGift(game, offer.giftName || ctx.giftName || 'A gift', `gift_${ctx.now}`, ctx);
+    case 'draw': return A.drawGift(game, offer.giftName || ctx.giftName || 'A gift', `gift_${ctx.now}`, offer.seed == null ? ctx : { ...ctx, rng: seeded(offer.seed) });
     case 'reveal': return A.revealBids(game);
+    case 'skip_bidding': return A.skipBidding(game);
     case 'start_duel': {
       const c = t.phase === 'duel_pending' ? t.challengerId! : rankedBids(t).filter(([, a]) => a > 0)[0][0];
       return A.startDuel(game, c, t.openerId!);
@@ -243,6 +279,8 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'skip_party': return advanceParty(game, (game.minigame as PartyGame).phase, ctx.now);
     case 'endgame': return D.startEndgame(game);
     case 'reveal_auction': return D.revealAuction(game);
+    case 'skip_auction': return D.skipAuction(game);
+    case 'complete_drawoff': return DO.completeDrawOff(game);
     case 'auction_duel': return D.auctionDuel(game, rankedBids(t)[0][0]);
     case 'end': return A.endGame(game);
   }

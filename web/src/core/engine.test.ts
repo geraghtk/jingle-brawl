@@ -2,6 +2,7 @@
 // through the real pages, so the React apps inherit exactly the behaviour those tests pin.
 import { describe, expect, it } from 'vitest';
 import * as A from './actions';
+import * as Admin from './admin';
 import * as D from './duel';
 import * as P from './partyflow';
 import { apply, chipsOf, ctx, NOW, table } from './testkit';
@@ -33,6 +34,22 @@ describe('lobby', () => {
     g = apply(g, A.startGame(g));
     expect(g.players!.a).toMatchObject({ name: 'bAl/b', chips: 15 });
     expect(A.startGame({ phase: 'lobby', players: { a: { name: 'x', chips: 1 } } }).error).toBeTruthy();
+  });
+});
+
+describe('Admin undo', () => {
+  it('puts players and gifts back as they were before the last duel, once (the snapshot lives in the game, not the host tab)', () => {
+    let g = opened(table(3));
+    g = bid(g, { p2: 2, p3: 0 });
+    g = apply(g, A.revealBids(g));
+    g = apply(g, A.startDuel(g, 'p2', 'p1'));
+    const before = { players: g.players, gifts: g.gifts };
+    g = apply(g, D.resolveDuel(g, 'p2', NOW));
+    expect(g.gifts!.gA.ownerId).toBe('p2');
+    g = apply(g, Admin.undoDuel(g));
+    expect({ players: g.players, gifts: g.gifts }).toEqual(before);
+    expect(g.undo ?? null).toBeNull();
+    expect(Admin.undoDuel(g).error).toBeTruthy();
   });
 });
 

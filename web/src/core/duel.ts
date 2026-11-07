@@ -34,7 +34,8 @@ export function resolveDuel(game: Game, winnerId: PlayerId, now: number): Plan {
   if (votes.blocking && votes.endsAt != null) return refuse(`Waiting for ${votes.waiting.length} vote${votes.waiting.length > 1 ? 's' : ''}`);
 
   const cfg = config(game.settings);
-  const tx = new Tx(game).claim('currentTurn/resolvedBy', winnerId);
+  const tx = new Tx(game).claim('currentTurn/resolvedBy', winnerId)
+    .set('undo', { players: game.players || {}, gifts: game.gifts || {} });
   const pot = t.pot || 0;
   if (pot > 0) tx.add(`players/${winnerId}/chips`, pot).event(`${name(game, winnerId)} wins pot of ${pot} chips!`, 'bid');
 

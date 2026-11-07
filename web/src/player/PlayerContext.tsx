@@ -1,10 +1,13 @@
-// What every phone screen needs: the live game, who I am, the settings, and act().
+// What every phone screen needs: the live game, who I am, the settings, and send() (a button's intent).
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { dispatch } from '../core/intents';
+import type { Intent } from '../core/intents';
+import { rng } from '../core/rng';
 import { config } from '../core/settings';
 import type { Config } from '../core/settings';
-import type { Game, Plan, Player } from '../core/types';
-import { applyPlan } from '../firebase/game';
+import type { Game, Player } from '../core/types';
+import { applyPlan, useServerOffset } from '../firebase/game';
 
 export interface PlayerCtx {
   room: string;
@@ -12,8 +15,8 @@ export interface PlayerCtx {
   game: Game;
   cfg: Config;
   player: Player;
-  /** Build a plan from the CURRENT game and apply it; refusals show as a toast. */
-  act: (build: (game: Game) => Plan) => Promise<boolean>;
+  /** A button: ask for something (refused unless it's on my screen now); refusals show as a toast. */
+  send: (intent: Intent) => Promise<boolean>;
   toast: (msg: string) => void;
 }
 
@@ -28,14 +31,16 @@ export function usePlayer(): PlayerCtx {
 export function PlayerProvider({ room, me, game, toast, children }: { room: string; me: string; game: Game; toast: (m: string) => void; children: ReactNode }) {
   const latest = useRef(game);
   latest.current = game;
-  const act = useCallback(async (build: (g: Game) => Plan) => {
-    const plan = build(latest.current);
+  const offset = useRef(0);
+  offset.current = useServerOffset();
+  const send = useCallback(async (intent: Intent) => {
+    const plan = dispatch(latest.current, me, intent, { now: Date.now() + offset.current, rng: rng(Date.now() ^ Math.floor(Math.random() * 1e9)) });
     if (plan.error) { toast(plan.error); return false; }
     return applyPlan(room, plan);
-  }, [room, toast]);
+  }, [room, me, toast]);
   const player = game.players?.[me];
   if (!player) return null;
-  return <Ctx.Provider value={{ room, me, game, cfg: config(game.settings), player, act, toast }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ room, me, game, cfg: config(game.settings), player, send, toast }}>{children}</Ctx.Provider>;
 }
 
 /** Toast state for the phone. */

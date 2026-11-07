@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAMES, rank, whackPoints, whackSequence } from '../core/party';
 import type { PartyGame } from '../core/party';
-import { reportWhack, submitSketch, voteSketch } from '../core/partyflow';
 import { useServerOffset } from '../firebase/game';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
@@ -56,7 +55,7 @@ const COLORS = ['#111', '#d7263d', '#1f9d55', '#1e6fd9', '#f2a900', '#8b5a2b'];
 type Stroke = { color: string; pts: [number, number][] };
 
 function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: number }) {
-  const { me, act } = usePlayer();
+  const { me, send } = usePlayer();
   const canvas = useRef<HTMLCanvasElement>(null);
   const strokes = useRef<Stroke[]>([]);
   const current = useRef<Stroke | null>(null);
@@ -86,7 +85,7 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
     setSubmitted(true);
     const out = document.createElement('canvas'); out.width = out.height = 320;
     out.getContext('2d')!.drawImage(canvas.current, 0, 0, 320, 320);
-    act((g) => submitSketch(g, me, out.toDataURL('image/jpeg', 0.7)));
+    send({ type: 'sketch', drawing: out.toDataURL('image/jpeg', 0.7) });
   };
   useEffect(() => {
     paint();
@@ -116,7 +115,7 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
 }
 
 function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: number }) {
-  const { me, act } = usePlayer();
+  const { send } = usePlayer();
   const items = useMemo(() => whackSequence(mg.seed), [mg.seed]);
   const [now, setNow] = useState(() => Date.now() + offset);
   const [score, setScore] = useState(0);
@@ -132,7 +131,7 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
     preloadWhackArt();
     const frame = setInterval(() => setNow(Date.now() + offset), 40);
     const report = (final: boolean) => {
-      if (final || sent.current !== scoreRef.current) { sent.current = scoreRef.current; act((g) => reportWhack(g, me, scoreRef.current, final)); }
+      if (final || sent.current !== scoreRef.current) { sent.current = scoreRef.current; send({ type: 'whack', score: scoreRef.current, final }); }
     };
     const live = setInterval(() => report(false), 700);
     const end = setTimeout(() => { clearInterval(frame); clearInterval(live); report(true); }, Math.max(0, mg.phaseEndsAt - (Date.now() + offset) - 150));
@@ -184,7 +183,7 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
 }
 
 function Voting({ mg, secs }: { mg: PartyGame; secs: number }) {
-  const { me, act } = usePlayer();
+  const { me, send } = usePlayer();
   const myVote = mg.votes?.[me];
   const order = rank(Object.keys(mg.submissions || {}), {}, mg.seed); // stable shuffle
   return (
@@ -198,7 +197,7 @@ function Voting({ mg, secs }: { mg: PartyGame; secs: number }) {
             {pid === me ? (
               <><img src={mg.submissions![pid]} alt="your drawing" /><figcaption>Yours</figcaption></>
             ) : (
-              <button data-vote={pid} onClick={() => act((g) => voteSketch(g, me, pid))}>
+              <button data-vote={pid} onClick={() => send({ type: 'vote_sketch', pick: pid })}>
                 <img src={mg.submissions![pid]} alt={`drawing ${i + 1}`} /><figcaption>#{i + 1}{myVote === pid ? ' ✓' : ''}</figcaption>
               </button>
             )}

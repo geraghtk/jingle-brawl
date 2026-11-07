@@ -44,12 +44,6 @@ describe('admin', () => {
     expect(g.gifts!.gc.ownerId).toBe('misfit');
     expect(Admin.addGift(g, 'ge', '  ', 'misfit', NOW).error).toBeTruthy();
   });
-  it('undo restores players and gifts', () => {
-    const before = withGifts();
-    const after = apply(before, Admin.setChips(before, 'p1', 3));
-    const back = apply(after, Admin.restore(after, { players: before.players, gifts: before.gifts }));
-    expect(back.players).toEqual(before.players);
-  });
 });
 
 describe('AI Draw Off', () => {

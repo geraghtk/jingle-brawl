@@ -15,7 +15,8 @@ import { phoneScreen, tvScreen } from '../core/screens';
 import type { Screen } from '../core/screens';
 import { HOST, isOffered, offers, perform } from '../core/table';
 import type { Offer, Who } from '../core/table';
-import { applyUpdates, getPath } from '../core/tx';
+import { commitPlan } from '../core/commit';
+import { dueStep } from '../core/scheduler';
 import type { Game, Plan, Settings } from '../core/types';
 import { avatarLabel, drawingsOf, GIFTS, PatientHost, Physics, pickAvatar, situation } from './world';
 import type { AvatarPicks, HostOptions, Person, Situation } from './world';
@@ -72,9 +73,7 @@ export class Table {
   // --- acting --------------------------------------------------------------------------------
 
   private applyTo(g: Game, plan: Plan): Game {
-    if (plan.claim && getPath(g, plan.claim.path) != null) return g;
-    const claimed = plan.claim ? applyUpdates(g, { [plan.claim.path]: plan.claim.value }, this.now) : g;
-    return applyUpdates(claimed, plan.updates, this.now);
+    return commitPlan(g, plan, this.now).game;
   }
 
   private note(text: string, who?: Who, kind: TableEvent['kind'] = 'event', priv = false) {
@@ -117,12 +116,7 @@ export class Table {
 
   /** The host page's automatic step due soonest by `until` (each key once while it stands). */
   private dueStep(until: number): AutoStep | null {
-    const steps = hostAuto(this.game);
-    const live = new Set(steps.map((s) => s.key));
-    for (const k of this.fired) if (!live.has(k)) this.fired.delete(k);
-    const due = steps.filter((s) => !this.fired.has(s.key) && (s.at || this.now) <= until)
-      .sort((a, b) => (a.at || this.now) - (b.at || this.now));
-    return due[0] || null;
+    return dueStep(hostAuto(this.game), this.fired, this.now, until);
   }
 
   /** Let `ms` pass: the host page's timers fire, and the scripted host (if any) does its job. */
@@ -204,4 +198,5 @@ const VERBS: Partial<Record<Offer['type'], string>> = {
   start_duel: 'starts the duel', start_yield_duel: 'starts the yield duel', host_spin: 'spins the wheel', close_voting: 'closes the voting',
   start_duel_app: 'starts the duel game', skip_party: 'moves the party game on', endgame: 'starts the Misfit Lottery',
   reveal_auction: 'reveals the auction bids', auction_duel: 'calls the auction duel', end: 'ends the game',
+  skip_bidding: 'closes bidding with no bids', skip_auction: 'closes the auction with no bids', complete_drawoff: 'moves on to the duel',
 };

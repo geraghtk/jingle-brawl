@@ -78,7 +78,9 @@ export function addGift(game: Game, giftId: string, giftName: string, ownerId: P
 export const resetTurn = (game: Game): Plan => new Tx(game).set('currentTurn', null).set('minigame', null).event('⚙️ Admin: Reset turn', 'gift').plan();
 
 /** Put players + gifts back as they were before the last duel was resolved. */
-export function restore(game: Game, snapshot: Pick<Game, 'players' | 'gifts'>): Plan {
-  return new Tx(game).set('players', snapshot.players || {}).set('gifts', snapshot.gifts || {})
+/** Put players and gifts back as they were before the last duel was resolved. */
+export function undoDuel(game: Game): Plan {
+  if (!game.undo) return refuse('No duel to undo');
+  return new Tx(game).set('players', game.undo.players || {}).set('gifts', game.undo.gifts || {}).set('undo', null)
     .event('⚙️ Admin: Restored previous state', 'gift').plan();
 }

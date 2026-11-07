@@ -1,9 +1,6 @@
 // The phone's status card: what's happening and — when it's my move — my options.
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import * as A from '../core/actions';
-import * as D from '../core/duel';
-import { rng } from '../core/rng';
 import { gambitTargets, rankedBids, stealTargets, topTiedBidders } from '../core/rules';
 import { minCost } from '../core/settings';
 import { partyScore } from '../core/scoring';
@@ -11,7 +8,7 @@ import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
-import { chooseDuelGame, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame } from '../core/duelgame';
+import { duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
 import { GAMES } from '../core/party';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../firebase/game';
@@ -19,7 +16,6 @@ import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
 
-const r = () => rng(Date.now() ^ Math.floor(Math.random() * 1e9));
 
 function Card({ tone, children }: { tone?: 'your-turn' | 'active' | 'callit'; children: ReactNode }) {
   return <div className={`card status-card${tone ? ` ${tone}` : ''}`} id="status-card" data-testid="status-card">{children}</div>;
@@ -189,7 +185,7 @@ function OpenerWaiting({ t }: { t: Turn }) {
 const nm = (game: ReturnType<typeof usePlayer>['game'], id?: string | null) => (id && game.players?.[id]?.name) || 'Unknown';
 
 function Reveal({ t }: { t: Turn }) {
-  const { game, me, act, cfg } = usePlayer();
+  const { game, me, send, cfg } = usePlayer();
   const [picking, setPicking] = useState(false);
   const bids = rankedBids(t);
   const myBid = t.bids?.[me]?.amount || 0;
@@ -226,7 +222,7 @@ function Reveal({ t }: { t: Turn }) {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-          <button className="btn btn-primary" data-testid="keep-gift" onClick={() => act(A.keepGift)}><Icon name="gift" /> Keep My Gift</button>
+          <button className="btn btn-primary" data-testid="keep-gift" onClick={() => send({ type: 'keep' })}><Icon name="gift" /> Keep My Gift</button>
           {canGambit
             ? <button className="btn btn-gold" data-testid="gambit" onClick={() => setPicking(true)}><Icon name="gambit" /> Grinch's Gambit</button>
             : <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No other gifts to challenge yet</div>}
@@ -254,8 +250,8 @@ function Reveal({ t }: { t: Turn }) {
   }
   const tied = topTiedBidders(t);
   const [[c1, top], [c2]] = bids;
-  const fight = (a: string | null, b: string | null, tie: boolean) => act((g) => A.openerFight(g, a, b, tie, r()));
-  const yieldTo = (a: string | null, b: string | null) => act((g) => A.openerYield(g, a, b, r()));
+  const fight = () => send({ type: 'fight' });   // the table works out who duels whom
+  const yieldTo = () => send({ type: 'yield' });
   const choice = (title: ReactNode, desc: ReactNode, fightHelp: ReactNode, yieldHelp: ReactNode, fightBtn: ReactNode, yieldBtn: ReactNode, onFight: () => void, onYield: () => void, icon = '⚖️') => (
     <Card tone="your-turn">
       <div className="status-icon"><Glyphs>{icon}</Glyphs></div>
@@ -274,20 +270,20 @@ function Reveal({ t }: { t: Turn }) {
   if (tied.length >= 3) {
     return choice(`${tied.length}-WAY TIE!`, `${tied.map((id) => nm(game, id)).join(', ')} all bid ${top}. Two will be drawn at random. You decide!`,
       'The two drawn duel for the right to challenge YOU.', 'The two drawn fight each other for your gift directly.',
-      '⚔️ Fight! (Tiebreaker first)', '🏃 Yield! (two drawn at random)', () => fight(null, null, true), () => yieldTo(null, null));
+      '⚔️ Fight! (Tiebreaker first)', '🏃 Yield! (two drawn at random)', fight, yieldTo);
   }
   if (tied.length === 2) {
     return choice(`TIE! ${nm(game, c1)} & ${nm(game, c2)}`, `Both bid ${top} chips. You decide!`,
       'They duel for the right to challenge YOU.', 'They fight each other for your gift directly.',
-      '⚔️ Fight! (Tiebreaker first)', `🏃 Yield! (${nm(game, c1)} vs ${nm(game, c2)})`, () => fight(c1, c2, true), () => yieldTo(c1, c2));
+      '⚔️ Fight! (Tiebreaker first)', `🏃 Yield! (${nm(game, c1)} vs ${nm(game, c2)})`, fight, yieldTo);
   }
   return choice(`${nm(game, c1)} wants your gift!`, `Bid: ${top} chips. Second place: ${nm(game, c2)}`,
     `Duel ${nm(game, c1)}!`, `${nm(game, c1)} fights ${nm(game, c2)} instead.`,
-    `⚔️ Fight ${nm(game, c1)}!`, `🏃 Yield! (${nm(game, c1)} vs ${nm(game, c2)})`, () => fight(c1, c2, false), () => yieldTo(c1, c2), '⚔️');
+    `⚔️ Fight ${nm(game, c1)}!`, `🏃 Yield! (${nm(game, c1)} vs ${nm(game, c2)})`, fight, yieldTo, '⚔️');
 }
 
 function GambitPicker({ t, onCancel }: { t: Turn; onCancel: () => void }) {
-  const { game, me, player, cfg, act } = usePlayer();
+  const { game, me, player, cfg, send } = usePlayer();
   return (
     <Card tone="your-turn">
       <div className="status-icon"><Icon name="naughty" /></div>
@@ -297,7 +293,7 @@ function GambitPicker({ t, onCancel }: { t: Turn; onCancel: () => void }) {
         {gambitTargets(game, t.giftId, me).map(([id, gift]) => {
           const cost = minCost(cfg, gift.naughtyLevel || 0);
           return <TargetOption key={id} testid={`gambit-target-${id}`} title={gift.name} sub={`Owner: ${nm(game, gift.ownerId)}`}
-            naughty={gift.naughtyLevel} cost={cost} afford={player.chips >= cost} onPick={() => act((g) => A.gambit(g, id))} />;
+            naughty={gift.naughtyLevel} cost={cost} afford={player.chips >= cost} onPick={() => send({ type: 'gambit', giftId: id })} />;
         })}
       </div>
       <button className="btn btn-secondary" data-testid="cancel-gambit" onClick={onCancel} style={{ width: '100%' }}>← Cancel</button>
@@ -327,7 +323,7 @@ export function TargetOption({ title, sub, naughty, cost, afford, onPick, testid
 }
 
 function YieldChoice({ t }: { t: Turn }) {
-  const { game, me, act } = usePlayer();
+  const { game, me, send } = usePlayer();
   const a = nm(game, t.selectedC1), b = nm(game, t.selectedC2);
   const amount = t.bids?.[t.selectedC1!]?.amount || 0;
   if (t.openerId !== me) return <Simple icon="🎲" tone="active" title={`${a} & ${b} Selected!`} desc={`Waiting for ${nm(game, t.openerId)} to choose: Fight or Yield?`} />;
@@ -341,15 +337,15 @@ function YieldChoice({ t }: { t: Turn }) {
         <div className="help-content"><strong>Fight:</strong> They duel for the right to challenge YOU.<br /><strong>Yield:</strong> They fight each other for your gift directly.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-        <button className="btn btn-primary" data-testid="fight" onClick={() => act((g) => A.openerFight(g, t.selectedC1!, t.selectedC2!, true, r()))}><Icon name="duel" /> Fight! (Tiebreaker first)</button>
-        <button className="btn btn-gold" data-testid="yield" onClick={() => act((g) => A.openerYield(g, t.selectedC1!, t.selectedC2!, r()))}><Icon name="run" /> Yield! ({a} vs {b})</button>
+        <button className="btn btn-primary" data-testid="fight" onClick={() => send({ type: 'fight' })}><Icon name="duel" /> Fight! (Tiebreaker first)</button>
+        <button className="btn btn-gold" data-testid="yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Yield! ({a} vs {b})</button>
       </div>
     </Card>
   );
 }
 
 function Duel({ t }: { t: Turn }) {
-  const { game, me, act, cfg, player, toast } = usePlayer();
+  const { game, me, send, cfg, player, toast } = usePlayer();
   const offset = useServerOffset();
   const secondsLeft = useSecondsLeft(t.voteEndsAt, offset); // re-renders while the vote clock runs
   const votes = voteStatus(game, Date.now() + offset);
@@ -380,14 +376,14 @@ function Duel({ t }: { t: Turn }) {
         <div className="status-desc">{defending ? `${rival} challenged you${gift ? ` for the ${gift.name}` : ''}.` : `You're up against ${rival}.`} You choose how you fight.</div>
         <div className="duel-picker" role="list">
           {duelOptions(game).map((o, i) => (
-            <button key={o.name} role="listitem" className="duel-pick" data-testid={`duel-game-${i}`} onClick={() => act((g) => chooseDuelGame(g, me, i))}>
+            <button key={o.name} role="listitem" className="duel-pick" data-testid={`duel-game-${i}`} onClick={() => send({ type: 'pick_duel', index: i, name: o.name })}>
               <span className="duel-pick-name"><Glyphs>{appName(o)}</Glyphs></span>
               {o.kind === 'app' && <small>played on phones · everyone joins in</small>}
             </button>
           ))}
         </div>
         <button className="btn btn-secondary" data-testid="duel-game-spin" style={{ width: '100%', marginTop: 10 }}
-          onClick={() => act((g) => spinDuelGame(g, { now: Date.now() + offset, rng: r() }, me))}><Icon name="wheel" /> Let the wheel pick</button>
+          onClick={() => send({ type: 'spin' })}><Icon name="wheel" /> Let the wheel pick</button>
       </Card>
     );
   }
@@ -442,7 +438,7 @@ function Duel({ t }: { t: Turn }) {
     return w + l ? `${w}–${l} in duels` : 'First duel';
   };
   const vote = async (id: string) => {
-    if (await act((g) => A.voteOnDuel(g, me, id, Date.now() + offset))) toast(`Voted for ${nm(game, id)}! 🗳️`);
+    if (await send({ type: 'call_duel', pick: id })) toast(`Voted for ${nm(game, id)}! 🗳️`);
   };
   const corner = (id: string, side: 'red' | 'green') => {
     const inner = (
@@ -509,7 +505,7 @@ function ReprisalWatch({ t }: { t: Turn }) {
 }
 
 function EndgameChoice({ t }: { t: Turn }) {
-  const { game, me, act } = usePlayer();
+  const { game, me, send } = usePlayer();
   if (t.activePlayerId !== me) return <Simple icon="🎰" tone="active" title="Misfit Lottery" desc={`${nm(game, t.activePlayerId)} is choosing their path...`} />;
   const canSteal = stealTargets(game, me).length > 0;
   return (
@@ -526,16 +522,16 @@ function EndgameChoice({ t }: { t: Turn }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
         {canSteal
-          ? <button className="btn btn-primary" data-testid="path-a" onClick={() => act(D.chooseSteal)}><Icon name="target" /> Path A: Steal a Gift</button>
+          ? <button className="btn btn-primary" data-testid="path-a" onClick={() => send({ type: 'path', path: 'steal' })}><Icon name="target" /> Path A: Steal a Gift</button>
           : <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '0.5rem' }}>No gifts to steal yet</div>}
-        <button className="btn btn-gold" data-testid="path-b" onClick={() => act(D.startAuction)}><Icon name="bid" /> Path B: Auction for Misfit</button>
+        <button className="btn btn-gold" data-testid="path-b" onClick={() => send({ type: 'path', path: 'auction' })}><Icon name="bid" /> Path B: Auction for Misfit</button>
       </div>
     </Card>
   );
 }
 
 function StealSelect({ t }: { t: Turn }) {
-  const { game, me, player, cfg, act } = usePlayer();
+  const { game, me, player, cfg, send } = usePlayer();
   if (t.activePlayerId !== me) {
     return (
       <Card tone="active">
@@ -555,16 +551,16 @@ function StealSelect({ t }: { t: Turn }) {
         {stealTargets(game, me).map(([id, gift]) => {
           const cost = minCost(cfg, gift.naughtyLevel || 0);
           return <TargetOption key={id} testid={`steal-target-${id}`} title={gift.name} sub={`Owner: ${nm(game, gift.ownerId)}`}
-            naughty={gift.naughtyLevel} cost={cost} afford={player.chips >= cost} onPick={() => act((g) => D.executeSteal(g, id))} />;
+            naughty={gift.naughtyLevel} cost={cost} afford={player.chips >= cost} onPick={() => send({ type: 'steal', giftId: id })} />;
         })}
       </div>
-      <button className="btn btn-secondary" data-testid="cancel-steal" onClick={() => act(D.cancelSteal)} style={{ width: '100%' }}>← Back to Path Choice</button>
+      <button className="btn btn-secondary" data-testid="cancel-steal" onClick={() => send({ type: 'cancel_steal' })} style={{ width: '100%' }}>← Back to Path Choice</button>
     </Card>
   );
 }
 
 function NoBids({ t }: { t: Turn }) {
-  const { game, me, act } = usePlayer();
+  const { game, me, send } = usePlayer();
   if (t.activePlayerId !== me) return <Simple icon="🎰" tone="active" title="No Bids!" desc={`${nm(game, t.activePlayerId)} is choosing a defender...`} />;
   const others = Object.entries(game.players || {}).filter(([id]) => id !== me);
   return (
@@ -575,7 +571,7 @@ function NoBids({ t }: { t: Turn }) {
       <div className="help-box"><div className="help-content"><strong>Win:</strong> Get misfit FREE!<br /><strong>Lose:</strong> Get misfit, but pay 1 chip toll to defender.</div></div>
       <div style={{ maxHeight: 250, overflowY: 'auto', margin: '1rem 0' }}>
         {others.map(([id, p]) => (
-          <div key={id} className="action-option" data-testid={`nobids-defender-${id}`} onClick={() => act((g) => D.noBidsDuel(g, id))}
+          <div key={id} className="action-option" data-testid={`nobids-defender-${id}`} onClick={() => send({ type: 'nobids_defender', playerId: id })}
             style={{ background: 'var(--bg-card-hover)', padding: '1rem', borderRadius: 8, marginBottom: '0.5rem', cursor: 'pointer' }}>
             <div style={{ fontWeight: 600 }}><Icon name="duel" /> Challenge {p.name}</div>
           </div>

@@ -1,8 +1,5 @@
 // The host sidebar: Game (controls, stats, quick actions) · Event log · Admin.
 import { useState } from 'react';
-import * as A from '../core/actions';
-import * as Admin from '../core/admin';
-import { startEndgame } from '../core/duel';
 import { pick, rng } from '../core/rng';
 import { giftless, wrappedGifts } from '../core/rules';
 import { MISFIT } from '../core/types';
@@ -33,7 +30,7 @@ export function Sidebar({ onExit }: { onExit: () => void }) {
 }
 
 function GameTab({ onExit }: { onExit: () => void }) {
-  const { game, act } = useHost();
+  const { game, send } = useHost();
   const setModal = useModal();
   const players = Object.keys(game.players || {}).length;
   const wrapped = wrappedGifts(game);
@@ -50,7 +47,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
     const who = game.players?.[pick(giftless(game), rng(seed))]?.name || 'Someone';
     const giftName = prompt(`🎅 ${who} was drawn!\n\nEnter the gift they're opening:`);
     if (!giftName) return;
-    act((g) => A.drawGift(g, giftName, `gift_${Date.now()}`, { now: Date.now(), rng: rng(seed) }));
+    send({ type: 'draw', giftName: giftName.slice(0, 80), seed });
   };
 
   return (
@@ -66,7 +63,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
             <button className="btn btn-gold" id="btn-draw-player" data-testid="draw" disabled={!canDraw} onClick={draw} style={{ fontSize: '1.1rem', padding: '1.25rem' }}>{drawLabel}</button>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setModal(<AddGiftModal onClose={() => setModal(null)} />)}>Add Gift</button>
-              <button className="btn btn-secondary" id="btn-endgame" data-testid="endgame" disabled={!canEndgame} style={{ flex: 1 }} onClick={() => act(startEndgame)}>
+              <button className="btn btn-secondary" id="btn-endgame" data-testid="endgame" disabled={!canEndgame} style={{ flex: 1 }} onClick={() => send({ type: 'endgame' })}>
                 <Glyphs>{game.phase === 'endgame' ? '🎰 In Endgame' : 'Endgame'}</Glyphs>
               </button>
             </div>
@@ -90,7 +87,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button className="btn btn-secondary" onClick={() => window.open('quick-reference.html', '_blank')}>Quick Reference</button>
           <button className="btn btn-secondary" onClick={() => { if (confirm('Exit this game? You can rejoin later if you refresh.')) onExit(); }}>Exit Game</button>
-          <button className="btn btn-danger" data-testid="end-game" onClick={() => { if (confirm('Are you sure you want to end the game?')) act(A.endGame); }}>End Game for All</button>
+          <button className="btn btn-danger" data-testid="end-game" onClick={() => { if (confirm('Are you sure you want to end the game?')) send({ type: 'admin_end_game' }); }}>End Game for All</button>
         </div>
       </div>
     </>
@@ -98,7 +95,7 @@ function GameTab({ onExit }: { onExit: () => void }) {
 }
 
 function AddGiftModal({ onClose }: { onClose: () => void }) {
-  const { game, act } = useHost();
+  const { game, send } = useHost();
   const [name, setName] = useState('');
   const [owner, setOwner] = useState<string>(MISFIT);
   return (
@@ -116,7 +113,7 @@ function AddGiftModal({ onClose }: { onClose: () => void }) {
         </select>
       </div>
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
-        <button className="btn btn-primary" onClick={async () => { if (await act((g) => Admin.addGift(g, `gift_${Date.now()}`, name, owner, Date.now()))) onClose(); }}>Add Gift</button>
+        <button className="btn btn-primary" onClick={async () => { if (await send({ type: 'admin_add_gift', name, ownerId: owner })) onClose(); }}>Add Gift</button>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
       </div>
     </>
@@ -150,7 +147,7 @@ function EventLog() {
 const field = { padding: '0.25rem', borderRadius: 4, background: 'var(--bg-card)', border: '1px solid var(--border)' };
 
 function AdminPanel() {
-  const { game, act, snapshot, clearSnapshot } = useHost();
+  const { game, send } = useHost();
   const [open, setOpen] = useState(false);
   const [pid, setPid] = useState('');
   const [chips, setChips] = useState(0);
@@ -159,7 +156,6 @@ function AdminPanel() {
   const [newGift, setNewGift] = useState('');
   const players = Object.entries(game.players || {});
   const gifts = Object.entries(game.gifts || {});
-  const now = () => Date.now();
 
   const loadGift = (id: string) => {
     setGid(id);
@@ -180,11 +176,11 @@ function AdminPanel() {
         {open && (
           <div id="admin-content" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button className="btn btn-secondary" title="Force skip current phase" onClick={() => { if (confirm('Skip current phase? This may cause unexpected state.')) act(Admin.resetTurn); }}>⏭️ Skip Phase</button>
-              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) act(Admin.resetTurn); }}><Icon name="swap" /> Reset Turn</button>
+              <button className="btn btn-secondary" title="Force skip current phase" onClick={() => { if (confirm('Skip current phase? This may cause unexpected state.')) send({ type: 'admin_reset_turn' }); }}>⏭️ Skip Phase</button>
+              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) send({ type: 'admin_reset_turn' }); }}><Icon name="swap" /> Reset Turn</button>
               <button className="btn btn-secondary" title="Undo the last duel" onClick={() => {
-                if (!snapshot) return alert('No state to undo. Undo captures state before each duel is resolved.');
-                if (confirm('Restore players and gifts to before the last duel?')) { act((g) => Admin.restore(g, snapshot)); clearSnapshot(); }
+                if (!game.undo) return alert('No state to undo. Undo captures state before each duel is resolved.');
+                if (confirm('Restore players and gifts to before the last duel?')) send({ type: 'admin_undo_duel' });
               }}>↩️ Undo</button>
             </div>
 
@@ -199,9 +195,9 @@ function AdminPanel() {
                 <div id="admin-player-controls">
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flex: 1 }}><Icon name="chip" /> <input type="number" id="admin-player-chips" min={0} max={99} value={chips} onChange={(e) => setChips(parseInt(e.target.value) || 0)} style={{ ...field, width: 60 }} /></label>
-                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => act((g) => Admin.setChips(g, pid, chips))}>Save</button>
+                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => send({ type: 'admin_set_chips', pid, chips })}>Save</button>
                   </div>
-                  <button className="btn btn-secondary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.removePlayerGift(g, pid, now()))}><Icon name="gift" /> Remove Gift</button>
+                  <button className="btn btn-secondary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => send({ type: 'admin_remove_player_gift', pid })}><Icon name="gift" /> Remove Gift</button>
                 </div>
               )}
             </div>
@@ -223,12 +219,12 @@ function AdminPanel() {
                       <option value="">No owner (Misfit)</option>
                       {players.map(([id, p]) => <option key={id} value={id}>{p.name}</option>)}
                     </select>
-                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => act((g) => Admin.saveGift(g, gid, { name: edit.name, naughtyLevel: edit.naughty, ownerId: edit.owner || null }, now()))}>Save</button>
+                    <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }} onClick={() => send({ type: 'admin_save_gift', giftId: gid, name: edit.name.trim() || undefined, naughtyLevel: edit.naughty, ownerId: edit.owner || null })}>Save</button>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-secondary" data-testid="admin-to-misfit" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => act((g) => Admin.moveGiftToMisfit(g, gid, now()))}>📦 → Misfit Pile</button>
+                    <button className="btn btn-secondary" data-testid="admin-to-misfit" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => send({ type: 'admin_move_misfit', giftId: gid })}>📦 → Misfit Pile</button>
                     <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem', background: 'var(--accent-red)' }}
-                      onClick={() => { if (confirm(`Delete "${game.gifts?.[gid]?.name}"? This cannot be undone.`)) { act((g) => Admin.deleteGift(g, gid)); setGid(''); } }}>🗑️ Delete</button>
+                      onClick={() => { if (confirm(`Delete "${game.gifts?.[gid]?.name}"? This cannot be undone.`)) { send({ type: 'admin_delete_gift', giftId: gid }); setGid(''); } }}>🗑️ Delete</button>
                   </div>
                 </div>
               )}
@@ -238,7 +234,7 @@ function AdminPanel() {
               <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>➕ Add Gift</div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input type="text" id="admin-new-gift-name" placeholder="Gift name" value={newGift} onChange={(e) => setNewGift(e.target.value)} style={{ ...field, flex: 1, padding: '0.5rem' }} />
-                <button className="btn btn-primary" onClick={async () => { if (await act((g) => Admin.addGift(g, `gift_${Date.now()}`, newGift, MISFIT, now()))) setNewGift(''); }}>Add</button>
+                <button className="btn btn-primary" onClick={async () => { if (await send({ type: 'admin_add_gift', name: newGift, ownerId: MISFIT })) setNewGift(''); }}>Add</button>
               </div>
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>⚠️ Use with caution - changes are immediate</div>

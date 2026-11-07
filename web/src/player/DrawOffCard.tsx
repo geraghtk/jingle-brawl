@@ -1,6 +1,5 @@
 // AI Draw Off on the phone: read the prompt, draw for 3 minutes, see how the critic rated you.
 import { useEffect, useRef, useState } from 'react';
-import { submitSketch } from '../core/partyflow';
 import { useServerOffset } from '../firebase/game';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
@@ -16,7 +15,7 @@ interface DrawOff {
 type Seg = { color: string; size: number; from: [number, number]; to: [number, number] };
 
 export function DrawOffCard() {
-  const { game, me, act, toast } = usePlayer();
+  const { game, me, send, toast } = usePlayer();
   const mg = game.minigame as DrawOff | undefined;
   const offset = useServerOffset();
   const secs = useSecondsLeft(mg?.drawingEndTime, offset);
@@ -53,7 +52,7 @@ export function DrawOffCard() {
 
   const submit = async () => {
     if (!canvas.current || submitted || mg?.phase !== 'drawing') return;
-    if (await act((g) => submitSketch(g, me, canvas.current!.toDataURL('image/png')))) toast('Drawing submitted! ✅');
+    if (await send({ type: 'sketch', drawing: canvas.current!.toDataURL('image/png') })) toast('Drawing submitted! ✅');
   };
   useEffect(() => { if (drawing && secs === 0) submit(); }, [secs]); // eslint-disable-line react-hooks/exhaustive-deps
 

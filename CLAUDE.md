@@ -70,7 +70,8 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 **Conventions that matter:**
 - A Misfit-pile gift has `ownerId: 'misfit'` (+ `misfitOrder` for FIFO). Never `null`.
 - "In the bag" = player has no `giftId`; there is no separate bag list.
-- The host is the resolver; phones mostly write *intents* (bids, choices, votes). Writes are still client-authoritative — see `CODE_REVIEW.md`.
+- **Buttons send intents, never plans:** `send({ type: ... })` (`core/intents.ts`). An intent is a table offer (`core/table.ts`: `offers()` says who may press it and when, `perform()` builds the plan) or a host `admin_*` intent; `dispatch()` refuses anything not on that person's screen. A new button = an offer + a `perform` case (+ its shape in `parseIntent`). `core/boundary.test.ts` fails if a screen imports an action. Writes are still applied by the clients until the room server lands (`ARCHITECTURE.md`).
+- One commit path for plans: `core/commit.ts` (claims), used by the tests, the simulator and (next) the room server.
 - Settings live in `games/{room}/settings`; read them through `config()` (`core/settings.ts`).
 - Actions that move chips claim a path first (`tx.claim(...)`, e.g. `currentTurn/resolvedBy` in `resolveDuel`): applied as a set-if-empty transaction, so a double-tap, a timer racing a button, or a second host tab can't charge/pay twice. New chip-moving actions should do the same.
 - Duel help text is generated from settings + the turn (`web/src/ui/notes.tsx`) — don't hard-code rules in copy.

@@ -1,5 +1,4 @@
 // I lost and may take a Reindeer Reprisal: pick a target (or skip).
-import * as D from '../core/duel';
 import { reprisalTargets } from '../core/rules';
 import { minCost } from '../core/settings';
 import { MISFIT } from '../core/types';
@@ -7,7 +6,7 @@ import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
 
 export function ReprisalCard() {
-  const { game, me, player, cfg, act } = usePlayer();
+  const { game, me, player, cfg, send } = usePlayer();
   const t = game.currentTurn!;
   const targets = reprisalTargets(game, t.excludedGiftId, me).sort(([, a], [, b]) => {
     const am = a.ownerId === MISFIT, bm = b.ownerId === MISFIT;
@@ -16,7 +15,7 @@ export function ReprisalCard() {
   });
   const affordable = targets.filter(([, g]) => player.chips >= minCost(cfg, g.naughtyLevel));
   const skip = (label: string, extra = {}) => (
-    <button className="btn btn-secondary" data-testid="skip-reprisal" onClick={() => act(D.skipReprisal)} style={extra}>{label}</button>
+    <button className="btn btn-secondary" data-testid="skip-reprisal" onClick={() => send({ type: 'skip_reprisal' })} style={extra}>{label}</button>
   );
 
   return (
@@ -58,7 +57,7 @@ export function ReprisalCard() {
               const afford = player.chips >= cost;
               return (
                 <div key={id} className={`action-option ${afford ? '' : 'disabled'} ${misfit ? 'misfit' : ''}`} data-testid={`reprisal-target-${id}`}
-                  onClick={afford ? () => act((g) => D.chooseReprisal(g, id, Date.now())) : undefined}>
+                  onClick={afford ? () => send({ type: 'reprisal', giftId: id }) : undefined}>
                   <div className="option-header">
                     <div className="option-title">{gift.name}</div>
                     {gift.naughtyLevel > 0 && <span className="naughty-badge"><Icon name="naughty" /> {gift.naughtyLevel}</span>}

@@ -1,13 +1,12 @@
 // Sealed bid on the opened gift (main game) or the Misfit (endgame auction).
 import { useState } from 'react';
-import * as A from '../core/actions';
 import { avatarColor } from '../ui/avatar';
 import { dividendNote, taxNote } from '../ui/notes';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
 
 export function BidPanel() {
-  const { game, me, player, cfg, act } = usePlayer();
+  const { game, me, player, cfg, send } = usePlayer();
   const t = game.currentTurn!;
   const endgame = t.phase === 'endgame_bidding';
   const locked = t.bids?.[me];
@@ -25,7 +24,7 @@ export function BidPanel() {
   const eligible = Object.keys(game.players || {}).filter((id) => id !== sitter).length;
 
   const seal = async () => {
-    if (await act((g) => A.submitBid(g, me, amount, Date.now()))) setEditing(false);
+    if (await send({ type: 'bid', amount })) setEditing(false);
   };
 
   return (

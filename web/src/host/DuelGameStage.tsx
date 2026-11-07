@@ -1,11 +1,11 @@
 // What the duellists play, on the TV: the defender picking (with a host override), the wheel
 // spinning, then the duel itself. The winner buttons wait until it's known.
-import { duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, UNDER } from '../core/duelgame';
+import { duelGameStep, duelOptions, duelPicker, SPIN_MS, UNDER } from '../core/duelgame';
 import { GAMES } from '../core/party';
 import { useServerOffset } from '../firebase/game';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useSecondsLeft } from '../ui/PartyResults';
-import { freshRng, useHost } from './HostContext';
+import { useHost } from './HostContext';
 import { Glyphs, Icon } from '../ui/icons';
 
 export function useDuelGame() {
@@ -20,7 +20,7 @@ export function useDuelGame() {
 }
 
 export function DuelGameStage({ compact = false }: { compact?: boolean }) {
-  const { game, act } = useHost();
+  const { game, send } = useHost();
   const t = game.currentTurn;
   const { step, choice, spinning, offset } = useDuelGame();
   const name = (id?: string) => (id && game.players?.[id]?.name) || 'Someone';
@@ -35,7 +35,7 @@ export function DuelGameStage({ compact = false }: { compact?: boolean }) {
         <div className="dgs-options">
           {duelOptions(game).map((o) => <span key={o.name} className="dgs-option">{o.kind === 'app' && o.app && <><Glyphs>{GAMES[o.app].emoji}</Glyphs> </>}{o.name}</span>)}
         </div>
-        <button className="vote-gate-close" data-testid="host-spin" onClick={() => act((g) => spinDuelGame(g, { now: Date.now() + offset, rng: freshRng() }))}>
+        <button className="vote-gate-close" data-testid="host-spin" onClick={() => send({ type: 'host_spin' })}>
           Spin the wheel for them
         </button>
       </div>
