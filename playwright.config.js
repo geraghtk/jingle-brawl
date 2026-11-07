@@ -5,9 +5,9 @@ const { defineConfig, devices } = require('@playwright/test');
 // The app (web/) is built fresh and served by `vite preview` on :4173. BASE_URL=… points the
 // suite at something already running instead (e.g. the dev server on :5173).
 const BASE = process.env.BASE_URL || 'http://localhost:4173';
-// TRANSPORT=server (npm run test:e2e:server): the screens talk to the room server, which serves the
-// build itself with its test-only debug API; no Firebase emulators.
-const ON_SERVER = process.env.TRANSPORT === 'server';
+// The screens talk to the room server, which serves the build itself with its test-only debug
+// API (no emulators). TRANSPORT=firebase (npm run test:e2e:firebase): Firebase and its emulators.
+const ON_SERVER = process.env.TRANSPORT !== 'firebase';
 
 module.exports = defineConfig({
   testDir: './e2e',
@@ -27,13 +27,13 @@ module.exports = defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: process.env.CI ? undefined : ON_SERVER ? [{
-    command: 'npm run build:server-mode && node dist-server/index.mjs --port 4173 --host 127.0.0.1 --db :memory: --debug-api',
+    command: 'npm run build && node dist-server/index.mjs --port 4173 --host 127.0.0.1 --db :memory: --debug-api',
     url: 'http://localhost:4173/healthz',
     reuseExistingServer: false,
     timeout: 120000,
   }] : [
     ...(process.env.BASE_URL ? [] : [{
-      command: 'npm run build && npm run preview',
+      command: 'npm run build:firebase-mode && npm run preview',
       url: 'http://localhost:4173/host.html',
       reuseExistingServer: false, // always test a fresh build
       timeout: 120000,

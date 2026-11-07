@@ -1,5 +1,5 @@
 // The same table, played on the real app: the host page and one phone per person in a real
-// browser, against the local emulators. Each offer (core/table.ts) is pressed by clicking that
+// browser, against the room server. Each offer (core/table.ts) is pressed by clicking that
 // button on that person's own page, so the app's screens, timers and sync are all in play. What a
 // person sees is the real pages' text: the TV (the host page) and their own phone. Real time:
 // advance(ms) waits. People's skills, tastes and hands, and the scripted host, are sim/world.ts.

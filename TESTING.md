@@ -4,7 +4,7 @@ Yuel Duel is a party game where a host and multiple players interact in real tim
 
 ## Quick Start
 
-1. `npm run emulator` and `npm run dev` (the app on :5173)
+1. `npm run dev` (the room server and the app on :5173)
 2. Open `http://localhost:5173/host.html` → create a game → note the room code
 3. Open player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice` (`testId=2`, `3`, … for more)
 4. Start the game from the host when everyone is in
@@ -60,8 +60,8 @@ npx playwright install chromium
 ### Run Tests
 
 ```bash
-npm run test:e2e          # everything, headless (Playwright builds + previews the app, boots the emulators)
-npm run test:e2e:server   # the same suite on the room server: it serves the build itself, --db :memory: --debug-api
+npm run test:e2e          # everything, headless: builds, then the room server serves it (--db :memory: --debug-api)
+npm run test:e2e:firebase # the same suite on Firebase + emulators (until Firebase is removed)
 npm run test:flows        # just the game-flow permutations, list output
 npm run test:e2e:ui       # visual debugging
 npm run test:e2e:headed   # watch the browsers
@@ -106,7 +106,7 @@ missing buttons and invariant breaks are reported with screenshots. See
 ### Requirements
 
 - Playwright builds the app and serves it with `vite preview` on :4173
-- Firebase CLI + Java 21+ for the emulators (Playwright starts them if not running)
+- Only for test:e2e:firebase: Firebase CLI + Java 21+ for the emulators
 
 ## Logic-Only Testing
 

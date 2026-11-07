@@ -3,6 +3,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { getPath } from '../../../web/src/core/tx';
 import { avatarOf } from '../../../web/src/core/avatars';
@@ -35,6 +36,10 @@ async function body(req: IncomingMessage): Promise<unknown> {
   return s ? JSON.parse(s) : null;
 }
 
+/** This machine's IPv4 addresses on the local network (for the TV's join link). */
+export const lanAddresses = () => Object.values(networkInterfaces()).flat()
+  .filter((n) => n && n.family === 'IPv4' && !n.internal).map((n) => n!.address);
+
 const isLocal = (req: IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '');
 
 export function createAppServer({ rooms, staticDir, debugApi }: ServerOpts) {
@@ -47,6 +52,7 @@ export function createAppServer({ rooms, staticDir, debugApi }: ServerOpts) {
       const parts = url.pathname.split('/').filter(Boolean);
 
       if (url.pathname === '/healthz') return json(res, 200, { ok: true, now: rooms.clock.now() });
+      if (url.pathname === '/api/info') return json(res, 200, { ips: lanAddresses() });
 
       if (parts[0] === 'api' && parts[1] === 'rooms') {
         if (parts.length === 2 && req.method === 'POST') {

@@ -8,7 +8,7 @@
 // zero page errors. We do NOT bake in expected chip totals for ambiguous rules
 // (e.g. Santa Tax split); those are reported for review instead of asserted.
 //
-// State is read straight from the back end: the room server's debug API (TRANSPORT=server), or the
+// State is read straight from the back end: the room server's debug API, or (TRANSPORT=firebase) the
 // RTDB emulator (Bearer owner = admin bypass). Same helpers, same answers (a missing path is null).
 
 const BASE = process.env.BASE_URL || 'http://localhost:4173'; // see playwright.config.js
@@ -17,8 +17,10 @@ const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
 const NS = 'jingle-brawl-e8308-default-rtdb';
 const DB_BASE = 'http://127.0.0.1:9000';
 const ADMIN = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
-const ON_SERVER = process.env.TRANSPORT === 'server';
-const debugUrl = (roomCode, path = '') => `${BASE}/debug/rooms/${roomCode}${path ? '/' + path : ''}`;
+const ON_SERVER = process.env.TRANSPORT !== 'firebase';
+// The debug API answers only on the server's own address (in dev: npm run dev's :8787, not the proxied :5173)
+const DEBUG_BASE = process.env.DEBUG_BASE || (/:5173$/.test(BASE) ? 'http://127.0.0.1:8787' : BASE);
+const debugUrl = (roomCode, path = '') => `${DEBUG_BASE}/debug/rooms/${roomCode}${path ? '/' + path : ''}`;
 
 async function dbGet(roomCode, path = '') {
   if (ON_SERVER) return (await fetch(debugUrl(roomCode, path))).json();

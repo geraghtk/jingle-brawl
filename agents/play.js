@@ -25,7 +25,7 @@
 //                      seats and leave the host page and your phone to you (--players = agent count, default 4)
 //   --phones URL       app the agents' phones load (default $PLAYER_BASE / $BASE_URL / the dev server :5173)
 //
-// Needs the local emulators + page server; starts them if they aren't running.
+// Needs the app + room server (npm run dev); starts them if they aren't running (TRANSPORT=firebase: the emulators).
 
 const fs = require('fs');
 const path = require('path');
@@ -80,19 +80,20 @@ async function ensureServers() {
   const root = path.join(__dirname, '..');
   if (!(await up(PAGE_URL()))) {
     if (/:5173$/.test(PAGES())) {
-      console.log('Starting the app (npm run dev)…');
-      started.push(spawn('npx', ['vite', '--config', 'vite.config.mts'], { cwd: root, stdio: 'ignore', shell: true }));
+      console.log('Starting the app and the room server (npm run dev)…');
+      started.push(spawn('node', ['tools/dev.mjs'], { cwd: root, stdio: 'ignore', shell: true }));
     } else {
       throw new Error(`Nothing is serving ${PAGES()} — start the app first`);
     }
   }
-  if (!(await up(DB_URL)) || !(await up(AUTH_URL))) {
+  const firebase = process.env.TRANSPORT === 'firebase';
+  if (firebase && (!(await up(DB_URL)) || !(await up(AUTH_URL)))) {
     console.log('Starting the Firebase emulators (database + auth)…');
     started.push(spawn('firebase', ['emulators:start', '--only', 'database,auth', '--project', 'jingle-brawl-e8308'],
       { cwd: root, stdio: 'ignore', shell: true }));
   }
   const deadline = Date.now() + 90000;
-  for (const url of [PAGE_URL(), DB_URL, AUTH_URL]) {
+  for (const url of firebase ? [PAGE_URL(), DB_URL, AUTH_URL] : [PAGE_URL()]) {
     while (!(await up(url))) {
       if (Date.now() > deadline) throw new Error(`Not reachable: ${url} (is Java 21+ / the Firebase CLI installed?)`);
       await new Promise((r) => setTimeout(r, 500));
@@ -246,8 +247,8 @@ async function main() {
   const browser = await chromium.launch(); // game pages are always headless; --watch streams them
   let taken = [];
   if (o.join) {
-    const room = await fetch(`http://127.0.0.1:9000/games/${o.join}.json?ns=jingle-brawl-e8308-default-rtdb`).then((r) => r.json()).catch(() => null);
-    if (!room) throw new Error(`Room ${o.join} not found on the local emulator — create it on the host page (localhost) first`);
+    const room = await require('../e2e/helpers').dbGet(o.join).catch(() => null);
+    if (!room) throw new Error(`Room ${o.join} not found — create it on the host page (localhost) first`);
     taken = Object.values(room.players || {}).map((x) => x.name);
   }
 

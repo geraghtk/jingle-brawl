@@ -1,12 +1,12 @@
 // @ts-check
-// The room server is the referee (runs only with TRANSPORT=server: npm run test:e2e:server).
+// The room server is the referee (not run against Firebase: TRANSPORT=firebase).
 // A phone can't do what isn't on its screen even by talking to the server directly; no phone or
 // TV is ever sent a sealed bid; the server picks a game up after a restart; a reloaded phone
 // rejoins with its token.
 const { test, expect } = require('@playwright/test');
 const H = require('./helpers');
 
-test.skip(process.env.TRANSPORT !== 'server', 'room server only (npm run test:e2e:server)');
+test.skip(process.env.TRANSPORT === 'firebase', 'room server only');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 

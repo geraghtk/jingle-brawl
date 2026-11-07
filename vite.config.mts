@@ -5,7 +5,8 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 const target = process.env.ROOM_SERVER || 'http://127.0.0.1:8787';
-const ROOM_SERVER = { '/api': target, '/debug': target, '/healthz': target, '/ws': { target, ws: true } };
+// (not /debug: through the proxy every request looks local; the test helpers call :8787 directly)
+const ROOM_SERVER = { '/api': target, '/healthz': target, '/ws': { target, ws: true } };
 
 export default defineConfig({
   root: 'web',

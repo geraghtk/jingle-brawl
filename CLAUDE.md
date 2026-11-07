@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm install                      # Playwright
-npm run emulator                 # local Realtime Database (:9000) + Auth (:9099) emulators — needs Java 21+
-npm run dev                      # the app on :5173 (Vite); Playwright builds + previews on :4173 itself
-npm run server -- --db :memory:  # the room server (dev, TS via vite-node) on :8787; --host 0.0.0.0 for phones on Wi-Fi
+npm run dev                      # the room server (:8787, rooms.db) + the app with hot reload (:5173, phones on Wi-Fi too)
+npm run server -- --db :memory:  # the room server alone (TS via vite-node)
+npm run emulator                 # Firebase emulators, only for the Firebase transport being retired (needs Java 21+)
 npm run build && npm start       # build the app + the server bundle (dist-server/), run it (rooms in rooms.db)
 
-npm run test:e2e                 # full Playwright suite (boots server + emulators if not running)
-npm run test:e2e:server          # the same suite with the screens on the room server (no emulators, no Java)
+npm run test:e2e                 # full Playwright suite on the room server (builds, serves, --debug-api)
+npm run test:e2e:firebase        # the same suite on Firebase + emulators (until Firebase is removed)
 npm run test:flows               # game-flow permutations only
 npm run test:e2e:ui / :headed    # visual debugging
 cd functions && npm test         # Cloud Function parser unit tests
@@ -40,11 +40,11 @@ firebase deploy --only hosting
 
 ## Local Development
 
-On localhost the app talks to the **emulators**, never production (`web/src/firebase/app.ts`; add `?prod=1` to opt out). Start them with `npm run emulator` and the app with `npm run dev`, then:
-- Host: `http://localhost:5173/host.html`
+`npm run dev`, then:
+- Host: `http://localhost:5173/host.html` (the lobby's join link and QR code use this PC's Wi-Fi address, so phones can scan it)
 - Player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice`
 
-`?testId=N` isolates localStorage and uses per-tab auth persistence, so one browser can simulate many players. Emulator UI: http://127.0.0.1:4000.
+`?testId=N` isolates localStorage, so one browser can simulate many players. The screens talk to the room server by default; `?transport=firebase` (or `vite --mode firebase`) uses Firebase and its emulators until Firebase is removed.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ On localhost the app talks to the **emulators**, never production (`web/src/fire
 - `jingle_brawl_env.py` — Deep RL self-play simulation for balance testing
 - `e2e/` — Playwright specs + `helpers.js` (invariants, emulator REST helpers)
 - `agents/` — persona-agent play-testing harness (playability + settings/balance sweeps); see `agents/README.md`
-- `server/` — the room server (own `tsconfig.json`: no DOM, so `web/src/core` must stay DOM-free). `room/actor.ts` is one room's referee (intent → checks → `dispatch` → commit → save → timers from `hostAuto` → each screen its `projectGame` view), runtime-agnostic (Clock/Store/Conn); `room/rooms.ts` the registry + token secret; `store/` SQLite (`node:sqlite`) or memory; `node/` HTTP API (`/api/rooms`, join, lobby), WebSocket (`/ws`), static `dist/`, and `--debug-api` (localhost-only test helpers). Wire types: `web/src/net/protocol.ts`. Screens still talk to Firebase until the client switch (plan S4, `ARCHITECTURE.md`).
+- `server/` — the room server (own `tsconfig.json`: no DOM, so `web/src/core` must stay DOM-free). `room/actor.ts` is one room's referee (intent → checks → `dispatch` → commit → save → timers from `hostAuto` → each screen its `projectGame` view), runtime-agnostic (Clock/Store/Conn); `room/rooms.ts` the registry + token secret; `store/` SQLite (`node:sqlite`) or memory; `node/` HTTP API (`/api/rooms`, join, lobby), WebSocket (`/ws`), static `dist/`, and `--debug-api` (localhost-only test helpers). Wire types: `web/src/net/protocol.ts`. Screens talk to it through `web/src/net/` (`RoomClient`, `useRoom`; first a whole view, then only what changed, `core/diff.ts`).
 
 **Real-time data flow:** host creates `games/{roomCode}` (claimed atomically by transaction) → all clients attach listeners → state changes propagate. Key paths: `players`, `gifts`, `currentTurn` (turn state machine), `phase`, `settings`, `minigame`, `lastDuel` (outcome the host publishes so phones show the right verdict).
 
@@ -74,7 +74,7 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 **Conventions that matter:**
 - A Misfit-pile gift has `ownerId: 'misfit'` (+ `misfitOrder` for FIFO). Never `null`.
 - "In the bag" = player has no `giftId`; there is no separate bag list.
-- **Buttons send intents, never plans:** `send({ type: ... })` (`core/intents.ts`). An intent is a table offer (`core/table.ts`: `offers()` says who may press it and when, `perform()` builds the plan) or a host `admin_*` intent; `dispatch()` refuses anything not on that person's screen. A new button = an offer + a `perform` case (+ its shape in `parseIntent`). `core/boundary.test.ts` fails if a screen imports an action. Writes are still applied by the clients until the room server lands (`ARCHITECTURE.md`).
+- **Buttons send intents, never plans:** `send({ type: ... })` (`core/intents.ts`). An intent is a table offer (`core/table.ts`: `offers()` says who may press it and when, `perform()` builds the plan) or a host `admin_*` intent; `dispatch()` refuses anything not on that person's screen. A new button = an offer + a `perform` case (+ its shape in `parseIntent`). `core/boundary.test.ts` fails if a screen imports an action. The room server applies them (`server/`); on the Firebase transport the page still does.
 - One commit path for plans: `core/commit.ts` (claims), used by the tests, the simulator and (next) the room server.
 - Settings live in `games/{room}/settings`; read them through `config()` (`core/settings.ts`).
 - Actions that move chips claim a path first (`tx.claim(...)`, e.g. `currentTurn/resolvedBy` in `resolveDuel`): applied as a set-if-empty transaction, so a double-tap, a timer racing a button, or a second host tab can't charge/pay twice. New chip-moving actions should do the same.
@@ -100,7 +100,7 @@ virtual living room to play this game as people would; this repo gives it the ta
   runs them on its clock. A new automatic host step goes here, not in the hook.
 - `core/screens.ts`: the TV and a phone in words, sealed bids sealed.
 - `sim/table.ts` (engine, virtual clock, seeded) and `sim/live.ts` (the real host page and phones in
-  a browser against the emulators) behind one JSON-lines protocol (`sim/table-bridge.ts`);
+  a browser against the room server) behind one JSON-lines protocol (`sim/table-bridge.ts`);
   `sim/world.ts` holds the people's skills, tastes and hands, and the scripted patient host.
 - Tests: `sim/table.test.ts`, `core/hostauto.test.ts`, `e2e/table-live.spec.js` (runs
   `sim/live-check.ts` against the served build).
@@ -114,4 +114,4 @@ Authoritative rules: `Jingle Brawl V2.md` (player-facing: `rules.html`, `quick-r
 
 ## Testing Notes
 
-Playwright runs sequentially (1 worker) against the emulators. Tests drive real host + phone pages and assert invariants (`e2e/helpers.js`). **Every bug fix or new code path must ship with a test that fails without it** (`e2e/regressions.spec.js` for fixes). See `TESTING.md`.
+Playwright runs sequentially (1 worker) against the room server (`--debug-api`; `TRANSPORT=firebase`: the emulators). Tests drive real host + phone pages and assert invariants (`e2e/helpers.js`). **Every bug fix or new code path must ship with a test that fails without it** (`e2e/regressions.spec.js` for fixes). See `TESTING.md`.

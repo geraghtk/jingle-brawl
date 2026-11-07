@@ -26,6 +26,12 @@ test.describe('Lobby and Join', () => {
     const roomCode = (await hostPage.locator('#room-code-display').textContent()).trim();
     expect(roomCode).toMatch(/^[A-Z0-9]{4}$/);
 
+    // The TV's join link must reach this PC from a phone: not "localhost" when it has a Wi-Fi address
+    if (process.env.TRANSPORT !== 'firebase') {
+      const { ips } = await (await fetch(`${BASE}/api/info`)).json();
+      if (ips.length) await expect(hostPage.locator('#join-url')).not.toContainText('localhost');
+    }
+
     // --- Players: Join in parallel ---
     const playerPages = await Promise.all(
       PLAYER_NAMES.map(async (name, i) => {

@@ -10,19 +10,18 @@ Rules: [`rules.html`](web/public/rules.html) · [`quick-reference.html`](web/pub
 
 ```bash
 npm install
-npm run emulator              # Realtime Database + Auth emulators (Java 21+, Firebase CLI)
-npm run dev                   # in a second terminal: the app on :5173
+npm run dev                   # the room server + the app on :5173
 ```
 
 Open http://localhost:5173/host.html → **Create New Game**, then join from
-`player.html?room=CODE` (or scan the QR code). On localhost everything uses the
-emulators; nothing touches production. To simulate many players in one browser use
+`player.html?room=CODE` (or scan the QR code: it carries this PC's Wi-Fi address, so phones on the
+same Wi-Fi can join). Rooms live in rooms.db. To simulate many players in one browser use
 `player.html?room=CODE&testId=1&name=Alice`.
 
 ## Tests
 
 ```bash
-npm run test:e2e                         # Playwright: host + phones end-to-end on the emulators
+npm run test:e2e                         # Playwright: host + phones end-to-end on the room server
 cd functions && npm test                 # Cloud Function parser tests
 python -m unittest discover -s tests     # local AI critic tests
 ```

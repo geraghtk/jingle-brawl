@@ -11,4 +11,6 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const createRoom = (settings: Settings) => call<CreateRoomRes>('/api/rooms', { method: 'POST', body: JSON.stringify({ settings }) });
 export const lobby = (room: string) => call<LobbyRes>(`/api/rooms/${encodeURIComponent(room)}/lobby`);
+/** This machine's Wi-Fi addresses (so the TV can show phones a link that reaches it). */
+export const serverInfo = () => call<{ ips: string[] }>('/api/info');
 export const joinRoom = (room: string, req: JoinReq) => call<JoinRes>(`/api/rooms/${encodeURIComponent(room)}/join`, { method: 'POST', body: JSON.stringify(req) });

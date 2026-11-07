@@ -7,7 +7,7 @@ const ENDPOINTS = [
 ];
 
 module.exports = async () => {
-  if (process.env.CI || process.env.TRANSPORT === 'server') return; // the room server needs no emulators
+  if (process.env.CI || process.env.TRANSPORT !== 'firebase') return; // the room server needs no emulators
   const deadline = Date.now() + 60000;
   for (const url of ENDPOINTS) {
     for (;;) {

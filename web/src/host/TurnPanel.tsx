@@ -13,6 +13,7 @@ import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, Turn } from '../core/types';
 import { usingEmulators } from '../firebase/app';
 import { onServer } from '../net/transport';
+import { useJoinOrigin } from '../net/lan';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
 import { OptionList, useModal } from './Modal';
@@ -49,8 +50,9 @@ export function TurnPanel() {
 
 function LobbyHero() {
   const { game, room, send, cfg } = useHost();
+  const joinOrigin = useJoinOrigin();
   const players = Object.entries(game.players || {});
-  const url = `${location.origin}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
+  const url = `${joinOrigin()}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
   const svg = useMemo(() => {
     const qr = qrcode(0, 'M');
     qr.addData(url);
