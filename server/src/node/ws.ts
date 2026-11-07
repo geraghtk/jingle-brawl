@@ -53,7 +53,7 @@ export function wsServer(rooms: Rooms) {
         }
         room = r;
         who = viewer.kind === 'host' ? HOST : viewer.kind === 'phone' ? viewer.pid : null;
-        conn = { viewer, send };
+        conn = { viewer, send, close: () => ws.close(1012, 'room restarting') };
         r.attach(conn);
         return;
       }

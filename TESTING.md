@@ -61,6 +61,7 @@ npx playwright install chromium
 
 ```bash
 npm run test:e2e          # everything, headless (Playwright builds + previews the app, boots the emulators)
+npm run test:e2e:server   # the same suite on the room server: it serves the build itself, --db :memory: --debug-api
 npm run test:flows        # just the game-flow permutations, list output
 npm run test:e2e:ui       # visual debugging
 npm run test:e2e:headed   # watch the browsers

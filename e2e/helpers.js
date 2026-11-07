@@ -8,7 +8,8 @@
 // zero page errors. We do NOT bake in expected chip totals for ambiguous rules
 // (e.g. Santa Tax split); those are reported for review instead of asserted.
 //
-// State is read straight from the RTDB emulator (Bearer owner = admin bypass).
+// State is read straight from the back end: the room server's debug API (TRANSPORT=server), or the
+// RTDB emulator (Bearer owner = admin bypass). Same helpers, same answers (a missing path is null).
 
 const BASE = process.env.BASE_URL || 'http://localhost:4173'; // see playwright.config.js
 // Phones can be served separately (PLAYER_BASE=…, e.g. React phones against the original host)
@@ -16,8 +17,11 @@ const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
 const NS = 'jingle-brawl-e8308-default-rtdb';
 const DB_BASE = 'http://127.0.0.1:9000';
 const ADMIN = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
+const ON_SERVER = process.env.TRANSPORT === 'server';
+const debugUrl = (roomCode, path = '') => `${BASE}/debug/rooms/${roomCode}${path ? '/' + path : ''}`;
 
 async function dbGet(roomCode, path = '') {
+  if (ON_SERVER) return (await fetch(debugUrl(roomCode, path))).json();
   const url = `${DB_BASE}/games/${roomCode}${path ? '/' + path : ''}.json?ns=${NS}`;
   const res = await fetch(url, { headers: ADMIN });
   return res.json();
@@ -25,6 +29,11 @@ async function dbGet(roomCode, path = '') {
 
 /** Admin write (bypasses rules) — for injecting state a test can't reach by clicking. */
 async function dbPut(roomCode, path, value) {
+  if (ON_SERVER) {
+    const res = await fetch(debugUrl(roomCode, path), { method: 'PUT', headers: ADMIN, body: JSON.stringify(value) });
+    if (!res.ok) throw new Error(`dbPut ${path} failed: ${res.status}`);
+    return value;
+  }
   const url = `${DB_BASE}/games/${roomCode}/${path}.json?ns=${NS}`;
   const res = await fetch(url, { method: 'PUT', headers: ADMIN, body: JSON.stringify(value) });
   if (!res.ok) throw new Error(`dbPut ${path} failed: ${res.status}`);
@@ -159,6 +168,11 @@ async function createGame(browser, settings = {}) {
 
 /** Admin-bypass multi-path update of a room (keys are paths under games/{room}). */
 async function dbPatch(roomCode, updates) {
+  if (ON_SERVER) {
+    const res = await fetch(debugUrl(roomCode), { method: 'PATCH', headers: ADMIN, body: JSON.stringify(updates) });
+    if (!res.ok) throw new Error(`dbPatch failed: ${res.status}`);
+    return updates;
+  }
   const url = `${DB_BASE}/games/${roomCode}.json?ns=${NS}`;
   const res = await fetch(url, { method: 'PATCH', headers: ADMIN, body: JSON.stringify(updates) });
   if (!res.ok) throw new Error(`dbPatch failed: ${res.status}`);

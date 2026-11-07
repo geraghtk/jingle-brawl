@@ -29,7 +29,8 @@ export interface Clock {
   at(when: number, fn: () => void): () => void;
 }
 
-export interface Conn { viewer: Viewer; send(msg: ServerMsg): void }
+/** A screen's connection; close() drops it (the screen reconnects), as a restart would. */
+export interface Conn { viewer: Viewer; send(msg: ServerMsg): void; close?(): void }
 
 export interface Deps { store: Store; clock: Clock; seed?: () => number }
 
@@ -267,6 +268,8 @@ export class RoomActor {
 
   close(): void {
     this.closed = true;
+    for (const c of [...this.conns]) c.close?.();
+    this.conns.clear();
     this.cancelTimer?.();
     for (const cancel of this.away.values()) cancel();
     this.away.clear();

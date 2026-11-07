@@ -16,6 +16,7 @@ npm run server -- --db :memory:  # the room server (dev, TS via vite-node) on :8
 npm run build && npm start       # build the app + the server bundle (dist-server/), run it (rooms in rooms.db)
 
 npm run test:e2e                 # full Playwright suite (boots server + emulators if not running)
+npm run test:e2e:server          # the same suite with the screens on the room server (no emulators, no Java)
 npm run test:flows               # game-flow permutations only
 npm run test:e2e:ui / :headed    # visual debugging
 cd functions && npm test         # Cloud Function parser unit tests
