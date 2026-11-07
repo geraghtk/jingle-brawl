@@ -1,6 +1,6 @@
 // Settings presets for `--sweep`. Keys are the host setup-screen <select> ids without
 // the "setting-" prefix; values must be one of that select's <option> values.
-// Anything not listed keeps the app default (see GAME_CONFIG in firebase-config.js).
+// Anything not listed keeps the app default (see DEFAULTS in web/src/core/settings.ts).
 const PRESETS = [
   { name: 'default', why: 'app defaults: payout cap 2 from pot 2, dividend to defenders, 1 reprisal, max bid 4', settings: {} },
   { name: 'v2-classic', why: 'closest to the original written V2 rules', settings: { 'tax-threshold': '3', 'max-payout': '3', 'loser-dividend': 'everyone', 'reprisal-depth': '2' } },

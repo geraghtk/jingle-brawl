@@ -1,7 +1,5 @@
 // SVG paints in source order (later = on top), so a hat must come AFTER the face it sits on.
 // Santa's and the elf's hats used to be drawn first, so the face covered the brim.
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 let svg: Record<string, string>;
@@ -55,16 +53,6 @@ describe('mascots: what they say', () => {
         expect(s, moment).not.toMatch(/\u2014|\s\u2013\s/);
         if (typeof l === 'function') expect(s, moment).toMatch(/Alexandra-Jo|4/);
       }
-    }
-  });
-  it('the original pages (mascots.js) say exactly the same lines', () => {
-    const src = readFileSync(resolve(__dirname, '../../../mascots.js'), 'utf8');
-    const win: { Mascots?: { lines: Record<string, Line[]> } } = {};
-    new Function('window', 'location', src)(win, { search: '' });
-    const legacy = win.Mascots!.lines;
-    expect(Object.keys(legacy)).toEqual(Object.keys(lines));
-    for (const [moment, pool] of Object.entries(lines)) {
-      expect(legacy[moment].map((l) => render(l, moment)), moment).toEqual(pool.map((l) => render(l, moment)));
     }
   });
 });

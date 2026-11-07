@@ -18,9 +18,7 @@
     "agents:watch": "node agents/play.js --watch",
     "agents:sweep": "node agents/play.js --sweep",
     "agents:join": "node agents/play.js --watch --phones http://localhost:5173",
-    "agents:join:legacy": "node agents/play.js --watch --phones http://localhost:8080",
-    "test:agents": "node --test agents/personas.test.js agents/arena.test.js",
-    "test:party": "node --test party-games.test.js scoring.test.js"
+    "test:agents": "node --test agents/personas.test.js agents/arena.test.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

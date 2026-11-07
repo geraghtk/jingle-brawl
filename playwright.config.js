@@ -2,9 +2,8 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 /** @see https://playwright.dev/docs/test-configuration */
-// The React app (web/) is what the suite tests: built fresh and served by `vite preview` on :4173.
-// BASE_URL=… points it at something already running instead (e.g. the dev server on :5173, or
-// the original pages: `python -m http.server 8080` + BASE_URL=http://localhost:8080).
+// The app (web/) is built fresh and served by `vite preview` on :4173. BASE_URL=… points the
+// suite at something already running instead (e.g. the dev server on :5173).
 const BASE = process.env.BASE_URL || 'http://localhost:4173';
 
 module.exports = defineConfig({
@@ -33,7 +32,7 @@ module.exports = defineConfig({
     }]),
     {
       // Local RTDB + Auth emulators — pages on localhost connect automatically
-      // (see connectGameDatabase in firebase-config.js). Requires Java 21+.
+      // (see web/src/firebase/app.ts). Requires Java 21+.
       command: 'firebase emulators:start --only database,auth --project jingle-brawl-e8308',
       url: 'http://127.0.0.1:9000/.json?ns=jingle-brawl-e8308-default-rtdb',
       reuseExistingServer: !process.env.CI,

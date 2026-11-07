@@ -28,11 +28,11 @@ afterwards. Options are documented at the top of `play.js`.
 
 You host and play a phone; agents fill the other seats.
 
-1. `npm run emulator`, and the app: `npm run dev` (React on :5173) or the legacy pages on :8080.
+1. `npm run emulator`, and the app: `npm run dev` (:5173).
 2. Open `http://localhost:5173/host.html`, create a game, note the room code.
 3. Your phone: a tab on the **same computer** at `http://localhost:5173/player.html?room=CODE&testId=1`
    (the local emulators are only reachable from this machine).
-4. `npm run agents:join ABCD` with your room code (`agents:join:legacy` for the :8080 pages).
+4. `npm run agents:join ABCD` with your room code.
    A window streams their phones and thoughts. More options (`--players N`, default 4;
    `--lineup a,b,c`) need `node agents/play.js --watch --phones http://localhost:5173 --join ABCD …`,
    because npm swallows `--flags` in PowerShell.

@@ -5,7 +5,6 @@
 const { test, expect } = require('@playwright/test');
 const H = require('./helpers');
 
-test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
 
 test('a player picks an avatar when they join and the TV shows it; no pick gets a free one; taken ones are greyed out', async ({ browser }) => {
   const { host, hostCtx, roomCode } = await H.createGame(browser);

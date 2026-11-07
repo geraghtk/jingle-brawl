@@ -4,7 +4,6 @@ const { test, expect } = require('@playwright/test');
 const H = require('./helpers');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
-test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
 
 async function setup(browser, settings) {
   const { host, hostCtx, roomCode, errors } = await H.createGame(browser, { 'vote-window': '0', ...settings });

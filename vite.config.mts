@@ -1,5 +1,5 @@
-// The React apps: web/host.html (TV) and web/player.html (phones), built to dist/.
-// While the rebuild is in progress the original pages stay at the repo root.
+// The apps: web/host.html (TV) and web/player.html (phones), built to dist/ with web/public
+// (art, rule pages).
 import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';

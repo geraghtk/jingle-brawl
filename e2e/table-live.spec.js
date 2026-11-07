@@ -5,7 +5,6 @@ const { test, expect } = require('@playwright/test');
 const { spawnSync } = require('child_process');
 const H = require('./helpers');
 
-test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
 
 test('the live table: guests play a whole game on the real pages; Whack-an-Elf is played once per guest; the TV picture is the whole page; guests pick avatars', async () => {
   test.setTimeout(15 * 60000);

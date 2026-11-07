@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
  * Each player runs in an isolated browser context (separate storage).
  */
 test.describe('Lobby and Join', () => {
-  const BASE = process.env.BASE_URL || 'http://localhost:8080';
+  const BASE = require('./helpers').BASE;
   const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
   const PLAYER_NAMES = ['Alice', 'Bob', 'Charlie'];
 

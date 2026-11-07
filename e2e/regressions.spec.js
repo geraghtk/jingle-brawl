@@ -9,13 +9,14 @@ const H = require('./helpers');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 
-// The mascots pick a line at random from a pool per moment (mascots.js and web/src/ui/mascots.ts
-// say the same lines; a unit test keeps them in step): match any line of the pool.
+// The mascots pick a line at random from a pool per moment (web/src/ui/mascots.ts): match any
+// line of the pool.
 const MASCOT_LINES = (() => {
-  const win = {};
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'mascots.js'), 'utf8');
-  new Function('window', 'location', src)(win, { search: '' });
-  return win.Mascots.lines;
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'web', 'src', 'ui', 'mascots.ts'), 'utf8');
+  const { code } = require('esbuild').transformSync(src, { loader: 'ts', format: 'cjs' });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'location', code)(module, module.exports, { search: '' });
+  return module.exports.lines;
 })();
 const saysOneOf = (moment, x) => new RegExp(MASCOT_LINES[moment]
   .map((l) => (typeof l === 'function' ? l(x) : l).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'));
@@ -716,7 +717,6 @@ test.describe('Regressions (2026-10 review)', () => {
   // Found by play-testing as host + one phone: the host's "X wins" was live the moment the duel
   // started, so the duel was over before the table could vote.
   test('duel voting: the host cannot call the duel until every spectator has voted', async ({ browser }) => {
-    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
     const names = ['Alice', 'Bob', 'Charlie', 'Dana'];
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'vote-window': '60' }, names);
     try {
@@ -750,7 +750,6 @@ test.describe('Regressions (2026-10 review)', () => {
   });
 
   test('duel voting: the host can close voting early; the phone then stops taking votes', async ({ browser }) => {
-    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'vote-window': '60' });
     try {
       const turn = await H.drawGift(host, roomCode, 'Close Gift');
@@ -956,7 +955,6 @@ test.describe('Regressions (2026-10 review)', () => {
   });
 
   test('the extra prize: the TV reveals the Party MVP, the MVP\'s phone celebrates, the others are told', async ({ browser }) => {
-    test.skip(/:8080/.test(H.BASE), 'React app only (not the original pages)');
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
       const p = await H.playersByName(roomCode);

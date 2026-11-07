@@ -2,21 +2,19 @@
 
 Yuel Duel is a party game where a host and multiple players interact in real time from their own devices. This guide explains how to test that interaction on a single machine.
 
-## Quick Start: test-multi-device.html
+## Quick Start
 
-1. **Start your local server** (e.g. `python -m http.server 8080`)
-2. **Open** `http://localhost:8080/test-multi-device.html`
-3. Click **Open Host** → create a game → copy the room code
-4. Enter the room code in the harness
-5. Click **Open All Players** (or individual Player 1, Player 2, etc.)
-6. In each player tab: the room code and name are pre-filled; click **Join**
-7. Start the game from the host when everyone is in
+1. `npm run emulator` and `npm run dev` (the app on :5173)
+2. Open `http://localhost:5173/host.html` → create a game → note the room code
+3. Open player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice` (`testId=2`, `3`, … for more)
+4. Start the game from the host when everyone is in
 
-Each player tab uses `?testId=N` so they have **isolated localStorage**—multiple tabs from the same browser act as different players instead of sharing one session.
+Each player tab uses `?testId=N` so it has **isolated localStorage**: tabs from the same browser act as different players.
+To watch a whole party on the real app instead: `npx vite-node web/src/sim/play-table.ts -- --live --headed --players 4`.
 
-## Manual Testing (without harness)
+## Manual Testing
 
-To simulate multiple devices without the harness:
+Other ways to simulate multiple devices:
 
 | Method | How | Notes |
 |-------|-----|------|
@@ -62,7 +60,7 @@ npx playwright install chromium
 ### Run Tests
 
 ```bash
-npm run test:e2e          # everything, headless (Playwright boots http.server + emulators)
+npm run test:e2e          # everything, headless (Playwright builds + previews the app, boots the emulators)
 npm run test:flows        # just the game-flow permutations, list output
 npm run test:e2e:ui       # visual debugging
 npm run test:e2e:headed   # watch the browsers
@@ -106,9 +104,9 @@ missing buttons and invariant breaks are reported with screenshots. See
 
 ### Requirements
 
-- Local server on port 8080 (Playwright starts `python -m http.server 8080` if not running)
+- Playwright builds the app and serves it with `vite preview` on :4173
 - Firebase CLI + Java 21+ for the emulators (Playwright starts them if not running)
 
-## Logic-Only Testing (test-game.html)
+## Logic-Only Testing
 
-For logic-only testing without real browser interaction, use `test-game.html`. It creates bot players (in the emulator on localhost) and runs the game flow automatically. It does **not** exercise the player UI, drawing, or voting—only the core game state transitions.
+For logic-only runs without browsers, `web/src/sim/` plays whole games through the real engine in memory (`npm run test:unit`, `npx vite-node web/src/sim/play-table.ts`). It does **not** exercise the UI.

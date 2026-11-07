@@ -24,8 +24,8 @@ const GIFT_CATALOG = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Match a button in either app: the React test id, or the legacy page's onclick. */
-const sel = (testid, legacy) => `[data-testid="${testid}"], ${legacy}`;
+/** A button by its test id. */
+const sel = (testid) => `[data-testid="${testid}"]`;
 
 class Arena {
   /**
@@ -271,7 +271,7 @@ class Arena {
   async bid(pid, amount) {
     const { page, name } = this.agents[pid];
     await page.locator('#bid-panel').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
-    const ok = await this.click(page, sel(`bid-${amount}`, `#bid-quick-buttons button[onclick="setBid(${amount})"]`), name, `bid ${amount}`);
+    const ok = await this.click(page, sel(`bid-${amount}`), name, `bid ${amount}`);
     if (ok) await this.click(page, '#submit-bid-btn', name, 'Seal bid');
   }
 
@@ -379,7 +379,7 @@ class Arena {
           this.say('🎰 All gifts open — Misfit Lottery!');
           await this.click(host, '#btn-endgame:not([disabled])', 'HOST', 'Endgame');
         });
-        return hostA('end', 'end the game', () => this.click(host, sel('end-game', 'button[onclick="endGame()"]'), 'HOST', 'End Game for All'));
+        return hostA('end', 'end the game', () => this.click(host, sel('end-game'), 'HOST', 'End Game for All'));
       }
       return null; // endgame: host draws the next player itself
     }
@@ -409,7 +409,7 @@ class Arena {
           });
         }
         if (ids.some((id) => id !== t.openerId && !t.bids?.[id])) return null; // a person is still bidding
-        return hostA(`${tk}|reveal`, 'reveal bids', () => this.click(host, sel('reveal-bids', 'button[onclick="revealBids()"]'), 'HOST', 'Reveal All Bids'));
+        return hostA(`${tk}|reveal`, 'reveal bids', () => this.click(host, sel('reveal-bids'), 'HOST', 'Reveal All Bids'));
       }
 
       case 'reveal': {
@@ -427,16 +427,16 @@ class Arena {
             this.record(opener, 'keep-or-gambit', d);
             const page = this.agents[opener].page;
             if (d.action === 'gambit') {
-              if (await this.click(page, sel('gambit', 'button[onclick="showGambitOptions()"]'), name(opener), 'Grinch\'s Gambit')) {
-                if (await this.click(page, sel(`gambit-target-${d.giftId}`, `[onclick="executeGambit('${d.giftId}')"]`), name(opener), 'Gambit target')) return;
-                await this.click(page, sel('cancel-gambit', 'button[onclick="cancelGambit()"]'), name(opener), 'Cancel Gambit'); // back to Keep
+              if (await this.click(page, sel('gambit'), name(opener), 'Grinch\'s Gambit')) {
+                if (await this.click(page, sel(`gambit-target-${d.giftId}`), name(opener), 'Gambit target')) return;
+                await this.click(page, sel('cancel-gambit'), name(opener), 'Cancel Gambit'); // back to Keep
               }
             }
-            await this.click(page, sel('keep-gift', 'button[onclick="keepMyGift()"]'), name(opener), 'Keep My Gift');
+            await this.click(page, sel('keep-gift'), name(opener), 'Keep My Gift');
           });
         }
         if (positiveBids.length === 1) {
-          return hostA(`${tk}|start-duel`, 'start the duel', () => this.click(host, sel('start-duel', 'button[onclick^="startDuel("]'), 'HOST', 'Start Duel'));
+          return hostA(`${tk}|start-duel`, 'start the duel', () => this.click(host, sel('start-duel'), 'HOST', 'Start Duel'));
         }
         if (!agent(opener)) return null;
         return A(`${tk}|fight-or-yield`, `${name(opener)} fight/yield`, () => this.fightOrYield(g, opener, opened));
@@ -446,17 +446,17 @@ class Arena {
         if (!agent(t.openerId)) return null;
         return A(`${tk}|fight-or-yield`, `${name(t.openerId)} fight/yield`, () => this.fightOrYield(g, t.openerId, opened));
       case 'duel_pending':
-        return hostA(`${tk}|start`, 'start the duel', () => this.click(host, sel('start-duel', 'button[onclick^="startDuel("]'), 'HOST', 'Start Duel!'));
+        return hostA(`${tk}|start`, 'start the duel', () => this.click(host, sel('start-duel'), 'HOST', 'Start Duel!'));
       case 'yield_pending':
-        return hostA(`${tk}|start`, 'start the yield duel', () => this.click(host, sel('start-yield-duel', 'button[onclick^="openerYields("]'), 'HOST', 'Start Yield Duel!'));
+        return hostA(`${tk}|start`, 'start the yield duel', () => this.click(host, sel('start-yield-duel'), 'HOST', 'Start Yield Duel!'));
       case 'tiebreaker_pending':
         // Mini-game tiebreakers start themselves; only the random method has a button
         if ((g.settings?.tiebreakerMethod || 'random') !== 'random') return null;
-        return hostA(`${tk}|start`, 'start the tiebreaker', () => this.click(host, sel('start-tiebreaker', 'button[onclick^="startTiebreaker("]'), 'HOST', 'Start Tiebreaker Duel!'));
+        return hostA(`${tk}|start`, 'start the tiebreaker', () => this.click(host, sel('start-tiebreaker'), 'HOST', 'Start Tiebreaker Duel!'));
 
       case 'duel': {
         const dk = `${t.challengerId}|${t.defenderId}|${t.giftId}|${!!t.isTiebreak}`;
-        // Which duel gets played (React host: settings.duelPick; the original pages have none)
+        // Which duel gets played (settings.duelPick)
         const duelPick = g.settings?.duelPick || 'off';
         const listed = g.settings?.duelGames; // text, one per line (older games: an array)
         const tableGames = typeof listed === 'string' ? listed.split('\n').filter((x) => x.trim()).length : Object.values(listed || {}).length;
@@ -493,14 +493,13 @@ class Arena {
           if (!d) continue;
           const pick = d.pick === 'challenger' ? t.challengerId : t.defenderId;
           return A(`${tk}|vote|${voter}`, `${name(voter)} votes`, () =>
-            this.click(this.agents[voter].page, sel(`vote-${pick}`, `button[onclick="voteOnDuel('${pick}')"]`), name(voter), 'vote', 10000)); // a busy machine can lag the phone behind the wheel
+            this.click(this.agents[voter].page, sel(`vote-${pick}`), name(voter), 'vote', 10000)); // a busy machine can lag the phone behind the wheel
         }
         // An in-app duel game (Whack-an-Elf…): the referee starts it, the game decides the winner
         if (t.duelGame?.kind === 'app') {
           return hostA(`${tk}|duel-app`, `start ${t.duelGame.name}`, () =>
             this.click(host, '[data-testid="start-duel-app"]:not([disabled])', 'HOST', `Start ${t.duelGame.name}`));
         }
-        const fn = t.isTiebreak ? 'recordTiebreakerWinner' : 'recordDuelWinner';
         return hostA(`${tk}|winner`, 'declare the duel winner', async () => {
           await sleep(this.watch ? 1800 : 200); // let people see the duel
           const winner = this.random() < 0.5 ? t.challengerId : t.defenderId; // fair coin
@@ -508,8 +507,8 @@ class Arena {
           // Sealed/Gambit/Reprisal duels show a modal over the turn panel's copy of the buttons
           const modalOpen = await host.locator('#duel-modal-overlay.active').count();
           await this.click(host, modalOpen
-            ? sel(`modal-winner-${winner}`, `#duel-modal-overlay button[onclick="${fn}('${winner}')"]`)
-            : sel(`${t.isTiebreak ? 'tiebreak' : 'duel'}-winner-${winner}`, `#action-buttons button[onclick="${fn}('${winner}')"]`), 'HOST', `${name(winner)} wins`);
+            ? sel(`modal-winner-${winner}`)
+            : sel(`${t.isTiebreak ? 'tiebreak' : 'duel'}-winner-${winner}`), 'HOST', `${name(winner)} wins`);
           // The TV verdict: let watchers enjoy it, otherwise tap it away
           if (!t.isTiebreak) {
             if (this.watch) {
@@ -531,8 +530,8 @@ class Arena {
           const d = this.agents[pid].brain.reprisal(v, targets);
           this.record(pid, 'reprisal', d, { misfit: d.giftId ? gifts[d.giftId]?.ownerId === 'misfit' : undefined });
           const page = this.agents[pid].page;
-          if (d.giftId && await this.click(page, sel(`reprisal-target-${d.giftId}`, `[onclick="selectReprisalTarget('${d.giftId}')"]`), name(pid), 'Reprisal target')) return;
-          await this.click(page, sel('skip-reprisal', 'button[onclick="skipReprisal()"]'), name(pid), 'Skip Reprisal');
+          if (d.giftId && await this.click(page, sel(`reprisal-target-${d.giftId}`), name(pid), 'Reprisal target')) return;
+          await this.click(page, sel('skip-reprisal'), name(pid), 'Skip Reprisal');
         });
       }
 
@@ -546,8 +545,8 @@ class Arena {
           this.record(pid, 'endgame-path', d, { misfit: t.misfitName });
           (this.stealPlan ||= {})[tk.replace('endgame_choice', 'endgame_steal_select')] = d.giftId;
           const page = this.agents[pid].page;
-          if (d.path === 'steal' && await this.click(page, sel('path-a', 'button[onclick="showEndgameStealOptions()"]'), name(pid), 'Path A')) return;
-          await this.click(page, sel('path-b', 'button[onclick="startEndgameAuction()"]'), name(pid), 'Path B');
+          if (d.path === 'steal' && await this.click(page, sel('path-a'), name(pid), 'Path A')) return;
+          await this.click(page, sel('path-b'), name(pid), 'Path B');
         });
       }
 
@@ -557,8 +556,8 @@ class Arena {
         return A(`${tk}|steal`, `${name(pid)} steals`, async () => {
           const target = this.stealPlan?.[tk];
           const page = this.agents[pid].page;
-          if (target && await this.click(page, sel(`steal-target-${target}`, `[onclick="executeEndgameSteal('${target}')"]`), name(pid), 'steal target')) return;
-          await this.click(page, sel('cancel-steal', 'button[onclick="cancelEndgameSteal()"]'), name(pid), 'Cancel steal');
+          if (target && await this.click(page, sel(`steal-target-${target}`), name(pid), 'steal target')) return;
+          await this.click(page, sel('cancel-steal'), name(pid), 'Cancel steal');
         });
       }
 
@@ -573,12 +572,12 @@ class Arena {
         }
         if (ids.some((id) => id !== t.activePlayerId && !t.bids?.[id])) return null; // a person is still bidding
         return hostA(`${tk}|reveal`, 'reveal auction bids', () =>
-          this.click(host, sel('reveal-auction', 'button[onclick="revealEndgameAuctionBids()"]'), 'HOST', 'Reveal Bids'));
+          this.click(host, sel('reveal-auction'), 'HOST', 'Reveal Bids'));
       }
 
       case 'endgame_reveal':
         return hostA(`${tk}|duel`, 'duel the highest bidder', () =>
-          this.click(host, sel('auction-duel', 'button[onclick^="startEndgameAuctionDuel("]'), 'HOST', 'Duel Highest Bidder'));
+          this.click(host, sel('auction-duel'), 'HOST', 'Duel Highest Bidder'));
 
       case 'endgame_nobids': {
         const pid = t.activePlayerId;
@@ -591,7 +590,7 @@ class Arena {
             e.dataset.testid?.slice('nobids-defender-'.length) || (e.getAttribute('onclick')?.match(/'([^']+)'/) || [])[1]).filter(Boolean));
           const d = this.agents[pid].brain.noBidsDefender(this.view(g, pid), candidates);
           this.record(pid, 'nobids-defender', d);
-          if (d.playerId) await this.click(page, sel(`nobids-defender-${d.playerId}`, `[onclick="executeNoBidsDuel('${d.playerId}')"]`), name(pid), 'defender');
+          if (d.playerId) await this.click(page, sel(`nobids-defender-${d.playerId}`), name(pid), 'defender');
           else this.issue('dead-end', `${name(pid)}: no-bids Misfit duel but no defender to pick`);
         });
       }
@@ -626,7 +625,7 @@ class Arena {
       if (!this.host) return null;
       return A(mk, mg.phase === 'intro' ? 'start the party game' : 'continue to the duel', async () => {
         await sleep(this.watch ? 4000 : 300); // let people read the rules / results
-        await this.click(this.host, sel('skip-party-phase', 'button[onclick="skipPartyPhase()"]'), 'HOST', 'Skip ahead');
+        await this.click(this.host, sel('skip-party-phase'), 'HOST', 'Skip ahead');
       });
     }
     if (mg.phase === 'playing' && mg.type === 'whack_elf') {
@@ -706,8 +705,7 @@ class Arena {
     const d = this.agents[opener].brain.fightOrYield(this.view(g, opener), this.valueFor(opener, opened.name));
     this.record(opener, 'fight-or-yield', d);
     const page = this.agents[opener].page;
-    const fn = d.action === 'yield' ? 'openerChooseYield' : 'openerChooseFight';
-    await this.click(page, sel(d.action === 'yield' ? 'yield' : 'fight', `button[onclick^="${fn}("]`), g.players[opener].name, d.action === 'yield' ? 'Yield!' : 'Fight!');
+    await this.click(page, sel(d.action === 'yield' ? 'yield' : 'fight'), g.players[opener].name, d.action === 'yield' ? 'Yield!' : 'Fight!');
   }
 
   // --- results ------------------------------------------------------------------

@@ -82,8 +82,6 @@ async function ensureServers() {
     if (/:5173$/.test(PAGES())) {
       console.log('Starting the app (npm run dev)…');
       started.push(spawn('npx', ['vite', '--config', 'vite.config.mts'], { cwd: root, stdio: 'ignore', shell: true }));
-    } else if (/:8080$/.test(PAGES())) {
-      started.push(spawn('python', ['-m', 'http.server', '8080'], { cwd: root, stdio: 'ignore', shell: true })); // the original pages
     } else {
       throw new Error(`Nothing is serving ${PAGES()} — start the app first`);
     }

@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
  * Uses ?testId= for isolated player sessions.
  */
 test.describe('Bidding and Duel', () => {
-  const BASE = process.env.BASE_URL || 'http://localhost:8080';
+  const BASE = require('./helpers').BASE;
   const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
   const PLAYER_NAMES = ['Alice', 'Bob', 'Charlie'];
   const GIFT_NAME = 'Test Gift';

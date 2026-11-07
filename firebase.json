@@ -1,37 +1,7 @@
 {
   "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**",
-      "**/*.md",
-      "**/configs/**",
-      "**/*.yaml",
-      "**/jingle_brawl_*.py",
-      "**/requirements.txt",
-      "**/ai_art_critic.py",
-      "**/ai_art_critic_requirements.txt",
-      "**/AGENT_BEHAVIOR*",
-      "**/GAME_*.md",
-      "**/SELF_PLAY*.md",
-      "**/spec_package.md",
-      "**/Jingle*.md",
-      "**/*.py",
-      "**/*.log",
-      "**/*.zip",
-      "functions/**",
-      "e2e/**",
-      "agents/**",
-      "tests/**",
-      "playwright-report/**",
-      "test-results/**",
-      "YuleDule/**",
-      "playwright.config.js",
-      "package.json",
-      "package-lock.json",
-      "database.rules.json"
-    ]
+    "public": "dist",
+    "predeploy": ["npm run build"]
   },
   "functions": {
     "source": "functions",

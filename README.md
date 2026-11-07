@@ -2,22 +2,22 @@
 
 A real-time party game for gift exchanges: players bid Jingle Chips on opened gifts, duel
 for them, and strike back with Grinch's Gambits and Reindeer Reprisals. One screen runs
-`host.html` (TV/laptop); everyone else plays on their phone via `player.html`.
+`host.html` (TV/laptop); everyone else plays on their phone via `player.html` (React + TypeScript app in `web/`).
 
-Rules: [`rules.html`](rules.html) · [`quick-reference.html`](quick-reference.html) · full text in `Jingle Brawl V2.md`.
+Rules: [`rules.html`](web/public/rules.html) · [`quick-reference.html`](web/public/quick-reference.html) · full text in `Jingle Brawl V2.md`.
 
 ## Quick start (local)
 
 ```bash
 npm install
 npm run emulator              # Realtime Database + Auth emulators (Java 21+, Firebase CLI)
-python -m http.server 8080    # in a second terminal
+npm run dev                   # in a second terminal: the app on :5173
 ```
 
-Open http://localhost:8080/host.html → **Create New Game**, then join from
+Open http://localhost:5173/host.html → **Create New Game**, then join from
 `player.html?room=CODE` (or scan the QR code). On localhost everything uses the
 emulators; nothing touches production. To simulate many players in one browser use
-`player.html?room=CODE&testId=1&name=Alice` or `test-multi-device.html`.
+`player.html?room=CODE&testId=1&name=Alice`.
 
 ## Tests
 
