@@ -9,12 +9,14 @@ import { MemoryStore } from '../store/store';
 import { PRESENCE_GRACE_MS, RoomActor } from './actor';
 import type { Conn } from './actor';
 import { replay } from './replay';
+import { projectGame } from '../../../web/src/core/projection';
+import { viewsFrom } from '../../../web/src/net/views';
 import { FakeClock } from '../testing/fakeClock';
 
 function screen(viewer: Conn['viewer']) {
   const got: ServerMsg[] = [];
   const conn: Conn = { viewer, send: (m) => got.push(JSON.parse(JSON.stringify(m))) };
-  return { conn, got, last: () => [...got].reverse().find((m) => m.t === 'state') as Extract<ServerMsg, { t: 'state' }> | undefined };
+  return { conn, got, views: () => viewsFrom(got), last: () => viewsFrom(got).at(-1) };
 }
 
 function setup(n = 4, settings = {}) {
@@ -75,14 +77,33 @@ describe('a room', () => {
     const opener = t.game().currentTurn!.openerId!;
     const bidders = t.pids.filter((x) => x !== opener);
     bidders.forEach((p, i) => t.press(p, { type: 'bid', amount: i + 1 }));
-    const leaked = (msgs: ServerMsg[], me?: string) => msgs.some((m) => m.t === 'state' && ['bidding', 'endgame_bidding'].includes(m.game.currentTurn?.phase || '')
-      && Object.entries(m.game.currentTurn!.bids || {}).some(([id, b]) => id !== me && b.amount !== 0));
+    const leaked = (msgs: ServerMsg[], me?: string) => viewsFrom(msgs).some((g) => ['bidding', 'endgame_bidding'].includes(g.currentTurn?.phase || '')
+      && Object.entries(g.currentTurn!.bids || {}).some(([id, b]) => id !== me && b.amount !== 0));
     expect(leaked(tv.got)).toBe(false);
     expect(leaked(t.host.got)).toBe(false);
     for (const p of t.pids) expect(leaked(t.phones[p].got, p)).toBe(false);
-    expect(t.phones[bidders[2]].last()!.game.currentTurn!.bids![bidders[2]].amount).toBe(3);
+    expect(t.phones[bidders[2]].last()!.currentTurn!.bids![bidders[2]].amount).toBe(3);
     t.press(HOST, { type: 'reveal' });
-    expect(tv.last()!.game.currentTurn!.bids![bidders[2]].amount).toBe(3);
+    expect(tv.last()!.currentTurn!.bids![bidders[2]].amount).toBe(3);
+  });
+
+  it('after the first whole view a screen is sent only what changed: a drawing goes over the wire once', () => {
+    const t = setup(4, { tiebreakerMethod: 'sketch_off' });
+    const opener = revealed(t);
+    t.press(opener, { type: 'fight' });
+    t.clock.advance(0);
+    const mg = () => t.game().minigame as PartyGame;
+    t.clock.advance(mg().phaseEndsAt - t.clock.now() + 1000);                 // drawing time
+    const drawing = `data:image/jpeg;base64,${'A'.repeat(50_000)}`;
+    for (const p of t.pids) t.press(p, { type: 'sketch', drawing });
+    t.clock.advance(1000);                                                    // everyone drew: voting
+    expect(mg().phase).toBe('voting');
+    const phone = t.phones[t.pids[0]];
+    const before = phone.got.length;
+    t.press(t.pids[1], { type: 'vote_sketch', pick: t.pids[2] });            // one vote
+    const sent = phone.got.slice(before).map((m) => JSON.stringify(m).length).reduce((a, b) => a + b, 0);
+    expect(sent).toBeLessThan(1000);                                          // not 4 x 50 KB of drawings again
+    expect(phone.last()).toEqual(projectGame(t.game(), { kind: 'phone', pid: t.pids[0] }));
   });
 
   it('runs the automatic steps on its own clock: a tie becomes a party game, which plays through and pays once', () => {

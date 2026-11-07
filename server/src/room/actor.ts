@@ -8,6 +8,7 @@
 import { randomInt } from 'node:crypto';
 import * as A from '../../../web/src/core/actions';
 import { commitPlan } from '../../../web/src/core/commit';
+import { diff } from '../../../web/src/core/diff';
 import { checkEndgameContinue, drawEndgamePlayer } from '../../../web/src/core/duel';
 import { hostAuto } from '../../../web/src/core/hostauto';
 import { dispatch, parseIntent } from '../../../web/src/core/intents';
@@ -48,6 +49,8 @@ export class RoomActor {
   private sockets = new Map<string, number>();
   private away = new Map<string, () => void>();
   private closed = false;
+  /** What each screen was last sent (its view and the version), so the next send is only what changed. */
+  private sent = new WeakMap<Conn, { view: Game; version: number }>();
 
   private constructor(readonly code: string, private deps: Deps, game: Game, version: number) {
     this.game = game;
@@ -242,11 +245,30 @@ export class RoomActor {
 
   private afterChange(): void {
     this.schedule();
-    for (const c of this.conns) this.sendState(c);
+    const views = new Map<string, Game>();                // each distinct view is worked out once
+    for (const c of this.conns) {
+      const key = c.viewer.kind === 'phone' ? `phone:${c.viewer.pid}` : c.viewer.kind;
+      if (!views.has(key)) views.set(key, projectGame(this.game, c.viewer));
+      this.sendView(c, views.get(key)!);
+    }
+  }
+
+  /** The whole view the first time, then only what changed in it. */
+  private sendView(conn: Conn, view: Game): void {
+    const last = this.sent.get(conn);
+    const now = this.now();
+    if (!last) conn.send({ t: 'state', version: this.version, game: view, now });
+    else {
+      const updates = diff(last.view, view);
+      if (!Object.keys(updates).length) { this.sent.set(conn, { view, version: last.version }); return; }
+      conn.send({ t: 'patch', base: last.version, version: this.version, updates, now });
+    }
+    this.sent.set(conn, { view, version: this.version });
   }
 
   private sendState(conn: Conn): void {
-    conn.send({ t: 'state', version: this.version, game: projectGame(this.game, conn.viewer), now: this.now() });
+    this.sent.delete(conn);
+    this.sendView(conn, projectGame(this.game, conn.viewer));
   }
 
   private broadcastLog(events: (GameEvent & { at: number })[]): void {

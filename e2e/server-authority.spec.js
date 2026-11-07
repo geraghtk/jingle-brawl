@@ -10,6 +10,25 @@ test.skip(process.env.TRANSPORT !== 'server', 'room server only (npm run test:e2
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 
+/** A screen's views from what the room sent it: the whole view, then patches (a null deletes). */
+function views(msgs) {
+  const out = [];
+  let cur = null;
+  for (const m of msgs) {
+    if (m.t === 'state') cur = JSON.parse(JSON.stringify(m.game));
+    else if (m.t === 'patch' && cur) {
+      for (const [path, value] of Object.entries(m.updates)) {
+        const ks = path.split('/');
+        let o = cur;
+        for (const k of ks.slice(0, -1)) o = (o[k] && typeof o[k] === 'object') ? o[k] : (o[k] = {});
+        if (value === null) delete o[ks.at(-1)]; else o[ks.at(-1)] = JSON.parse(JSON.stringify(value));
+      }
+    } else continue;
+    out.push(JSON.parse(JSON.stringify(cur)));
+  }
+  return out;
+}
+
 /** Tap whatever elf is up for `ms` (never the Grinch). */
 async function whack(page, ms) {
   const end = Date.now() + ms;
@@ -34,7 +53,7 @@ async function rawPress(page, roomCode, intent) {
     const token = key && localStorage.getItem(key);
     const ws = new WebSocket(`${location.origin.replace('http', 'ws')}/ws`);
     return new Promise((resolve) => {
-      ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', v: 1, room: roomCode, token }));
+      ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', v: 2, room: roomCode, token }));
       ws.onmessage = (e) => {
         const m = JSON.parse(e.data);
         if (m.t === 'welcome') ws.send(JSON.stringify({ t: 'intent', id: `cheat-${Math.random()}`, intent }));
@@ -73,7 +92,7 @@ test('no phone and no TV is ever sent another sealed bid (checked on the wire)',
     const tv = await tvCtx.newPage();
     listen(tv, 'tv');
     await tv.goto(H.BASE + '/healthz');
-    await tv.evaluate((room) => new Promise((r) => { const ws = new WebSocket(`${location.origin.replace('http', 'ws')}/ws`); ws.onopen = () => { ws.send(JSON.stringify({ t: 'hello', v: 1, room })); r(null); }; }), roomCode);
+    await tv.evaluate((room) => new Promise((r) => { const ws = new WebSocket(`${location.origin.replace('http', 'ws')}/ws`); ws.onopen = () => { ws.send(JSON.stringify({ t: 'hello', v: 2, room })); r(null); }; }), roomCode);
 
     const turn = await H.drawGift(host, roomCode, 'Secret Gift');
     const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
@@ -81,8 +100,8 @@ test('no phone and no TV is ever sent another sealed bid (checked on the wire)',
     await H.allBid(pages, opener, bids);
     await H.waitForGame(roomCode, (g) => Object.keys(g.currentTurn?.bids || {}).length === 2, { label: 'bids in' });
     const ids = await H.playersByName(roomCode);
-    const leaks = (who) => frames[who].map((f) => JSON.parse(f)).filter((m) => m.t === 'state' && m.game.currentTurn?.phase === 'bidding')
-      .flatMap((m) => Object.entries(m.game.currentTurn.bids || {}))
+    const leaks = (who) => views(frames[who].map((f) => JSON.parse(f))).filter((g) => g.currentTurn?.phase === 'bidding')
+      .flatMap((g) => Object.entries(g.currentTurn.bids || {}))
       .filter(([id, b]) => b.amount !== 0 && (who === 'tv' || ids[who].id !== id));
     for (const who of ['tv', ...NAMES]) expect(leaks(who), who).toEqual([]);
     expect(frames.tv.length).toBeGreaterThan(0);

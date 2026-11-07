@@ -8,6 +8,7 @@ import { HOST, offers } from '../../../web/src/core/table';
 import type { Offer, Who } from '../../../web/src/core/table';
 import type { Game } from '../../../web/src/core/types';
 import { PROTOCOL } from '../../../web/src/net/protocol';
+import { viewsFrom } from '../../../web/src/net/views';
 import type { CreateRoomRes, JoinRes, ServerMsg } from '../../../web/src/net/protocol';
 import { Rooms } from '../room/rooms';
 import { MemoryStore } from '../store/store';
@@ -37,7 +38,7 @@ async function connect(base: string, room: string, token?: string) {
   ws.on('message', (d) => {
     const m = JSON.parse(String(d)) as ServerMsg;
     s.frames.push(m);
-    if (m.t === 'state') s.game = m.game;
+    if (m.t === 'state' || m.t === 'patch') s.game = viewsFrom(s.frames).at(-1) ?? null;
     if (m.t === 'ack') s.acks.get(m.id)?.(m);
   });
   ws.send(JSON.stringify({ t: 'hello', v: PROTOCOL, room, token }));
@@ -83,8 +84,8 @@ describe('the room server', () => {
     expect(host.game!.phase).toBe('ended');
     expect(Object.values(host.game!.players!).every((p) => p.giftId)).toBe(true);
     // the TV only watched, and never saw a sealed bid
-    const sealedLeak = tv.frames.some((m) => m.t === 'state' && m.game.currentTurn?.phase === 'bidding'
-      && Object.values(m.game.currentTurn.bids || {}).some((b) => b.amount !== 0));
+    const sealedLeak = viewsFrom(tv.frames).some((g) => g.currentTurn?.phase === 'bidding'
+      && Object.values(g.currentTurn.bids || {}).some((b) => b.amount !== 0));
     expect(sealedLeak).toBe(false);
     expect((await tv.press({ type: 'reveal' })).ok).toBe(false);
   }, 60_000);

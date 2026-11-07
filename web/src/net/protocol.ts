@@ -3,7 +3,7 @@
 import type { Intent } from '../core/intents';
 import type { GameEvent, Game, PlayerId } from '../core/types';
 
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;
 export type ViewerKind = 'host' | 'tv' | 'phone';
 
 /** Screen → server. */
@@ -15,7 +15,8 @@ export type ClientMsg =
 /** Server → screen. */
 export type ServerMsg =
   | { t: 'welcome'; viewer: ViewerKind; pid?: PlayerId }
-  | { t: 'state'; version: number; game: Game; now: number }          // this screen's view, after every change
+  | { t: 'state'; version: number; game: Game; now: number }          // this screen's whole view (on connecting)
+  | { t: 'patch'; base: number; version: number; updates: Record<string, unknown>; now: number } // what changed in it since `base`
   | { t: 'ack'; id: string; ok: boolean; error?: string }
   | { t: 'log'; events: (GameEvent & { at: number })[] }             // the host console's event log
   | { t: 'pong'; c: number; s: number }                              // s: the server's clock

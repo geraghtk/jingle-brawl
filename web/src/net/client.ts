@@ -2,6 +2,7 @@
 // survive a dropped connection (resent with the same id, so they apply once), and the server's
 // clock (so every screen agrees when a phase ends). Reconnects by itself.
 import type { Intent } from '../core/intents';
+import { applyUpdates } from '../core/tx';
 import type { Game, GameEvent } from '../core/types';
 import { PROTOCOL } from './protocol';
 import type { ClientMsg, ServerMsg } from './protocol';
@@ -110,6 +111,12 @@ export class RoomClient {
       case 'state':
         if (m.version < this.version && this.game) return;
         this.game = m.game;
+        this.version = m.version;
+        return this.emit();
+      case 'patch':
+        // only what changed since the version this screen has; a gap means a lost message: start over
+        if (!this.game || m.base !== this.version) { this.ws?.close(); return; }
+        this.game = applyUpdates(this.game, m.updates, m.now);
         this.version = m.version;
         return this.emit();
       case 'ack': {
