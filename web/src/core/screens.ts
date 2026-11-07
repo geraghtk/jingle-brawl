@@ -3,6 +3,7 @@
 // reveal, a phone shows its own chips (everyone's only with public chips on), the tied names
 // stay hidden until the party game settles them. (The live-app driver reads the real pages'
 // text instead.)
+import { projectGame } from './projection';
 import { duelGameStep, duelPicker, SPIN_MS } from './duelgame';
 import { GAMES } from './party';
 import type { PartyGame } from './party';
@@ -17,7 +18,8 @@ const nm = (game: Game, id?: PlayerId | null) => (id && game.players?.[id]?.name
 const giftName = (game: Game, id?: string | null) => (id && game.gifts?.[id]?.name) || 'a gift';
 
 /** The TV: the whole table sees it. */
-export function tvScreen(game: Game, now: number): Screen {
+export function tvScreen(full: Game, now: number): Screen {
+  const game = projectGame(full, { kind: 'tv' });     // only what the TV may know
   const t = game.currentTurn;
   const cfg = config(game.settings);
   const lines: string[] = [];
@@ -79,7 +81,8 @@ export function tvScreen(game: Game, now: number): Screen {
 }
 
 /** One person's phone. */
-export function phoneScreen(game: Game, me: PlayerId, now: number): Screen {
+export function phoneScreen(full: Game, me: PlayerId, now: number): Screen {
+  const game = projectGame(full, { kind: 'phone', pid: me }); // only what this phone may know
   const p = game.players?.[me];
   if (!p) return { title: 'Not in this game', lines: [] };
   const t = game.currentTurn;

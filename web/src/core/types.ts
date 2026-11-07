@@ -61,7 +61,8 @@ export interface Gift {
   createdAt?: number;
 }
 
-export interface Bid { amount: number; submittedAt?: number }
+/** A sealed bid; in a projection, someone else's bid before the reveal is { amount: 0, sealed: true }. */
+export interface Bid { amount: number; submittedAt?: number; sealed?: true }
 export interface DuelVote { playerId?: PlayerId; votedFor: PlayerId; stake?: number; timestamp?: number }
 
 export type TurnPhase =
