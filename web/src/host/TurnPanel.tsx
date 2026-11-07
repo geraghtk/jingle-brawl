@@ -12,6 +12,7 @@ import { minCost } from '../core/settings';
 import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, Turn } from '../core/types';
 import { usingEmulators } from '../firebase/app';
+import { onServer } from '../net/transport';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
 import { OptionList, useModal } from './Modal';
@@ -75,7 +76,7 @@ function LobbyHero() {
         </div>
         <div className="join-url" id="join-url">{url}</div>
         <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : 'Everyone in? Hit Start.'}</p>
-        {usingEmulators && <p className="lobby-start-hint" style={{ fontSize: 12 }}>Local test mode (emulators)</p>}
+        {usingEmulators && !onServer && <p className="lobby-start-hint" style={{ fontSize: 12 }}>Local test mode (emulators)</p>}
       </div>
       <div className="lobby-roster f6-card f6-rise">
         <div className="lobby-roster-head">

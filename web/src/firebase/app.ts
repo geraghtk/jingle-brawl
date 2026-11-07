@@ -17,10 +17,10 @@ const firebaseConfig = {
   appId: '1:778188643750:web:be573c1c5f88cd61a48367',
 };
 
+import { testId } from '../net/storage';
+
 const params = new URLSearchParams(location.search);
 export const usingEmulators = ['localhost', '127.0.0.1'].includes(location.hostname) && !params.has('prod');
-/** ?testId=N isolates a browser tab as its own player (own storage keys + own auth). */
-export const testId = params.get('testId');
 
 export const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
@@ -60,5 +60,4 @@ export function signedIn(): Promise<string | null> {
 }
 signedIn(); // start early so it is usually done before anyone taps a button
 
-/** localStorage key, separate per ?testId tab. */
-export const storageKey = (k: string) => k + (testId ? `_test${testId}` : '');
+export { storageKey, testId } from '../net/storage';

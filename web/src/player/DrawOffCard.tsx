@@ -1,6 +1,6 @@
 // AI Draw Off on the phone: read the prompt, draw for 3 minutes, see how the critic rated you.
 import { useEffect, useRef, useState } from 'react';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
 import { Icon } from '../ui/icons';

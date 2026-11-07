@@ -6,13 +6,14 @@ import { useEffect, useRef } from 'react';
 import * as DO from '../core/drawoff';
 import type { DrawOff, DrawOffScore } from '../core/drawoff';
 import { hostAuto } from '../core/hostauto';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { observe as mascotsObserve } from '../ui/mascots';
 import { critique, openaiKeyFor, wittyVerdict } from './critic';
 import { freshRng, useHost } from './HostContext';
 
 export function useHostAutomation() {
-  const { game, room, act } = useHost();
+  const { game, room, act, client } = useHost();
+  const local = !client;            // on the room server, the server runs every step below
   const offset = useServerOffset();
   const t = game.currentTurn;
   const mg = game.minigame;
@@ -21,7 +22,7 @@ export function useHostAutomation() {
 
   // --- the host's own steps (core/hostauto.ts): party phases, opening the duel vote, the wheel,
   // in-app duel winners, ties. One timer per step, armed once per key (a changed key re-arms)
-  const steps = hostAuto(game);
+  const steps = local ? hostAuto(game) : [];
   const armed = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   useEffect(() => {
     const live = new Set(steps.map((s) => s.key));
@@ -36,12 +37,12 @@ export function useHostAutomation() {
 
   // --- AI Draw Off -----------------------------------------------------------------------------------
   const drawOff = mg && (mg as DrawOff).type === 'draw_off' ? (mg as DrawOff) : null;
-  const needsDrawOff = t?.phase === 'minigame_draw_off' && !drawOff;
+  const needsDrawOff = local && t?.phase === 'minigame_draw_off' && !drawOff;
   useEffect(() => {
     if (needsDrawOff) act((g) => DO.startDrawOff(g, { now: Date.now(), rng: freshRng() }));
   }, [needsDrawOff]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!drawOff) return;
+    if (!drawOff || !local) return;
     if (drawOff.phase === 'prompt_reveal') {
       const id = setTimeout(() => act((g) => DO.startDrawing(g, Date.now()), { quiet: true }), Math.max(0, drawOff.promptRevealEndTime - Date.now()));
       return () => clearTimeout(id);
@@ -53,7 +54,7 @@ export function useHostAutomation() {
   }, [drawOff?.startedAt, drawOff?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
   const judging = useRef<number | null>(null);
   useEffect(() => {
-    if (drawOff?.phase !== 'judging' || judging.current === drawOff.startedAt) return;
+    if (!local || drawOff?.phase !== 'judging' || judging.current === drawOff.startedAt) return;
     judging.current = drawOff.startedAt;
     (async () => {
       const url = game.settings?.aiCriticUrl || 'http://localhost:5050';

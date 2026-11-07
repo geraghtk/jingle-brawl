@@ -2,7 +2,7 @@
 // the Sketch-Off gallery while phones vote, then the results.
 import { GAMES, rank, whackScores } from '../core/party';
 import type { PartyGame } from '../core/party';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { useHost } from './HostContext';

@@ -1,6 +1,6 @@
 // What every host (TV) component needs: the live game, the settings, send(), and the event log.
 // Buttons send intents (core/intents.ts); act() runs the host page's own automatic steps.
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { checkEndgameContinue, drawEndgamePlayer } from '../core/duel';
 import { dispatch } from '../core/intents';
@@ -10,7 +10,9 @@ import { config } from '../core/settings';
 import { HOST } from '../core/table';
 import type { Config } from '../core/settings';
 import type { EventKind, Game, Plan } from '../core/types';
-import { applyPlan, useServerOffset } from '../firebase/game';
+import { applyPlan } from '../firebase/game';
+import type { RoomClient } from '../net/client';
+import { useServerOffset } from '../net/hooks';
 
 export interface LogEntry { text: string; kind: EventKind | ''; at: number }
 
@@ -20,7 +22,9 @@ export interface HostCtx {
   cfg: Config;
   /** A button: the console asks for something; refused unless it's on the console now. Returns false if refused / claim lost. */
   send: (intent: Intent, opts?: { quiet?: boolean }) => Promise<boolean>;
-  /** Build a plan from the CURRENT game and apply it (one atomic write): the page's automatic steps only. */
+  /** On the room server the server runs the automatic steps; the page doesn't. */
+  client: RoomClient | null;
+  /** Build a plan from the CURRENT game and apply it (one atomic write): the page's automatic steps only (Firebase). */
   act: (build: (game: Game) => Plan, opts?: { quiet?: boolean }) => Promise<boolean>;
   log: LogEntry[];
   addEvent: (text: string, kind?: EventKind | '') => void;
@@ -38,7 +42,7 @@ export function useHost(): HostCtx {
 
 const freshRng = () => rng(Date.now() ^ Math.floor(Math.random() * 1e9));
 
-export function HostProvider({ room, game, children }: { room: string; game: Game; children: ReactNode }) {
+export function HostProvider({ room, game, client = null, children }: { room: string; game: Game; client?: RoomClient | null; children: ReactNode }) {
   const latest = useRef(game);
   latest.current = game;
   const [log, setLog] = useState<LogEntry[]>([{ text: 'Game created! Share the room code with players.', kind: '', at: Date.now() }]);
@@ -63,11 +67,21 @@ export function HostProvider({ room, game, children }: { room: string; game: Gam
 
   const offset = useRef(0);
   offset.current = useServerOffset();
-  const send = useCallback((intent: Intent, opts?: { quiet?: boolean }) =>
-    act((g) => dispatch(g, HOST, intent, { now: Date.now() + offset.current, rng: freshRng() }), opts), [act]);
+  const send = useCallback(async (intent: Intent, opts?: { quiet?: boolean }) => {
+    if (!client) return act((g) => dispatch(g, HOST, intent, { now: Date.now() + offset.current, rng: freshRng() }), opts);
+    const ack = await client.send(intent);                 // the room decides; its log arrives below
+    if (!ack.ok && !opts?.quiet) addEvent(`❌ ${ack.error}`, 'bid');
+    return ack.ok;
+  }, [act, client, addEvent]);
+  // the room's event log (it keeps the last 300; a reconnect sends them again)
+  useEffect(() => client?.onLog((events) => setLog((l) => {
+    const seen = new Set(l.map((e) => `${e.at}|${e.text}`));
+    const fresh = events.filter((e) => !seen.has(`${e.at}|${e.text}`)).map((e) => ({ ...e, kind: e.kind as EventKind }));
+    return [...fresh.reverse(), ...l].slice(0, 300);
+  })), [client]);
 
   return (
-    <Ctx.Provider value={{ room, game, cfg: config(game.settings), send, act, log, addEvent, debug, setDebug }}>
+    <Ctx.Provider value={{ room, game, cfg: config(game.settings), send, client, act, log, addEvent, debug, setDebug }}>
       {children}
     </Ctx.Provider>
   );

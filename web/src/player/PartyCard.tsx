@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAMES, rank, whackPoints, whackSequence } from '../core/party';
 import type { PartyGame } from '../core/party';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { usePlayer } from './PlayerContext';

@@ -2,7 +2,7 @@
 // spinning, then the duel itself. The winner buttons wait until it's known.
 import { duelGameStep, duelOptions, duelPicker, SPIN_MS, UNDER } from '../core/duelgame';
 import { GAMES } from '../core/party';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { useHost } from './HostContext';

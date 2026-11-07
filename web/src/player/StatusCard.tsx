@@ -11,7 +11,7 @@ import { voteStatus } from '../core/voting';
 import { duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
 import { GAMES } from '../core/party';
 import { DuelWheel } from '../ui/DuelWheel';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';

@@ -3,7 +3,7 @@
 import { voteStatus } from '../core/voting';
 import { Avatar } from '../ui/avatar';
 import { useSecondsLeft } from '../ui/PartyResults';
-import { useServerOffset } from '../firebase/game';
+import { useServerOffset } from '../net/hooks';
 import { useHost } from './HostContext';
 
 export function useVoteGate() {
