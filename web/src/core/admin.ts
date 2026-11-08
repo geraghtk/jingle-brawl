@@ -78,6 +78,15 @@ export function addGift(game: Game, giftId: string, giftName: string, ownerId: P
 export const resetTurn = (game: Game): Plan => new Tx(game).set('currentTurn', null).set('minigame', null).event('⚙️ Admin: Reset turn', 'gift').plan();
 
 /** Put players + gifts back as they were before the last duel was resolved. */
+/** The host looks at the sealed bids before the reveal: their console shows the amounts from now
+ *  on (projection.ts), and the table's log says so. Nobody else sees them. */
+export function peekBids(game: Game): Plan {
+  const t = game.currentTurn;
+  if (!t || (t.phase !== 'bidding' && t.phase !== 'endgame_bidding')) return refuse('No sealed bids to look at');
+  if (t.hostPeeked) return refuse('Already peeked');
+  return new Tx(game).set('currentTurn/hostPeeked', true).event('👀 The host peeked at the sealed bids', 'bid').plan();
+}
+
 /** Put players and gifts back as they were before the last duel was resolved. */
 export function undoDuel(game: Game): Plan {
   if (!game.undo) return refuse('No duel to undo');

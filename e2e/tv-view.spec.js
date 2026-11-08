@@ -32,6 +32,13 @@ test('the TV follows the game with no controls: lobby QR, sealed bids as "in", t
       await expect(tv.locator('#turn-panel')).toContainText('TV Gift');
       await expect(tv.locator('#action-buttons')).toHaveCount(0);
       await expect(tv.locator('#turn-panel button')).toHaveCount(0);
+      // the host's audited Peek: amounts on the console only, and the log says so
+      const ids = await H.playersByName(roomCode);
+      await expect(host.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('✓ Sealed');
+      host.once('dialog', (d) => d.accept());
+      await host.getByTestId('peek-bids').click();
+      await expect(host.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('👀 3');
+      await expect(tv.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('✓ Sealed');
       await H.revealBids(host);
       await H.clickStartDuel(host);
       await H.waitForTurnPhase(roomCode, 'duel');

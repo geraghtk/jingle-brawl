@@ -3,7 +3,7 @@
 // whole game). A projection has the same shape as the game, so the screens don't change; what a
 // viewer may not see is missing or sealed:
 //   - sealed bids: until the reveal, others' bids are { amount: 0, sealed: true } (the host too:
-//     the host often plays; the console's audited Peek is how it looks)
+//     the host often plays; after the console's Peek, logged for the table, the host sees them)
 //   - chips: with publicChips off, phones and the TV see only their own until the game ends
 //   - Sketch-Off and AI Draw Off drawings: nobody sees another's while drawing, the TV included
 //     (the duellists can see the TV; who's done still shows)
@@ -30,7 +30,7 @@ export function projectGame(game: Game, viewer: Viewer): Game {
   }
 
   const t = g.currentTurn;
-  if (t?.bids && SEALED_PHASES.has(t.phase)) {
+  if (t?.bids && SEALED_PHASES.has(t.phase) && !(viewer.kind === 'host' && t.hostPeeked)) {
     for (const [id, b] of Object.entries(t.bids)) {
       if (id !== me) t.bids[id] = { amount: 0, sealed: true, ...(b.submittedAt != null ? { submittedAt: b.submittedAt } : {}) };
     }

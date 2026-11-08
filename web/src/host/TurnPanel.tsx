@@ -100,7 +100,7 @@ function LobbyHero() {
 // --- bids ---------------------------------------------------------------------------------
 
 function SealedBids({ t }: { t: Turn }) {
-  const { game, cfg } = useHost();
+  const { game, cfg, tv } = useHost();
   const sitter = t.openerId || t.activePlayerId;
   const gift = t.giftId ? game.gifts?.[t.giftId] : undefined;
   const naughty = Math.max(0, Math.min(5, gift?.naughtyLevel ?? 0));
@@ -134,7 +134,9 @@ function SealedBids({ t }: { t: Turn }) {
               <div key={id} className={`sealed-tile${sealed ? ' is-sealed' : ''}`}>
                 <Avatar name={p.name} avatar={p.avatar} size={28} />
                 <div className="tile-who"><div className="tile-nm">{p.name}</div>{cfg.publicChips && <div className="tile-sub">{p.chips} chips</div>}</div>
-                {id === sitter ? <span className="st opener">Opener</span> : sealed ? <span className="st sealed">✓ Sealed</span> : <span className="st bidding">…bidding</span>}
+                {id === sitter ? <span className="st opener">Opener</span>
+                  : sealed ? <span className="st sealed" data-testid={`sealed-${id}`}>{t.hostPeeked && !tv ? `👀 ${t.bids![id].amount}` : '✓ Sealed'}</span>
+                  : <span className="st bidding">…bidding</span>}
               </div>
             );
           })}
@@ -264,6 +266,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         area: <SealedBids t={t} />,
         buttons: <>
           <button className="btn btn-gold" data-testid="reveal-bids" onClick={() => send({ type: 'reveal' })}><Icon name="eye" /> Reveal All Bids</button>
+          {!t.hostPeeked && <button className="btn btn-secondary" data-testid="peek-bids" title="Shows the bids on this console only; the table's log says you looked"
+            onClick={() => { if (confirm('Peek at the sealed bids? Only this console shows them, and the log tells the table you looked.')) send({ type: 'admin_peek_bids' }); }}>👀 Peek</button>}
           <button className="btn btn-secondary" onClick={() => send({ type: 'skip_bidding' })}>⏭️ No Bids (Skip)</button>
         </>,
       };

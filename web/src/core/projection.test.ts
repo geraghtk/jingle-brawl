@@ -106,3 +106,18 @@ describe('no screen ever learns a secret (whole simulated parties, every step)',
     }
   });
 });
+
+describe("the host's Peek", () => {
+  it('shows the sealed bids on the host console only, once, and the log says so', async () => {
+    const { peekBids } = await import('./admin');
+    const g0 = bidding();
+    const plan = peekBids(g0);
+    expect(plan.events[0].text).toMatch(/peeked/);
+    const g = apply(g0, plan);
+    expect(projectGame(g, { kind: 'host' }).currentTurn!.bids).toEqual(g.currentTurn!.bids);
+    expect(Object.values(projectGame(g, { kind: 'tv' }).currentTurn!.bids!).every((b) => b.amount === 0)).toBe(true);
+    const [me, other] = bidders(g);
+    expect(projectGame(g, { kind: 'phone', pid: me }).currentTurn!.bids![other].amount).toBe(0);
+    expect(peekBids(g).error).toBeTruthy();
+  });
+});

@@ -20,7 +20,8 @@ export type AdminIntent =
   | { type: 'admin_remove_player_gift'; pid: string }
   | { type: 'admin_reset_turn' }
   | { type: 'admin_undo_duel' }
-  | { type: 'admin_end_game' };
+  | { type: 'admin_end_game' }
+  | { type: 'admin_peek_bids' };
 
 export type Intent = Offer | AdminIntent;
 
@@ -42,7 +43,7 @@ const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   admin_set_chips: { pid: 'id', chips: 'int' }, admin_add_gift: { name: 'text', ownerId: 'id' },
   admin_save_gift: { giftId: 'id', name: 'text?', naughtyLevel: 'int', ownerId: 'idOrNull' },
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },
-  admin_reset_turn: {}, admin_undo_duel: {}, admin_end_game: {},
+  admin_reset_turn: {}, admin_undo_duel: {}, admin_end_game: {}, admin_peek_bids: {},
 };
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const MAX_TEXT = 80;
@@ -95,5 +96,6 @@ export function dispatch(game: Game, who: Who, intent: Intent, ctx: { now: numbe
     case 'admin_reset_turn': return Admin.resetTurn(game);
     case 'admin_undo_duel': return Admin.undoDuel(game);
     case 'admin_end_game': return A.endGame(game);
+    case 'admin_peek_bids': return Admin.peekBids(game);
   }
 }

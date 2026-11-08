@@ -99,6 +99,7 @@ export interface Turn {
   originalGiftId?: GiftId;
   isReprisal?: boolean;
   reprisalDepth?: number;
+  hostPeeked?: true;               // the host looked at the sealed bids (admin_peek_bids; logged)
   duelVotes?: Record<PlayerId, DuelVote>;
   voteEndsAt?: number;             // duel voting window (host clock); see voting.ts
   voteClosed?: boolean;            // host closed voting early
