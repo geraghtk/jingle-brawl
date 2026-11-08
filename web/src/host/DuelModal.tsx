@@ -5,7 +5,7 @@ import { useVoteGate, VotePanel } from './VoteGate';
 import { Avatar } from '../ui/avatar';
 
 export function DuelModal() {
-  const { game, send } = useHost();
+  const { game, send, tv } = useHost();
   const t = game.currentTurn;
   const open = t?.phase === 'duel' && !t.isTiebreak;
   const name = (id?: string) => (id && game.players?.[id]?.name) || 'Unknown';
@@ -50,7 +50,7 @@ export function DuelModal() {
               <div className="cell"><span className="k">To winner</span><span className="v f6-num">{pot}</span></div>
               <div className="cell duel-actions">
                 <span className="k" data-testid="duel-actions-hint">{noContest ? `${noContest.reason}: you pick the winner` : !ready ? 'First: which duel?' : votesPending ? (app ? 'The game starts once the votes are in' : 'Winner buttons unlock once the votes are in') : app ? `${app.name} decides it` : 'Duel it out, then click the winner'}</span>
-                {app ? (
+                {tv ? null : app ? (
                   <div className="duel-actions-row">
                     <button className="duel-win-btn duel-app-btn" disabled={locked} data-testid="start-duel-app"
                       onClick={() => send({ type: 'start_duel_app' })}>▶ Start {app.name}</button>

@@ -19,7 +19,7 @@ export function useDuelGame() {
 }
 
 export function DuelGameStage({ compact = false }: { compact?: boolean }) {
-  const { game, send } = useHost();
+  const { game, send, tv } = useHost();
   const t = game.currentTurn;
   const { step, choice, spinning, offset } = useDuelGame();
   const name = (id?: string) => (id && game.players?.[id]?.name) || 'Someone';
@@ -34,9 +34,9 @@ export function DuelGameStage({ compact = false }: { compact?: boolean }) {
         <div className="dgs-options">
           {duelOptions(game).map((o) => <span key={o.name} className="dgs-option">{o.kind === 'app' && o.app && <><Glyphs>{DUEL_APPS[o.app].emoji}</Glyphs> </>}{o.name}</span>)}
         </div>
-        <button className="vote-gate-close" data-testid="host-spin" onClick={() => send({ type: 'host_spin' })}>
+        {!tv && <button className="vote-gate-close" data-testid="host-spin" onClick={() => send({ type: 'host_spin' })}>
           Spin the wheel for them
-        </button>
+        </button>}
       </div>
     );
   }

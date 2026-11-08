@@ -1,5 +1,7 @@
 // The host sidebar: Game (controls, stats, quick actions) · Event log · Admin.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import qrcode from 'qrcode-generator';
+import { useJoinOrigin } from '../net/lan';
 import { pick, rng } from '../core/rng';
 import { giftless, wrappedGifts } from '../core/rules';
 import { MISFIT } from '../core/types';
@@ -21,9 +23,27 @@ export function Sidebar({ onExit }: { onExit: () => void }) {
         ))}
       </div>
       <div className="sidebar-tab-panels">
-        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /><CriticCard /></div>
+        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /><TvCard /><CriticCard /></div>
         <div id="tab-events" className={`sidebar-tab-panel${tab === 'events' ? ' active' : ''}`}><EventLog /></div>
         <div id="tab-admin" className={`sidebar-tab-panel${tab === 'admin' ? ' active' : ''}`}><AdminPanel /></div>
+      </div>
+    </div>
+  );
+}
+
+/** Where the shared screen comes from: open this on whatever is cast to the TV. */
+function TvCard() {
+  const { room } = useHost();
+  const origin = useJoinOrigin();
+  const url = `${origin()}/tv.html?room=${room}`;
+  const svg = useMemo(() => { const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); }, [url]);
+  return (
+    <div className="card" id="tv-card" data-testid="tv-card">
+      <div className="card-title"><Icon name="eye" /> The TV screen</div>
+      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Open this on the device showing the TV (it shows no controls and no secrets):</div>
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ width: 84, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: svg }} />
+        <a href={url} target="_blank" rel="noreferrer" data-testid="tv-link" style={{ wordBreak: 'break-all', fontWeight: 700 }}>{url}</a>
       </div>
     </div>
   );

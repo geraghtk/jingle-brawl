@@ -19,13 +19,13 @@ import { Icon } from '../ui/icons';
 export function GameScreen({ onExit }: { onExit: () => void }) {
   const [modal, setModal] = useState<ReactNode | null>(null);
   const [mvpSeen, setMvpSeen] = useState(false);
-  const { game } = useHost();
+  const { game, tv } = useHost();
   useHostAutomation();
   return (
     <ModalCtx.Provider value={setModal}>
       <div id="game-screen">
         <Strip />
-        <div className="container">
+        <div className={`container${tv ? ' tv' : ''}`}>
           <div className="main-area">
             <TurnPanel />
             <PartyScoreCard />
@@ -33,7 +33,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             <GiftsCard />
             <Records />
           </div>
-          <Sidebar onExit={onExit} />
+          {!tv && <Sidebar onExit={onExit} />}
         </div>
       </div>
       <Modal content={modal} onClose={() => setModal(null)} />

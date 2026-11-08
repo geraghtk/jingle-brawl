@@ -16,7 +16,7 @@ export function useVoteGate() {
 }
 
 export function VotePanel() {
-  const { game, send } = useHost();
+  const { game, send, tv } = useHost();
   const { status, secondsLeft, locked } = useVoteGate();
   if (!status.eligible.length) return null;
   const t = game.currentTurn!;
@@ -40,7 +40,7 @@ export function VotePanel() {
           </span>
         ))}
       </div>
-      {locked && (
+      {locked && !tv && (
         <button className="vote-gate-close" data-testid="close-voting" onClick={() => send({ type: 'close_voting' })}>
           Close voting now
         </button>

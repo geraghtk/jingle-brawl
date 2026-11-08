@@ -1,5 +1,6 @@
-// What every host (TV) component needs: the live game, the settings, send() (a button's intent,
-// decided by the room server), and the event log the room keeps.
+// What every host component needs: the live game, the settings, send() (a button's intent,
+// decided by the room server), and the event log the room keeps. The same screens are the TV
+// (tv: no controls, the public view) and the host's console.
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Intent } from '../core/intents';
@@ -17,6 +18,8 @@ export interface HostCtx {
   /** A button: the console asks for something; refused unless it's on the console now. Returns false if refused / claim lost. */
   send: (intent: Intent, opts?: { quiet?: boolean }) => Promise<boolean>;
   client: RoomClient;
+  /** The shared screen: the public view, no controls (tv.html). */
+  tv: boolean;
   log: LogEntry[];
   addEvent: (text: string, kind?: EventKind | '') => void;
   debug: boolean;
@@ -31,16 +34,17 @@ export function useHost(): HostCtx {
   return v;
 }
 
-export function HostProvider({ room, game, client, children }: { room: string; game: Game; client: RoomClient; children: ReactNode }) {
+export function HostProvider({ room, game, client, tv = false, children }: { room: string; game: Game; client: RoomClient; tv?: boolean; children: ReactNode }) {
   const [log, setLog] = useState<LogEntry[]>([{ text: 'Game created! Share the room code with players.', kind: '', at: Date.now() }]);
   const [debug, setDebug] = useState(false);
   const addEvent = useCallback((text: string, kind: EventKind | '' = '') => setLog((l) => [{ text, kind, at: Date.now() }, ...l].slice(0, 300)), []);
 
   const send = useCallback(async (intent: Intent, opts?: { quiet?: boolean }) => {
+    if (tv) return false;                                  // the TV only watches
     const ack = await client.send(intent);                 // the room decides; its log arrives below
     if (!ack.ok && !opts?.quiet) addEvent(`❌ ${ack.error}`, 'bid');
     return ack.ok;
-  }, [client, addEvent]);
+  }, [client, addEvent, tv]);
   // the room's event log (it keeps the last 300; a reconnect sends them again)
   useEffect(() => client.onLog((events) => setLog((l) => {
     const seen = new Set(l.map((e) => `${e.at}|${e.text}`));
@@ -49,7 +53,7 @@ export function HostProvider({ room, game, client, children }: { room: string; g
   })), [client]);
 
   return (
-    <Ctx.Provider value={{ room, game, cfg: config(game.settings), send, client, log, addEvent, debug, setDebug }}>
+    <Ctx.Provider value={{ room, game, cfg: config(game.settings), send, client, tv, log, addEvent, debug, setDebug }}>
       {children}
     </Ctx.Provider>
   );

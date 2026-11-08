@@ -39,7 +39,7 @@ export function TurnPanel() {
         <div className="card-title" id="bids-container-title">{p.areaTitle ?? 'Bids'}</div>
         <div className="bids-grid" id="bids-grid">{p.area}</div>
       </div>
-      <div className="action-buttons" id="action-buttons">{p.buttons}</div>
+      {!host.tv && <div className="action-buttons" id="action-buttons">{p.buttons}</div>}
     </div>
   );
 }
@@ -47,7 +47,7 @@ export function TurnPanel() {
 // --- the lobby ------------------------------------------------------------------------------
 
 function LobbyHero() {
-  const { game, room, send, cfg } = useHost();
+  const { game, room, send, cfg, tv } = useHost();
   const joinOrigin = useJoinOrigin();
   const players = Object.entries(game.players || {});
   const url = `${joinOrigin()}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
@@ -71,11 +71,11 @@ function LobbyHero() {
             <div className="f6-cap">Room code</div>
             <div className="room-code" id="room-code-display">{room}</div>
           </div>
-          <button className="btn btn-primary lobby-start-btn" id="btn-start-game" aria-label="Start Game" disabled={players.length < 2}
-            onClick={() => send({ type: 'start' })}>Start →</button>
+          {!tv && <button className="btn btn-primary lobby-start-btn" id="btn-start-game" aria-label="Start Game" disabled={players.length < 2}
+            onClick={() => send({ type: 'start' })}>Start →</button>}
         </div>
         <div className="join-url" id="join-url">{url}</div>
-        <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : 'Everyone in? Hit Start.'}</p>
+        <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : tv ? 'Everyone in? The host starts the game.' : 'Everyone in? Hit Start.'}</p>
       </div>
       <div className="lobby-roster f6-card f6-rise">
         <div className="lobby-roster-head">

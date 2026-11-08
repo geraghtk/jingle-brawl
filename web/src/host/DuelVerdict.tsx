@@ -9,7 +9,8 @@ import { useHost } from './HostContext';
 
 const SHOW_MS = 6500;
 
-interface Verdict { duel: LastDuel; turn: Turn; chipsBefore: number }
+/** chipsBefore: null when this screen may not know the winner's chips (the TV, public chips off): it counts the win instead. */
+interface Verdict { duel: LastDuel; turn: Turn; chipsBefore: number | null }
 
 export function DuelVerdict() {
   const { game } = useHost();
@@ -26,8 +27,8 @@ export function DuelVerdict() {
     const duel = game.lastDuel;
     const turn = lastTurn.current;
     if (!duel || !turn) return;
-    const now = game.players?.[duel.winnerId]?.chips ?? 0;
-    setV({ duel, turn, chipsBefore: Math.max(0, now - duel.pot) });
+    const now = game.players?.[duel.winnerId]?.chips;
+    setV({ duel, turn, chipsBefore: typeof now === 'number' ? Math.max(0, now - duel.pot) : null });
   }, [at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -50,7 +51,8 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
   const callers = Object.entries(turn.duelVotes || {}).filter(([, x]) => x.votedFor === duel.winnerId).map(([id]) => name(id));
   const voters = Object.keys(turn.duelVotes || {}).length;
 
-  const [chips, setChips] = useState(v.chipsBefore);
+  const base = v.chipsBefore ?? 0;
+  const [chips, setChips] = useState(base);
   const [bank, setBank] = useState(0);
   const loser = useRef<HTMLDivElement>(null);
   const winner = useRef<HTMLDivElement>(null);
@@ -61,8 +63,8 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
       if (duel.pot > 0) {
         flyChips({
           from: loser.current, to: winner.current, count: duel.pot, size: 46, stagger: 120, duration: 1000,
-          onLand: (n) => setChips(v.chipsBefore + Math.min(n, duel.pot)),
-          onDone: () => setChips(v.chipsBefore + duel.pot), // more than 12 chips: only 12 are drawn
+          onLand: (n) => setChips(base + Math.min(n, duel.pot)),
+          onDone: () => setChips(base + duel.pot), // more than 12 chips: only 12 are drawn
         });
       }
     }, 700));
@@ -98,7 +100,7 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
           <div className="purse-tile winner" ref={winner} data-duel-corner={duel.winnerId}>
             <Avatar name={name(duel.winnerId)} avatar={game.players?.[duel.winnerId]?.avatar} size={56} />
             <div className="purse-name">{name(duel.winnerId)}</div>
-            <div className="purse-chips f6-num" data-testid="verdict-winner-chips"><span className="jb-chip" />{chips}</div>
+            <div className="purse-chips f6-num" data-testid="verdict-winner-chips"><span className="jb-chip" />{v.chipsBefore == null ? `+${chips}` : chips}</div>
           </div>
         </div>
 

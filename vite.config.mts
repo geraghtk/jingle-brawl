@@ -1,4 +1,5 @@
-// The apps: web/host.html (TV) and web/player.html (phones), built to dist/ with web/public
+// The apps: web/host.html (the host's console), web/tv.html (the shared screen) and
+// web/player.html (phones), built to dist/ with web/public
 // (art, rule pages).
 import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
@@ -18,6 +19,7 @@ export default defineConfig({
       input: {
         host: resolve(__dirname, 'web/host.html'),
         player: resolve(__dirname, 'web/player.html'),
+        tv: resolve(__dirname, 'web/tv.html'),
       },
       output: {
         // Libraries change rarely: their own chunks stay cached across app deploys
