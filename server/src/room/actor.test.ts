@@ -178,14 +178,16 @@ describe('a room', () => {
 
 describe('tokens', () => {
   it('only the server can make one; a player token is not a host token; another room is another room', () => {
-    const tok = sign('s3cret', { room: 'ABCD', role: 'player', pid: 'p_1' });
-    expect(verify('s3cret', tok)).toEqual({ room: 'ABCD', role: 'player', pid: 'p_1' });
+    const tok = sign('s3cret', { room: 'ABCD', born: 5, role: 'player', pid: 'p_1' });
+    expect(verify('s3cret', tok)).toEqual({ room: 'ABCD', born: 5, role: 'player', pid: 'p_1' });
     expect(verify('other', tok)).toBeNull();
     const [body, mac] = tok.split('.');
-    const forged = Buffer.from(JSON.stringify({ room: 'ABCD', role: 'host' })).toString('base64url');
+    const forged = Buffer.from(JSON.stringify({ room: 'ABCD', born: 5, role: 'host' })).toString('base64url');
     expect(verify('s3cret', `${forged}.${mac}`)).toBeNull();
     expect(verify('s3cret', `${body}.`)).toBeNull();
     expect(verify('s3cret', undefined)).toBeNull();
+    // a token from before rooms carried their birth time names no particular room
+    expect(verify('s3cret', sign('s3cret', { room: 'ABCD', role: 'host' } as never))).toBeNull();
   });
 });
 

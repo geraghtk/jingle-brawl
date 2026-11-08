@@ -13,6 +13,9 @@ type Log = GameEvent & { at: number };
 
 const PING_MS = 5000;
 const SAMPLES = 6;
+/** No word from the room for this long: the connection is dead even if the browser hasn't noticed
+ *  (a phone that slept, a Wi-Fi hop). Drop it and connect again. */
+export const SILENT_MS = 12_000;
 
 let seq = 0;
 /** Unique per press (crypto.randomUUID needs a secure page; phones on the Wi-Fi use plain http). */
@@ -38,20 +41,36 @@ export class RoomClient {
   private retry = 0;
   private pinger: ReturnType<typeof setInterval> | null = null;
   private stopped = false;
+  private heard = 0;
+  private seats = new Map<string, (token: string | null) => void>();
+  private onVisible = () => { if (document.visibilityState === 'visible') this.check(); };
 
   constructor(readonly room: string, private token: string | undefined, private url = defaultUrl()) {}
 
   start(): this {
     this.open();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisible);
     return this;
   }
 
   stop(): void {
     this.stopped = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisible);
     if (this.pinger) clearInterval(this.pinger);
     this.ws?.close();
     for (const p of this.pending.values()) p.resolve({ ok: false, error: 'left the room' });
     this.pending.clear();
+  }
+
+  /** The host: a token that seats `pid` on another phone (null if the room said no). */
+  seatToken(pid: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (this.status !== 'open') return resolve(null);
+      this.seats.get(pid)?.(null);
+      this.seats.set(pid, resolve);
+      this.write({ t: 'seat', pid });
+      setTimeout(() => { if (this.seats.get(pid) === resolve) { this.seats.delete(pid); resolve(null); } }, 5000);
+    });
   }
 
   /** Ask the room for something. Resolves with the room's answer (kept across reconnects). */
@@ -95,25 +114,41 @@ export class RoomClient {
     this.ws = ws;
     ws.onopen = () => {
       this.retry = 0;
+      this.heard = Date.now();
       this.write({ t: 'hello', v: PROTOCOL, room: this.room, ...(this.token ? { token: this.token } : {}) });
       this.ping();
       if (this.pinger) clearInterval(this.pinger);
       this.pinger = setInterval(() => this.ping(), PING_MS);
     };
     ws.onmessage = (ev) => {
+      this.heard = Date.now();
       let m: ServerMsg;
       try { m = JSON.parse(String(ev.data)); } catch { return; }
       this.receive(m);
     };
-    ws.onclose = () => {
-      if (this.ws !== ws) return;
-      this.ws = null;
-      if (this.pinger) { clearInterval(this.pinger); this.pinger = null; }
-      this.setStatus('closed');
-      if (this.stopped || this.fatal) return;
-      const wait = Math.min(5000, 250 * 2 ** this.retry++);
-      setTimeout(() => this.open(), wait);
-    };
+    ws.onclose = () => this.dropped(ws);
+  }
+
+  /** The socket is gone (closed, or silent too long): show it, and try again soon. */
+  private dropped(ws: WebSocket): void {
+    if (this.ws !== ws) return;
+    this.ws = null;
+    if (this.pinger) { clearInterval(this.pinger); this.pinger = null; }
+    this.setStatus('closed');
+    if (this.stopped || this.fatal) return;
+    const wait = Math.min(5000, 250 * 2 ** this.retry++);
+    setTimeout(() => this.open(), wait);
+  }
+
+  /** A dead socket can look open for minutes (a phone waking up): if the room has gone quiet, start over. */
+  private check(): void {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - this.heard > SILENT_MS) {
+      this.dropped(ws);
+      try { ws.close(); } catch { /* already gone */ }
+      this.retry = 0;
+    } else this.ping();
   }
 
   private receive(m: ServerMsg): void {
@@ -152,6 +187,11 @@ export class RoomClient {
         if (Math.abs(best.offset - this.offset) > 1) { this.offset = Math.round(best.offset); this.emit(); }
         return;
       }
+      case 'seat': {
+        const done = this.seats.get(m.pid);
+        this.seats.delete(m.pid);
+        return done?.(m.token);
+      }
       case 'critic':
         this.critic = { ready: m.ready, ...(m.backend ? { backend: m.backend } : {}), ...(m.error ? { error: m.error } : {}) };
         return this.emit();
@@ -162,6 +202,7 @@ export class RoomClient {
   }
 
   private ping(): void {
+    if (this.ws && Date.now() - this.heard > SILENT_MS) return this.check();
     this.write({ t: 'ping', c: Date.now() });
   }
 

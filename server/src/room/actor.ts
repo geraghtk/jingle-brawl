@@ -102,6 +102,9 @@ export class RoomActor {
     return room;
   }
 
+  /** When this room was made: tokens carry it, so one for an earlier room with this code is refused. */
+  get born(): number { return this.game.createdAt ?? 0; }
+
   get state(): { game: Game; version: number } {
     return { game: this.game, version: this.version };
   }
@@ -109,6 +112,7 @@ export class RoomActor {
   // --- screens ---------------------------------------------------------------------------------
 
   attach(conn: Conn): void {
+    this.lastActivity = this.now();
     this.conns.add(conn);
     conn.send({ t: 'welcome', viewer: conn.viewer.kind, ...(conn.viewer.kind === 'phone' ? { pid: conn.viewer.pid } : {}) });
     if (conn.viewer.kind === 'phone') this.connected(conn.viewer.pid, +1);

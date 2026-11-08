@@ -46,7 +46,8 @@ plays every settings preset and writes a balance report. See [`agents/README.md`
 
 ### Deploying
 One Node process serves the app and the rooms: `npm run build && npm start` (`--port`, `--db`, `JB_TOKEN_SECRET`).
-Hosting it online (HTTPS, a disk for `rooms.db`) is planned in `ARCHITECTURE.md`.
+Hosting it online (Docker, HTTPS, a disk for `rooms.db`, limits, logs, metrics): `DEPLOY.md`. What a game keeps
+and for how long: `web/public/privacy.html`.
 
 ### Troubleshooting
 | Symptom | Fix |

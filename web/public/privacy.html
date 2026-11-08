@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yuel Duel Privacy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #eceef2; --surface: #fff; --ink: #0d1018; --ink2: #3a4050; --muted: #6a7180;
+            --line: #e4e7ee; --accent: #ff3366; --accent2: #18b88a;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1rem/1.6 Manrope, system-ui, sans-serif; }
+        main { max-width: 720px; margin: 0 auto; padding: 2rem 16px 4rem; }
+        h1, h2 { font-family: 'Space Grotesk', system-ui, sans-serif; line-height: 1.2; }
+        h1 { font-size: 2.2rem; margin: 0 0 0.25rem; }
+        .lede { color: var(--ink2); font-size: 1.1rem; margin: 0 0 1.5rem; }
+        section { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+        h2 { font-size: 1.2rem; margin: 0 0 0.5rem; }
+        ul { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+        li { margin: 0.3rem 0; }
+        .short { border-left: 4px solid var(--accent2); }
+        a { color: var(--accent); font-weight: 700; }
+        footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 2rem; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #0f1218; --surface: #181c24; --ink: #eef0f4; --ink2: #c3c8d2; --muted: #8a92a2; --line: #262b36; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Privacy</h1>
+    <p class="lede">Yuel Duel is a party game, not a data business. Here is everything it keeps, and for how long.</p>
+
+    <section class="short">
+        <h2>The short version</h2>
+        <ul>
+            <li>No accounts, no ads, no tracking, no cookies.</li>
+            <li>A game keeps only what the game needs: names, picks, bids, gifts and drawings.</li>
+            <li>Everything about a game is <strong>deleted two hours after it ends</strong>, or a day after anyone last played in it.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>What a game keeps</h2>
+        <ul>
+            <li>The room code and the settings the host chose.</li>
+            <li>Each player's name (use a nickname if you like) and avatar.</li>
+            <li>An age, only if a player says they are under 16: the rules use it to decide who picks a duel. Older ages are not kept.</li>
+            <li>The gifts, chips, bids, duels and votes, plus a log of what happened, so the game can carry on if the server restarts.</li>
+            <li>Drawings from Sketch-Off and AI Draw Off.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>How long</h2>
+        <ul>
+            <li>Two hours after a game ends, or 24 hours after anyone last did anything in it, the whole game is deleted from the server: names, drawings, the log, everything.</li>
+            <li>Your phone remembers which game you joined (in its own storage, not a cookie) so a refresh puts you back in your seat. Tap Leave, or clear the site's data, to forget it.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>AI Draw Off</h2>
+        <ul>
+            <li>If the host turns on AI Draw Off, the two drawings in that duel are sent to the AI service the host chose (OpenAI or Google Gemini) to be judged. Nothing else about the game is sent.</li>
+            <li>A host who brings their own AI key: the key is kept only in the server's memory for that game. It is never saved, logged or shown to anyone, and it is forgotten when the game ends, after two hours idle, when the host taps Forget, or when the server restarts.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Children</h2>
+        <ul>
+            <li>Yuel Duel is meant to be played at a party with an adult hosting. Players under 16 should join with a first name or nickname and their host's say-so.</li>
+            <li>We never ask for an email, a phone number, a photo or a location.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>What the server itself records</h2>
+        <ul>
+            <li>Your device's network address is used briefly, in memory, to stop anyone flooding the game with requests. It is not written down.</li>
+            <li>The server's logs say things like "a room was made" or "a page hit an error": room codes, counts and error messages, never names or drawings.</li>
+            <li>The pages load their fonts from Google Fonts, so Google sees that a browser asked for them.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Questions</h2>
+        <p>Ask whoever runs this game server. To have a game deleted sooner, end it from the host console: it is gone two hours later.</p>
+    </section>
+
+    <footer><a href="player.html">Back to the game</a> · <a href="rules.html">Rules</a></footer>
+</main>
+</body>
+</html>

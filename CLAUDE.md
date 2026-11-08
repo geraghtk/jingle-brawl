@@ -31,7 +31,7 @@ npx vite-node web/src/sim/table-bridge.ts       # the table over JSON lines (sho
 
 python ai_art_critic.py          # optional local AI critic (Ollama llava / OpenAI) on :5050
 
-npm run build && npm start       # production: one Node process serves the app and the rooms (deploy plan: ARCHITECTURE.md)
+npm run build && npm start       # production: one Node process serves the app and the rooms (DEPLOY.md: Docker, env, limits, logs, /metrics)
 ```
 
 ## Local Development
@@ -78,6 +78,7 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 - Target-legality helpers live in `core/rules.ts` (`reprisalTargets()` / `gambitTargets()` / `topTiedBidders()`): use them instead of re-filtering gifts.
 - Never put user/AI text into `dangerouslySetInnerHTML`; let React escape it.
 - Avatars and icons are sticker pictures (`web/public/art`, made with `tools/art`, see its README): a player picks an avatar when they join (`core/avatars.ts`, `players/{id}/avatar`); emoji in the React app render as icons through `<Icon>`/`<Glyphs>` (`ui/icons.tsx`, alt text = the emoji, so role names in tests are unchanged).
+- The server's guards (`server/src/node/`): per-address limits (`limits.ts`; `--debug-api` turns them off, so dev and the suite never hit them), security headers + CSP (no inline scripts or `on*=` handlers in pages: use a file), JSON logs + `/metrics` (`log.ts`; never names, drawings, keys or addresses). Rooms are deleted 2 h after the end / 24 h idle (`Rooms.purge`), so codes come back: tokens carry the room's `born` and the socket checks it.
 - No em dashes in anything players see (screens, mascots, rule pages, critic replies): `web/src/ui/copy.test.ts` checks.
 
 ## Mini-game platform (`web/src/core/minigames/`)

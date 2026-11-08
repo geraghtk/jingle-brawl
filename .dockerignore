@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-server
+test-results
+playwright-report
+agents/reports
+rooms.db*
+*.db
+.git
+YuleDule
+images
+tests/__pycache__

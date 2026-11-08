@@ -1,0 +1,59 @@
+# Every push and pull request: types (app + server), unit tests (rules engine, economics, server),
+# the persona agents' own tests, the Python critic's tests, then the whole browser suite against the
+# built room server. A failed browser run uploads its report (traces, screenshots).
+name: CI
+on:
+  push:
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Types
+        run: npx tsc -p tsconfig.json --noEmit && npx tsc -p server/tsconfig.json --noEmit
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Agent harness tests
+        run: npm run test:agents
+      - name: Critic tests (Python)
+        run: |
+          pip install flask flask-cors
+          python -m unittest discover -s tests
+      - name: Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Browser suite
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image and check it answers
+        run: |
+          docker build -t yuel-duel .
+          docker run -d --name yd -p 8080:8080 yuel-duel
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8080/healthz && exit 0; sleep 1; done
+          docker logs yd; exit 1

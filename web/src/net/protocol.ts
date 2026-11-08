@@ -11,7 +11,8 @@ export type ClientMsg =
   | { t: 'hello'; v: number; room: string; token?: string }          // no token = the TV
   | { t: 'intent'; id: string; intent: Intent }                      // id: unique per press (resends reuse it)
   | { t: 'ping'; c: number }                                         // c: the screen's clock
-  | { t: 'critic_key'; key: string | null };                         // host only: AI Draw Off's key (null = forget it)
+  | { t: 'critic_key'; key: string | null }                          // host only: AI Draw Off's key (null = forget it)
+  | { t: 'seat'; pid: PlayerId };                                    // host only: a fresh link for a player whose phone died
 
 /** Server → screen. */
 export type ServerMsg =
@@ -22,7 +23,8 @@ export type ServerMsg =
   | { t: 'log'; events: (GameEvent & { at: number })[] }             // the host console's event log
   | { t: 'pong'; c: number; s: number }                              // s: the server's clock
   | { t: 'error'; error: string; fatal?: boolean }
-  | { t: 'critic'; ready: boolean; backend?: string; error?: string }; // host only: can AI Draw Off be judged?
+  | { t: 'critic'; ready: boolean; backend?: string; error?: string } // host only: can AI Draw Off be judged?
+  | { t: 'seat'; pid: PlayerId; token: string };                     // host only: that player's token, for a new phone
 
 /** HTTP: create a room (the host), check one, join one (a phone). */
 export interface CreateRoomRes { code: string; token: string }

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "../web/src/core", "../web/src/net/protocol.ts"],
+  "exclude": ["../web/src/**/*.test.ts", "../web/src/**/*.test.tsx"]
+}

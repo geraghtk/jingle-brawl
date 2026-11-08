@@ -150,6 +150,9 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
           </div>
         )}
         <button type="button" className="btn btn-primary" data-testid="create-game" onClick={create} style={{ width: '100%' }}>🎮 Create New Game</button>
+        <p style={{ marginTop: '0.75rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Games are deleted two hours after they end. <a href="privacy.html" target="_blank" rel="noreferrer" data-testid="privacy-link">Privacy</a>
+        </p>
       </div>
     </div>
   );

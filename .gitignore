@@ -26,6 +26,8 @@ env/
 !functions/package.json
 !showrunner.json
 !tools/art/prompts.json
+!tsconfig.json
+!server/tsconfig.json
 
 # Logs
 *.log

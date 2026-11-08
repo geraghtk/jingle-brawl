@@ -18,6 +18,9 @@ export interface Store {
   events(code: string, sinceSeq?: number, limit?: number): EventRow[];
   /** Rooms touched since `since` (restart recovery re-arms their timers). */
   activeCodes(since: number): string[];
+  /** Rooms due for deletion: untouched since `idleBefore`, or ended and untouched since `endedBefore`. */
+  expired(idleBefore: number, endedBefore: number): string[];
+  /** Delete a room and everything kept about it (its log, its presses, its origin). */
   remove(code: string): void;
   meta(key: string): string | null;
   setMeta(key: string, value: string): void;
@@ -57,9 +60,15 @@ export class MemoryStore implements Store {
   activeCodes(since: number): string[] {
     return [...this.rooms.values()].filter((r) => r.updatedAt >= since).map((r) => r.code);
   }
+  expired(idleBefore: number, endedBefore: number): string[] {
+    return [...this.rooms.values()]
+      .filter((r) => r.updatedAt < idleBefore || (r.game.phase === 'ended' && r.updatedAt < endedBefore)).map((r) => r.code);
+  }
   remove(code: string): void {
     this.rooms.delete(code);
     this.log.delete(code);
+    this.kv.delete(`origin:${code}`);
+    for (const k of this.actions.keys()) if (k.startsWith(`${code}|`)) this.actions.delete(k);
   }
   meta(key: string): string | null {
     return this.kv.get(key) ?? null;

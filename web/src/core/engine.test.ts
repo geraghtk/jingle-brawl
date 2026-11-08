@@ -20,6 +20,13 @@ const bid = (g: Game, bids: Record<string, number>) =>
   Object.entries(bids).reduce((acc, [id, n]) => apply(acc, A.submitBid(acc, id, n, NOW)), g);
 
 describe('lobby', () => {
+  it(`seats at most ${A.MAX_PLAYERS} people`, () => {
+    let g: Game = { phase: 'lobby', settings: {} };
+    for (let i = 1; i <= A.MAX_PLAYERS; i++) g = apply(g, A.joinPlayer(g, { playerId: `p${i}`, name: `P${i}`, uid: null, now: NOW }));
+    expect(Object.keys(g.players!)).toHaveLength(A.MAX_PLAYERS);
+    expect(A.joinPlayer(g, { playerId: 'late', name: 'Late', uid: null, now: NOW }).error).toMatch(/full/);
+  });
+
   it('variable starting chips: everyone gets 12 at an 11-player table (joiners used to get 10 or 12)', () => {
     let g: Game = { phase: 'lobby', settings: {} };
     for (let i = 1; i <= 11; i++) g = apply(g, A.joinPlayer(g, { playerId: `p${i}`, name: `P${i}`, uid: 'u', now: NOW }));

@@ -8,6 +8,7 @@ import { MISFIT } from '../core/types';
 import { useHost } from './HostContext';
 import { useModal } from './Modal';
 import { Glyphs, Icon } from '../ui/icons';
+import '../ui/connection.css';
 
 type Tab = 'game' | 'events' | 'admin';
 
@@ -23,7 +24,7 @@ export function Sidebar({ onExit }: { onExit: () => void }) {
         ))}
       </div>
       <div className="sidebar-tab-panels">
-        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /><TvCard /><CriticCard /></div>
+        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /><TvCard /><SeatCard /><CriticCard /></div>
         <div id="tab-events" className={`sidebar-tab-panel${tab === 'events' ? ' active' : ''}`}><EventLog /></div>
         <div id="tab-admin" className={`sidebar-tab-panel${tab === 'admin' ? ' active' : ''}`}><AdminPanel /></div>
       </div>
@@ -45,6 +46,53 @@ function TvCard() {
         <div style={{ width: 84, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: svg }} />
         <a href={url} target="_blank" rel="noreferrer" data-testid="tv-link" style={{ wordBreak: 'break-all', fontWeight: 700 }}>{url}</a>
       </div>
+    </div>
+  );
+}
+
+/** A player's phone died (or they want to switch): a link that puts them back in their seat on
+ *  another phone, with their chips and gift. Anyone holding it plays as them, so it is shown, not sent. */
+function SeatCard() {
+  const { game, room, client } = useHost();
+  const origin = useJoinOrigin();
+  const [pid, setPid] = useState('');
+  const [link, setLink] = useState<{ pid: string; url: string } | null>(null);
+  const [error, setError] = useState('');
+  const players = Object.entries(game.players || {});
+  const svg = useMemo(() => {
+    if (!link) return '';
+    const qr = qrcode(0, 'M'); qr.addData(link.url); qr.make();
+    return qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
+  }, [link]);
+  if (!players.length) return null;
+  const make = async () => {
+    setError(''); setLink(null);
+    const token = await client.seatToken(pid);
+    if (!token) return setError('Could not make a link. Try again in a moment.');
+    const name = game.players?.[pid]?.name || '';
+    setLink({ pid, url: `${origin()}/player.html?room=${room}&pid=${encodeURIComponent(pid)}&name=${encodeURIComponent(name)}&seat=${encodeURIComponent(token)}` });
+  };
+  return (
+    <div className="card" id="seat-card" data-testid="seat-card">
+      <div className="card-title"><Icon name="swap" /> A phone died?</div>
+      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Put a player back in their seat on another phone (their chips and gift come along):</div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <select className="form-input" value={pid} onChange={(e) => { setPid(e.target.value); setLink(null); }} data-testid="seat-player" style={{ flex: 1 }}>
+          <option value="">Who?</option>
+          {players.map(([id, p]) => <option key={id} value={id}>{p.name}</option>)}
+        </select>
+        <button className="btn btn-secondary" disabled={!pid} onClick={make} data-testid="seat-make">Make a link</button>
+      </div>
+      {error && <div style={{ color: 'var(--accent-red)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{error}</div>}
+      {link && link.pid === pid && (
+        <>
+          <div className="seat-link">
+            <div style={{ width: 96, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: svg }} />
+            <a href={link.url} target="_blank" rel="noreferrer" data-testid="seat-link">{link.url}</a>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>Scan it with {game.players?.[pid]?.name}'s new phone. Anyone with this link plays as them, so only show it to them.</div>
+        </>
+      )}
     </div>
   );
 }

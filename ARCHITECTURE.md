@@ -91,7 +91,13 @@ server by default, `npm run dev`, Wi-Fi join link → S7 Firebase removed → AI
 game (BYO keys) → S8 the TV as its own screen, the host playing from their own phone → the
 host's audited Peek → M1 the mini-game platform → M2 Pass the Gremlin.
 
-Next, with approval: the production track (deploy: Cloudflare free tier via a Durable Objects
-adapter, or a small VPS; CI; abuse limits; room TTL; observability; privacy page; reconnect
-banner), then M3 (Gremlin polish: memory_flash and perfect_timing challenges, art and sound,
+Done 2026-11-08, the hosting-independent production track (`DEPLOY.md`): per-address abuse limits
+(`server/src/node/limits.ts`), live-room and 50-player caps, security headers + CSP; rooms deleted
+from the store 2 h after the end / 24 h idle (`Rooms.purge`), tokens bound to one room (`born`) so a
+reused code doesn't open for old tokens; JSON logs, `/metrics`, browsers' error reports; the
+reconnect banner and dead-socket detection; the host's "A phone died?" seat link; `privacy.html`;
+Dockerfile; CI (`.github/workflows/ci.yml`).
+
+Next: choose the hosting (Cloudflare free tier via a Durable Objects adapter, or one small VM/Fly
+machine with the Dockerfile), then M3 (Gremlin polish: memory_flash and perfect_timing challenges, art and sound,
 device testing), M4 Reindeer Ring Toss, M5 the Gift Conveyor.

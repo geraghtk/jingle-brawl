@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = resolve(__dirname, '../../..');
 
 const ORIGINAL_PAGES = [
-  'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/JingleBrawlV2.html',
+  'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/JingleBrawlV2.html', 'web/public/privacy.html',
   'Jingle Brawl V2.md', 'ai_art_critic.py', 'server/src/critic/critic.ts',
   'web/host.html', 'web/player.html',
 ];

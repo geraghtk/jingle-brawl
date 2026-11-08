@@ -34,9 +34,13 @@ export function newGame(opts: { hostId: string; hostUid: string | null; settings
 /** Names are rendered in many places: strip tag brackets and cap the length (rules allow 60). */
 export const cleanName = (raw: string) => raw.trim().replace(/[<>]/g, '').slice(0, 60);
 
+/** The most people one game seats (a big office party; it also bounds a room's size on the server). */
+export const MAX_PLAYERS = 50;
+
 export function joinPlayer(game: Game, p: { playerId: PlayerId; name: string; uid: string | null; now: number; age?: number | null; avatar?: string | null }): Plan {
   const nm = cleanName(p.name);
   if (!nm) return refuse('Please enter your name');
+  if (Object.keys(game.players || {}).length >= MAX_PLAYERS) return refuse(`This game is full (${MAX_PLAYERS} players).`);
   const cfg = cfgOf(game);
   const player: Player = {
     name: nm,

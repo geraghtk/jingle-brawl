@@ -3,7 +3,9 @@
 // comes from the token, never from a message.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-export type Claims = { room: string; role: 'host' } | { room: string; role: 'player'; pid: string };
+// `born`: when the room was made. Codes are reused once a room is deleted, so a token names the one
+// room it was issued in, not just its code.
+export type Claims = { room: string; born: number; role: 'host' } | { room: string; born: number; role: 'player'; pid: string };
 
 const b64 = (b: Buffer | string) => Buffer.from(b).toString('base64url');
 
@@ -25,9 +27,9 @@ export function verify(secret: string, token: string | undefined): Claims | null
   if (got.length !== want.length || !timingSafeEqual(got, want)) return null;
   try {
     const c = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-    if (typeof c?.room !== 'string') return null;
-    if (c.role === 'host') return { room: c.room, role: 'host' };
-    if (c.role === 'player' && typeof c.pid === 'string') return { room: c.room, role: 'player', pid: c.pid };
+    if (typeof c?.room !== 'string' || typeof c.born !== 'number') return null;
+    if (c.role === 'host') return { room: c.room, born: c.born, role: 'host' };
+    if (c.role === 'player' && typeof c.pid === 'string') return { room: c.room, born: c.born, role: 'player', pid: c.pid };
     return null;
   } catch {
     return null;

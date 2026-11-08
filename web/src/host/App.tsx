@@ -9,6 +9,7 @@ import { GameScreen } from './GameScreen';
 import { HostProvider } from './HostContext';
 import { Setup } from './Setup';
 import { Icon } from '../ui/icons';
+import { ConnectionBanner } from '../ui/ConnectionBanner';
 
 const forget = forgetHostSeat;
 const autoLoad = new URLSearchParams(location.search).get('autoLoad') === '1';
@@ -65,7 +66,7 @@ export function App() {
 
 /** The host console's own view of the room, live. */
 function Playing({ room, token, onExit }: { room: string; token: string; onExit: () => void }) {
-  const { client, game, offset, fatal } = useRoom(room, token);
+  const { client, game, offset, fatal, status } = useRoom(room, token);
   const sentKey = useRef(false);
   useEffect(() => {
     if (sentKey.current || !pendingCriticKey) return;
@@ -74,9 +75,11 @@ function Playing({ room, token, onExit }: { room: string; token: string; onExit:
     pendingCriticKey = '';
   }, [client]);
   if (fatal) return <div className="card" style={{ margin: '2rem auto', maxWidth: 420, textAlign: 'center' }}><p>{fatal}</p><button className="btn btn-primary" onClick={onExit}>Start over</button></div>;
-  if (!game) return null;
+  const banner = <ConnectionBanner status={status} loaded={!!game} />;
+  if (!game) return banner;
   return (
     <OffsetProvider offset={offset}>
+      {banner}
       <HostProvider room={room} game={game} client={client}><GameScreen onExit={onExit} /></HostProvider>
     </OffsetProvider>
   );

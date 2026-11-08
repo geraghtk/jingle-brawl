@@ -10,6 +10,7 @@ import { PlayerProvider, useToast } from './PlayerContext';
 import { clearSession, loadSession, saveSession } from './session';
 import type { Session } from './session';
 import { Glyphs, Icon } from '../ui/icons';
+import { ConnectionBanner } from '../ui/ConnectionBanner';
 
 const params = new URLSearchParams(location.search);
 
@@ -30,6 +31,15 @@ export function App() {
 
   // A saved session whose player still exists → offer to rejoin
   useEffect(() => {
+    const seat = params.get('seat'), pid = params.get('pid'), room = params.get('room');
+    if (seat && pid && room) {
+      const s = { room: room.toUpperCase(), playerId: pid, name: params.get('name') || 'Player', token: seat };
+      saveSession(s);
+      history.replaceState(null, '', location.pathname);   // the link is a key: off the address bar
+      setSaved(null);
+      setSession(s);
+      return;
+    }
     const s = loadSession();
     if (!s) { setSaved(null); return; }
     // the room checks the token when the phone connects; here: is the room still there?
@@ -134,6 +144,7 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
         <button className="btn btn-primary" data-testid="join" disabled={young && !age} onClick={() => onJoin(room, name, ageValue, avatar)}>🎮 Join Game</button>
       </div>
       <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ask the host for the room code, or <a href="host.html" data-testid="host-a-game">host a new game</a></p>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>No accounts, nothing kept after the party. <a href="privacy.html" target="_blank" rel="noreferrer" data-testid="privacy-link">Privacy</a></p>
     </div>
   );
 }
@@ -159,12 +170,13 @@ function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; on
 /** This phone's own view of the room, live. A refused token means the phone isn't in that game
  *  any more: back to the join screen. */
 function Playing({ session, toast }: { session: Session; toast: (m: string) => void }) {
-  const { client, game, offset, fatal } = useRoom(session.room, session.token);
+  const { client, game, offset, fatal, status } = useRoom(session.room, session.token);
   useEffect(() => { if (fatal) clearSession(); }, [fatal]);
   if (fatal) {
     return <div className="card" style={{ margin: '2rem auto', maxWidth: 320, textAlign: 'center' }}><p>{fatal}</p><button className="btn btn-primary" onClick={() => location.reload()}>Join a game</button></div>;
   }
-  if (!game) return null;
+  const banner = <ConnectionBanner status={status} loaded={!!game} />;
+  if (!game) return banner;
   const leave = () => {
     if (!confirm('Leave this game?')) return;
     client.stop();
@@ -173,6 +185,7 @@ function Playing({ session, toast }: { session: Session; toast: (m: string) => v
   };
   return (
     <OffsetProvider offset={offset}>
+      {banner}
       <PlayerProvider room={session.room} me={session.playerId} game={game} toast={toast} client={client}>
         <GameScreen onLeave={leave} />
       </PlayerProvider>

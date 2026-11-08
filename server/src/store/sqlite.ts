@@ -77,9 +77,15 @@ export class SqliteStore implements Store {
     return (this.db.prepare('SELECT code FROM rooms WHERE updated_at >= ?').all(since) as { code: string }[]).map((r) => r.code);
   }
 
+  expired(idleBefore: number, endedBefore: number): string[] {
+    return (this.db.prepare(`SELECT code FROM rooms WHERE updated_at < ?
+      OR (updated_at < ? AND json_extract(game, '$.phase') = 'ended')`).all(idleBefore, endedBefore) as { code: string }[]).map((r) => r.code);
+  }
+
   remove(code: string): void {
     this.tx(() => {
       for (const t of ['rooms', 'events', 'actions']) this.db.prepare(`DELETE FROM ${t} WHERE ${t === 'rooms' ? 'code' : 'room'} = ?`).run(code);
+      this.db.prepare('DELETE FROM meta WHERE k = ?').run(`origin:${code}`);
     });
   }
 
