@@ -104,3 +104,16 @@ missing buttons and invariant breaks are reported with screenshots. See
 ## Logic-Only Testing
 
 For logic-only runs without browsers, `web/src/sim/` plays whole games through the real engine in memory (`npm run test:unit`, `npx vite-node web/src/sim/play-table.ts`). It does **not** exercise the UI.
+
+## Manual testing on real phones (iPhone Safari, Android Chrome)
+
+`npm run dev` on a PC; phones on the same Wi-Fi. (Windows: allow Node through the firewall on private networks.)
+
+1. **Host on a phone:** open the PC's Wi-Fi address from `npm run dev`'s output → `player.html` → "host a new game" → Create → "Join as a player too".
+2. **TV:** on the casting/TV device open the console's TV link (`tv.html?room=CODE`): no buttons, the join QR.
+3. **Players:** scan the TV's QR on 2+ more phones; pick avatars; join.
+4. **A round:** draw, bid (change a bid once), check the TV shows bids only as "in", the host's 👀 Peek shows amounts on the console only, reveal, duel, verdict.
+5. **Pass the Gremlin** (tick it at setup; Duel pick: wheel, no room duels): the holder's phone buzzes (Android; iPhone has no vibration API), the keypad is big enough, a wrong answer waits briefly, Random and named passes work, the TV never shows the answer; Pause / Resume on the console.
+6. **AI Draw Off** (tick it, enter your key): both duellists draw; the TV hides drawings until judging; the critic decides; try a wrong key → the console says so without showing it.
+7. **Resilience:** lock a phone for 30 s and unlock (it reconnects, same screen); turn Wi-Fi off/on mid-game; reload the host console; restart `npm run dev` mid-Gremlin (it comes back paused).
+8. **Accessibility:** iOS "Reduce Motion" stops the Gremlin's shaking; text zoom keeps the keypad usable.
