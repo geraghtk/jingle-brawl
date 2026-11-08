@@ -7,6 +7,7 @@ import { BidPanel } from './BidPanel';
 import { DrawOffCard } from './DrawOffCard';
 import { GremlinCard } from './GremlinCard';
 import { RingTossCard } from './RingTossCard';
+import { ConveyorCard } from './ConveyorCard';
 import { PartyCard } from './PartyCard';
 import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
@@ -27,7 +28,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const party = t?.phase === 'minigame_party';
   const drawOff = t?.phase === 'minigame_draw_off'; // AI Draw Off, a duel game
   const arenaGame = t?.phase === 'minigame_arena' ? game.arenaView?.gameId : undefined;
-  const arena = arenaGame === 'pass_the_gremlin' || arenaGame === 'reindeer_ring_toss';
+  const arena = arenaGame === 'pass_the_gremlin' || arenaGame === 'reindeer_ring_toss' || arenaGame === 'gift_conveyor';
   const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
@@ -50,6 +51,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       {drawOff && <DrawOffCard />}
       {arenaGame === 'pass_the_gremlin' && <GremlinCard />}
       {arenaGame === 'reindeer_ring_toss' && <RingTossCard />}
+      {arenaGame === 'gift_conveyor' && <ConveyorCard />}
 
       {(gift || game.phase !== 'lobby') && (
         <div className="table-rows">

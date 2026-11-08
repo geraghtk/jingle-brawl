@@ -104,6 +104,10 @@ host picks one kind or the mix), its sticker art, sounds and a mute switch, acce
 Done 2026-11-08, M4: Reindeer Ring Toss, game #2 (the TV as the arena), on theme-free throw engines
 (`minigames/engines/`: swipe → launch, deterministic flight, peg scoring) that a second game reuses.
 
+Done 2026-11-08, M5: the Great Gift Conveyor, game #3: captain-led teams (`engines/teams.ts`), a
+phone-to-phone production line (`engines/workflow.ts`), the winning captain wins the duel, reward
+recommendations applied as Party points by the hand-off.
+
 Next: choose the hosting (Cloudflare free tier via a Durable Objects adapter, or one small VM/Fly
 machine with the Dockerfile); M3 leftovers after real-phone playtests (tuning the doom's skew
 towards slow players, device testing); then, with approval, M4 Reindeer Ring Toss and M5 the

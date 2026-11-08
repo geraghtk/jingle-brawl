@@ -155,6 +155,8 @@ export interface Game {
   undo?: Pick<Game, 'players' | 'gifts'> | null;
   /** A runtime mini-game (core/minigames): server only; each screen gets arenaView instead. */
   arena?: import('./minigames/runtime').ArenaInstance | null;
+  /** Who has been teammates in a team game, and how often (so the next deal splits them up). */
+  teamPairs?: Record<string, number>;
   arenaView?: import('./minigames/runtime').ArenaView | null;
 }
 

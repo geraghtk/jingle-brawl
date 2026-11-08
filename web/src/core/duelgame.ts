@@ -9,6 +9,7 @@
 import { startDrawOff } from './drawoff';
 import { getDef } from './minigames/registry';
 import { startArena } from './minigames/runtime';
+import { assignTeams, recordPairs } from './minigames/engines/teams';
 import { GAMES } from './party';
 import type { PartyType } from './party';
 import { startPartyGame } from './partyflow';
@@ -106,7 +107,16 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
     const everyone = Object.keys(game.players || {}).filter((id) => game.players![id].connected !== false);
     const party = everyone.length >= 3 && def.supportedModes.includes('party_with_duelists');
     const arenaConfig = def.id === 'pass_the_gremlin' ? { challenges: gremlinKinds(config(game.settings).gremlinChallenges) } : undefined;
-    const started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists, config: arenaConfig }, ctx);
+    let started: { error?: string };
+    if (def.supportedModes.includes('captain_teams')) {
+      // a team game: the duelists captain, the engine deals everyone else out (splitting past teammates)
+      const table = [...new Set([...duelists, ...everyone])];
+      const deal = assignTeams(duelists, table, ctx.rng, { pairs: game.teamPairs || {} });
+      tx.set('teamPairs', recordPairs(deal.teams, game.teamPairs || {}));
+      started = startArena(tx, def.id, { mode: 'captain_teams', participants: table, duelists, config: { teams: deal } }, ctx);
+    } else {
+      started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists, config: arenaConfig }, ctx);
+    }
     if (started.error) return refuse(started.error);
   } else startPartyGame(tx, t.duelGame.app as PartyType, 'duel', duelists, ctx);
   return tx.plan();

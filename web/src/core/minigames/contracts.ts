@@ -32,6 +32,9 @@ export interface GameResult {
   losers: PlayerId[];
   placements?: { playerId: PlayerId; rank: number }[];
   performance?: { playerId: PlayerId; score?: number; contribution?: number }[];
+  /** Experience rewards the game recommends (e.g. the winning team's share). The game never applies
+   *  them: the experience does (here: Party points, in handoff), separately from chips and gifts. */
+  rewards?: { playerId: PlayerId; points: number; reason?: string }[];
   metrics?: Record<string, unknown>;
   scoringPolicyVersion?: string;
   reason: string;

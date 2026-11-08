@@ -159,6 +159,11 @@ export function handoff(game: Game): Plan {
   const t = game.currentTurn;
   if (!a?.result || !t) return refuse('The game is not over');
   const tx = new Tx(game).claim('currentTurn/arenaHandedOff', a.instanceId).set('arena', null);
+  // the game's reward recommendation, as Party points (once: the claim above guards a second hand-off)
+  for (const r of a.result.rewards || []) {
+    const p = game.players?.[r.playerId];
+    if (p && Number.isFinite(r.points) && r.points > 0) tx.set(`players/${r.playerId}/partyPoints`, (p.partyPoints || 0) + Math.round(r.points));
+  }
   if (t.phase !== 'minigame_arena') return tx.plan();                       // a standalone round: nothing to settle
   tx.set('currentTurn/phase', 'duel');
   const w = a.result.duel?.winningDuelistId;

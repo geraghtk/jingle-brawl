@@ -10,10 +10,12 @@ import { play } from '../ui/sound';
 import '../ui/gremlin.css';
 import { useHost } from './HostContext';
 import { RingTossStage } from './RingTossStage';
+import { ConveyorStage } from './ConveyorStage';
 
 export function ArenaStage() {
   const { game } = useHost();
   if (game.arenaView?.gameId === 'reindeer_ring_toss') return <RingTossStage />;
+  if (game.arenaView?.gameId === 'gift_conveyor') return <ConveyorStage />;
   return <GremlinStage />;
 }
 
