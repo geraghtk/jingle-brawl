@@ -1,0 +1,37 @@
+/* Reindeer Ring Toss: the TV stage and the phone card. */
+.rt-stage { text-align: center; }
+.rt-banner { display: inline-block; margin: 0 0 10px; padding: 6px 16px; border-radius: 999px; background: var(--ink, #0d1018); color: #fff; font: 800 18px/1.2 var(--f6-disp, system-ui); }
+.rt-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .rt-layout { grid-template-columns: 1fr; } }
+.rt-scene { width: 100%; height: auto; border-radius: 18px; display: block; background: #eef3f8; }
+.rt-scene.compact { border-radius: 14px; max-height: 200px; }
+.rt-peg-pts { font: 900 26px/1 var(--f6-disp, system-ui); fill: #3b2414; }
+.rt-scene.compact .rt-peg-pts { display: none; }
+.rt-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+.rt-board li { display: grid; grid-template-columns: 18px 30px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 12px; background: var(--surface, #fff); font-weight: 700; }
+.rt-board li.duelist { box-shadow: inset 0 0 0 3px var(--accent, #ff3366); }
+.rt-swatch { width: 16px; height: 16px; border-radius: 50%; border: 4px solid; }
+.rt-left { color: #9aa3b2; font-size: 11px; letter-spacing: -1px; }
+.rt-pts { font: 900 22px/1 var(--f6-disp, system-ui); min-width: 2ch; text-align: right; }
+.rt-ring.flying { filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .25)); }
+
+.rt-card { text-align: center; }
+.rt-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.rt-stage-pill { padding: 4px 12px; border-radius: 999px; background: var(--ink, #0d1018); color: #fff; font-weight: 800; font-size: 13px; }
+.rt-mine b { font: 900 22px/1 var(--f6-disp, system-ui); }
+.rt-feedback { min-height: 24px; margin: 8px 0; font-weight: 800; }
+.rt-rings { display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; }
+.rt-ring-dot { width: 18px; height: 18px; border-radius: 50%; border: 4px solid; }
+.rt-pad { position: relative; height: 220px; border-radius: 20px; background: linear-gradient(#f2f6fa, #dfe8f2); touch-action: none; -webkit-user-select: none; user-select: none; display: grid; place-items: end center; padding-bottom: 26px; cursor: grab; }
+.rt-pad.disabled { opacity: .55; }
+.rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; transition: transform .05s linear; }
+.rt-pad-hint { position: absolute; top: 14px; left: 0; right: 0; font-weight: 800; color: var(--muted, #6a7180); pointer-events: none; }
+.rt-link { margin-top: 8px; border: 0; background: none; color: var(--muted, #6a7180); text-decoration: underline; font-weight: 700; cursor: pointer; }
+.rt-wait { font-weight: 700; color: var(--muted, #6a7180); }
+.rt-controls { display: grid; gap: 10px; }
+.rt-aim { display: grid; gap: 4px; font-weight: 800; }
+.rt-aim input { width: 100%; }
+.rt-meter { height: 14px; border-radius: 7px; background: #e4e9f0; overflow: hidden; }
+.rt-meter span { display: block; height: 100%; }
+.rt-hold { min-height: 72px; border: 0; border-radius: 18px; background: var(--accent, #ff3366); color: #fff; font: 800 18px/1.2 var(--f6-body, system-ui); touch-action: none; }
+.rt-hold:disabled { opacity: .5; }

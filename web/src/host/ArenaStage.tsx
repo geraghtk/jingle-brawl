@@ -9,8 +9,15 @@ import { Avatar } from '../ui/avatar';
 import { play } from '../ui/sound';
 import '../ui/gremlin.css';
 import { useHost } from './HostContext';
+import { RingTossStage } from './RingTossStage';
 
 export function ArenaStage() {
+  const { game } = useHost();
+  if (game.arenaView?.gameId === 'reindeer_ring_toss') return <RingTossStage />;
+  return <GremlinStage />;
+}
+
+function GremlinStage() {
   const { game, tv } = useHost();
   const av = game.arenaView;
   const v = av?.gameId === 'pass_the_gremlin' ? (av.view as GremlinView) : null;

@@ -6,6 +6,7 @@ import { MvpReveal } from '../ui/MvpReveal';
 import { BidPanel } from './BidPanel';
 import { DrawOffCard } from './DrawOffCard';
 import { GremlinCard } from './GremlinCard';
+import { RingTossCard } from './RingTossCard';
 import { PartyCard } from './PartyCard';
 import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
@@ -25,7 +26,8 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const myReprisal = t?.phase === 'reprisal' && t.reprisalPlayerId === me;
   const party = t?.phase === 'minigame_party';
   const drawOff = t?.phase === 'minigame_draw_off'; // AI Draw Off, a duel game
-  const arena = t?.phase === 'minigame_arena' && game.arenaView?.gameId === 'pass_the_gremlin';
+  const arenaGame = t?.phase === 'minigame_arena' ? game.arenaView?.gameId : undefined;
+  const arena = arenaGame === 'pass_the_gremlin' || arenaGame === 'reindeer_ring_toss';
   const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
@@ -46,7 +48,8 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       {myReprisal && <ReprisalCard />}
       {party && <PartyCard />}
       {drawOff && <DrawOffCard />}
-      {arena && <GremlinCard />}
+      {arenaGame === 'pass_the_gremlin' && <GremlinCard />}
+      {arenaGame === 'reindeer_ring_toss' && <RingTossCard />}
 
       {(gift || game.phase !== 'lobby') && (
         <div className="table-rows">

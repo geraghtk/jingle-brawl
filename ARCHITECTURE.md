@@ -101,6 +101,9 @@ Dockerfile; CI (`.github/workflows/ci.yml`).
 Done 2026-11-08, M3: the Gremlin's memory_flash and perfect_timing challenges (server-checked; the
 host picks one kind or the mix), its sticker art, sounds and a mute switch, accessibility labels.
 
+Done 2026-11-08, M4: Reindeer Ring Toss, game #2 (the TV as the arena), on theme-free throw engines
+(`minigames/engines/`: swipe → launch, deterministic flight, peg scoring) that a second game reuses.
+
 Next: choose the hosting (Cloudflare free tier via a Durable Objects adapter, or one small VM/Fly
 machine with the Dockerfile); M3 leftovers after real-phone playtests (tuning the doom's skew
 towards slow players, device testing); then, with approval, M4 Reindeer Ring Toss and M5 the
