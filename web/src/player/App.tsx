@@ -11,6 +11,8 @@ import { clearSession, loadSession, saveSession } from './session';
 import type { Session } from './session';
 import { Glyphs, Icon } from '../ui/icons';
 import { ConnectionBanner } from '../ui/ConnectionBanner';
+import { SeatTabs } from './SeatTabs';
+import { hosts } from '../net/seats';
 
 const params = new URLSearchParams(location.search);
 
@@ -187,7 +189,7 @@ function Playing({ session, toast }: { session: Session; toast: (m: string) => v
     <OffsetProvider offset={offset}>
       {banner}
       <PlayerProvider room={session.room} me={session.playerId} game={game} toast={toast} client={client}>
-        <GameScreen onLeave={leave} />
+        {hosts(session.room) ? <SeatTabs><GameScreen onLeave={leave} /></SeatTabs> : <GameScreen onLeave={leave} />}
       </PlayerProvider>
     </OffsetProvider>
   );

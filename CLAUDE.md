@@ -37,7 +37,7 @@ npm run build && npm start       # production: one Node process serves the app a
 ## Local Development
 
 `npm run dev`, then (three kinds of screen):
-- Host console: `http://localhost:5173/host.html` (on the host's own device; the host plays too: "Join as a player too" / "Host controls" switch between the two pages)
+- Host console: `http://localhost:5173/host.html` (on the host's own device; the host plays too: "Join as a player too", then their phone has two tabs, "My game" and "Host" (the console in a same-origin frame, `player/SeatTabs.tsx`; a dot when the game waits on the host, `core/nudge.ts`))
 - TV (the shared screen, its own device): `http://localhost:5173/tv.html?room=ABCD` (public view, no controls; linked from the console)
 - Player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice` (join links and QR codes use this PC's Wi-Fi address)
 

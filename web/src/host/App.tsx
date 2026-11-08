@@ -1,7 +1,7 @@
 // Host (TV) app: settings → the room server makes the room and hands back the host's token →
 // the game screen. A refreshed host is offered a rejoin (?autoLoad=1 skips the prompt).
 import { useEffect, useRef, useState } from 'react';
-import type { Settings } from '../core/types';
+import type { Game, Settings } from '../core/types';
 import { createRoom, lobby } from '../net/api';
 import { OffsetProvider, useRoom } from '../net/hooks';
 import { forgetHostSeat, hostSeat, saveHostSeat } from '../net/seats';
@@ -10,6 +10,7 @@ import { HostProvider } from './HostContext';
 import { Setup } from './Setup';
 import { Icon } from '../ui/icons';
 import { ConnectionBanner } from '../ui/ConnectionBanner';
+import { hostsMove } from '../core/nudge';
 
 const forget = forgetHostSeat;
 const autoLoad = new URLSearchParams(location.search).get('autoLoad') === '1';
@@ -74,6 +75,7 @@ function Playing({ room, token, onExit }: { room: string; token: string; onExit:
     client.setCriticKey(pendingCriticKey);   // goes once the socket is open
     pendingCriticKey = '';
   }, [client]);
+  useHostMoveSignal(fatal ? null : game, offset);
   if (fatal) return <div className="card" style={{ margin: '2rem auto', maxWidth: 420, textAlign: 'center' }}><p>{fatal}</p><button className="btn btn-primary" onClick={onExit}>Start over</button></div>;
   const banner = <ConnectionBanner status={status} loaded={!!game} />;
   if (!game) return banner;
@@ -83,4 +85,20 @@ function Playing({ room, token, onExit }: { room: string; token: string; onExit:
       <HostProvider room={room} game={game} client={client}><GameScreen onExit={onExit} /></HostProvider>
     </OffsetProvider>
   );
+}
+
+/** In the Host tab of the host's phone: tell the page around it whether the game is waiting on the
+ *  host (it lights a dot on the tab). Checked on every change, and every second for time-outs. */
+function useHostMoveSignal(game: Game | null, offset: number) {
+  const framed = window.parent !== window;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!framed) return;
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [framed]);
+  const waiting = !!game && framed && hostsMove(game, Date.now() + offset);
+  useEffect(() => {
+    if (framed) window.parent.postMessage({ jb: 'host-move', waiting }, location.origin);
+  }, [framed, waiting]);
 }

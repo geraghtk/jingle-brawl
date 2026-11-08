@@ -128,13 +128,13 @@ describe('the room server under abuse', () => {
       const h = (await fetch(base + path)).headers;
       expect(h.get('x-content-type-options')).toBe('nosniff');
       expect(h.get('referrer-policy')).toBe('no-referrer');
-      expect(h.get('x-frame-options')).toBe('DENY');
+      expect(h.get('x-frame-options')).toBe('SAMEORIGIN');            // our own pages only (the host's tab)
       const csp = h.get('content-security-policy')!;
       expect(csp).toContain("script-src 'self'");
       expect(csp).toContain('https://fonts.googleapis.com');
       expect(csp).toContain('https://fonts.gstatic.com');
       expect(csp).toContain(`ws://${base.slice('http://'.length)}`);
-      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).toContain("frame-ancestors 'self'");
     }
   });
 });

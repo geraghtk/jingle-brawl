@@ -109,7 +109,7 @@ For logic-only runs without browsers, `web/src/sim/` plays whole games through t
 
 `npm run dev` on a PC; phones on the same Wi-Fi. (Windows: allow Node through the firewall on private networks.)
 
-1. **Host on a phone:** open the PC's Wi-Fi address from `npm run dev`'s output → `player.html` → "host a new game" → Create → "Join as a player too".
+1. **Host on a phone:** open the PC's Wi-Fi address from `npm run dev`'s output → `player.html` → "host a new game" → Create → "Join as a player too". The phone shows two tabs, My game and Host: switching is instant, the Host tab gets a dot when the game waits on you (two players in: Start), and the console's dialogs (prompts, confirms) work inside the tab on iPhone Safari too.
 2. **TV:** on the casting/TV device open the console's TV link (`tv.html?room=CODE`): no buttons, the join QR.
 3. **Players:** scan the TV's QR on 2+ more phones; pick avatars; join.
 4. **A round:** draw, bid (change a bid once), check the TV shows bids only as "in", the host's 👀 Peek shows amounts on the console only, reveal, duel, verdict.

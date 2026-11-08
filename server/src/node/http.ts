@@ -33,18 +33,19 @@ const TYPES: Record<string, string> = {
 };
 const MAX_BODY = 64_000;
 
-/** On every response. Room codes ride in page URLs, so no Referer leaves the site; no framing;
+/** On every response. Room codes ride in page URLs, so no Referer leaves the site; framing only by
+ *  our own pages (the host's phone shows the console in a tab);
  *  pages run only our own scripts (fonts from Google; drawings are data:/blob: images). */
 function secure(req: IncomingMessage, res: ServerResponse) {
   const host = /^[A-Za-z0-9.:[\]-]+$/.test(req.headers.host || '') ? req.headers.host : null;
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob:",
     `connect-src 'self'${host ? ` ws://${host} wss://${host}` : ''}`,
-    "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
+    "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'self'", "frame-src 'self'",
   ].join('; '));
 }
 

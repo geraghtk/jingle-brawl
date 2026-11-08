@@ -17,6 +17,9 @@ import { TurnPanel } from './TurnPanel';
 import { useHostAutomation } from './useHostAutomation';
 import { Icon } from '../ui/icons';
 
+/** The console inside the host's phone (the Host tab next to their own game): player.html frames it. */
+const EMBEDDED = new URLSearchParams(location.search).get('embedded') === '1';
+
 export function GameScreen({ onExit }: { onExit: () => void }) {
   const [modal, setModal] = useState<ReactNode | null>(null);
   const [mvpSeen, setMvpSeen] = useState(false);
@@ -59,8 +62,8 @@ function Strip() {
       <div className="cell minor"><span className="k">Gifts left</span><span className="v f6-num" id="strip-gifts">{wrappedGifts(game)}</span></div>
       <div className={`cell pot-cell${inDuel && pot > 0 ? '' : ' hidden'}`} id="strip-pot-cell"><span className="k">Pot</span><span className="v f6-num" id="strip-pot">{pot} ◆</span></div>
       <div className="cell room-cell"><span className="k">Room code</span><span className="v f6-num" id="strip-room">{room}</span></div>
-      {!tv && (playsIn(room)
-        ? <a className="cell seat-switch" href="player.html?rejoin=1" data-testid="to-player">🎮 My player screen</a>
+      {!tv && !EMBEDDED && (playsIn(room)
+        ? <a className="cell seat-switch" href="player.html?rejoin=1&tab=game" data-testid="to-player">🎮 My player screen</a>
         : <a className="cell seat-switch" href={`player.html?room=${room}`} data-testid="join-as-player">🎮 Join as a player too</a>)}
     </div>
   );
