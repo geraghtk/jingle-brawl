@@ -14,6 +14,8 @@ import type { Game, Turn } from '../core/types';
 import { useJoinOrigin } from '../net/lan';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
+import { ArenaStage } from './ArenaStage';
+import { duelAppInfo } from '../core/duelgame';
 import { OptionList, useModal } from './Modal';
 import { PartyPanel } from './PartyPanel';
 import { Glyphs, Icon } from '../ui/icons';
@@ -463,6 +465,24 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       };
     }
     case 'minigame_draw_off': return drawOffPanel(game, send);
+    case 'minigame_arena': {
+      const av = game.arenaView;
+      const info = duelAppInfo(av?.gameId);
+      const paused = av?.lifecycle === 'paused';
+      const over = av?.lifecycle === 'completed' || av?.lifecycle === 'cancelled';
+      return {
+        badge: `${info?.emoji ?? '🎮'} ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
+        action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}: ${info?.label ?? 'a mini-game'} decides it`,
+        details: <ArenaStage />,
+        buttons: over ? null : <>
+          {paused
+            ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
+            : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>}
+          <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => { if (confirm('Call it a no contest? Nobody wins the game; you pick the duel winner.')) send({ type: 'arena_no_contest' }); }}>⚖️ No contest</button>
+          <button className="btn btn-secondary" data-testid="arena-cancel" onClick={() => { if (confirm('Cancel the game? Nobody wins it; you pick the duel winner.')) send({ type: 'arena_cancel' }); }}>⏹️ Cancel</button>
+        </>,
+      };
+    }
     default: return { badge: t.phase, action: 'Waiting…' };
   }
 

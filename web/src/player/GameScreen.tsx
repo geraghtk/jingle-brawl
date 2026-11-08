@@ -6,6 +6,7 @@ import { observe as mascotsObserve } from '../ui/mascots';
 import { MvpReveal } from '../ui/MvpReveal';
 import { BidPanel } from './BidPanel';
 import { DrawOffCard } from './DrawOffCard';
+import { GremlinCard } from './GremlinCard';
 import { PartyCard } from './PartyCard';
 import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
@@ -25,7 +26,8 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const myReprisal = t?.phase === 'reprisal' && t.reprisalPlayerId === me;
   const party = t?.phase === 'minigame_party';
   const drawOff = t?.phase === 'minigame_draw_off'; // AI Draw Off, a duel game
-  const showStatus = !iBid && !myReprisal && !party && !drawOff;
+  const arena = t?.phase === 'minigame_arena' && game.arenaView?.gameId === 'pass_the_gremlin';
+  const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
   const others = Object.entries(game.players || {}).filter(([id]) => id !== me);
@@ -46,6 +48,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       {myReprisal && <ReprisalCard />}
       {party && <PartyCard />}
       {drawOff && <DrawOffCard />}
+      {arena && <GremlinCard />}
 
       {(gift || game.phase !== 'lobby') && (
         <div className="table-rows">

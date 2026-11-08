@@ -1,0 +1,31 @@
+/* Pass the Gremlin: the phone card and the TV stage. */
+
+.grem { text-align: center; }
+.grem .grem-face { font-size: 72px; line-height: 1; display: inline-block; animation: gremBob 1.6s ease-in-out infinite; }
+.grem.mine .grem-face { font-size: 96px; animation: gremShake .5s ease-in-out infinite; }
+.grem.danger-uneasy .grem-face { animation-duration: .9s; }
+.grem.danger-unstable .grem-face { animation-duration: .35s; filter: drop-shadow(0 0 12px #ff3b5c); }
+.grem .grem-title { font-weight: 900; font-size: 22px; margin: 6px 0 2px; }
+.grem .grem-sub { color: var(--muted, #6b7280); font-size: 14px; margin: 0 0 10px; }
+.grem .grem-prompt { font: 900 44px/1.1 system-ui, sans-serif; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+.grem .grem-entry { font: 800 30px/1 system-ui, sans-serif; min-height: 40px; letter-spacing: .05em; }
+.grem .grem-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 8px auto; }
+.grem .grem-pad button { min-height: 58px; font: 800 24px/1 system-ui, sans-serif; border-radius: 14px; border: 0; background: var(--bg, #eef1f6); cursor: pointer; touch-action: manipulation; }
+.grem .grem-pad button.go { background: var(--accent, #ff3b5c); color: #fff; }
+.grem .grem-targets { display: grid; gap: 8px; max-width: 320px; margin: 8px auto; }
+.grem .grem-targets button { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; border: 0; background: var(--bg, #eef1f6); font-weight: 800; font-size: 17px; cursor: pointer; }
+.grem .grem-targets button.random { background: var(--accent, #ff3b5c); color: #fff; justify-content: center; }
+.grem .grem-meter { height: 12px; max-width: 320px; margin: 8px auto; border-radius: 6px; background: var(--bg, #eef1f6); overflow: hidden; }
+.grem .grem-meter span { display: block; height: 100%; border-radius: 6px; transition: width .6s; }
+.grem .grem-meter.calm span { width: 33%; background: #18b88a; }
+.grem .grem-meter.uneasy span { width: 66%; background: #f2a900; }
+.grem .grem-meter.unstable span { width: 100%; background: #ff3b5c; animation: gremPulse .5s ease-in-out infinite; }
+.grem .grem-trail { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-size: 13px; color: var(--muted, #6b7280); margin-top: 8px; }
+.grem .grem-banner { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #ff3b5c; color: #fff; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; margin-bottom: 6px; }
+.grem.tv .grem-face { font-size: 140px; }
+.grem.tv .grem-holder { font: 900 48px/1.1 var(--f6-disp, system-ui); margin: 8px 0; }
+.grem .grem-error { color: #d7263d; font-weight: 700; min-height: 20px; }
+@keyframes gremBob { 50% { transform: translateY(-8px) rotate(-4deg); } }
+@keyframes gremShake { 25% { transform: rotate(-10deg) scale(1.05); } 75% { transform: rotate(10deg) scale(1.05); } }
+@keyframes gremPulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .grem .grem-face, .grem .grem-meter span { animation: none !important; } }

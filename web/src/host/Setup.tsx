@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { DEFAULT_DUEL_GAMES } from '../core/settings';
 import type { DuelApp } from '../core/duelgame';
+import { registered } from '../core/minigames/registry';
 import type { Settings } from '../core/types';
 import { Glyphs, Icon } from '../ui/icons';
 
@@ -97,6 +98,12 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
                 <label key={a} className="duel-app-game">
                   <input type="checkbox" id={`setting-duel-app-${a}`} checked={duelApps.includes(a)} onChange={() => toggleApp(a)} />
                   <span><Glyphs>{a === 'whack_elf' ? '🔨 Whack-an-Elf' : '✏️ Sketch-Off'}</Glyphs> <small>on phones; everyone plays, the better-placed duellist wins</small></span>
+                </label>
+              ))}
+              {registered().map((d) => (
+                <label key={d.id} className="duel-app-game">
+                  <input type="checkbox" id={`setting-duel-app-${d.id}`} checked={duelApps.includes(d.id)} onChange={() => toggleApp(d.id)} />
+                  <span><Glyphs>{`${d.emoji} ${d.label}`}</Glyphs> <small>{d.rules}</small></span>
                 </label>
               ))}
               <label className="duel-app-game">

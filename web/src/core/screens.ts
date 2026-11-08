@@ -19,7 +19,7 @@ const giftName = (game: Game, id?: string | null) => (id && game.gifts?.[id]?.na
 
 /** The TV: the whole table sees it. */
 export function tvScreen(full: Game, now: number): Screen {
-  const game = projectGame(full, { kind: 'tv' });     // only what the TV may know
+  const game = projectGame(full, { kind: 'tv' }, now);     // only what the TV may know
   const t = game.currentTurn;
   const cfg = config(game.settings);
   const lines: string[] = [];
@@ -71,6 +71,13 @@ export function tvScreen(full: Game, now: number): Screen {
       }
       return { title: `${g.label} (${mg.phase})`, lines: lines.filter(Boolean) };
     }
+    case 'minigame_arena': {
+      const v = game.arenaView?.view as { holder?: string; danger?: string; round?: string; doomed?: string | null } | undefined;
+      if (!v) return { title: 'Mini-game', lines };
+      lines.push(v.doomed ? `The Gremlin went berserk on ${nm(game, v.doomed)}` : `${nm(game, v.holder)} has the Gremlin (it looks ${v.danger})`);
+      if (v.round === 'sudden_death') lines.push('Sudden death: just the duellists');
+      return { title: 'Pass the Gremlin', lines };
+    }
     case 'endgame_choice': case 'endgame_steal_select': case 'endgame_nobids':
       return { title: 'Misfit Lottery', lines: [...lines, `${nm(game, t.activePlayerId)} draws the Misfit ${t.misfitName || ''}`.trim()] };
     case 'endgame_bidding': case 'endgame_reveal':
@@ -82,7 +89,7 @@ export function tvScreen(full: Game, now: number): Screen {
 
 /** One person's phone. */
 export function phoneScreen(full: Game, me: PlayerId, now: number): Screen {
-  const game = projectGame(full, { kind: 'phone', pid: me }); // only what this phone may know
+  const game = projectGame(full, { kind: 'phone', pid: me }, now); // only what this phone may know
   const p = game.players?.[me];
   if (!p) return { title: 'Not in this game', lines: [] };
   const t = game.currentTurn;
@@ -123,6 +130,12 @@ export function phoneScreen(full: Game, me: PlayerId, now: number): Screen {
       if (mg.phase === 'voting') lines.push(mg.votes?.[me] ? `You voted for ${nm(game, mg.votes[me])}'s drawing` : `Vote for a drawing: ${Object.keys(mg.submissions || {}).filter((id) => id !== me).map((id) => nm(game, id)).join(', ')}`);
       if (mg.phase === 'results' && mg.results) lines.push(`You placed ${mg.results.ranking.indexOf(me) + 1} of ${mg.results.ranking.length}`);
       return { title: `${g.label}: ${mg.phase}`, lines };
+    }
+    case 'minigame_arena': {
+      const v = game.arenaView?.view as { holder?: string; prompt?: string; stage?: string; danger?: string } | undefined;
+      if (!v) return { title: 'Mini-game', lines };
+      if (v.holder !== me) return { title: 'Pass the Gremlin', lines: [...lines, `${nm(game, v.holder)} has the Gremlin (it looks ${v.danger})`] };
+      return { title: 'You have the Gremlin!', lines: [...lines, v.stage === 'pass_ready' ? 'Solved: pass it on!' : `Solve: ${v.prompt} = ?`] };
     }
     case 'endgame_choice': case 'endgame_steal_select': case 'endgame_nobids':
       return t.activePlayerId === me ? { title: 'Your Misfit Lottery turn', lines: [...lines, `The Misfit: ${t.misfitName || ''}`] } : { title: 'Misfit Lottery', lines: [...lines, `${nm(game, t.activePlayerId)} is choosing`] };

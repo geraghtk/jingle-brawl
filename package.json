@@ -13,6 +13,7 @@
     "preview": "vite preview --config vite.config.mts",
     "test:unit": "vitest run --config vite.config.mts",
     "analyze:economics": "vite-node web/src/sim/report.ts",
+    "analyze:gremlin": "vite-node web/src/sim/gremlin-report.ts --",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
