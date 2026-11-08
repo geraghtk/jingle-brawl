@@ -20,6 +20,7 @@ npm run test:e2e:ui / :headed    # visual debugging
 python -m unittest discover -s tests   # ai_art_critic.py unit tests
 npm run test:unit                # rules engine + economics (vitest: web/src/core, web/src/sim)
 npm run analyze:economics        # game-theory report: deviation matrix, chip flows (see ECONOMICS.md)
+npm run analyze:gremlin          # Pass the Gremlin: thousands of simulated rounds (who gets doomed, passes, sudden death)
 
 npm run agents:watch             # persona agents play a real game, streamed to one window
 npm run agents:sweep             # all settings presets × N headless games → agents/reports/…/summary.md
@@ -78,6 +79,10 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 - Never put user/AI text into `dangerouslySetInnerHTML`; let React escape it.
 - Avatars and icons are sticker pictures (`web/public/art`, made with `tools/art`, see its README): a player picks an avatar when they join (`core/avatars.ts`, `players/{id}/avatar`); emoji in the React app render as icons through `<Icon>`/`<Glyphs>` (`ui/icons.tsx`, alt text = the emoji, so role names in tests are unchanged).
 - No em dashes in anything players see (screens, mascots, rule pages, critic replies): `web/src/ui/copy.test.ts` checks.
+
+## Mini-game platform (`web/src/core/minigames/`)
+
+From `yule_duel_agent_spec_updated.md` (M1/M2). A game is a pure `GameDefinition` (`contracts.ts`): config, initial state, `validateAction`, `reduce`, `onDeadline`, `offers` (for the simulator), a view per player / TV / host, and a `GameResult`. Register it in `registry.ts`; the runtime (`runtime.ts`) needs no change. The running game is `game.arena` (server only); screens get `game.arenaView`. Results are explicit (`resolved` / `requires_tiebreaker` / `no_contest` / `cancelled`); a game never moves chips or gifts: `handoff()` gives the duel its winner only for a `resolved` result with a nominated winning duelist, else the host picks. With duelists, a mode that can't always resolve them is refused at start (`canAlwaysResolve`). Game state is stored like the rest of the game (empty objects vanish): read it defensively. Registered games are in-app duel games (2 at the table: `direct_duel`; 3+: `party_with_duelists` if supported). Game #1: Pass the Gremlin (`gremlin/`, UI `player/GremlinCard.tsx`, `host/ArenaStage.tsx`); tests in `gremlin/*.test.ts`, `server/src/room/gremlin-room.test.ts`, `e2e/gremlin.spec.js`. Next (with approval): M3 Gremlin polish, M4 Reindeer Ring Toss, M5 the Gift Conveyor.
 
 ## Economics
 

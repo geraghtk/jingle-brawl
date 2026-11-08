@@ -87,9 +87,11 @@ PC: node room server                 same server on Fly.io / Railway / Cloud Run
 ## Roadmap
 Done 2026-11-07: P0.1 retire the original pages → S1 intents + single commit path → S2
 per-viewer projections → S3 room server → S4 client transport → S5 suite on the server → S6
-server by default, `npm run dev`, Wi-Fi join link → S7 Firebase removed.
+server by default, `npm run dev`, Wi-Fi join link → S7 Firebase removed → AI Draw Off as a duel
+game (BYO keys) → S8 the TV as its own screen, the host playing from their own phone → the
+host's audited Peek → M1 the mini-game platform → M2 Pass the Gremlin.
 
-Next: AI Draw Off as a duel game (BYO keys) → S8 separate TV view → M1 mini-game runtime
-contracts → M2 Pass the Gremlin. Production track alongside: deploy (Cloudflare free tier or a
-small VPS), CI, abuse limits, room TTL, observability, privacy page, reconnect UX. Ring Toss (M4)
-and the Gift Conveyor (M5) come after, with their own approval.
+Next, with approval: the production track (deploy: Cloudflare free tier via a Durable Objects
+adapter, or a small VPS; CI; abuse limits; room TTL; observability; privacy page; reconnect
+banner), then M3 (Gremlin polish: memory_flash and perfect_timing challenges, art and sound,
+device testing), M4 Reindeer Ring Toss, M5 the Gift Conveyor.

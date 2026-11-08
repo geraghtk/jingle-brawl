@@ -69,7 +69,8 @@ Whenever a player **loses a duel as the Defender**, they immediately receive **\
 
 * A duel determines a winner between two players.  
 * Standard Rule: The Defender chooses the duel type/method. They may also choose to have the method selected randomly.  
-  * *In the app:* the host lists the room's duel methods at setup (and may add the in-app mini-games). The Defender picks one on their phone, or taps "Let the wheel pick". A yield duel (two challengers) and a tiebreak duel have no real Defender, so the wheel always picks for them. The chosen duel shows on the TV and every phone.  
+  * *In the app:* the host lists the room's duel methods at setup (and may add the in-app mini-games). The Defender picks one on their phone, or taps "Let the wheel pick". A yield duel (two challengers) and a tiebreak duel have no real Defender, so the wheel always picks for them. The chosen duel shows on the TV and every phone.
+  * *In-app duel games:* Whack-an-Elf and Sketch-Off (everyone plays; the better-placed duelist wins), **AI Draw Off** (the two duelists draw the same prompt; an AI art critic scores both, the higher score wins; the host brings their own AI key) and **Pass the Gremlin** (whoever holds the Gremlin solves a quick problem, then passes it on; at a secret moment it goes berserk and whoever holds it loses. With three or more at the table everyone passes it; if a bystander gets caught, the two duelists finish it alone in sudden death). If a game can't decide (a tie, a failed critic, the host cancels it), nobody wins by default: the host picks the winner.  
   * *Optional Rule:*   
     *The dual method is always chosen at random.*
 
@@ -113,7 +114,7 @@ If one or more players bid:
 * If the highest bid is tied, the Opener first chooses to **fight** or **yield**:  
   * Fight: two of the tied bidders (picked at random if more than 2 tied) hold a Tie-break Duel; the winner becomes Challenger 1 and duels the Opener.  
   * Yield: two of the tied bidders (picked at random if more than 2 tied) duel each other as a Yield Duel.  
-  * The host can instead have a mini-game choose the duelists: Sketch-Off, Whack-an-Elf or AI Draw Off.  
+  * The host can instead have a mini-game choose the duelists: Sketch-Off or Whack-an-Elf.  
   * Party tiebreakers (Sketch-Off, Whack-an-Elf): the whole table plays. The best-placed tied bidder wins the tie (the best two, if the Opener yielded). Everyone scores party points by place (3 / 2 / 1, shown at the final tally), and the best finisher who wasn't in the tie wins an Elf Bonus chip from the North Pole Fund (the host can turn prizes off).  
 * Duel calls: once the duel method is known, spectators call the winner on their phones. The host waits for every connected spectator (or the house vote timer, 30 seconds by default; the host can also close voting early) before declaring the winner.  
 * Party Score: party-game points plus 1 for every duel you correctly call as a spectator. The highest Party Score at the final tally is the Party MVP.  
