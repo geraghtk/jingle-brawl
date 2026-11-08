@@ -57,6 +57,11 @@ export function wsServer(rooms: Rooms) {
         r.attach(conn);
         return;
       }
+      if (msg.t === 'critic_key') {
+        // the host's own AI key: straight into the room's memory, never logged or echoed
+        if (who === HOST && room) room.setCriticKey(typeof msg.key === 'string' ? msg.key : null);
+        return;
+      }
       if (msg.t === 'intent') {
         if (!room || !conn) return send({ t: 'error', error: 'say hello first' });
         if (!who) return send({ t: 'ack', id: String(msg.id), ok: false, error: 'the TV only watches' });

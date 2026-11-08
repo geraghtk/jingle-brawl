@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grinch's Gambit and Reindeer Reprisals. A tied top bid can be settled by a party mini-game the whole table plays ("Sketch-Off", "Whack-an-Elf", `web/src/core/party.ts`) or by "AI Draw Off", with an AI Art Critic judging the results.
+**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grinch's Gambit and Reindeer Reprisals. A tied top bid is settled by a party mini-game the whole table plays ("Sketch-Off", "Whack-an-Elf", `web/src/core/party.ts`). Duels can be played in the room or in the app; one in-app duel game is "AI Draw Off" (`core/drawoff.ts`): the two duellists draw, an AI Art Critic picks the winner (`AI_ART_CRITIC.md`).
 
 ## Commands
 
@@ -51,6 +51,7 @@ npm run build && npm start       # production: one Node process serves the app a
 - `web/src/player/` — phone: join/rejoin, sealed bids (`BidPanel.tsx`), opener choices and duels (`StatusCard.tsx`), reprisals, party games (`PartyCard.tsx`), votes
 - `web/src/net/` — the screens' side of the room server: `client.ts` (`RoomClient`), `hooks.tsx` (`useRoom`, `useServerOffset`), `api.ts` (create / lobby / join), `protocol.ts`, `lan.ts` (the TV's Wi-Fi join link)
 - `web/src/ui/` — shared UI: `mascots.ts` (Santa / elf / reindeer pop-ups, `?mascots=0` disables), `whack.tsx`, `icons.tsx`, `chips.ts`, `notes.tsx` (duel help text)
+- `server/src/critic/` — AI Draw Off's critic (OpenAI / Gemini with the host's own key, held in server memory only; the local critic; a fake one for tests: `JB_FAKE_CRITIC=1`)
 - `ai_art_critic.py` — local Flask critic: `/critique`, `/witty-verdict` (Draw Off verdict), `/health`
 - `jingle_brawl_env.py` — Deep RL self-play simulation for balance testing
 - `e2e/` — Playwright specs + `helpers.js` (invariants; `dbGet`/`dbPut`/`dbPatch` through the server's debug API)

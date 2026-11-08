@@ -21,10 +21,34 @@ export function Sidebar({ onExit }: { onExit: () => void }) {
         ))}
       </div>
       <div className="sidebar-tab-panels">
-        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /></div>
+        <div id="tab-game" className={`sidebar-tab-panel${tab === 'game' ? ' active' : ''}`}><GameTab onExit={onExit} /><CriticCard /></div>
         <div id="tab-events" className={`sidebar-tab-panel${tab === 'events' ? ' active' : ''}`}><EventLog /></div>
         <div id="tab-admin" className={`sidebar-tab-panel${tab === 'admin' ? ' active' : ''}`}><AdminPanel /></div>
       </div>
+    </div>
+  );
+}
+
+/** AI Draw Off's critic: is it ready, and the host's own key (sent to the room's memory, never stored). */
+function CriticCard() {
+  const { game, cfg, client } = useHost();
+  const [key, setKey] = useState('');
+  const backend = game.settings?.aiCriticBackend;
+  if (!cfg.duelAppGames.includes('draw_off')) return null;
+  const c = client.critic;
+  return (
+    <div className="card" id="critic-card" data-testid="critic-card">
+      <div className="card-title"><Icon name="critic" /> AI critic</div>
+      <div data-testid="critic-status" style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+        {c?.ready ? <>Ready ({c.backend})</> : c?.error ? <>Not working: {c.error}</> : c ? 'Checking the key…' : 'No key: AI Draw Off falls back to you picking the winner'}
+      </div>
+      {backend !== 'local' && backend !== 'ollama' && (
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <input type="password" className="input" autoComplete="off" placeholder="Your API key" value={key} onChange={(e) => setKey(e.target.value)} style={{ flex: 1 }} />
+          <button className="btn btn-primary" disabled={!key.trim()} onClick={() => { client.setCriticKey(key.trim()); setKey(''); }}>Use</button>
+          {c?.ready && <button className="btn btn-secondary" onClick={() => client.setCriticKey(null)}>Forget</button>}
+        </div>
+      )}
     </div>
   );
 }

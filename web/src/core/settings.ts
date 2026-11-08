@@ -1,4 +1,4 @@
-import type { PartyType } from './party';
+import type { DuelApp } from './duelgame';
 // House settings: defaults + reading what a game stored.
 import type { DividendRule, PartyPrize, Settings } from './types';
 
@@ -17,7 +17,7 @@ export interface Config {
   spectatorBets: number;
   voteWindow: number;
   duelGames: string[];
-  duelAppGames: PartyType[];
+  duelAppGames: DuelApp[];
   duelPick: 'defender' | 'wheel' | 'off';
 }
 

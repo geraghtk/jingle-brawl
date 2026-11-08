@@ -48,10 +48,6 @@ async function keepRound(host, roomCode, pages, giftName) {
   return opener;
 }
 
-/** Strokes on a phone's Draw Off canvas (React: data-strokes; original page: a global). */
-const strokeCount = (page) => page.evaluate(
-  "Number(document.querySelector('#drawing-canvas')?.dataset.strokes ?? drawingStrokes.length)");
-
 const giftByName = (game, name) => {
   const entry = Object.entries(game.gifts || {}).find(([, g]) => g.name === name);
   return entry ? { id: entry[0], ...entry[1] } : null;
@@ -382,44 +378,6 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  // AI Draw Off is no longer a tiebreaker (ties are whole-table party games) — pending a new home
-  test.skip("Draw Off: one artist submitting doesn't wipe another artist's canvas", async ({ browser }) => {
-    test.setTimeout(90000);
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, {
-      'tiebreaker-method': 'draw_off',
-    });
-    try {
-      const turn = await H.drawGift(host, roomCode, 'Draw Gift');
-      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
-      const [c1, c2] = NAMES.filter((n) => n !== opener);
-      await H.allBid(pages, opener, { [c1]: 2, [c2]: 2 });
-      await H.revealBids(host);
-      await H.openerFights(pages[opener]);
-      await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'drawing' ? g : false),
-        { label: 'draw off drawing', timeout: 30000 });
-
-      const artist = pages[c1];
-      const canvas = artist.locator('#drawing-canvas');
-      await expect(canvas).toBeVisible();
-      const box = await canvas.boundingBox();
-      await artist.mouse.move(box.x + 20, box.y + 20);
-      await artist.mouse.down();
-      for (let i = 1; i <= 10; i++) await artist.mouse.move(box.x + 20 + i * 10, box.y + 20 + i * 5);
-      await artist.mouse.up();
-      const strokesBefore = await strokeCount(artist);
-      expect(strokesBefore).toBeGreaterThan(0);
-
-      await pages[c2].getByRole('button', { name: /Submit Drawing/ }).click();
-      await H.waitForGame(roomCode, (g) => (g.minigame?.submissions && Object.keys(g.minigame.submissions).length === 1 ? g : false),
-        { label: 'one submission' });
-      await artist.waitForTimeout(1000);
-      expect(await strokeCount(artist)).toBe(strokesBefore);
-      assertNoPageErrors();
-    } finally {
-      await cleanup();
-    }
-  });
-
   test('3-way tie, opener yields from the phone: the duelists are two of the TIED bidders', async ({ browser }) => {
     test.setTimeout(90000); // a whole party game is played
     const FOUR = ['Alice', 'Bob', 'Charlie', 'Dave'];
@@ -445,42 +403,6 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.declareWinner(host, winner);
       await H.waitForTurnPhase(roomCode, null);
       await H.assertInvariants(roomCode, '3-way yield');
-      assertNoPageErrors();
-    } finally {
-      await cleanup();
-    }
-  });
-
-  test.skip('Draw Off picking 2 for a yield ends in the yield duel (no endless re-run) and hides the card', async ({ browser }) => {
-    test.setTimeout(60000);
-    const FOUR = ['Alice', 'Bob', 'Charlie', 'Dave'];
-    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'tiebreaker-method': 'draw_off' }, FOUR);
-    try {
-      const turn = await H.drawGift(host, roomCode, 'Loop Gift');
-      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
-      const tied = FOUR.filter((n) => n !== opener);
-      await H.allBid(pages, opener, Object.fromEntries(tied.map((n) => [n, 2])));
-      await H.revealBids(host);
-      await H.openerYields(pages[opener]);
-      await H.waitForTurnPhase(roomCode, 'yield_pending');
-      await H.clickStartYieldDuel(host);
-      const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.type === 'draw_off' ? g.minigame : false), { label: 'draw off started' });
-      expect(mg.minigameGoal).toBe('pick_two');
-      expect(mg.participants.length).toBe(3);
-      await expect(pages[tied[0]].locator('#minigame-card')).toBeVisible();
-
-      // Skip the 3-minute drawing + AI judging: jump straight to results
-      const p = await H.playersByName(roomCode);
-      const [w1, w2] = [p[tied[0]].id, p[tied[1]].id];
-      await H.dbPatch(roomCode, { 'minigame/phase': 'results', 'minigame/winners': [w1, w2], 'minigame/rankings': [w1, w2, p[tied[2]].id] });
-      await host.getByRole('button', { name: /Continue to Duel/ }).click();
-
-      const duel = await H.waitForTurnPhase(roomCode, 'duel');
-      expect(duel.isYieldDuel).toBe(true);
-      expect([duel.challengerId, duel.defenderId].sort()).toEqual([w1, w2].sort());
-      await host.waitForTimeout(1500);
-      expect(await H.dbGet(roomCode, 'minigame'), 'a second Draw Off must not start').toBeNull();
-      await expect(pages[tied[0]].locator('#minigame-card')).toBeHidden();
       assertNoPageErrors();
     } finally {
       await cleanup();

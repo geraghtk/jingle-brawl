@@ -1,149 +1,50 @@
-# AI Art Critic - Setup Guide
+# AI Art Critic (AI Draw Off)
 
-The AI Art Critic adds a fun "robot judge" that analyzes drawings in the AI Draw Off tiebreaker
-(the Counterfeit Canvas it also judged was retired in Oct 2026 for the Sketch-Off, which the table votes on):
+AI Draw Off is an in-app **duel game**: the two duellists get the same prompt and draw on their
+phones, the room watches on the TV, and an AI art critic scores both drawings. The higher score
+wins the duel; a short witty verdict names the winner (flavour only: it can't overrule the
+scores). The room server calls the critic (`server/src/critic/`); no screen ever talks to an AI
+provider.
 
-**AI Draw Off** – Each player draws individually (same prompt, 3 minutes); AI judges and ranks all submissions.
+## Turning it on
 
-## Prerequisites
+At setup, under **Duels you'll play in the room**, tick **🎨 AI Draw Off** and choose a critic:
 
-### 1. Install Ollama
+| Critic | What you need |
+|---|---|
+| **OpenAI** | your own API key (platform.openai.com/api-keys) |
+| **Google Gemini** | your own API key (aistudio.google.com/apikey) |
+| **Local critic on this PC** | `ollama pull llava` and `python ai_art_critic.py` on the PC running the game (free) |
 
-Download and install from [ollama.com/download](https://ollama.com/download).
+## Your key (BYO)
 
-### 2. Pull a vision model
+- It goes from the host's screen to the room server **once**, over the host's own connection.
+- The server keeps it **in memory only**, for that room: never in the game, the database
+  (`rooms.db`), the event log, or any screen's view. The host console shows only "Ready".
+- It is checked once with the provider; a refused key is reported without the key in the message.
+- It is **forgotten** when the game ends, when the room has been idle for 2 hours, when the host
+  presses **Forget**, or when the server restarts (the host console then asks for it again).
+- Calls are billed to your account; each room is limited to 12 critic calls per 10 minutes.
+- Hosted online, the site must be HTTPS so the key is encrypted on the way to the server.
 
-```bash
-ollama pull llava
-```
+## Server defaults (for your own parties)
 
-Other options: `llava:13b` (larger), `llava:34b` (largest), or `llava3` (newer).
+Environment variables on the room server:
 
-### 3. Install Python dependencies
+| Variable | Meaning |
+|---|---|
+| `JB_OPENAI_KEY` / `JB_GEMINI_KEY` | a default key for rooms that pick that provider and don't bring one |
+| `JB_CRITIC_URL` | the local critic's address (default `http://127.0.0.1:5050`); rooms can't set a URL |
+| `OPENAI_VISION_MODEL` / `GEMINI_MODEL` | model IDs (they churn; defaults in `critic.ts`) |
+| `JB_FAKE_CRITIC=1` | tests: a fake critic, no network |
 
-```bash
-pip install -r ai_art_critic_requirements.txt
-```
+## When the critic can't decide
 
-## Running the AI Art Critic
+No key, a provider error, or a tie: nobody wins by default. The TV shows the drawings and the
+reason; back in the duel, the host's winner buttons unlock ("you pick the winner") and the event
+log marks the result as a host decision.
 
-1. **Start Ollama** (usually runs automatically; if not: `ollama serve`)
-2. **Start the AI Art Critic server:**
+## The local critic
 
-   ```bash
-   python ai_art_critic.py
-   ```
-
-   Server runs at `http://localhost:5050` by default.
-
-3. **Create a Jingle Brawl game** with:
-   - Tiebreaker: **AI Draw Off** (requires the critic and auto-enables it)
-   - ✅ **Enable AI Art Critic**
-   - Engine: **Ollama** (local, free) or **OpenAI** (paste a key; it stays in the host's browser session and is only sent to this local server)
-   - Server URL: `http://localhost:5050` (default)
-
-Draw Off: after 3 minutes the AI scores each submission, then `/witty-verdict` writes a critic's verdict and picks the winner (falls back to the highest score if that call fails).
-
-## Environment variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 5050 | Server port |
-| `OLLAMA_HOST` | http://localhost:11434 | Ollama API URL |
-| `OLLAMA_VISION_MODEL` | llava | Vision model name |
-| `OPENAI_VISION_MODEL` | gpt-5.2 | OpenAI model when a key is supplied |
-| `OPENAI_API_KEY` | — | Server-side key (used if the host sends none) |
-
-Unit tests for the reply parsing (no model needed): `python -m unittest discover -s tests`.
-
----
-
-## Production (Firebase)
-
-For production on Firebase Hosting, use a **Cloud Function** instead of local Ollama. Two options:
-
-### Option A: Gemini (recommended – no API key)
-
-Uses Firebase / Vertex AI Gemini. No secrets to manage – uses your project credentials.
-
-1. **Enable Vertex AI API**  
-   [Enable the API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) for your Firebase project.
-
-2. **Deploy**
-   ```bash
-   npm install --prefix functions
-   firebase deploy --only functions
-   ```
-
-3. **Use the Gemini function URL** (default when hosted on Firebase):
-   ```
-   https://us-central1-YOUR_PROJECT.cloudfunctions.net/critiqueDrawingGemini
-   ```
-
-### Option B: OpenAI
-
-Uses an OpenAI vision model (`gpt-5.2` by default). Requires an API key.
-
-1. **Set secret**
-   ```bash
-   firebase functions:secrets:set OPENAI_API_KEY
-   ```
-   Get a key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
-
-2. **Deploy**
-   ```bash
-   firebase deploy --only functions
-   ```
-
-3. **Use the OpenAI function URL**
-   ```
-   https://us-central1-YOUR_PROJECT.cloudfunctions.net/critiqueDrawing
-   ```
-
-### Choosing models (Cloud Functions)
-
-Model IDs are configuration, not code — they get retired (`gemini-2.0-flash-001` was
-retired 2026-06-01, which broke the old Gemini function). Set them in `functions/.env`
-and redeploy:
-
-```
-GEMINI_MODEL=gemini-3.8-flash        # check the Vertex AI "Model versions" page for a current stable ID
-OPENAI_VISION_MODEL=gpt-5.2
-```
-
-`GET .../health` reports which models a deployed function is using. The Gemini function
-uses the Google Gen AI SDK (`@google/genai`); the old `@google-cloud/vertexai` generative
-module was removed by Google on 2026-06-24. Parser tests: `cd functions && npm test`.
-
-**Draw Off on Cloud Functions:** there is no `witty-verdict` function, so the verdict
-step is skipped and the highest AI score wins. Use the local server for verdicts.
-
-### Firebase Blaze plan
-
-Cloud Functions require the [Blaze (pay-as-you-go) plan](https://firebase.google.com/pricing).
-
-### Deploy hosting
-
-```bash
-firebase deploy --only hosting
-# or
-firebase deploy
-```
-
-When the game is served from `*.web.app` or `*.firebaseapp.com`, the AI Critic URL defaults to the Gemini function.
-
----
-
-## Troubleshooting
-
-**Local (Ollama):**
-- **"Vision model error"** – Ensure Ollama is running and you've pulled a vision model: `ollama pull llava`
-- **"Connection refused"** – Ensure `ai_art_critic.py` is running and the URL in host settings matches
-
-**Production (Cloud Functions):**
-- **Gemini: "Vertex AI error"** – Enable Vertex AI API: [console.cloud.google.com/apis/library/aiplatform.googleapis.com](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com)
-- **OpenAI: "API key not configured"** – Run `firebase functions:secrets:set OPENAI_API_KEY`
-- **CORS errors** – Functions have `cors: true`; ensure you're using the correct function URL
-
-**Both:**
-- **Empty drawing** – The AI critic runs even if the canvas is nearly empty; it will describe what it sees
+`ai_art_critic.py` (Flask on :5050, Ollama `llava`): `/critique` scores one drawing,
+`/witty-verdict` writes the verdict, `/health`. Unit tests: `python -m unittest discover -s tests`.

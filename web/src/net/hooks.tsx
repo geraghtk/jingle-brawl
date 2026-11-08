@@ -6,7 +6,7 @@ import type { Game } from '../core/types';
 import { RoomClient } from './client';
 import type { Status } from './client';
 
-export interface RoomLink { client: RoomClient; game: Game | null; status: Status; offset: number; fatal: string | null }
+export interface RoomLink { client: RoomClient; game: Game | null; status: Status; offset: number; fatal: string | null; critic: RoomClient['critic'] }
 
 /** Connect to a room for as long as the component lives (token: host or phone; none = the TV). */
 export function useRoom(room: string, token?: string): RoomLink {
@@ -14,10 +14,10 @@ export function useRoom(room: string, token?: string): RoomLink {
   useEffect(() => { client.start(); return () => client.stop(); }, [client]);
   const snap = useSyncExternalStore(
     (fn) => client.subscribe(fn),
-    () => `${client.version}|${client.status}|${client.offset}|${client.fatal}`,
+    () => `${client.version}|${client.status}|${client.offset}|${client.fatal}|${JSON.stringify(client.critic)}`,
   );
   void snap;
-  return { client, game: client.game, status: client.status, offset: client.offset, fatal: client.fatal };
+  return { client, game: client.game, status: client.status, offset: client.offset, fatal: client.fatal, critic: client.critic };
 }
 
 const OffsetCtx = createContext(0);

@@ -29,11 +29,12 @@ export interface Settings {
   spectatorBets?: number;          // 0 = off, 1 = each vote stakes 1 chip
   voteWindow?: number;             // seconds the host waits for duel votes (0 = no wait)
   duelGames?: string | string[];   // out-of-game duels the host listed, one per line ("" = none: RTDB drops empty arrays)
-  duelAppGames?: PartyType[];      // in-app mini-games that may come up as the duel
+  duelAppGames?: (PartyType | 'draw_off')[];  // in-app mini-games that may come up as the duel
   duelPick?: 'defender' | 'wheel' | 'off';
-  aiCriticEnabled?: boolean;
+  aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
   aiCriticUrl?: string;
-  aiCriticBackend?: 'ollama' | 'openai';
+  /** AI Draw Off's critic: the host's own OpenAI / Gemini key (given to the room server, never stored), or the local critic. */
+  aiCriticBackend?: 'openai' | 'gemini' | 'local' | 'ollama';
 }
 
 export interface Player {
@@ -106,6 +107,7 @@ export interface Turn {
   wheel?: WheelSpin;
   duelAppStartedAt?: number;
   duelGameWinner?: PlayerId;       // an in-app duel game decided it; the host resolves
+  duelGameOutcome?: { status: 'no_contest'; reason: string } | null; // it couldn't decide: the host picks
   // double-tap guards (claimTurn)
   duelStartedBy?: PlayerId;
   resolvedBy?: PlayerId;

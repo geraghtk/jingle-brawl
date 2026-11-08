@@ -1,6 +1,6 @@
 // Host (TV) app: settings → the room server makes the room and hands back the host's token →
 // the game screen. A refreshed host is offered a rejoin (?autoLoad=1 skips the prompt).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '../core/types';
 import { createRoom, lobby } from '../net/api';
 import { OffsetProvider, useRoom } from '../net/hooks';
@@ -12,6 +12,8 @@ import { Icon } from '../ui/icons';
 const K = { room: 'jingleBrawl_host_room', token: 'jingleBrawl_host_token' };
 const forget = () => { for (const k of Object.values(K)) localStorage.removeItem(k); };
 const autoLoad = new URLSearchParams(location.search).get('autoLoad') === '1';
+/** The AI key typed at setup: handed to the room over the host's socket, then dropped. Never stored. */
+let pendingCriticKey = '';
 
 export function App() {
   const [room, setRoom] = useState<string | null>(null);
@@ -26,13 +28,13 @@ export function App() {
     }).catch(() => {});
   }, []);
 
-  async function create(settings: Settings, openaiKey: string) {
+  async function create(settings: Settings, criticKey: string) {
     try {
       const { code, token } = await createRoom(settings);
       forget();
       localStorage.setItem(K.room, code);
       localStorage.setItem(K.token, token);
-      if (openaiKey) sessionStorage.setItem(`jingleBrawl_openai_key_${code}`, openaiKey);
+      pendingCriticKey = criticKey;
       window.scrollTo(0, 0);
       setRoom(code);
     } catch {
@@ -65,6 +67,13 @@ export function App() {
 /** The host console's own view of the room, live. */
 function Playing({ room, token, onExit }: { room: string; token: string; onExit: () => void }) {
   const { client, game, offset, fatal } = useRoom(room, token);
+  const sentKey = useRef(false);
+  useEffect(() => {
+    if (sentKey.current || !pendingCriticKey) return;
+    sentKey.current = true;
+    client.setCriticKey(pendingCriticKey);   // goes once the socket is open
+    pendingCriticKey = '';
+  }, [client]);
   if (fatal) return <div className="card" style={{ margin: '2rem auto', maxWidth: 420, textAlign: 'center' }}><p>{fatal}</p><button className="btn btn-primary" onClick={onExit}>Start over</button></div>;
   if (!game) return null;
   return (

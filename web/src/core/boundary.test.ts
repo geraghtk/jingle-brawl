@@ -10,10 +10,8 @@ const ACTION_MODULES = ['actions', 'duel', 'admin', 'partyflow', 'duelgame', 'vo
 /** Exports of those modules a screen may use: they only describe the game. */
 const READ_ONLY = new Set([
   'cleanName', 'voteStatus', 'duelGameStep', 'duelOptions', 'duelPicker', 'duelAppWinner', 'SPIN_MS', 'UNDER',
-  'DEFAULT_DUEL_GAMES', 'DRAW_OFF_MS', 'PROMPT_REVEAL_MS',
+  'DEFAULT_DUEL_GAMES', 'DRAW_OFF_MS', 'PROMPT_REVEAL_MS', 'DUEL_APPS', 'isDrawOff', 'everyoneDrew',
 ]);
-/** Still writing directly until the room server takes them over (plan: S4 create/join, S6 automation). */
-const NOT_YET = new Set(['host/App.tsx', 'player/App.tsx', 'host/HostContext.tsx', 'host/useHostAutomation.ts']);
 
 function screens(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -27,7 +25,6 @@ describe('screens send intents, never plans', () => {
   it('no screen imports an action from the rules engine', () => {
     const offenders: string[] = [];
     for (const file of [...screens(join(SRC, 'host')), ...screens(join(SRC, 'player')), ...screens(join(SRC, 'ui'))]) {
-      if (NOT_YET.has(file)) continue;
       const src = readFileSync(join(SRC, file), 'utf8');
       for (const m of src.matchAll(/import\s+(type\s+)?([^;]+?)\s+from\s+'\.\.\/core\/([\w]+)'/g)) {
         if (m[1] || !ACTION_MODULES.includes(m[3])) continue;

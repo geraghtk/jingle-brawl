@@ -3,6 +3,7 @@
 // the same steps on its virtual clock, so both wait for the table by the same rules.
 // A step's key changes when the state it waits on changes, so a timer is re-armed rather
 // than fired twice; every plan is claimed, so a step racing a button can't apply twice.
+import { completeDrawOff, DRAW_GRACE_MS, everyoneDrew, isDrawOff, startDrawing, startJudging } from './drawoff';
 import * as A from './actions';
 import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from './duelgame';
 import { resolveDuel } from './duel';
@@ -56,6 +57,19 @@ export function hostAuto(game: Game): AutoStep[] {
   const appWinner = duelAppWinner(t);
   if (appWinner) {
     out.push({ key: `app|${appWinner}|${t!.duelAppStartedAt}`, at: 0, quiet: true, run: (g, ctx) => resolveDuel(g, appWinner, ctx.now) });
+  }
+
+  // AI Draw Off: the prompt, the drawing clock (over early once both drew), then back to the duel
+  // after the results. Judging is the room server's: it calls the critic.
+  const dOff = game.minigame;
+  if (isDrawOff(dOff)) {
+    const s = dOff.startedAt;
+    if (dOff.phase === 'prompt_reveal') out.push({ key: `draw|${s}|reveal`, at: dOff.promptRevealEndTime, quiet: true, run: (g, ctx) => startDrawing(g, ctx.now) });
+    if (dOff.phase === 'drawing') {
+      const done = everyoneDrew(dOff);
+      out.push({ key: `draw|${s}|drawing|${done}`, at: done ? 0 : (dOff.drawingEndTime || 0) + DRAW_GRACE_MS, quiet: true, run: (g) => startJudging(g) });
+    }
+    if (dOff.phase === 'results') out.push({ key: `draw|${s}|results`, at: dOff.resultsEndTime || 0, quiet: true, run: (g) => completeDrawOff(g) });
   }
 
   // ties start their party game themselves (once per turn)

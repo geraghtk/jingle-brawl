@@ -2,13 +2,12 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { DEFAULT_DUEL_GAMES } from '../core/settings';
-import type { PartyType } from '../core/party';
+import type { DuelApp } from '../core/duelgame';
 import type { Settings } from '../core/types';
 import { Glyphs, Icon } from '../ui/icons';
 
 const PARTY = ['sketch_off', 'whack_elf'];
 const NL = '\n'; // the duel list is one per line
-const DEFAULT_CRITIC = 'http://localhost:5050'; // the local critic (ai_art_critic.py)
 
 function Select({ id, label, hint, value, onChange, options }: {
   id: string; label: string; hint?: ReactNode; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -24,20 +23,18 @@ function Select({ id, label, hint, value, onChange, options }: {
   );
 }
 
-export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: string) => void }) {
+export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: string) => void }) {
   const [s, setS] = useState({
     'reprisal-depth': '1', 'max-bid': '4', 'max-payout': '2', 'starting-chips': '', 'loser-dividend': 'defenders',
     'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'party_mix', 'party-prize': 'points_chips',
   });
   const [publicChips, setPublicChips] = useState(false);
   const [duelGames, setDuelGames] = useState(DEFAULT_DUEL_GAMES.join(NL));
-  const [duelApps, setDuelApps] = useState<PartyType[]>([]);
-  const toggleApp = (a: PartyType) => setDuelApps((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]));
-  const [critic, setCritic] = useState({ enabled: false, backend: 'ollama', key: '', url: DEFAULT_CRITIC });
-  const set = (k: keyof typeof s) => (v: string) => {
-    setS((x) => ({ ...x, [k]: v }));
-    if (k === 'tiebreaker-method' && v === 'draw_off') setCritic((c) => ({ ...c, enabled: true }));
-  };
+  const [duelApps, setDuelApps] = useState<DuelApp[]>([]);
+  const toggleApp = (a: DuelApp) => setDuelApps((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]));
+  // AI Draw Off's critic: the host's own key goes to the room server once (memory only), never into the game
+  const [critic, setCritic] = useState<{ backend: 'openai' | 'gemini' | 'local'; key: string }>({ backend: 'openai', key: '' });
+  const set = (k: keyof typeof s) => (v: string) => setS((x) => ({ ...x, [k]: v }));
   const method = s['tiebreaker-method'];
 
   const create = () => {
@@ -56,12 +53,10 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
       baseCost: parseInt(s['base-cost']),
       tiebreakerMethod: method as Settings['tiebreakerMethod'],
       partyPrize: s['party-prize'] as Settings['partyPrize'],
-      aiCriticEnabled: method === 'draw_off' && critic.enabled,
-      aiCriticUrl: critic.url || 'http://localhost:5050',
-      aiCriticBackend: critic.backend as Settings['aiCriticBackend'],
+      ...(duelApps.includes('draw_off') ? { aiCriticBackend: critic.backend } : {}),
       ...(s['starting-chips'] ? { startingChips: parseInt(s['starting-chips']) } : {}),
     };
-    onCreate(settings, critic.backend === 'openai' ? critic.key.trim() : '');
+    onCreate(settings, duelApps.includes('draw_off') && critic.backend !== 'local' ? critic.key.trim() : '');
   };
 
   return (
@@ -98,12 +93,30 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
             <textarea id="setting-duel-games" className="input duel-games-input" rows={6} value={duelGames} onChange={(e) => setDuelGames(e.target.value)} />
             <div className="hint">One per line. These go on the wheel and in the defender's list.</div>
             <div className="duel-app-games">
-              {(['whack_elf', 'sketch_off'] as PartyType[]).map((a) => (
+              {(['whack_elf', 'sketch_off'] as DuelApp[]).map((a) => (
                 <label key={a} className="duel-app-game">
                   <input type="checkbox" id={`setting-duel-app-${a}`} checked={duelApps.includes(a)} onChange={() => toggleApp(a)} />
                   <span><Glyphs>{a === 'whack_elf' ? '🔨 Whack-an-Elf' : '✏️ Sketch-Off'}</Glyphs> <small>on phones; everyone plays, the better-placed duellist wins</small></span>
                 </label>
               ))}
+              <label className="duel-app-game">
+                <input type="checkbox" id="setting-duel-app-draw_off" checked={duelApps.includes('draw_off')} onChange={() => toggleApp('draw_off')} />
+                <span><Glyphs>🎨 AI Draw Off</Glyphs> <small>the two duellists draw; an AI art critic picks the winner</small></span>
+              </label>
+              {duelApps.includes('draw_off') && (
+                <div id="ai-critic-setting" className="ai-critic-setting">
+                  <select id="setting-ai-critic-backend" className="select" value={critic.backend} onChange={(e) => setCritic({ ...critic, backend: e.target.value as typeof critic.backend })}>
+                    <option value="openai">OpenAI (your API key)</option>
+                    <option value="gemini">Google Gemini (your API key)</option>
+                    <option value="local">The local critic on this PC (Ollama, free)</option>
+                  </select>
+                  {critic.backend !== 'local' ? <>
+                    <input type="password" id="setting-ai-critic-key" className="input" autoComplete="off" placeholder={critic.backend === 'openai' ? 'sk-...' : 'Gemini API key'}
+                      value={critic.key} onChange={(e) => setCritic({ ...critic, key: e.target.value })} />
+                    <div className="hint">Your key is kept in the game server's memory for this game only: never saved, never shown on any screen, forgotten when the game ends or sits idle. Calls are billed to your account.</div>
+                  </> : <div className="hint">Run <code>ollama pull llava</code> and <code>python ai_art_critic.py</code> on the PC running the game.</div>}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -127,36 +140,6 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, openaiKey: 
             <Select id="party-prize" label="🎉 Party Game Prizes" value={s['party-prize']} onChange={set('party-prize')}
               hint="Top 3 score 3/2/1 party points (shown at the final tally). The Elf Bonus: the best finisher who wasn't in the tie gets +1 chip from the North Pole Fund."
               options={[['points_chips', 'Party points + Elf Bonus chip'], ['points', 'Party points only'], ['none', 'No prizes']]} />
-          </div>
-        )}
-        {method === 'draw_off' && (
-          <div id="ai-critic-setting" className="form-group">
-            <label className="label"><Icon name="critic" /> AI Art Critic</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-              <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
-                <input type="checkbox" id="setting-ai-critic-enabled" style={{ width: 'auto', minHeight: 'auto' }} checked={critic.enabled} onChange={(e) => setCritic({ ...critic, enabled: e.target.checked })} />
-                <span>Enable AI Art Critic</span>
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                <label htmlFor="setting-ai-critic-backend" style={{ flexShrink: 0 }}>Engine:</label>
-                <select id="setting-ai-critic-backend" className="select" style={{ flex: 1 }} value={critic.backend} onChange={(e) => setCritic({ ...critic, backend: e.target.value })}>
-                  <option value="ollama">Ollama (local, free)</option>
-                  <option value="openai">OpenAI (ChatGPT)</option>
-                </select>
-              </div>
-              {critic.backend === 'openai' && (
-                <div id="ai-critic-openai-row" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <label htmlFor="setting-ai-critic-openai-key" style={{ fontSize: '0.9rem' }}>OpenAI API Key:</label>
-                  <input type="password" id="setting-ai-critic-openai-key" className="input" placeholder="sk-..." autoComplete="off" value={critic.key} onChange={(e) => setCritic({ ...critic, key: e.target.value })} />
-                  <div className="hint" style={{ fontSize: '0.8rem' }}>Get a key at platform.openai.com/api-keys. Key stays in your browser; sent only to local server or your Cloud Function.</div>
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                <label htmlFor="setting-ai-critic-url" style={{ flexShrink: 0 }}>Server URL:</label>
-                <input type="text" id="setting-ai-critic-url" className="input" style={{ flex: 1 }} placeholder="http://localhost:5050 or Cloud Function URL" value={critic.url} onChange={(e) => setCritic({ ...critic, url: e.target.value })} />
-              </div>
-            </div>
-            <div className="hint">Ollama: <code>ollama pull llava</code> then <code>python ai_art_critic.py</code>. OpenAI: enter key above. Prod: use Cloud Function URL.</div>
           </div>
         )}
         <button type="button" className="btn btn-primary" data-testid="create-game" onClick={create} style={{ width: '100%' }}>🎮 Create New Game</button>

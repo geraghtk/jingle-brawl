@@ -10,6 +10,8 @@ import * as A from '../../../web/src/core/actions';
 import { commitPlan } from '../../../web/src/core/commit';
 import { diff } from '../../../web/src/core/diff';
 import { checkEndgameContinue, drawEndgamePlayer } from '../../../web/src/core/duel';
+import { isDrawOff, judged } from '../../../web/src/core/drawoff';
+import type { DrawOffScore } from '../../../web/src/core/drawoff';
 import { hostAuto } from '../../../web/src/core/hostauto';
 import { dispatch, parseIntent } from '../../../web/src/core/intents';
 import type { Intent } from '../../../web/src/core/intents';
@@ -23,6 +25,7 @@ import { Tx } from '../../../web/src/core/tx';
 import type { Game, GameEvent, Plan, Settings } from '../../../web/src/core/types';
 import type { JoinReq, ServerMsg } from '../../../web/src/net/protocol';
 import type { EventRow, Store } from '../store/store';
+import type { Critic, Provider } from '../critic/critic';
 
 export interface Clock {
   now(): number;
@@ -33,7 +36,16 @@ export interface Clock {
 /** A screen's connection; close() drops it (the screen reconnects), as a restart would. */
 export interface Conn { viewer: Viewer; send(msg: ServerMsg): void; close?(): void }
 
-export interface Deps { store: Store; clock: Clock; seed?: () => number }
+/** Where AI Draw Off's critic comes from: the host's own key (make), or a default (local critic, an env key, tests). */
+export interface CriticSource {
+  make(provider: Provider, key: string): Critic;
+  /** A critic without a key from the host (the local critic, or the server's own env key), if any. */
+  fallback(provider: Provider): Critic | null;
+}
+
+export interface Deps { store: Store; clock: Clock; seed?: () => number; critics?: CriticSource }
+
+const CRITIC_CALLS_PER_10_MIN = 12;   // a stuck loop can't run up the host's bill
 
 export type Ack = { ok: true } | { ok: false; error: string };
 
@@ -51,10 +63,19 @@ export class RoomActor {
   private closed = false;
   /** What each screen was last sent (its view and the version), so the next send is only what changed. */
   private sent = new WeakMap<Conn, { view: Game; version: number }>();
+  /** AI Draw Off's critic. Only in memory: never saved, logged, or put in any view. */
+  private critic: { c: Critic; ready: boolean; error?: string; own: boolean } | null = null;
+  private judgingFor: number | null = null;
+  private criticCalls: number[] = [];
+  /** When anyone last did anything here (an idle room is put away, forgetting its key). */
+  lastActivity = 0;
 
   private constructor(readonly code: string, private deps: Deps, game: Game, version: number) {
     this.game = game;
     this.version = version;
+    this.lastActivity = deps.clock.now();
+    const fallback = this.provider() && deps.critics?.fallback(this.provider()!);
+    if (fallback) this.critic = { c: fallback, ready: true, own: false };
   }
 
   /** A new room (null if the code is taken). */
@@ -91,6 +112,7 @@ export class RoomActor {
     if (conn.viewer.kind === 'phone') this.connected(conn.viewer.pid, +1);
     this.sendState(conn);
     if (conn.viewer.kind === 'host') {
+      if (this.provider()) conn.send(this.criticStatus());
       const log = this.deps.store.events(this.code, 0, 100000).flatMap(logLines).slice(-300);
       if (log.length) conn.send({ t: 'log', events: log });
     }
@@ -109,6 +131,7 @@ export class RoomActor {
 
   /** A press from a screen. `actionId` makes resends safe: the same press is answered, not redone. */
   handle(who: Who, actionId: string, raw: unknown): Ack {
+    this.lastActivity = this.now();
     if (typeof actionId !== 'string' || !actionId || actionId.length > 80) return { ok: false, error: 'bad action id' };
     const seen = this.deps.store.recallAction(this.code, actionId);
     if (seen) return seen.ok ? { ok: true } : { ok: false, error: seen.error || 'refused' };
@@ -215,6 +238,7 @@ export class RoomActor {
     const at = this.now();
     const { game, applied } = commitPlan(this.game, plan, at);
     if (!applied) return false;
+    this.lastActivity = at;
     this.game = game;
     this.version++;
     // the event keeps the plan too, so the room can be replayed from its log (replay.ts)
@@ -245,6 +269,8 @@ export class RoomActor {
 
   private afterChange(): void {
     this.schedule();
+    if (this.game.phase === 'ended' && this.critic?.own) this.forgetKey(); // the game is over: forget the host's key
+    this.maybeJudge();
     const views = new Map<string, Game>();                // each distinct view is worked out once
     for (const c of this.conns) {
       const key = c.viewer.kind === 'phone' ? `phone:${c.viewer.pid}` : c.viewer.kind;
@@ -288,6 +314,83 @@ export class RoomActor {
     return this.deps.seed ? this.deps.seed() : randomInt(2 ** 31);
   }
 
+  // --- AI Draw Off's critic ----------------------------------------------------------------------
+
+  private provider(): Provider | null {
+    const b = this.game.settings?.aiCriticBackend;
+    return b === 'openai' || b === 'gemini' || b === 'local' ? b : b === 'ollama' ? 'local' : null;
+  }
+
+  private get fallbackCritic(): Critic | null {
+    return (this.provider() && this.deps.critics?.fallback(this.provider()!)) || null;
+  }
+
+  private criticStatus(): ServerMsg {
+    return { t: 'critic', ready: !!this.critic?.ready, ...(this.critic ? { backend: this.critic.c.backend } : {}), ...(this.critic?.error ? { error: this.critic.error } : {}) };
+  }
+
+  private tellHost(): void {
+    const msg = this.criticStatus();
+    for (const c of this.conns) if (c.viewer.kind === 'host') c.send(msg);
+  }
+
+  /** The host gives (or forgets) its own key. Checked once with the provider; kept in memory only. */
+  setCriticKey(key: string | null): void {
+    this.lastActivity = this.now();
+    const provider = this.provider();
+    if (!key || !provider || provider === 'local' || !this.deps.critics) { this.forgetKey(); return; }
+    const c = this.deps.critics.make(provider, key.slice(0, 300));
+    this.critic = { c, ready: false, own: true };
+    this.tellHost();
+    c.check().then(() => {
+      if (this.critic?.c !== c) return;
+      this.critic = { c, ready: true, own: true };
+      this.tellHost();
+    }).catch((e) => {
+      if (this.critic?.c !== c) return;
+      this.critic = { c, ready: false, own: true, error: scrub((e as Error).message, key) };
+      this.tellHost();
+    });
+  }
+
+  private forgetKey(): void {
+    const fb = this.fallbackCritic;
+    this.critic = fb ? { c: fb, ready: true, own: false } : null;
+    this.tellHost();
+  }
+
+  /** A Draw Off is waiting for its judge: ask the critic (once), then commit the scores or why it couldn't. */
+  private maybeJudge(): void {
+    const mg = this.game.minigame;
+    if (!isDrawOff(mg) || mg.phase !== 'judging' || this.judgingFor === mg.startedAt) return;
+    const startedAt = mg.startedAt;
+    this.judgingFor = startedAt;
+    const finish = (result: Parameters<typeof judged>[1]) => {
+      const now = this.game.minigame;
+      if (this.closed || !isDrawOff(now) || now.startedAt !== startedAt || now.phase !== 'judging') return;
+      if (this.commit(judged(this.game, result, this.now()), HOST, 'auto', { judged: 'failed' in result ? 'failed' : 'scored' })) this.afterChange();
+    };
+    const critic = this.critic;
+    if (!critic?.ready) return finish({ failed: critic?.error ? `the AI critic failed: ${critic.error}` : 'no AI critic key' });
+    const now = this.now();
+    this.criticCalls = this.criticCalls.filter((t) => t > now - 10 * 60_000);
+    if (this.criticCalls.length >= CRITIC_CALLS_PER_10_MIN) return finish({ failed: 'too many critic calls, try again in a few minutes' });
+    this.criticCalls.push(now, now, now);
+    const names = Object.fromEntries(mg.participants.map((p) => [p, this.game.players?.[p]?.name || 'Someone']));
+    (async () => {
+      const scores: Record<string, DrawOffScore> = {};
+      await Promise.all(mg.participants.map(async (p) => {
+        const img = mg.submissions?.[p];
+        scores[p] = img ? await critic.c.judge(img, mg.prompt) : { rating: 0, description: 'No drawing', critique: 'Nothing on the page!' };
+      }));
+      const [a, b] = mg.participants;
+      const top = (scores[a].rating || 0) === (scores[b].rating || 0) ? null : (scores[a].rating > scores[b].rating ? a : b);
+      const verdict = top ? await critic.c.verdict(mg.prompt, names[top], mg.participants.map((p) => ({ name: names[p], rating: scores[p].rating, description: scores[p].description || '' })))
+        .catch(() => null) : null;
+      finish({ scores, verdict });
+    })().catch((e) => finish({ failed: `the AI critic failed: ${scrub((e as Error).message, '')}` }));
+  }
+
   close(): void {
     this.closed = true;
     for (const c of [...this.conns]) c.close?.();
@@ -301,4 +404,11 @@ export class RoomActor {
 function logLines(e: EventRow): (GameEvent & { at: number })[] {
   const events = (e.body as { events?: GameEvent[] } | null)?.events || [];
   return events.map((x) => ({ ...x, at: e.at }));
+}
+
+/** An error to show the host, without any key in it (providers echo part of a bad key back). */
+function scrub(message: string, key: string): string {
+  let m = String(message || 'error').slice(0, 160);
+  if (key) m = m.split(key).join('***');
+  return m.replace(/(sk-[A-Za-z0-9_-]{4,}|AIza[A-Za-z0-9_-]{8,})/g, '***');
 }

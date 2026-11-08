@@ -2,9 +2,8 @@
 // screen animates the same spin from the same server-time start, so the TV and the phones stop
 // together; a screen that joins late just shows where it stopped.
 import { useEffect, useState } from 'react';
-import { SPIN_MS } from '../core/duelgame';
+import { DUEL_APPS, SPIN_MS } from '../core/duelgame';
 import type { WheelSpin } from '../core/duelgame';
-import { GAMES } from '../core/party';
 import './wheel.css';
 
 const FILLS = ['#ff3366', '#18b88a', '#ffc53d', '#38b6e6', '#0d1018', '#8b5cf6'];
@@ -34,7 +33,7 @@ export function DuelWheel({ spin, offset, size = 300 }: { spin: WheelSpin; offse
     return `M0 0 L${(96 * Math.cos(a0)).toFixed(2)} ${(96 * Math.sin(a0)).toFixed(2)} A96 96 0 ${large} 1 ${(96 * Math.cos(a1)).toFixed(2)} ${(96 * Math.sin(a1)).toFixed(2)} Z`;
   };
   const label = (o: WheelSpin['options'][0]) => {
-    const text = o.kind === 'app' && o.app ? `${GAMES[o.app]?.emoji ?? ''} ${o.name}` : o.name;
+    const text = o.kind === 'app' && o.app ? `${DUEL_APPS[o.app]?.emoji ?? ''} ${o.name}` : o.name;
     return text.length > 17 ? `${text.slice(0, 16)}…` : text;
   };
   const winner = spin.options[spin.index];

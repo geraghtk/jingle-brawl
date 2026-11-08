@@ -8,8 +8,8 @@ import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
-import { duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
-import { GAMES } from '../core/party';
+import { DUEL_APPS, duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
+import type { DuelApp } from '../core/duelgame';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
@@ -357,11 +357,11 @@ function Duel({ t }: { t: Turn }) {
   const spinning = spunAt != null && spinLeft > 0;
   const picking = !!step || spinning;
   const picker = duelPicker(game);
-  const appName = (o: { kind: string; app?: keyof typeof GAMES; name: string }) => (o.kind === 'app' && o.app ? `${GAMES[o.app].emoji} ${o.name}` : o.name);
+  const appName = (o: { kind: string; app?: DuelApp; name: string }) => (o.kind === 'app' && o.app ? `${DUEL_APPS[o.app].emoji} ${o.name}` : o.name);
   const duelGameLine = t.wheel && spinning
     ? <DuelWheel spin={t.wheel} offset={offset} size={230} />
     : t.duelGame
-      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong><Glyphs>{appName(t.duelGame)}</Glyphs></strong>{t.duelGame.kind === 'app' && <small>on your phone · everyone plays</small>}</div>
+      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong><Glyphs>{appName(t.duelGame)}</Glyphs></strong>{t.duelGame.kind === 'app' && <small>{t.duelGame.app === 'draw_off' ? 'the duellists draw · the AI judges' : 'on your phone · everyone plays'}</small>}</div>
       : step === 'picker' && picker !== me ? <div className="duel-game-line pending"><Icon name="target" /> {nm(game, picker)} is picking the duel…</div>
       : step === 'wheel' ? <div className="duel-game-line pending"><Icon name="wheel" /> Spinning the wheel…</div> : null;
 

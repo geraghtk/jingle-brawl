@@ -5,7 +5,8 @@
 //   - sealed bids: until the reveal, others' bids are { amount: 0, sealed: true } (the host too:
 //     the host often plays; the console's audited Peek is how it looks)
 //   - chips: with publicChips off, phones and the TV see only their own until the game ends
-//   - Sketch-Off drawings: nobody sees another's while drawing (the count still shows)
+//   - Sketch-Off and AI Draw Off drawings: nobody sees another's while drawing, the TV included
+//     (the duellists can see the TV; who's done still shows)
 //   - accounts and Undo: ownerUid / hostUid never leave the server; Undo is the host's
 import { config } from './settings';
 import type { Game, PlayerId } from './types';
@@ -36,7 +37,9 @@ export function projectGame(game: Game, viewer: Viewer): Game {
   }
 
   const mg = g.minigame;
-  if (mg && 'type' in mg && mg.type === 'sketch_off' && mg.phase === 'playing' && mg.submissions) {
+  const drawing = mg && 'type' in mg && ((mg.type === 'sketch_off' && mg.phase === 'playing')
+    || (mg.type === 'draw_off' && (mg.phase === 'prompt_reveal' || mg.phase === 'drawing')));
+  if (drawing && mg.submissions) {
     for (const id of Object.keys(mg.submissions)) if (id !== me) mg.submissions[id] = HIDDEN_DRAWING;
   }
   return g;

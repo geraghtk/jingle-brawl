@@ -24,6 +24,7 @@ module.exports = defineConfig({
   // The room server serves the fresh build itself, with its test-only debug API (this machine only).
   webServer: process.env.CI || process.env.BASE_URL ? undefined : [{
     command: 'npm run build && node dist-server/index.mjs --port 4173 --host 127.0.0.1 --db :memory: --debug-api',
+    env: { JB_FAKE_CRITIC: '1' },                   // AI Draw Off judged by the fake critic: no network, no key spent
     url: 'http://localhost:4173/healthz',
     reuseExistingServer: false, // always test a fresh build
     timeout: 120000,

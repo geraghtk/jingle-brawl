@@ -15,7 +15,9 @@ export function DuelModal() {
   const { locked: votesPending } = useVoteGate();
   const { ready, choice } = useDuelGame();
   const locked = votesPending || !ready;
-  const app = ready && choice?.kind === 'app' ? choice : null; // not before the wheel stops (spoiler)
+  // not before the wheel stops (spoiler); an app game that couldn't decide hands the pick to the host
+  const app = ready && choice?.kind === 'app' && !t?.duelGameOutcome ? choice : null;
+  const noContest = t?.duelGameOutcome;
   const win = (id: string) => { if (!locked) send({ type: 'duel_winner', id }); };
   return (
     <div className={`modal-overlay${open ? ' active' : ''}`} id="duel-modal-overlay">
@@ -47,7 +49,7 @@ export function DuelModal() {
               {tax > 0 && <div className="cell"><span className="k">Santa tax</span><span className="v f6-num">−{tax}</span></div>}
               <div className="cell"><span className="k">To winner</span><span className="v f6-num">{pot}</span></div>
               <div className="cell duel-actions">
-                <span className="k">{!ready ? 'First: which duel?' : votesPending ? (app ? 'The game starts once the votes are in' : 'Winner buttons unlock once the votes are in') : app ? `${app.name} decides it` : 'Duel it out, then click the winner'}</span>
+                <span className="k" data-testid="duel-actions-hint">{noContest ? `${noContest.reason}: you pick the winner` : !ready ? 'First: which duel?' : votesPending ? (app ? 'The game starts once the votes are in' : 'Winner buttons unlock once the votes are in') : app ? `${app.name} decides it` : 'Duel it out, then click the winner'}</span>
                 {app ? (
                   <div className="duel-actions-row">
                     <button className="duel-win-btn duel-app-btn" disabled={locked} data-testid="start-duel-app"

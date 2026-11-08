@@ -525,15 +525,15 @@ function drawOffPanel(game: Game, send: ReturnType<typeof useHost>['send']): Pan
   switch (mg.phase) {
     case 'prompt_reveal':
       return { badge: '📋 PROMPT', badgeClass: 'reveal', action: <><span className="f6-chip critic-chip"><Icon name="critic" /> AI critic</span> Draw-off!</>,
-        details: <><div className="drawoff-prompt f6-disp">“{mg.prompt}”</div><div style={{ color: 'var(--muted)' }}>Players see the prompt. Drawing starts in 10 seconds…</div></> };
+        details: <><div className="drawoff-prompt f6-disp">“{mg.prompt}”</div><div style={{ color: 'var(--muted)' }}>{mg.participants.map((p) => players[p]?.name).join(' vs ')}: drawing starts in a moment…</div></> };
     case 'drawing': {
       const subs = mg.submissions || {};
       return {
         badge: '✏️ DRAWING', badgeClass: 'reveal', action: <><span className="f6-chip critic-chip"><Icon name="critic" /> AI critic</span> <DrawOffTimer endsAt={mg.drawingEndTime} /></>,
         details: <>
           <div className="drawoff-prompt f6-disp">“{mg.prompt}”</div>
-          <div style={{ color: 'var(--muted)', marginBottom: '1rem' }}>{mg.participants.length} players drawing on their devices · {Object.keys(subs).length} / {mg.participants.length} submitted</div>
-          <div className="drawoff-grid">{mg.participants.map((pid) => card(pid, <div className="drawoff-well">{subs[pid] ? <img src={subs[pid]} alt={players[pid]?.name} /> : <span className="drawoff-waiting">Drawing…</span>}</div>))}</div>
+          <div style={{ color: 'var(--muted)', marginBottom: '1rem' }}>The duellists are drawing on their phones · {Object.keys(subs).length} / {mg.participants.length} done</div>
+          <div className="drawoff-grid">{mg.participants.map((pid) => card(pid, <div className="drawoff-well"><span className="drawoff-waiting">{subs[pid] ? <><Icon name="check" /> Done! (hidden till judging)</> : 'Drawing…'}</span></div>))}</div>
         </>,
       };
     }
@@ -543,23 +543,25 @@ function drawOffPanel(game: Game, send: ReturnType<typeof useHost>['send']): Pan
     case 'results': {
       const winners = new Set(mg.winners || []);
       return {
-        badge: '🏆 RESULTS', badgeClass: 'reveal', action: 'Review drawings & critiques, then continue to duel',
+        badge: '🏆 RESULTS', badgeClass: 'reveal', action: mg.winners?.length ? `${players[mg.winners[0]]?.name} wins the Draw Off!` : "The critic couldn't decide: the host picks",
         details: <>
           <div className="drawoff-prompt f6-disp">“{mg.prompt}”</div>
           {mg.wittyVerdict && <div style={{ background: 'linear-gradient(135deg, rgba(255, 197, 61,0.12) 0%, var(--bg-card-hover) 100%)', borderLeft: '4px solid var(--accent-gold)', padding: '1rem', borderRadius: 8, marginBottom: '1rem', fontStyle: 'italic' }}><Icon name="masks" /> <strong>Art Critic's Verdict:</strong> {mg.wittyVerdict}</div>}
-          {!!mg.winners?.length && <div style={{ fontSize: '0.9rem', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(24, 184, 138, 0.15)', borderRadius: 8, borderLeft: '4px solid var(--accent-green)' }}>
-            <Icon name="trophy" /> <strong>{mg.winners.length === 1 ? 'Winner (Challenger)' : 'Winners (will duel)'}:</strong> {mg.winners.map((id) => players[id]?.name).join(' & ')} (selected by {mg.winnerSource})
+          {mg.winners?.length ? <div style={{ fontSize: '0.9rem', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(24, 184, 138, 0.15)', borderRadius: 8, borderLeft: '4px solid var(--accent-green)' }}>
+            <Icon name="trophy" /> <strong>{players[mg.winners[0]]?.name}</strong> wins the duel (the higher score)
+          </div> : <div data-testid="drawoff-no-contest" style={{ fontSize: '0.9rem', marginBottom: '1rem', padding: '0.75rem', borderRadius: 8, borderLeft: '4px solid var(--accent-gold)' }}>
+            The critic couldn't decide ({mg.failed}). Next, the host picks the winner.
           </div>}
-          <div className="drawoff-grid">{(mg.rankings || []).map((pid) => {
+          <div className="drawoff-grid">{(mg.rankings || mg.participants).map((pid) => {
             const s = mg.scores?.[pid];
             return card(pid, <>
               <div className="drawoff-well">{mg.submissions?.[pid] ? <img src={mg.submissions[pid]} alt={players[pid]?.name} /> : <span className="drawoff-waiting">No submission</span>}</div>
-              <div className="drawoff-score f6-disp">Score {s?.rating || 0}<span className="of">/100</span></div>
+              {s && <div className="drawoff-score f6-disp">Score {s.rating}<span className="of">/100</span></div>}
               {s?.critique && <div className="drawoff-critique">“{s.critique}”</div>}
             </>, winners.has(pid));
           })}</div>
         </>,
-        buttons: <button className="btn btn-gold" onClick={() => send({ type: 'complete_drawoff' })} style={{ fontSize: '1.1rem', padding: '1rem 2rem' }}><Icon name="duel" /> Continue to Duel</button>,
+        buttons: <button className="btn btn-gold" onClick={() => send({ type: 'complete_drawoff' })} style={{ fontSize: '1.1rem', padding: '1rem 2rem' }}><Icon name="duel" /> Continue</button>,
       };
     }
   }

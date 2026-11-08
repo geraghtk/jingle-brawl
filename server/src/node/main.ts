@@ -5,6 +5,7 @@ import { networkInterfaces } from 'node:os';
 import { MemoryStore } from '../store/store';
 import { SqliteStore } from '../store/sqlite';
 import { Rooms } from '../room/rooms';
+import { criticSource } from '../critic/source';
 import { realClock } from './clock';
 import { createAppServer } from './http';
 
@@ -16,7 +17,9 @@ const db = flag('db', process.env.JB_DB || 'rooms.db');
 const statics = flag('static', 'dist');
 
 const store = db === ':memory:' ? new MemoryStore() : new SqliteStore(db);
-const rooms = new Rooms(store, realClock, { secret: process.env.JB_TOKEN_SECRET });
+const rooms = new Rooms(store, realClock, { secret: process.env.JB_TOKEN_SECRET, critics: criticSource() });
+// idle rooms leave memory after 2 hours (forgetting any AI key the host gave); the store keeps them
+setInterval(() => rooms.sweep(2 * 60 * 60 * 1000), 10 * 60 * 1000).unref();
 const recovered = rooms.recover();
 const app = createAppServer({ rooms, staticDir: statics === 'none' ? null : statics, debugApi: args.includes('--debug-api') });
 

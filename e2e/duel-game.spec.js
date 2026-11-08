@@ -132,3 +132,47 @@ test('an in-app duel game settles it: everyone plays Whack-an-Elf, the better-pl
     await s.cleanup();
   }
 });
+
+/** Scribble on a phone's Draw Off canvas, then submit it. */
+async function drawAndSubmit(page, strokes) {
+  const box = await page.locator('#drawing-canvas').boundingBox();
+  for (let i = 0; i < strokes; i++) {
+    await page.mouse.move(box.x + 20 + i * 9, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 40 + i * 11, box.y + box.height - 30, { steps: 4 });
+    await page.mouse.up();
+  }
+  await page.getByTestId('drawoff-submit').click();
+}
+
+test('AI Draw Off settles the duel: the two duellists draw, the critic, with the host key, picks the higher score', async ({ browser }) => {
+  test.setTimeout(90000);
+  // the server runs with JB_FAKE_CRITIC=1 in tests: scores come from the drawings, no network, no key spent
+  const s = await setup(browser, { 'duel-pick': 'wheel', 'duel-games': '', 'duel-app-draw_off': 'on', 'ai-critic-key': 'sk-e2e-secret-key' });
+  try {
+    const { host, roomCode, pages, p, opener, bidder, spectator } = s;
+    await expect(host.getByTestId('duel-game-name')).toContainText('AI Draw Off', { timeout: 8000 });
+    await expect(host.getByTestId('critic-status')).toContainText('Ready');
+    await expect(host.locator('body')).not.toContainText('sk-e2e-secret-key');
+    await host.getByTestId('start-duel-app').click();
+    await H.waitForTurnPhase(roomCode, 'minigame_draw_off');
+    await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'drawing' ? g : false), { label: 'drawing', timeout: 15000 });
+    await expect(pages[spectator].getByTestId('drawoff-card')).toContainText('Watch the TV');
+    await drawAndSubmit(pages[opener], 6);
+    await drawAndSubmit(pages[bidder], 2);
+    const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'results' ? g.minigame : false), { label: 'judged', timeout: 15000 });
+    const [o, b] = [mg.scores[p[opener].id].rating, mg.scores[p[bidder].id].rating];
+    const g = await H.waitForGame(roomCode, (x) => (x.lastDuel?.winnerId || x.currentTurn?.duelGameOutcome ? x : false), { label: 'back to the duel', timeout: 30000 });
+    if (o === b) {
+      // a tie: nobody wins by default, the host picks
+      await expect(host.getByTestId('duel-actions-hint')).toContainText('you pick the winner');
+      await host.getByTestId(`modal-winner-${p[opener].id}`).click();
+      await H.waitForGame(roomCode, (x) => (x.lastDuel?.winnerId ? x : false), { label: 'host picked' });
+    } else {
+      expect(g.lastDuel.winnerId).toBe(o > b ? p[opener].id : p[bidder].id);
+    }
+    s.noErrors();
+  } finally {
+    await s.cleanup();
+  }
+});

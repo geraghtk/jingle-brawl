@@ -26,6 +26,9 @@ export class RoomClient {
   offset = 0;
   /** A reason the room won't have this screen (no such room, not your token): stop trying. */
   fatal: string | null = null;
+  /** The host's view of AI Draw Off's critic (null: the game has none). */
+  critic: { ready: boolean; backend?: string; error?: string } | null = null;
+  private criticKey: string | null | undefined = undefined;   // waiting to be sent (memory only)
 
   private ws: WebSocket | null = null;
   private pending = new Map<string, { intent: Intent; resolve: (a: Ack) => void }>();
@@ -59,6 +62,18 @@ export class RoomClient {
       this.pending.set(id, { intent, resolve });
       this.write({ t: 'intent', id, intent });
     });
+  }
+
+  /** The host's own AI key for this room: sent once over this socket, kept nowhere here. null forgets it. */
+  setCriticKey(key: string | null): void {
+    this.criticKey = key;
+    this.flushKey();
+  }
+
+  private flushKey(): void {
+    if (this.criticKey === undefined || this.status !== 'open' || this.ws?.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ t: 'critic_key', key: this.criticKey }));
+    this.criticKey = undefined;
   }
 
   subscribe(fn: () => void): () => void {
@@ -107,6 +122,7 @@ export class RoomClient {
         this.setStatus('open');
         // presses sent while the connection was down: the room answers each id once
         for (const [id, p] of this.pending) this.write({ t: 'intent', id, intent: p.intent });
+        this.flushKey();
         return;
       case 'state':
         if (m.version < this.version && this.game) return;
@@ -136,6 +152,9 @@ export class RoomClient {
         if (Math.abs(best.offset - this.offset) > 1) { this.offset = Math.round(best.offset); this.emit(); }
         return;
       }
+      case 'critic':
+        this.critic = { ready: m.ready, ...(m.backend ? { backend: m.backend } : {}), ...(m.error ? { error: m.error } : {}) };
+        return this.emit();
       case 'error':
         if (m.fatal) { this.fatal = m.error; this.emit(); }
         return;

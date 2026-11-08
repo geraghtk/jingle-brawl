@@ -201,7 +201,8 @@ function hostOffers(game: Game, now: number): Offer[] {
       const votes = voteStatus(game, now);
       const out: Offer[] = votes.accepting && votes.eligible.length ? [{ type: 'close_voting' }] : [];
       if (votes.blocking && !t.isTiebreak) return out;
-      if (t.duelGame?.kind === 'app') return [...out, { type: 'start_duel_app' }];
+      // an in-app game that couldn't decide (AI Draw Off: no critic, an error, a tie): the host picks
+      if (t.duelGame?.kind === 'app' && !t.duelGameOutcome) return [...out, { type: 'start_duel_app' }];
       return [...out, { type: 'duel_winner', id: t.challengerId! }, { type: 'duel_winner', id: t.defenderId! }];
     }
     case 'minigame_party': return game.minigame && (game.minigame as PartyGame).type in GAMES ? [{ type: 'skip_party' }] : [];
@@ -275,7 +276,12 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'host_spin': return spinDuelGame(game, ctx);
     case 'close_voting': return closeVoting(game);
     case 'start_duel_app': return startDuelApp(game, ctx);
-    case 'duel_winner': return t.isTiebreak ? A.recordTiebreakWinner(game, offer.id) : D.resolveDuel(game, offer.id, ctx.now);
+    case 'duel_winner': {
+      if (t.isTiebreak) return A.recordTiebreakWinner(game, offer.id);
+      const plan = D.resolveDuel(game, offer.id, ctx.now);
+      if (t.duelGameOutcome && !plan.error) plan.events.unshift({ text: `⚖️ Host decision: ${t.duelGameOutcome.reason}, so the host picked the winner`, kind: 'duel' });
+      return plan;
+    }
     case 'skip_party': return advanceParty(game, (game.minigame as PartyGame).phase, ctx.now);
     case 'endgame': return D.startEndgame(game);
     case 'reveal_auction': return D.revealAuction(game);

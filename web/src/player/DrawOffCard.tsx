@@ -1,16 +1,11 @@
-// AI Draw Off on the phone: read the prompt, draw for 3 minutes, see how the critic rated you.
+// AI Draw Off on the phone: the two duellists read the prompt, draw against the clock and see how
+// the critic rated them; everyone else watches the TV.
 import { useEffect, useRef, useState } from 'react';
+import type { DrawOff } from '../core/drawoff';
 import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
 import { Icon } from '../ui/icons';
-
-interface DrawOff {
-  type: 'draw_off'; phase: 'prompt_reveal' | 'drawing' | 'judging' | 'results';
-  prompt?: string; participants?: string[]; startedAt?: number; drawingEndTime?: number;
-  submissions?: Record<string, string>; rankings?: string[]; wittyVerdict?: string;
-  scores?: Record<string, { rating?: number; critique?: string; rawVisionResponse?: string; rawRateResponse?: string }>;
-}
 
 type Seg = { color: string; size: number; from: [number, number]; to: [number, number] };
 
@@ -52,7 +47,8 @@ export function DrawOffCard() {
 
   const submit = async () => {
     if (!canvas.current || submitted || mg?.phase !== 'drawing') return;
-    if (await send({ type: 'sketch', drawing: canvas.current!.toDataURL('image/png') })) toast('Drawing submitted! ✅');
+    // JPEG on the opaque white page: a fraction of a PNG's size, and the critic reads it the same
+    if (await send({ type: 'sketch', drawing: canvas.current!.toDataURL('image/jpeg', 0.8) })) toast('Drawing submitted! ✅');
   };
   useEffect(() => { if (drawing && secs === 0) submit(); }, [secs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,7 +61,8 @@ export function DrawOffCard() {
     return <div className="card minigame-card" id="minigame-card"><div id="minigame-status" style={{ textAlign: 'center' }}><Icon name="wait" /> Initializing AI Draw Off...</div></div>;
   }
   const myScore = mg.scores?.[me];
-  const myRank = (mg.rankings || []).indexOf(me) + 1;
+  const names = mg.participants.map((p) => game.players?.[p]?.name || 'Someone');
+  const winner = mg.winners?.[0];
   return (
     <div className="card minigame-card" id="minigame-card" data-testid="drawoff-card">
       <div className="card-title" id="minigame-card-title"><Icon name="palette" /> AI Draw Off</div>
@@ -73,12 +70,12 @@ export function DrawOffCard() {
         {mg.phase === 'prompt_reveal' && <>
           <div style={{ marginBottom: 6 }}><span className="f6-chip critic-chip"><Icon name="critic" /> AI critic</span></div>
           <div className="drawoff-prompt f6-disp">“{mg.prompt}”</div>
-          <div style={{ color: 'var(--muted)' }}>Drawing starts in 10 seconds. Get ready!</div>
+          <div style={{ color: 'var(--muted)' }}>{participant ? 'Drawing starts in a moment. Get ready!' : `${names.join(' and ')} are about to draw. Watch the TV!`}</div>
         </>}
-        {mg.phase === 'drawing' && !participant && <div>You're not in this Draw Off. Watch the host screen.</div>}
+        {mg.phase === 'drawing' && !participant && <div>{names.join(' and ')} are drawing. Watch the TV!</div>}
         {mg.phase === 'drawing' && participant && submitted && <>
           <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}><Icon name="check" /> Submitted!</div>
-          <div>Waiting for others... {secs}s left</div>
+          <div>Waiting for your opponent... {secs}s left</div>
         </>}
         {drawing && <>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
@@ -94,8 +91,11 @@ export function DrawOffCard() {
         {mg.phase === 'results' && <>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '0.5rem' }}>Draw: "{mg.prompt}"</div>
           {mg.wittyVerdict && <div style={{ background: 'var(--bg-card-hover)', borderLeft: '4px solid var(--accent-gold)', padding: '0.75rem', borderRadius: 8, marginBottom: '0.75rem', fontStyle: 'italic' }}><Icon name="masks" /> {mg.wittyVerdict}</div>}
-          <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Your result: #{myRank || '?'} ({myScore?.rating || 0}/100)</div>
-          {myScore?.critique && <div style={{ fontStyle: 'italic' }}>{myScore.critique}</div>}
+          <div style={{ fontWeight: 700, marginBottom: '0.5rem' }} data-testid="drawoff-result">
+            {winner ? (winner === me ? 'You win the Draw Off!' : `${game.players?.[winner]?.name || 'Your rival'} wins the Draw Off`) : "The critic couldn't decide: the host picks the winner"}
+          </div>
+          {participant && myScore && <div style={{ marginBottom: '0.25rem' }}>Your score: {myScore.rating}/100</div>}
+          {participant && myScore?.critique && <div style={{ fontStyle: 'italic' }}>{myScore.critique}</div>}
         </>}
       </div>
       <div id="canvas-container" style={{ position: 'relative', background: 'white', borderRadius: 12, overflow: 'hidden', marginBottom: '1rem', minHeight: 200, display: drawing ? 'block' : 'none' }}>

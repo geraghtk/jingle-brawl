@@ -6,6 +6,7 @@
 // tie: the defender). Players give an age only if they tick "under 16". Voting opens once
 // the table knows what's being played. An in-app game settles the duel itself: everyone plays,
 // the duellist who places higher wins, the rest earn party points as usual.
+import { startDrawOff } from './drawoff';
 import { GAMES } from './party';
 import type { PartyType } from './party';
 import { startPartyGame } from './partyflow';
@@ -18,7 +19,14 @@ import { voteStatus } from './voting';
 export { DEFAULT_DUEL_GAMES } from './settings';
 export const SPIN_MS = 4800;
 
-export interface DuelGameOption { name: string; kind: 'table' | 'app'; app?: PartyType }
+/** The in-app duel games: the party games (everyone plays) and AI Draw Off (the two duelists draw). */
+export type DuelApp = PartyType | 'draw_off';
+export const DUEL_APPS: Record<DuelApp, { label: string; emoji: string }> = {
+  ...GAMES,
+  draw_off: { label: 'AI Draw Off', emoji: '🎨' },
+};
+
+export interface DuelGameOption { name: string; kind: 'table' | 'app'; app?: DuelApp }
 export interface DuelGameChoice extends DuelGameOption { via: 'picker' | 'wheel' }
 export interface WheelSpin { options: DuelGameOption[]; index: number; spunAt: number | typeof SERVER_TIME }
 
@@ -28,7 +36,7 @@ export function duelOptions(game: Game): DuelGameOption[] {
   const table = cfg.duelGames.map((name) => ({ name, kind: 'table' as const }));
   // not for a tiebreak duel: its winner goes on to the real duel rather than being settled like one
   const apps = game.currentTurn?.isTiebreak ? []
-    : cfg.duelAppGames.filter((a) => GAMES[a]).map((app) => ({ name: GAMES[app].label, kind: 'app' as const, app }));
+    : cfg.duelAppGames.filter((a) => DUEL_APPS[a]).map((app) => ({ name: DUEL_APPS[app].label, kind: 'app' as const, app }));
   return [...table, ...apps];
 }
 
@@ -86,7 +94,8 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
   if (!t || t.phase !== 'duel' || t.duelGame?.kind !== 'app' || !t.duelGame.app) return refuse('No mini-game to start');
   if (voteStatus(game, ctx.now).blocking && t.voteEndsAt != null) return refuse('Waiting for votes');
   const tx = new Tx(game).claim('currentTurn/duelAppStartedAt', ctx.now).set('currentTurn/voteClosed', true);
-  startPartyGame(tx, t.duelGame.app, 'duel', [t.challengerId!, t.defenderId!], ctx);
+  if (t.duelGame.app === 'draw_off') startDrawOff(tx, [t.challengerId!, t.defenderId!], ctx);
+  else startPartyGame(tx, t.duelGame.app, 'duel', [t.challengerId!, t.defenderId!], ctx);
   return tx.plan();
 }
 
