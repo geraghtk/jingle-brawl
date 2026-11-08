@@ -1,6 +1,6 @@
 import type { DuelApp } from './duelgame';
 // House settings: defaults + reading what a game stored.
-import type { DividendRule, PartyPrize, Settings } from './types';
+import type { DividendRule, GremlinChallenges, PartyPrize, Settings } from './types';
 
 export interface Config {
   publicChips: boolean;
@@ -19,6 +19,7 @@ export interface Config {
   duelGames: string[];
   duelAppGames: DuelApp[];
   duelPick: 'defender' | 'wheel' | 'off';
+  gremlinChallenges: GremlinChallenges;
 }
 
 export const DEFAULT_DUEL_GAMES = ['Rock, Paper, Scissors', 'Thumb War', 'Staring Contest', 'Odds & Evens', 'Arm Wrestle', 'Rhyme Battle'];
@@ -40,7 +41,11 @@ export const DEFAULTS: Config = {
   duelGames: DEFAULT_DUEL_GAMES,
   duelAppGames: [],
   duelPick: 'defender',
+  gremlinChallenges: 'mixed',
 };
+
+/** The challenge kinds a Gremlin game uses. */
+export const gremlinKinds = (c: GremlinChallenges): string[] => (c === 'mixed' ? ['quick_math', 'memory_flash', 'perfect_timing'] : [c]);
 
 /** The settings in force for a game (`??`, never `||`: 0 is a real value, e.g. "0 + Naughty"). */
 export function config(settings: Settings | undefined): Config {
@@ -67,6 +72,7 @@ export function config(settings: Settings | undefined): Config {
       .map(String).map((x) => x.trim()).filter(Boolean),
     duelAppGames: s.duelAppGames ? Object.values(s.duelAppGames) : DEFAULTS.duelAppGames,
     duelPick: s.duelPick ?? DEFAULTS.duelPick,
+    gremlinChallenges: (['mixed', 'quick_math', 'memory_flash', 'perfect_timing'] as const).find((x) => x === s.gremlinChallenges) ?? DEFAULTS.gremlinChallenges,
   };
 }
 

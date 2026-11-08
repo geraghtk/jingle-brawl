@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { SYMBOLS } from '../core/minigames/gremlin/challenges';
 import { Glyphs, ICONS, Icon } from './icons';
 
 describe('icons', () => {
@@ -15,5 +16,9 @@ describe('icons', () => {
     for (const name of [...new Set(Object.values(ICONS)), 'gambit']) {
       expect(existsSync(resolve(__dirname, `../../public/art/icons/${name}.webp`)), name).toBe(true);
     }
+  });
+  it("the Gremlin has a picture for each mood, and memory_flash's symbols are all stickers", () => {
+    for (const mood of ['calm', 'uneasy', 'unstable']) expect(existsSync(resolve(__dirname, `../../public/art/gremlin/${mood}.webp`)), mood).toBe(true);
+    for (const s of SYMBOLS) expect(renderToStaticMarkup(<Glyphs>{s}</Glyphs>), s).toContain('<img');
   });
 });

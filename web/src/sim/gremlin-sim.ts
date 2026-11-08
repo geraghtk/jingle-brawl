@@ -10,6 +10,7 @@ import { Tx } from '../core/tx';
 import type { Game } from '../core/types';
 import type { MatchMode } from '../core/minigames/contracts';
 import type { GremlinState } from '../core/minigames/gremlin/gremlin';
+import { CHALLENGES } from '../core/minigames/gremlin/challenges';
 import { arenaAct, arenaDeadline, arenaOf, startArena } from '../core/minigames/runtime';
 
 export interface Hands { speed: number; accuracy: number }   // speed: 0 slow … 1 fast
@@ -38,12 +39,16 @@ export function round(mode: MatchMode, hands: Hands[], seed: number): RoundStats
     const next = Math.max(now + think, s.cooldownUntil || 0, s.stage === 'pass_ready' ? s.holdSince + s.cfg.minHoldMs : 0);
     if (next >= doom.at) { now = doom.at; g = apply(g, arenaDeadline(g, doom.id, { now, rng: r })); continue; }
     now = next;
+    const kind = CHALLENGES[s.challenge.kind];
+    const right = s.stage === 'holding' ? kind.solve(s.challenge, now) : null;
+    if (s.stage === 'holding' && right === null) { now += 50; continue; }   // perfect_timing: wait for the marker to come round
+    const hit = r() < h.accuracy;
     const action = s.stage === 'holding'
-      ? { kind: 'answer', value: r() < h.accuracy ? s.challenge.answer : s.challenge.answer + 1 }
+      ? { kind: 'answer', value: hit ? right : kind.miss(s.challenge, now) }
       : r() < 0.5 ? { kind: 'pass_random' } : { kind: 'pass', to: s.pool.filter((p) => p !== s.holder && p !== s.prevHolder)[0] ?? s.pool.find((p) => p !== s.holder) };
     const plan = arenaAct(g, s.holder, { action }, { now, rng: r });
     if (plan.error) { idle++; now += 500; continue; }
-    if (action.kind === 'answer') { if ((action as { value: number }).value === s.challenge.answer) solves++; else misses++; }
+    if (action.kind === 'answer') { if (hit) solves++; else misses++; }
     else passes++;
     g = apply(g, plan);
   }

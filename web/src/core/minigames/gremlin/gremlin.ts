@@ -12,7 +12,7 @@ import type { Rng } from '../../rng';
 import type { PlayerId } from '../../types';
 import type { GameDefinition, MatchCtx, Transition } from '../contracts';
 import { singleLoser } from '../scoring';
-import { CHALLENGES } from './challenges';
+import { ALL_CHALLENGES, CHALLENGES, nextChallenge } from './challenges';
 import type { Challenge } from './challenges';
 
 export interface GremlinConfig {
@@ -21,12 +21,16 @@ export interface GremlinConfig {
   minHoldMs: number;                               // the holder keeps it at least this long
   wrongCooldownMs: number;                         // a wrong answer: a new problem after this
   introMs: number;                                 // before the sudden death starts
-  challenge: string;
+  challenges: string[];                            // the kinds a holder may be given (each new one: another kind)
+  challenge?: string;                              // (before M3: one kind)
 }
 export const DEFAULTS: GremlinConfig = {
   doomMinMs: 60_000, doomMaxMs: 100_000, tiebreakMinMs: 20_000, tiebreakMaxMs: 35_000,
-  minHoldMs: 1000, wrongCooldownMs: 700, introMs: 4000, challenge: 'quick_math',
+  minHoldMs: 1000, wrongCooldownMs: 700, introMs: 4000, challenges: ALL_CHALLENGES,
 };
+
+/** The kinds this game uses (a game saved before M3 has one `challenge`). */
+export const kindsOf = (c: Partial<GremlinConfig>): string[] => (c.challenges?.length ? c.challenges : [c.challenge || 'quick_math']);
 
 export type Danger = 'calm' | 'uneasy' | 'unstable';
 export interface Pass { from: PlayerId; to: PlayerId; at: number; random: boolean }
@@ -51,7 +55,7 @@ export interface GremlinState {
   doomed?: PlayerId | null;
 }
 
-export type GremlinAction = { kind: 'answer'; value: number } | { kind: 'pass'; to: PlayerId } | { kind: 'pass_random' };
+export type GremlinAction = { kind: 'answer'; value: unknown } | { kind: 'pass'; to: PlayerId } | { kind: 'pass_random' };
 
 const sample = (rng: Rng, [lo, hi]: [number, number]) => lo + Math.floor(rng() * (hi - lo + 1));
 const stat = (s: GremlinState, pid: PlayerId): Stats => ({ holds: 0, passes: 0, ok: 0, fail: 0, ...(s.stats?.[pid] || {}) });
@@ -76,7 +80,7 @@ function newRound(ctx: MatchCtx, c: GremlinConfig, round: GremlinState['round'],
   const doomAt = ctx.now + sample(ctx.rng, window);
   const state: GremlinState = {
     ...extra, cfg: c, stage: 'holding', round, pool, holder, prevHolder: null, holdSince: ctx.now,
-    challenge: CHALLENGES[c.challenge].make(ctx.rng, ctx.now), roundStartedAt: ctx.now, doomAt, window,
+    challenge: nextChallenge(kindsOf(c), ctx.rng, ctx.now), roundStartedAt: ctx.now, doomAt, window,
   };
   state.stats = { ...(extra.stats || {}), [holder]: { ...stat(state, holder), holds: stat(state, holder).holds + 1 } };
   return { state, deadlines: [{ id: 'doom', at: doomAt }] };
@@ -94,9 +98,11 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
   },
 
   validateConfig(raw) {
-    const c = { ...DEFAULTS, ...((raw && typeof raw === 'object') ? raw as Partial<GremlinConfig> : {}) };
+    const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<GremlinConfig>;
+    const c: GremlinConfig = { ...DEFAULTS, ...r, challenges: r.challenges || r.challenge ? kindsOf(r) : DEFAULTS.challenges };
+    delete c.challenge;
     if (!(c.doomMinMs > 0 && c.doomMaxMs >= c.doomMinMs && c.tiebreakMinMs > 0 && c.tiebreakMaxMs >= c.tiebreakMinMs)) throw new Error('bad Gremlin deadline windows');
-    if (!CHALLENGES[c.challenge]) throw new Error(`no challenge ${c.challenge}`);
+    for (const k of c.challenges) if (!CHALLENGES[k]) throw new Error(`no challenge ${k}`);
     return c;
   },
 
@@ -115,8 +121,9 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
     if (a?.kind === 'answer') {
       if (s.stage !== 'holding') return { ok: false, error: 'Already solved: pass it on!' };
       if (s.cooldownUntil && ctx.now < s.cooldownUntil) return { ok: false, error: 'Wait for the next one' };
-      if (typeof a.value !== 'number' || !Number.isFinite(a.value)) return { ok: false, error: 'Type a number' };
-      return { ok: true, action: { kind: 'answer', value: a.value } };
+      const value = CHALLENGES[s.challenge.kind].parse(a.value);
+      if (value === null) return { ok: false, error: s.challenge.kind === 'quick_math' ? 'Type a number' : 'Not an answer' };
+      return { ok: true, action: { kind: 'answer', value } };
     }
     if (a?.kind === 'pass' || a?.kind === 'pass_random') {
       if (s.stage !== 'pass_ready') return { ok: false, error: 'Solve the problem first' };
@@ -135,9 +142,10 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
     const cfg = s.cfg;
     if (a.kind === 'answer') {
       const st = stat(s, who);
-      if (CHALLENGES[s.challenge.kind].check(s.challenge, a.value)) {
+      if (CHALLENGES[s.challenge.kind].check(s.challenge, a.value, ctx.now)) {
         return { state: { ...s, stage: 'pass_ready', cooldownUntil: undefined, stats: { ...s.stats, [who]: { ...st, ok: st.ok + 1 } } } };
       }
+      // wrong: another of the same kind, after a short wait
       return { state: { ...s, challenge: CHALLENGES[s.challenge.kind].make(ctx.rng, ctx.now), cooldownUntil: ctx.now + cfg.wrongCooldownMs,
         stats: { ...s.stats, [who]: { ...st, fail: st.fail + 1 } } } };
     }
@@ -148,7 +156,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
     return {
       state: {
         ...s, stage: 'holding', holder: to, prevHolder: who, holdSince: ctx.now, cooldownUntil: undefined,
-        challenge: CHALLENGES[s.challenge.kind].make(ctx.rng, ctx.now),
+        challenge: nextChallenge(kindsOf(cfg), ctx.rng, ctx.now, s.challenge.kind),
         passes: [...(s.passes || []), { from: who, to, at: ctx.now, random }].slice(-40),
         stats: { ...s.stats, [who]: { ...from, passes: from.passes + 1 }, [to]: { ...next, holds: next.holds + 1 } },
       },
@@ -179,7 +187,10 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
 
   offers(ctx, s, who) {
     if (who !== s.holder || s.stage === 'doomed' || s.stage === 'sudden_death_intro') return [];
-    if (s.stage === 'holding') return ctx.now < (s.cooldownUntil || 0) ? [] : [{ kind: 'answer', value: s.challenge.answer }];   // simulated hands; never sent
+    if (s.stage === 'holding') {   // simulated hands; never sent to a screen
+      const value = ctx.now < (s.cooldownUntil || 0) ? null : CHALLENGES[s.challenge.kind].solve(s.challenge, ctx.now);
+      return value === null ? [] : [{ kind: 'answer', value }];
+    }
     if (ctx.now < s.holdSince + s.cfg.minHoldMs) return [];
     return [{ kind: 'pass_random' }, ...eligible(ctx, s).map((to): GremlinAction => ({ kind: 'pass', to }))];
   },
@@ -188,7 +199,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
     const mine = s.holder === pid;
     return {
       ...publicView(s, now),
-      ...(mine && s.stage === 'holding' ? { prompt: s.challenge.prompt, cooldownUntil: s.cooldownUntil ?? null } : {}),
+      ...(mine && s.stage === 'holding' ? { ...CHALLENGES[s.challenge.kind].view(s.challenge), issuedAt: s.challenge.issuedAt, cooldownUntil: s.cooldownUntil ?? null } : {}),
       ...(mine && s.stage === 'pass_ready' ? { canPassAt: s.holdSince + s.cfg.minHoldMs, targets: eligible({ connected: () => true }, s) } : {}),
     };
   },
@@ -200,7 +211,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
 function publicView(s: GremlinState, now: number) {
   return {
     stage: s.stage, round: s.round, pool: s.pool, holder: s.holder, prevHolder: s.prevHolder ?? null,
-    challengeKind: s.challenge.kind, solved: s.stage === 'pass_ready', danger: danger(s, now),
+    challengeKind: s.challenge.kind, challengeLabel: CHALLENGES[s.challenge.kind].label, solved: s.stage === 'pass_ready', danger: danger(s, now),
     trail: (s.passes || []).slice(-8), bystanderDoomed: s.bystanderDoomed ?? null, doomed: s.doomed ?? null,
   };
 }

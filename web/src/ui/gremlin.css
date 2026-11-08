@@ -29,3 +29,35 @@
 @keyframes gremShake { 25% { transform: rotate(-10deg) scale(1.05); } 75% { transform: rotate(10deg) scale(1.05); } }
 @keyframes gremPulse { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .grem .grem-face, .grem .grem-meter span { animation: none !important; } }
+
+/* M3: the Gremlin's sticker, sound switch, memory_flash, perfect_timing, the doom */
+.grem { position: relative; }
+.grem .grem-art { width: 1em; height: 1em; object-fit: contain; display: block; }
+.grem .grem-mute { position: absolute; top: 8px; right: 8px; border: 0; background: transparent; font-size: 20px; cursor: pointer; padding: 6px; border-radius: 10px; }
+.grem .grem-mute:focus-visible { outline: 3px solid var(--accent, #ff3b5c); }
+.grem .grem-ok { color: #12976f; font-weight: 800; }
+.grem .grem-row { display: flex; justify-content: center; gap: 10px; margin: 8px 0 12px; min-height: 64px; }
+.grem .grem-sym { width: 58px; height: 58px; display: grid; place-items: center; font-size: 34px; border-radius: 14px; background: var(--bg, #eef1f6); }
+.grem .grem-sym .yd-icon { width: 44px; height: 44px; }
+.grem .grem-row.show .grem-sym { animation: gremPop .35s ease-out both; background: #fff6d6; }
+.grem .grem-sym.slot { border: 2px dashed #c7ccd6; background: transparent; }
+.grem .grem-sym.slot.filled { border-style: solid; border-color: #18b88a; background: #e6f8f2; }
+.grem .grem-pad.syms button { min-height: 72px; }
+.grem .grem-pad.syms .yd-icon { width: 44px; height: 44px; }
+.grem .grem-link { border: 0; background: none; color: var(--muted, #6b7280); text-decoration: underline; font-weight: 700; cursor: pointer; }
+.grem .grem-link:disabled { visibility: hidden; }
+.grem .grem-track { position: relative; height: 56px; max-width: 340px; margin: 10px auto 14px; border-radius: 16px; background: var(--bg, #eef1f6); overflow: hidden; }
+.grem .grem-track .zone { position: absolute; top: 0; bottom: 0; background: #18b88a; opacity: .85; }
+.grem .grem-track .marker { position: absolute; top: 4px; bottom: 4px; width: 8px; margin-left: -4px; border-radius: 4px; background: var(--ink, #0d1018); box-shadow: 0 0 0 2px #fff; }
+.grem .grem-stop { display: block; width: 100%; max-width: 340px; margin: 0 auto; min-height: 84px; border: 0; border-radius: 20px; font: 900 32px/1 var(--f6-disp, system-ui); letter-spacing: .08em; color: #fff; background: var(--accent, #ff3b5c); cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.grem .grem-stop:active { transform: scale(.97); }
+.grem .grem-stop:disabled, .grem .grem-pad button:disabled { opacity: .45; }
+.grem.doomed .grem-boom { animation: gremBoom .6s ease-out both; }
+.grem.tv .grem-face .grem-art { width: 1em; height: 1em; }
+.grem.tv .grem-kind { font: 800 22px/1.2 var(--f6-disp, system-ui); color: var(--muted, #6b7280); }
+.grem.tv.jumped .grem-holder { animation: gremPop .45s ease-out; }
+@keyframes gremPop { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } to { transform: scale(1); } }
+@keyframes gremBoom { 0% { transform: scale(.3) rotate(-20deg); } 50% { transform: scale(1.5) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .grem .grem-row.show .grem-sym, .grem.doomed .grem-boom, .grem.tv.jumped .grem-holder { animation: none !important; }
+}

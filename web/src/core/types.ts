@@ -14,6 +14,8 @@ export type DividendRule = 'everyone' | 'defenders' | 'nobody';
 export type TiebreakerMethod = 'party_mix' | 'sketch_off' | 'whack_elf' | 'random' | 'draw_off' | 'minigame';
 export type PartyPrize = 'points_chips' | 'points' | 'none';
 
+export type GremlinChallenges = 'mixed' | 'quick_math' | 'memory_flash' | 'perfect_timing';
+
 export interface Settings {
   publicChips?: boolean;
   startingChips?: number;          // absent = variable (10, or 12 for 11+ players)
@@ -30,6 +32,8 @@ export interface Settings {
   duelGames?: string | string[];   // out-of-game duels the host listed, one per line ("" = none: RTDB drops empty arrays)
   duelAppGames?: import('./duelgame').DuelApp[];  // in-app mini-games that may come up as the duel
   duelPick?: 'defender' | 'wheel' | 'off';
+  /** Pass the Gremlin's challenges: all three in turn, or just one kind. */
+  gremlinChallenges?: GremlinChallenges;
   aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
   aiCriticUrl?: string;
   /** AI Draw Off's critic: the host's own OpenAI / Gemini key (given to the room server, never stored), or the local critic. */

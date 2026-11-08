@@ -98,6 +98,10 @@ reused code doesn't open for old tokens; JSON logs, `/metrics`, browsers' error 
 reconnect banner and dead-socket detection; the host's "A phone died?" seat link; `privacy.html`;
 Dockerfile; CI (`.github/workflows/ci.yml`).
 
+Done 2026-11-08, M3: the Gremlin's memory_flash and perfect_timing challenges (server-checked; the
+host picks one kind or the mix), its sticker art, sounds and a mute switch, accessibility labels.
+
 Next: choose the hosting (Cloudflare free tier via a Durable Objects adapter, or one small VM/Fly
-machine with the Dockerfile), then M3 (Gremlin polish: memory_flash and perfect_timing challenges, art and sound,
-device testing), M4 Reindeer Ring Toss, M5 the Gift Conveyor.
+machine with the Dockerfile); M3 leftovers after real-phone playtests (tuning the doom's skew
+towards slow players, device testing); then, with approval, M4 Reindeer Ring Toss and M5 the
+Gift Conveyor.

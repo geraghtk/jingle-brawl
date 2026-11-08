@@ -11,11 +11,11 @@ import { arenaAct, arenaDeadline, arenaOf, startArena } from '../runtime';
 import type { GremlinState } from './gremlin';
 import { eligible } from './gremlin';
 
-function play(mode: MatchMode, n: number, seed = 1, duelists: [string, string] | undefined = ['p1', 'p2']): Game {
+function play(mode: MatchMode, n: number, seed = 1, duelists: [string, string] | undefined = ['p1', 'p2'], challenges = ['quick_math']): Game {
   let g = table(n);
   g.currentTurn = { phase: 'duel', challengerId: 'p1', defenderId: 'p2', pot: 2 };
   const tx = new Tx(g);
-  const out = startArena(tx, 'pass_the_gremlin', { mode, participants: Object.keys(g.players!), duelists: mode === 'free_for_all' ? undefined : duelists }, { now: NOW, rng: rng(seed) });
+  const out = startArena(tx, 'pass_the_gremlin', { mode, participants: Object.keys(g.players!), duelists: mode === 'free_for_all' ? undefined : duelists, config: { challenges } }, { now: NOW, rng: rng(seed) });
   expect(out.error).toBeUndefined();
   g = apply(g, tx.plan());
   return g;
@@ -45,7 +45,7 @@ describe('Pass the Gremlin: passing', () => {
   it('a wrong answer gets a new problem after a short cooldown', () => {
     const g = play('free_for_all', 3);
     const s = st(g);
-    const after = apply(g, act(g, s.holder, { kind: 'answer', value: s.challenge.answer + 1 }));
+    const after = apply(g, act(g, s.holder, { kind: 'answer', value: (s.challenge.answer as number) + 1 }));
     expect(st(after).stage).toBe('holding');
     expect(act(after, s.holder, { kind: 'answer', value: st(after).challenge.answer }, NOW + 5100).error).toMatch(/next one/);
   });

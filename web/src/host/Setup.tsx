@@ -28,6 +28,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
   const [s, setS] = useState({
     'reprisal-depth': '1', 'max-bid': '4', 'max-payout': '2', 'starting-chips': '', 'loser-dividend': 'defenders',
     'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'party_mix', 'party-prize': 'points_chips',
+    'gremlin-challenges': 'mixed',
   });
   const [publicChips, setPublicChips] = useState(false);
   const [duelGames, setDuelGames] = useState(DEFAULT_DUEL_GAMES.join(NL));
@@ -50,6 +51,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
       duelPick: s['duel-pick'] as Settings['duelPick'],
       duelGames: duelGames.split(NL).map((x) => x.trim()).filter(Boolean).join(NL), // text: an empty list must stay empty
       duelAppGames: duelApps,
+      ...(duelApps.includes('pass_the_gremlin') ? { gremlinChallenges: s['gremlin-challenges'] as Settings['gremlinChallenges'] } : {}),
       taxThreshold: parseInt(s['tax-threshold']),
       baseCost: parseInt(s['base-cost']),
       tiebreakerMethod: method as Settings['tiebreakerMethod'],
@@ -106,6 +108,10 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
                   <span><Glyphs>{`${d.emoji} ${d.label}`}</Glyphs> <small>{d.rules}</small></span>
                 </label>
               ))}
+              {duelApps.includes('pass_the_gremlin') && (
+                <Select id="gremlin-challenges" label="👹 The Gremlin's challenges" hint="What the holder must do before passing it on" value={s['gremlin-challenges']} onChange={set('gremlin-challenges')}
+                  options={[['mixed', 'A mix: math, memory and timing'], ['quick_math', 'Quick math only'], ['memory_flash', 'Memory only (repeat the symbols)'], ['perfect_timing', 'Timing only (stop it in the zone)']]} />
+              )}
               <label className="duel-app-game">
                 <input type="checkbox" id="setting-duel-app-draw_off" checked={duelApps.includes('draw_off')} onChange={() => toggleApp('draw_off')} />
                 <span><Glyphs>🎨 AI Draw Off</Glyphs> <small>the two duellists draw; an AI art critic picks the winner</small></span>

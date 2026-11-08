@@ -13,7 +13,7 @@ import { GAMES } from './party';
 import type { PartyType } from './party';
 import { startPartyGame } from './partyflow';
 import type { Rng } from './rng';
-import { config } from './settings';
+import { config, gremlinKinds } from './settings';
 import { refuse, SERVER_TIME, Tx } from './tx';
 import type { Game, Plan, PlayerId, Turn } from './types';
 import { voteStatus } from './voting';
@@ -105,7 +105,8 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
     const def = getDef(t.duelGame.app)!;
     const everyone = Object.keys(game.players || {}).filter((id) => game.players![id].connected !== false);
     const party = everyone.length >= 3 && def.supportedModes.includes('party_with_duelists');
-    const started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists }, ctx);
+    const arenaConfig = def.id === 'pass_the_gremlin' ? { challenges: gremlinKinds(config(game.settings).gremlinChallenges) } : undefined;
+    const started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists, config: arenaConfig }, ctx);
     if (started.error) return refuse(started.error);
   } else startPartyGame(tx, t.duelGame.app as PartyType, 'duel', duelists, ctx);
   return tx.plan();

@@ -20,6 +20,9 @@ save it as WebP: avatars at 256 px, icons at 160 px (`<name>.webp`).
 - A new icon needs its emoji mapped in `web/src/ui/icons.tsx`.
 - Unit tests check that every avatar and icon has its picture.
 - `naughty.webp` is the imp avatar, reused as the icon for a gift's naughty level.
+- The Gremlin (Pass the Gremlin): `gremlin-calm` / `-uneasy` / `-unstable`, saved as
+  `web/public/art/gremlin/{calm,uneasy,unstable}.webp` (256 px; one seed's take of each mood so they match).
+  The prompt never says "gremlin": Flux draws the film's creatures for that word.
 
 ## Whack-an-Elf (Blender)
 
