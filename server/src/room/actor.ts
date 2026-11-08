@@ -11,6 +11,7 @@ import { commitPlan } from '../../../web/src/core/commit';
 import { diff } from '../../../web/src/core/diff';
 import { checkEndgameContinue, drawEndgamePlayer } from '../../../web/src/core/duel';
 import { isDrawOff, judged } from '../../../web/src/core/drawoff';
+import { arenaOf } from '../../../web/src/core/minigames/runtime';
 import type { DrawOffScore } from '../../../web/src/core/drawoff';
 import { hostAuto } from '../../../web/src/core/hostauto';
 import { dispatch, parseIntent } from '../../../web/src/core/intents';
@@ -96,6 +97,7 @@ export class RoomActor {
     const room = new RoomActor(code, deps, row.game, row.version);
     // nobody is connected to a room that was just loaded: their sockets reattach
     room.markAllAway();
+    room.pauseArenaAfterRestart(row.updatedAt);
     room.schedule();
     return room;
   }
@@ -223,6 +225,16 @@ export class RoomActor {
   private setConnected(pid: string, on: boolean): void {
     this.commit(new Tx(this.game).set(`players/${pid}/connected`, on).plan(), pid, 'system', { connected: on });
     this.afterChange();
+  }
+
+  /** A mini-game running when the server went down is paused with the time it had then; the host resumes it. */
+  private pauseArenaAfterRestart(lastSaved: number): void {
+    const a = arenaOf(this.game);
+    if (a?.lifecycle !== 'active') return;
+    const left = Object.fromEntries(a.deadlines.map((d) => [d.id, Math.max(0, d.at - lastSaved)]));
+    const tx = new Tx(this.game).set('arena', { ...a, lifecycle: 'paused', paused: { at: this.now(), left }, deadlines: [], stateVersion: a.stateVersion + 1,
+      overrides: [...a.overrides, { at: this.now(), what: 'paused: the server restarted' }] }).event('⏸️ Paused: the server restarted. The host can resume.', 'duel');
+    this.commit(tx.plan(), HOST, 'system', { restart: 'arena paused' });
   }
 
   private markAllAway(): void {
