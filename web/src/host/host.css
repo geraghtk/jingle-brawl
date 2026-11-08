@@ -1086,6 +1086,15 @@
         .host-strip .brand-cell .brand-name { font-size: 20px; }
         .host-strip .pot-cell { background: color-mix(in srgb, var(--accent) 12%, white); }
         .host-strip .pot-cell .v { color: var(--accent); }
+        .host-strip .seat-switch { margin-left: auto; font-weight: 800; color: var(--accent); text-decoration: none; justify-content: center; white-space: nowrap; }
+        /* the host's console on a phone: the turn and its buttons first, a compact strip */
+        @media (max-width: 640px) {
+            .container:not(.tv) .sidebar { order: 0; }
+            .host-strip .cell { padding: 8px 10px; }
+            .host-strip .cell .v { font-size: 16px; }
+            .host-strip .brand-name, .host-strip .minor { display: none; }
+            .container { padding: var(--space-md); }
+        }
         .host-strip .room-cell { margin-left: auto; border-right: none; border-left: 1px solid var(--line); }
         .host-strip .room-cell .v { color: var(--accent); letter-spacing: 0.06em; }
 

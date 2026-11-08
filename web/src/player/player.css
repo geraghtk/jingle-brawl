@@ -1226,3 +1226,6 @@ button.callit-corner:focus-visible { outline: 3px solid var(--ink); outline-offs
         /* the duellists' avatars on the VS screens */
         .duel-you-row .f6-avatar, .callit-corner .f6-avatar { box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(13, 16, 24, .18); }
         .callit-corner .f6-avatar { margin: 6px auto 2px; }
+
+/* the host plays too: a way to their console from their player screen */
+.host-controls-link { display: block; text-align: center; margin: 0 0 12px; text-decoration: none; }

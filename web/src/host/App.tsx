@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '../core/types';
 import { createRoom, lobby } from '../net/api';
 import { OffsetProvider, useRoom } from '../net/hooks';
+import { forgetHostSeat, hostSeat, saveHostSeat } from '../net/seats';
 import { GameScreen } from './GameScreen';
 import { HostProvider } from './HostContext';
 import { Setup } from './Setup';
 import { Icon } from '../ui/icons';
 
-const K = { room: 'jingleBrawl_host_room', token: 'jingleBrawl_host_token' };
-const forget = () => { for (const k of Object.values(K)) localStorage.removeItem(k); };
+const forget = forgetHostSeat;
 const autoLoad = new URLSearchParams(location.search).get('autoLoad') === '1';
 /** The AI key typed at setup: handed to the room over the host's socket, then dropped. Never stored. */
 let pendingCriticKey = '';
@@ -20,8 +20,8 @@ export function App() {
   const [offer, setOffer] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(K.room);
-    if (!saved || !localStorage.getItem(K.token)) return;
+    const saved = hostSeat()?.room;
+    if (!saved) return;
     lobby(saved).then((l) => {
       if (!l.exists) return forget();
       if (autoLoad) setRoom(saved); else setOffer(saved);
@@ -32,8 +32,7 @@ export function App() {
     try {
       const { code, token } = await createRoom(settings);
       forget();
-      localStorage.setItem(K.room, code);
-      localStorage.setItem(K.token, token);
+      saveHostSeat(code, token);
       pendingCriticKey = criticKey;
       window.scrollTo(0, 0);
       setRoom(code);
@@ -44,7 +43,7 @@ export function App() {
 
   return (
     <>
-      {room ? <Playing room={room} token={localStorage.getItem(K.token) || ''} onExit={() => { forget(); location.reload(); }} />
+      {room ? <Playing room={room} token={hostSeat()?.token || ''} onExit={() => { forget(); location.reload(); }} />
         : <Setup onCreate={create} />}
       {offer && !room && (
         <div className="modal-overlay active" id="modal-overlay">

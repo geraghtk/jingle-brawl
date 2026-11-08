@@ -1,5 +1,6 @@
 // The phone's game screen: header, the card for the current moment, my gift, the table.
 import { useEffect, useState } from 'react';
+import { hosts } from '../net/seats';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { observe as mascotsObserve } from '../ui/mascots';
 import { MvpReveal } from '../ui/MvpReveal';
@@ -12,7 +13,7 @@ import { StatusCard } from './StatusCard';
 import { VerdictModal } from './VerdictModal';
 
 export function GameScreen({ onLeave }: { onLeave: () => void }) {
-  const { game, me, player, cfg } = usePlayer();
+  const { game, me, player, cfg, room } = usePlayer();
   const t = game.currentTurn;
   const [mvpSeen, setMvpSeen] = useState(false);
 
@@ -38,6 +39,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
         </div>
         <div className="chip-count" aria-label={`${player.chips} chips`}><span className="jb-chip" /><span id="chip-display">{player.chips}</span></div>
       </div>
+      {hosts(room) && <a className="btn btn-secondary host-controls-link" href="host.html?autoLoad=1" data-testid="to-host">🎛️ Host controls</a>}
 
       {showStatus && <StatusCard />}
       {iBid && <BidPanel key={`${t!.phase}|${t!.giftId || t!.misfitId}`} />}

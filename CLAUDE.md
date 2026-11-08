@@ -35,9 +35,10 @@ npm run build && npm start       # production: one Node process serves the app a
 
 ## Local Development
 
-`npm run dev`, then:
-- Host: `http://localhost:5173/host.html` (the lobby's join link and QR code use this PC's Wi-Fi address, so phones can scan it)
-- Player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice`
+`npm run dev`, then (three kinds of screen):
+- Host console: `http://localhost:5173/host.html` (on the host's own device; the host plays too: "Join as a player too" / "Host controls" switch between the two pages)
+- TV (the shared screen, its own device): `http://localhost:5173/tv.html?room=ABCD` (public view, no controls; linked from the console)
+- Player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice` (join links and QR codes use this PC's Wi-Fi address)
 
 `?testId=N` isolates localStorage, so one browser can simulate many players.
 
@@ -47,7 +48,7 @@ npm run build && npm start       # production: one Node process serves the app a
 
 **Key files:**
 - `web/src/core/` — the rules engine, pure: actions are `(game, …) => Plan` built with `Tx` (`tx.ts`); `actions.ts`, `duel.ts`, `admin.ts`, `voting.ts`, `party.ts`/`partyflow.ts` (Sketch-Off + Whack-an-Elf), `duelgame.ts` (duel picker, wheel, in-app duel games), `scoring.ts` (Party Score, spectator bets), `settings.ts` (`DEFAULTS`, `config()`), `rules.ts` (target helpers)
-- `web/src/host/` — host/TV screen (`TurnPanel.tsx`, `Sidebar.tsx` admin, `PartyPanel.tsx`, `DuelModal.tsx`), `useHostAutomation.ts` arms the `hostAuto` timers
+- `web/src/host/` — the host console and the TV's screens (`TurnPanel.tsx`, `Sidebar.tsx` admin, `PartyPanel.tsx`, `DuelModal.tsx`); `HostProvider tv` hides every control (`web/src/tv/` is the TV page)
 - `web/src/player/` — phone: join/rejoin, sealed bids (`BidPanel.tsx`), opener choices and duels (`StatusCard.tsx`), reprisals, party games (`PartyCard.tsx`), votes
 - `web/src/net/` — the screens' side of the room server: `client.ts` (`RoomClient`), `hooks.tsx` (`useRoom`, `useServerOffset`), `api.ts` (create / lobby / join), `protocol.ts`, `lan.ts` (the TV's Wi-Fi join link)
 - `web/src/ui/` — shared UI: `mascots.ts` (Santa / elf / reindeer pop-ups, `?mascots=0` disables), `whack.tsx`, `icons.tsx`, `chips.ts`, `notes.tsx` (duel help text)

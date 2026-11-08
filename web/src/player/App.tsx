@@ -33,7 +33,11 @@ export function App() {
     const s = loadSession();
     if (!s) { setSaved(null); return; }
     // the room checks the token when the phone connects; here: is the room still there?
-    lobby(s.room).then((l) => { if (l.exists && s.token) setSaved(s); else { clearSession(); setSaved(null); } })
+    // ?rejoin=1 (the host switching back from their console): straight back in, no question
+    lobby(s.room).then((l) => {
+      if (!l.exists || !s.token) { clearSession(); setSaved(null); return; }
+      if (params.get('rejoin') === '1') { setSaved(null); setSession(s); } else setSaved(s);
+    })
       .catch(() => setSaved(null));
   }, []);
 
@@ -129,7 +133,7 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
         )}
         <button className="btn btn-primary" data-testid="join" disabled={young && !age} onClick={() => onJoin(room, name, ageValue, avatar)}>🎮 Join Game</button>
       </div>
-      <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ask the host for the room code</p>
+      <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ask the host for the room code, or <a href="host.html" data-testid="host-a-game">host a new game</a></p>
     </div>
   );
 }

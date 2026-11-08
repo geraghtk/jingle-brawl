@@ -53,3 +53,29 @@ test('the TV without a room code asks for one', async ({ page }) => {
   await page.goto(`${H.BASE}/tv.html`);
   await expect(page.getByTestId('tv-room-form')).toBeVisible();
 });
+
+test('the host plays too, from one phone: console and player screen link to each other', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const phone = await ctx.newPage();
+    await phone.goto(`${H.BASE}/player.html`);
+    await phone.getByTestId('host-a-game').click();                  // from the join screen: host a game
+    await phone.getByRole('button', { name: /Create New Game/i }).click();
+    await phone.waitForSelector('#game-screen');
+    const room = (await phone.locator('#strip-room').textContent()).trim();
+    await phone.getByTestId('join-as-player').click();               // …and take a seat
+    await expect(phone.locator('#room-code-input')).toHaveValue(room);
+    await phone.locator('#player-name-input').fill('Hostie');
+    await phone.getByRole('button', { name: /Join Game/i }).click();
+    await expect(phone.locator('#display-name')).toHaveText('Hostie');
+    await phone.getByTestId('to-host').click();                      // the player screen → the controls
+    await expect(phone.locator('#strip-room')).toHaveText(room);
+    await expect(phone.locator('#turn-panel')).toBeVisible();
+    await phone.getByTestId('to-player').click();                    // and back
+    await expect(phone.locator('#display-name')).toHaveText('Hostie');
+    const players = await H.dbGet(room, 'players');
+    expect(Object.values(players).map((p) => p.name)).toEqual(['Hostie']);
+  } finally {
+    await ctx.close();
+  }
+});

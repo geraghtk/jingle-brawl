@@ -7,6 +7,7 @@ import { minCost } from '../core/settings';
 import type { Game } from '../core/types';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { MvpReveal } from '../ui/MvpReveal';
+import { playsIn } from '../net/seats';
 import { DuelModal } from './DuelModal';
 import { DuelVerdict } from './DuelVerdict';
 import { useHost } from './HostContext';
@@ -46,7 +47,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
 }
 
 function Strip() {
-  const { game, room } = useHost();
+  const { game, room, tv } = useHost();
   const raw = (game.currentTurn?.phase || game.phase || 'lobby').replace(/_/g, ' ');
   const pot = game.currentTurn?.pot || 0;
   const inDuel = (game.currentTurn?.phase || '').includes('duel');
@@ -54,10 +55,13 @@ function Strip() {
     <div className="f6-strip host-strip">
       <div className="cell brand-cell"><img src="ydlogo2.png" alt="Yuel Duel" /><span className="brand-name f6-disp">Yuel Duel</span></div>
       <div className="cell"><span className="k">Phase</span><span className="v f6-num" id="strip-phase">{raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()}</span></div>
-      <div className="cell"><span className="k">Players</span><span className="v f6-num"><span id="connected-count">{Object.keys(game.players || {}).length}</span></span></div>
-      <div className="cell"><span className="k">Gifts left</span><span className="v f6-num" id="strip-gifts">{wrappedGifts(game)}</span></div>
+      <div className="cell minor"><span className="k">Players</span><span className="v f6-num"><span id="connected-count">{Object.keys(game.players || {}).length}</span></span></div>
+      <div className="cell minor"><span className="k">Gifts left</span><span className="v f6-num" id="strip-gifts">{wrappedGifts(game)}</span></div>
       <div className={`cell pot-cell${inDuel && pot > 0 ? '' : ' hidden'}`} id="strip-pot-cell"><span className="k">Pot</span><span className="v f6-num" id="strip-pot">{pot} ◆</span></div>
       <div className="cell room-cell"><span className="k">Room code</span><span className="v f6-num" id="strip-room">{room}</span></div>
+      {!tv && (playsIn(room)
+        ? <a className="cell seat-switch" href="player.html?rejoin=1" data-testid="to-player">🎮 My player screen</a>
+        : <a className="cell seat-switch" href={`player.html?room=${room}`} data-testid="join-as-player">🎮 Join as a player too</a>)}
     </div>
   );
 }

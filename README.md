@@ -34,8 +34,10 @@ plays every settings preset and writes a balance report. See [`agents/README.md`
 ## Runbook
 
 ### Game night (production)
-1. On the PC by the TV: `npm run build && npm start`, open `http://localhost:8787/host.html`, choose settings, **Create New Game**.
-2. Players on the same Wi-Fi scan the QR code (it carries the PC's Wi-Fi address) and enter a name. Start needs ≥ 2 players.
+1. On a PC: `npm run build && npm start`. On the host's phone, open the address it prints, tap
+   **host a new game**, choose settings, **Create New Game**, then **Join as a player too**.
+2. On the device showing the TV, open the TV link from the host console (`tv.html?room=CODE`):
+   the public view, no controls. Players on the same Wi-Fi scan the join QR and enter a name. Start needs ≥ 2 players.
 3. If a phone dies, the host has **Manual Override** under every waiting step, and the
    **Admin** tab (edit chips, move gifts, skip/reset a turn, undo the last duel).
 4. A refreshed host or phone offers **Rejoin** (rooms live in `rooms.db`; a restarted server picks them up).
