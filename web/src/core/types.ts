@@ -1,5 +1,4 @@
 import type { DuelGameChoice, WheelSpin } from './duelgame';
-import type { PartyType } from './party';
 // The game state as stored at games/{roomCode} in the Realtime Database.
 // Every field is optional where the database may omit it (RTDB drops empty objects/nulls).
 
@@ -29,7 +28,7 @@ export interface Settings {
   spectatorBets?: number;          // 0 = off, 1 = each vote stakes 1 chip
   voteWindow?: number;             // seconds the host waits for duel votes (0 = no wait)
   duelGames?: string | string[];   // out-of-game duels the host listed, one per line ("" = none: RTDB drops empty arrays)
-  duelAppGames?: (PartyType | 'draw_off')[];  // in-app mini-games that may come up as the duel
+  duelAppGames?: import('./duelgame').DuelApp[];  // in-app mini-games that may come up as the duel
   duelPick?: 'defender' | 'wheel' | 'off';
   aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
   aiCriticUrl?: string;
@@ -68,7 +67,7 @@ export interface DuelVote { playerId?: PlayerId; votedFor: PlayerId; stake?: num
 
 export type TurnPhase =
   | 'bidding' | 'reveal' | 'yield_choice' | 'duel_pending' | 'yield_pending' | 'tiebreaker_pending'
-  | 'duel' | 'reprisal' | 'minigame_party' | 'minigame_draw_off'
+  | 'duel' | 'reprisal' | 'minigame_party' | 'minigame_draw_off' | 'minigame_arena'
   | 'endgame_choice' | 'endgame_steal_select' | 'endgame_bidding' | 'endgame_reveal' | 'endgame_nobids';
 
 /** One turn record; which fields are set depends on `phase` (mirrors what the pages write). */
@@ -109,6 +108,7 @@ export interface Turn {
   duelAppStartedAt?: number;
   duelGameWinner?: PlayerId;       // an in-app duel game decided it; the host resolves
   duelGameOutcome?: { status: 'no_contest'; reason: string } | null; // it couldn't decide: the host picks
+  arenaHandedOff?: string;         // a runtime mini-game handed its result back (once)
   // double-tap guards (claimTurn)
   duelStartedBy?: PlayerId;
   resolvedBy?: PlayerId;
@@ -149,6 +149,9 @@ export interface Game {
   lastDuel?: LastDuel | null;
   /** players + gifts as they were before the last duel was resolved (Admin → Undo); never shown. */
   undo?: Pick<Game, 'players' | 'gifts'> | null;
+  /** A runtime mini-game (core/minigames): server only; each screen gets arenaView instead. */
+  arena?: import('./minigames/runtime').ArenaInstance | null;
+  arenaView?: import('./minigames/runtime').ArenaView | null;
 }
 
 /** RTDB server timestamp placeholder ({".sv": "timestamp"} is what serverTimestamp() sends). */

@@ -3,6 +3,7 @@
 // the same steps on its virtual clock, so both wait for the table by the same rules.
 // A step's key changes when the state it waits on changes, so a timer is re-armed rather
 // than fired twice; every plan is claimed, so a step racing a button can't apply twice.
+import { arenaDeadline, arenaOf, handoff } from './minigames/runtime';
 import { completeDrawOff, DRAW_GRACE_MS, everyoneDrew, isDrawOff, startDrawing, startJudging } from './drawoff';
 import * as A from './actions';
 import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from './duelgame';
@@ -70,6 +71,15 @@ export function hostAuto(game: Game): AutoStep[] {
       out.push({ key: `draw|${s}|drawing|${done}`, at: done ? 0 : (dOff.drawingEndTime || 0) + DRAW_GRACE_MS, quiet: true, run: (g) => startJudging(g) });
     }
     if (dOff.phase === 'results') out.push({ key: `draw|${s}|results`, at: dOff.resultsEndTime || 0, quiet: true, run: (g) => completeDrawOff(g) });
+  }
+
+  // a runtime mini-game: each pending deadline, then back to the duel once it's over
+  const arena = arenaOf(game);
+  if (arena?.lifecycle === 'active') {
+    for (const d of arena.deadlines) out.push({ key: `arena|${arena.instanceId}|${d.id}|${d.at}`, at: d.at, quiet: true, run: (g, ctx) => arenaDeadline(g, d.id, ctx) });
+  }
+  if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled')) {
+    out.push({ key: `arena|${arena.instanceId}|handoff`, at: 0, quiet: true, run: (g) => handoff(g) });
   }
 
   // ties start their party game themselves (once per turn)

@@ -27,19 +27,20 @@ export type Intent = Offer | AdminIntent;
 
 // --- parsing ------------------------------------------------------------------------------------
 
-type Field = 'id' | 'id?' | 'idOrNull' | 'text' | 'text?' | 'int' | 'int?' | 'bool?' | 'drawing?' | 'path';
+type Field = 'id' | 'id?' | 'idOrNull' | 'text' | 'text?' | 'int' | 'int?' | 'bool?' | 'drawing?' | 'path' | 'action';
 const INT: Record<string, [number, number]> = {
-  amount: [0, 999], index: [0, 50], score: [-1000, 1000], chips: [0, 9999], naughtyLevel: [0, 20], seed: [-(2 ** 31), 2 ** 32],
+  amount: [0, 999], index: [0, 50], v: [0, 1e9], score: [-1000, 1000], chips: [0, 9999], naughtyLevel: [0, 20], seed: [-(2 ** 31), 2 ** 32],
 };
 const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   bid: { amount: 'int' }, keep: {}, gambit: { giftId: 'id' }, fight: {}, yield: {},
   pick_duel: { index: 'int', name: 'text?' }, spin: {}, call_duel: { pick: 'id' },
   reprisal: { giftId: 'id' }, skip_reprisal: {}, path: { path: 'path' }, steal: { giftId: 'id' }, cancel_steal: {},
   nobids_defender: { playerId: 'id' }, whack: { score: 'int?', final: 'bool?' }, sketch: { drawing: 'drawing?' },
-  vote_sketch: { pick: 'id' },
+  vote_sketch: { pick: 'id' }, arena: { action: 'action', aid: 'id?', v: 'int?' },
   start: {}, draw: { giftName: 'text?', seed: 'int?' }, reveal: {}, skip_bidding: {}, start_duel: {}, start_yield_duel: {},
   host_spin: {}, close_voting: {}, start_duel_app: {}, duel_winner: { id: 'id' }, skip_party: {}, endgame: {},
   reveal_auction: {}, skip_auction: {}, auction_duel: {}, complete_drawoff: {}, end: {},
+  arena_pause: {}, arena_resume: {}, arena_cancel: {}, arena_no_contest: {},
   admin_set_chips: { pid: 'id', chips: 'int' }, admin_add_gift: { name: 'text', ownerId: 'id' },
   admin_save_gift: { giftId: 'id', name: 'text?', naughtyLevel: 'int', ownerId: 'idOrNull' },
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },
@@ -63,6 +64,8 @@ function fieldOk(kind: Field, key: string, v: unknown): boolean {
     case 'bool': return typeof v === 'boolean';
     case 'drawing': return typeof v === 'string' && v.length <= MAX_DRAWING && /^data:(image\/(png|jpeg|webp)(;base64)?)?,/.test(v);
     case 'path': return v === 'steal' || v === 'auction';
+    // a mini-game's own action: a small plain object (the game validates what's inside)
+    case 'action': return !!v && typeof v === 'object' && !Array.isArray(v) && JSON.stringify(v).length <= 2000;
     default: return false;
   }
 }

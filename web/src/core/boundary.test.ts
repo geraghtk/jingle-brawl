@@ -10,7 +10,7 @@ const ACTION_MODULES = ['actions', 'duel', 'admin', 'partyflow', 'duelgame', 'vo
 /** Exports of those modules a screen may use: they only describe the game. */
 const READ_ONLY = new Set([
   'cleanName', 'voteStatus', 'duelGameStep', 'duelOptions', 'duelPicker', 'duelAppWinner', 'SPIN_MS', 'UNDER',
-  'DEFAULT_DUEL_GAMES', 'DRAW_OFF_MS', 'PROMPT_REVEAL_MS', 'DUEL_APPS', 'isDrawOff', 'everyoneDrew',
+  'DEFAULT_DUEL_GAMES', 'DRAW_OFF_MS', 'PROMPT_REVEAL_MS', 'duelAppInfo', 'isDrawOff', 'everyoneDrew',
 ]);
 
 function screens(dir: string): string[] {

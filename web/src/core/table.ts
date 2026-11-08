@@ -13,6 +13,7 @@ import * as D from './duel';
 import * as DO from './drawoff';
 import type { DrawOff } from './drawoff';
 import { chooseDuelGame, duelAppWinner, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, startDuelApp } from './duelgame';
+import { arenaAct, arenaOf, arenaOffers, arenaPause, arenaResume, arenaStop, canAct } from './minigames/runtime';
 import { GAMES } from './party';
 import type { PartyGame } from './party';
 import { advanceParty, reportWhack, submitSketch, voteSketch } from './partyflow';
@@ -46,6 +47,7 @@ export type Offer =
   | { type: 'whack'; score?: number; final?: boolean }
   | { type: 'sketch'; drawing?: string }
   | { type: 'vote_sketch'; pick: PlayerId }
+  | { type: 'arena'; action: unknown; aid?: string; v?: number }   // a runtime mini-game's action (the game checks it)
   // the host's console
   | { type: 'start' }
   | { type: 'draw'; giftName?: string; seed?: number }
@@ -62,6 +64,7 @@ export type Offer =
   | { type: 'reveal_auction' }
   | { type: 'skip_auction' }
   | { type: 'complete_drawoff' }
+  | { type: 'arena_pause' } | { type: 'arena_resume' } | { type: 'arena_cancel' } | { type: 'arena_no_contest' }
   | { type: 'auction_duel' }
   | { type: 'end' };
 
@@ -155,6 +158,8 @@ function phoneOffers(game: Game, me: PlayerId, now: number): Offer[] {
       const mg = game.minigame as DrawOff | undefined;
       return mg?.type === 'draw_off' && mg.phase === 'drawing' && mg.participants.includes(me) && !mg.submissions?.[me] ? [{ type: 'sketch' }] : [];
     }
+    case 'minigame_arena':
+      return arenaOffers(game, me, now, seeded(now)).map((action): Offer => ({ type: 'arena', action }));
     default:
       return [];
   }
@@ -211,6 +216,13 @@ function hostOffers(game: Game, now: number): Offer[] {
       const mg = game.minigame as DrawOff | undefined;
       return mg?.type === 'draw_off' && mg.phase === 'results' && mg.winners?.length ? [{ type: 'complete_drawoff' }] : [];
     }
+    case 'minigame_arena': {
+      // the host's overrides: pause / resume, cancel, call it a no contest (all logged)
+      const a = arenaOf(game);
+      if (a?.lifecycle === 'active') return [{ type: 'arena_pause' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
+      if (a?.lifecycle === 'paused') return [{ type: 'arena_resume' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
+      return [];
+    }
     case 'endgame_reveal': return rankedBids(t).length ? [{ type: 'auction_duel' }] : [];
     default: return [];
   }
@@ -221,6 +233,7 @@ export const HAND_FILLED = ['score', 'final', 'drawing', 'giftName', 'seed', 'na
 
 /** Is this offer one of `who`'s right now? (Fields a player fills in aren't compared.) */
 export function isOffered(game: Game, who: Who, offer: Offer, now: number): boolean {
+  if (offer.type === 'arena') return who !== HOST && canAct(game, who);   // the game itself checks the action
   if (offer.type === 'bid' && who !== HOST && changesBid(game, who, offer.amount)) return true;
   const fixed = (o: Offer) => JSON.stringify(Object.entries(o).filter(([k]) => !HAND_FILLED.includes(k)).sort());
   return offers(game, who, now).some((o) => fixed(o) === fixed(offer));
@@ -287,6 +300,11 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'reveal_auction': return D.revealAuction(game);
     case 'skip_auction': return D.skipAuction(game);
     case 'complete_drawoff': return DO.completeDrawOff(game);
+    case 'arena': return arenaAct(game, who, offer, ctx);
+    case 'arena_pause': return arenaPause(game, ctx.now);
+    case 'arena_resume': return arenaResume(game, ctx.now);
+    case 'arena_cancel': return arenaStop(game, 'cancelled', ctx.now);
+    case 'arena_no_contest': return arenaStop(game, 'no_contest', ctx.now);
     case 'auction_duel': return D.auctionDuel(game, rankedBids(t)[0][0]);
     case 'end': return A.endGame(game);
   }

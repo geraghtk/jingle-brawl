@@ -8,7 +8,7 @@ import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
-import { DUEL_APPS, duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
+import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
 import type { DuelApp } from '../core/duelgame';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../net/hooks';
@@ -357,7 +357,7 @@ function Duel({ t }: { t: Turn }) {
   const spinning = spunAt != null && spinLeft > 0;
   const picking = !!step || spinning;
   const picker = duelPicker(game);
-  const appName = (o: { kind: string; app?: DuelApp; name: string }) => (o.kind === 'app' && o.app ? `${DUEL_APPS[o.app].emoji} ${o.name}` : o.name);
+  const appName = (o: { kind: string; app?: DuelApp; name: string }) => (o.kind === 'app' && o.app ? `${duelAppInfo(o.app)?.emoji} ${o.name}` : o.name);
   const duelGameLine = t.wheel && spinning
     ? <DuelWheel spin={t.wheel} offset={offset} size={230} />
     : t.duelGame

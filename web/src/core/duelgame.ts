@@ -7,6 +7,8 @@
 // the table knows what's being played. An in-app game settles the duel itself: everyone plays,
 // the duellist who places higher wins, the rest earn party points as usual.
 import { startDrawOff } from './drawoff';
+import { getDef } from './minigames/registry';
+import { startArena } from './minigames/runtime';
 import { GAMES } from './party';
 import type { PartyType } from './party';
 import { startPartyGame } from './partyflow';
@@ -19,12 +21,14 @@ import { voteStatus } from './voting';
 export { DEFAULT_DUEL_GAMES } from './settings';
 export const SPIN_MS = 4800;
 
-/** The in-app duel games: the party games (everyone plays) and AI Draw Off (the two duelists draw). */
-export type DuelApp = PartyType | 'draw_off';
-export const DUEL_APPS: Record<DuelApp, { label: string; emoji: string }> = {
-  ...GAMES,
-  draw_off: { label: 'AI Draw Off', emoji: '🎨' },
-};
+/** The in-app duel games: the party games (everyone plays), AI Draw Off (the two duelists draw), and
+ *  any registered runtime game (core/minigames, by its id). */
+export type DuelApp = PartyType | 'draw_off' | (string & {});
+const BUILT_IN: Record<string, { label: string; emoji: string }> = { ...GAMES, draw_off: { label: 'AI Draw Off', emoji: '🎨' } };
+export function duelAppInfo(app: DuelApp | undefined): { label: string; emoji: string } | undefined {
+  if (!app) return undefined;
+  return BUILT_IN[app] ?? getDef(app);
+}
 
 export interface DuelGameOption { name: string; kind: 'table' | 'app'; app?: DuelApp }
 export interface DuelGameChoice extends DuelGameOption { via: 'picker' | 'wheel' }
@@ -36,7 +40,7 @@ export function duelOptions(game: Game): DuelGameOption[] {
   const table = cfg.duelGames.map((name) => ({ name, kind: 'table' as const }));
   // not for a tiebreak duel: its winner goes on to the real duel rather than being settled like one
   const apps = game.currentTurn?.isTiebreak ? []
-    : cfg.duelAppGames.filter((a) => DUEL_APPS[a]).map((app) => ({ name: DUEL_APPS[app].label, kind: 'app' as const, app }));
+    : cfg.duelAppGames.filter((a) => duelAppInfo(a)).map((app) => ({ name: duelAppInfo(app)!.label, kind: 'app' as const, app }));
   return [...table, ...apps];
 }
 
@@ -94,8 +98,16 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
   if (!t || t.phase !== 'duel' || t.duelGame?.kind !== 'app' || !t.duelGame.app) return refuse('No mini-game to start');
   if (voteStatus(game, ctx.now).blocking && t.voteEndsAt != null) return refuse('Waiting for votes');
   const tx = new Tx(game).claim('currentTurn/duelAppStartedAt', ctx.now).set('currentTurn/voteClosed', true);
-  if (t.duelGame.app === 'draw_off') startDrawOff(tx, [t.challengerId!, t.defenderId!], ctx);
-  else startPartyGame(tx, t.duelGame.app, 'duel', [t.challengerId!, t.defenderId!], ctx);
+  const duelists: [PlayerId, PlayerId] = [t.challengerId!, t.defenderId!];
+  if (t.duelGame.app === 'draw_off') startDrawOff(tx, duelists, ctx);
+  else if (getDef(t.duelGame.app)) {
+    // a runtime game: everyone plays if it can resolve the duelists that way (3+ at the table), else just the two
+    const def = getDef(t.duelGame.app)!;
+    const everyone = Object.keys(game.players || {}).filter((id) => game.players![id].connected !== false);
+    const party = everyone.length >= 3 && def.supportedModes.includes('party_with_duelists');
+    const started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists }, ctx);
+    if (started.error) return refuse(started.error);
+  } else startPartyGame(tx, t.duelGame.app as PartyType, 'duel', duelists, ctx);
   return tx.plan();
 }
 

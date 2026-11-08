@@ -8,6 +8,7 @@
 //   - Sketch-Off and AI Draw Off drawings: nobody sees another's while drawing, the TV included
 //     (the duellists can see the TV; who's done still shows)
 //   - accounts and Undo: ownerUid / hostUid never leave the server; Undo is the host's
+import { arenaView } from './minigames/runtime';
 import { config } from './settings';
 import type { Game, PlayerId } from './types';
 
@@ -16,7 +17,7 @@ export type Viewer = { kind: 'host' } | { kind: 'tv' } | { kind: 'phone'; pid: P
 const SEALED_PHASES = new Set(['bidding', 'endgame_bidding']);
 export const HIDDEN_DRAWING = 'data:,';
 
-export function projectGame(game: Game, viewer: Viewer): Game {
+export function projectGame(game: Game, viewer: Viewer, now = Date.now()): Game {
   const g: Game = JSON.parse(JSON.stringify(game));
   const me = viewer.kind === 'phone' ? viewer.pid : null;
   delete g.hostUid;
@@ -35,6 +36,8 @@ export function projectGame(game: Game, viewer: Viewer): Game {
       if (id !== me) t.bids[id] = { amount: 0, sealed: true, ...(b.submittedAt != null ? { submittedAt: b.submittedAt } : {}) };
     }
   }
+
+  if (g.arena) { g.arenaView = arenaView(g.arena, viewer, now); delete g.arena; }   // a game's secrets stay with it
 
   const mg = g.minigame;
   const drawing = mg && 'type' in mg && ((mg.type === 'sketch_off' && mg.phase === 'playing')
