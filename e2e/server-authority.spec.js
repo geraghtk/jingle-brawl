@@ -1,12 +1,10 @@
 // @ts-check
-// The room server is the referee (not run against Firebase: TRANSPORT=firebase).
+// The room server is the referee.
 // A phone can't do what isn't on its screen even by talking to the server directly; no phone or
 // TV is ever sent a sealed bid; the server picks a game up after a restart; a reloaded phone
 // rejoins with its token.
 const { test, expect } = require('@playwright/test');
 const H = require('./helpers');
-
-test.skip(process.env.TRANSPORT === 'firebase', 'room server only');
 
 const NAMES = ['Alice', 'Bob', 'Charlie'];
 

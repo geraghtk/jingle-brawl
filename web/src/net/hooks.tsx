@@ -1,12 +1,10 @@
 // React glue for the room connection: useRoom (the live view of a room and its client) and
-// useServerOffset (the server clock, from the room server or from Firebase until the switch).
+// useServerOffset (the room server's clock).
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type { Game } from '../core/types';
-import { useServerOffset as useFirebaseOffset } from '../firebase/game';
 import { RoomClient } from './client';
 import type { Status } from './client';
-import { onServer } from './transport';
 
 export interface RoomLink { client: RoomClient; game: Game | null; status: Status; offset: number; fatal: string | null }
 
@@ -30,7 +28,5 @@ export function OffsetProvider({ offset, children }: { offset: number; children:
 
 /** Server time minus this device's time (ms): every screen agrees when a party-game phase ends. */
 export function useServerOffset(): number {
-  // the transport is fixed for the page's life, so this always calls the same hooks
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return onServer ? useContext(OffsetCtx) : useFirebaseOffset();
+  return useContext(OffsetCtx);
 }

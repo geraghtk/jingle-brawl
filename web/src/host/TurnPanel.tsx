@@ -11,8 +11,6 @@ import { gambitTargets, giftless, rankedBids, reprisalTargets, topTiedBidders, w
 import { minCost } from '../core/settings';
 import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, Turn } from '../core/types';
-import { usingEmulators } from '../firebase/app';
-import { onServer } from '../net/transport';
 import { useJoinOrigin } from '../net/lan';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
@@ -78,7 +76,6 @@ function LobbyHero() {
         </div>
         <div className="join-url" id="join-url">{url}</div>
         <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : 'Everyone in? Hit Start.'}</p>
-        {usingEmulators && !onServer && <p className="lobby-start-hint" style={{ fontSize: 12 }}>Local test mode (emulators)</p>}
       </div>
       <div className="lobby-roster f6-card f6-rise">
         <div className="lobby-roster-head">

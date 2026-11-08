@@ -8,38 +8,26 @@
 // zero page errors. We do NOT bake in expected chip totals for ambiguous rules
 // (e.g. Santa Tax split); those are reported for review instead of asserted.
 //
-// State is read straight from the back end: the room server's debug API, or (TRANSPORT=firebase) the
-// RTDB emulator (Bearer owner = admin bypass). Same helpers, same answers (a missing path is null).
+// State is read straight from the room server's debug API (--debug-api, this machine only): a
+// missing path reads as null.
 
 const BASE = process.env.BASE_URL || 'http://localhost:4173'; // see playwright.config.js
 // Phones can be served separately (PLAYER_BASE=…, e.g. React phones against the original host)
 const PLAYER_BASE = process.env.PLAYER_BASE || BASE;
-const NS = 'jingle-brawl-e8308-default-rtdb';
-const DB_BASE = 'http://127.0.0.1:9000';
-const ADMIN = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
-const ON_SERVER = process.env.TRANSPORT !== 'firebase';
+const JSON_BODY = { 'Content-Type': 'application/json' };
 // The debug API answers only on the server's own address (in dev: npm run dev's :8787, not the proxied :5173)
 const DEBUG_BASE = process.env.DEBUG_BASE || (/:5173$/.test(BASE) ? 'http://127.0.0.1:8787' : BASE);
 const debugUrl = (roomCode, path = '') => `${DEBUG_BASE}/debug/rooms/${roomCode}${path ? '/' + path : ''}`;
 
 async function dbGet(roomCode, path = '') {
-  if (ON_SERVER) return (await fetch(debugUrl(roomCode, path))).json();
-  const url = `${DB_BASE}/games/${roomCode}${path ? '/' + path : ''}.json?ns=${NS}`;
-  const res = await fetch(url, { headers: ADMIN });
-  return res.json();
+  return (await fetch(debugUrl(roomCode, path))).json();
 }
 
-/** Admin write (bypasses rules) — for injecting state a test can't reach by clicking. */
+/** A direct write (the debug API) — for injecting state a test can't reach by clicking. */
 async function dbPut(roomCode, path, value) {
-  if (ON_SERVER) {
-    const res = await fetch(debugUrl(roomCode, path), { method: 'PUT', headers: ADMIN, body: JSON.stringify(value) });
-    if (!res.ok) throw new Error(`dbPut ${path} failed: ${res.status}`);
-    return value;
-  }
-  const url = `${DB_BASE}/games/${roomCode}/${path}.json?ns=${NS}`;
-  const res = await fetch(url, { method: 'PUT', headers: ADMIN, body: JSON.stringify(value) });
+  const res = await fetch(debugUrl(roomCode, path), { method: 'PUT', headers: JSON_BODY, body: JSON.stringify(value) });
   if (!res.ok) throw new Error(`dbPut ${path} failed: ${res.status}`);
-  return res.json();
+  return value;
 }
 
 /** Poll until fn(game) returns truthy; returns that value. */
@@ -168,17 +156,11 @@ async function createGame(browser, settings = {}) {
   return { host, hostCtx: ctx, roomCode, errors };
 }
 
-/** Admin-bypass multi-path update of a room (keys are paths under games/{room}). */
+/** A direct multi-path update of a room (keys are paths in the game). */
 async function dbPatch(roomCode, updates) {
-  if (ON_SERVER) {
-    const res = await fetch(debugUrl(roomCode), { method: 'PATCH', headers: ADMIN, body: JSON.stringify(updates) });
-    if (!res.ok) throw new Error(`dbPatch failed: ${res.status}`);
-    return updates;
-  }
-  const url = `${DB_BASE}/games/${roomCode}.json?ns=${NS}`;
-  const res = await fetch(url, { method: 'PATCH', headers: ADMIN, body: JSON.stringify(updates) });
+  const res = await fetch(debugUrl(roomCode), { method: 'PATCH', headers: JSON_BODY, body: JSON.stringify(updates) });
   if (!res.ok) throw new Error(`dbPatch failed: ${res.status}`);
-  return res.json();
+  return updates;
 }
 
 async function joinPlayers(browser, roomCode, names) {

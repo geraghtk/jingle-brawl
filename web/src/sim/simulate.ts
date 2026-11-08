@@ -44,7 +44,7 @@ export interface GameResult {
 const NOW = 1_700_000_000_000;
 const sum = (g: Game) => Object.values(g.players || {}).reduce((n, p) => n + (p.chips || 0), 0);
 
-/** Apply a plan like the Firebase adapter: refused → throw; a lost claim → no change. */
+/** Apply a plan like the room server: refused → throw; a lost claim → no change. */
 function apply(g: Game, plan: Plan): Game {
   if (plan.error) throw new Error(`refused: ${plan.error}`);
   if (plan.claim && getPath(g, plan.claim.path) != null) return g;

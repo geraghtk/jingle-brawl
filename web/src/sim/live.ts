@@ -65,7 +65,7 @@ export class LiveTable {
   readonly avatars: AvatarPicks = {};                // who picked which avatar as they joined
   private t0 = Date.now();
   private lastKey = '';
-  private H: any;                                    // e2e/helpers.js (emulator REST, setup)
+  private H: any;                                    // e2e/helpers.js (debug API, setup)
 
   private constructor(private o: LiveOptions) {
     this.physics = new Physics(o.seed, o.people);

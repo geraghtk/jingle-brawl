@@ -1,7 +1,7 @@
 # Agent play-testing harness
 
 Persona agents play **real** games: the real `host.html` and one real `player.html` per
-agent, in a browser, against the local emulators. Each agent reads only what its player
+agent, in a browser, against the room server. Each agent reads only what its player
 could see, decides in character, and clicks the same buttons a person would. A referee
 drives the host (Draw, Reveal, Start, and declaring duel winners by fair coin flip).
 
@@ -21,17 +21,17 @@ npm run agents -- --personas         # list the cast
 npm run test:agents                  # persona unit tests
 ```
 
-It starts the page server and the emulators if they aren't running, and stops them
+It starts the app and the room server (`npm run dev`) if they aren't running, and stops them
 afterwards. Options are documented at the top of `play.js`.
 
 ## Playing with the agents (join mode)
 
 You host and play a phone; agents fill the other seats.
 
-1. `npm run emulator`, and the app: `npm run dev` (:5173).
+1. The app and the room server: `npm run dev` (:5173).
 2. Open `http://localhost:5173/host.html`, create a game, note the room code.
 3. Your phone: a tab on the **same computer** at `http://localhost:5173/player.html?room=CODE&testId=1`
-   (the local emulators are only reachable from this machine).
+   (the agents read the room through the server's debug API, which answers this machine only).
 4. `npm run agents:join ABCD` with your room code.
    A window streams their phones and thoughts. More options (`--players N`, default 4;
    `--lineup a,b,c`) need `node agents/play.js --watch --phones http://localhost:5173 --join ABCD …`,

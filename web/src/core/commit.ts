@@ -1,6 +1,5 @@
 // Committing a plan to a game in memory: the one place claim semantics live (the room server,
-// the simulator and the tests all commit through here; the Firebase adapter does the same with a
-// transaction for the claim).
+// the simulator and the tests all commit through here).
 import { applyUpdates, getPath } from './tx';
 import type { Game, Plan } from './types';
 

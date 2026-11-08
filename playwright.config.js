@@ -5,13 +5,8 @@ const { defineConfig, devices } = require('@playwright/test');
 // The app (web/) is built fresh and served by `vite preview` on :4173. BASE_URL=… points the
 // suite at something already running instead (e.g. the dev server on :5173).
 const BASE = process.env.BASE_URL || 'http://localhost:4173';
-// The screens talk to the room server, which serves the build itself with its test-only debug
-// API (no emulators). TRANSPORT=firebase (npm run test:e2e:firebase): Firebase and its emulators.
-const ON_SERVER = process.env.TRANSPORT !== 'firebase';
-
 module.exports = defineConfig({
   testDir: './e2e',
-  globalSetup: require.resolve('./e2e/global-setup.js'),
   fullyParallel: false, // Run tests sequentially (multi-user flows share Firebase state)
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -26,25 +21,11 @@ module.exports = defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
-  webServer: process.env.CI ? undefined : ON_SERVER ? [{
+  // The room server serves the fresh build itself, with its test-only debug API (this machine only).
+  webServer: process.env.CI || process.env.BASE_URL ? undefined : [{
     command: 'npm run build && node dist-server/index.mjs --port 4173 --host 127.0.0.1 --db :memory: --debug-api',
     url: 'http://localhost:4173/healthz',
-    reuseExistingServer: false,
+    reuseExistingServer: false, // always test a fresh build
     timeout: 120000,
-  }] : [
-    ...(process.env.BASE_URL ? [] : [{
-      command: 'npm run build:firebase-mode && npm run preview',
-      url: 'http://localhost:4173/host.html',
-      reuseExistingServer: false, // always test a fresh build
-      timeout: 120000,
-    }]),
-    {
-      // Local RTDB + Auth emulators — pages on localhost connect automatically
-      // (see web/src/firebase/app.ts). Requires Java 21+.
-      command: 'firebase emulators:start --only database,auth --project jingle-brawl-e8308',
-      url: 'http://127.0.0.1:9000/.json?ns=jingle-brawl-e8308-default-rtdb',
-      reuseExistingServer: !process.env.CI,
-      timeout: 60000,
-    },
-  ],
+  }],
 });

@@ -22,7 +22,6 @@ export default defineConfig({
       output: {
         // Libraries change rarely: their own chunks stay cached across app deploys
         manualChunks(id) {
-          if (/node_modules[\/](firebase|@firebase)[\/]/.test(id)) return 'firebase';
           if (/node_modules[\/](react|react-dom|scheduler)[\/]/.test(id)) return 'react';
         },
       },

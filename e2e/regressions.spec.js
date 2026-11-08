@@ -1,7 +1,7 @@
 // @ts-check
 // Regression tests for bugs found in the 2026-10 full code review.
 //
-// Each test drives a real host + phones on the RTDB emulator and asserts the
+// Each test drives a real host + phones on the room server and asserts the
 // behaviour the rules (Jingle Brawl V2.md) or the UI promise. They were written
 // to FAIL against the pre-fix code, then the fixes were made.
 const { test, expect } = require('@playwright/test');
@@ -1029,21 +1029,21 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test('a failed anonymous sign-in is retried, so Join still works instead of hanging', async ({ browser }) => {
+  test('a dropped first connection is retried, so Join still works instead of hanging', async ({ browser }) => {
     const { hostCtx, roomCode } = await H.createGame(browser);
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {
       const phone = await ctx.newPage();
       const errors = [];
       phone.on('pageerror', (e) => errors.push(e.message));
-      // A busy emulator / flaky network: the first sign-up attempt fails
-      let failed = 0;
-      await phone.route('**/accounts:signUp*', (route) => (failed++ === 0 ? route.abort('failed') : route.continue()));
+      // A busy server / flaky Wi-Fi: the phone's first connection to the room drops at once
+      let tries = 0;
+      await phone.routeWebSocket(/\/ws$/, (ws) => { if (tries++ === 0) ws.close(); else ws.connectToServer(); });
       await phone.goto(`${H.PLAYER_BASE}/player.html?room=${roomCode}&testId=7&name=Dave`);
       await phone.getByRole('button', { name: /Join Game/i }).click();
       await expect(phone.locator('#game-screen')).toBeVisible({ timeout: 10000 });
       await expect(phone.locator('#display-name')).toHaveText('Dave');
-      expect(failed).toBeGreaterThan(1);
+      expect(tries).toBeGreaterThan(1);
       expect(errors).toEqual([]);
     } finally {
       await hostCtx.close();

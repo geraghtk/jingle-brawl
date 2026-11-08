@@ -45,31 +45,26 @@ Other ways to simulate multiple devices:
 ## Automated E2E (Playwright)
 
 Automated multi-user flows run with Playwright. Each "user" gets an isolated browser
-context, so one run drives a host + several phones. Everything runs against the **local
-Firebase emulators** (Realtime Database :9000 + Auth :9099) with `database.rules.json`
-enforced — tests never touch production data or create real anonymous users.
+context, so one run drives a host + several phones. Playwright builds the app and the
+room server serves it (`--db :memory: --debug-api`), so every run starts clean.
 
 ### Setup
 
 ```bash
 npm install
 npx playwright install chromium
-# Java 21+ is required by the Firebase emulators
 ```
 
 ### Run Tests
 
 ```bash
 npm run test:e2e          # everything, headless: builds, then the room server serves it (--db :memory: --debug-api)
-npm run test:e2e:firebase # the same suite on Firebase + emulators (until Firebase is removed)
 npm run test:flows        # just the game-flow permutations, list output
 npm run test:e2e:ui       # visual debugging
 npm run test:e2e:headed   # watch the browsers
 npx playwright test -g "Draw Off"   # one test by name
 ```
 
-`e2e/global-setup.js` waits until both emulators answer before any test starts.
-Keep the emulators up between runs with `npm run emulator` (Playwright reuses them).
 
 ### What's Covered
 
@@ -83,7 +78,7 @@ Keep the emulators up between runs with `npm run emulator` (Playwright reuses th
 Tests assert **invariants** (`invariantErrors()` in `e2e/helpers.js`: chips never
 negative, gift ↔ owner consistent both ways, no player holds 2 gifts, zero page errors)
 rather than encoding expected chip totals. `dbGet` / `dbPut` / `dbPatch` read and inject
-emulator state as admin (`Authorization: Bearer owner`) for setups that clicking can't
+state through the server's debug API (this machine only) for setups that clicking can't
 reach quickly (e.g. an endgame with a Misfit pile).
 
 **Rule:** every bug fix or new code path ships with a test that fails without it.
@@ -91,7 +86,6 @@ reach quickly (e.g. an endgame with a Misfit pile).
 ### Other test suites
 
 ```bash
-cd functions && npm test                      # Cloud Function reply parsing (node --test)
 python -m unittest discover -s tests          # ai_art_critic.py parsing (needs its requirements)
 ```
 
@@ -105,8 +99,7 @@ missing buttons and invariant breaks are reported with screenshots. See
 
 ### Requirements
 
-- Playwright builds the app and serves it with `vite preview` on :4173
-- Only for test:e2e:firebase: Firebase CLI + Java 21+ for the emulators
+- Node 22.5+ (the room server uses `node:sqlite`); Playwright serves everything on :4173
 
 ## Logic-Only Testing
 

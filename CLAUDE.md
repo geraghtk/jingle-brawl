@@ -12,14 +12,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install                      # Playwright
 npm run dev                      # the room server (:8787, rooms.db) + the app with hot reload (:5173, phones on Wi-Fi too)
 npm run server -- --db :memory:  # the room server alone (TS via vite-node)
-npm run emulator                 # Firebase emulators, only for the Firebase transport being retired (needs Java 21+)
 npm run build && npm start       # build the app + the server bundle (dist-server/), run it (rooms in rooms.db)
 
 npm run test:e2e                 # full Playwright suite on the room server (builds, serves, --debug-api)
-npm run test:e2e:firebase        # the same suite on Firebase + emulators (until Firebase is removed)
 npm run test:flows               # game-flow permutations only
 npm run test:e2e:ui / :headed    # visual debugging
-cd functions && npm test         # Cloud Function parser unit tests
 python -m unittest discover -s tests   # ai_art_critic.py unit tests
 npm run test:unit                # rules engine + economics (vitest: web/src/core, web/src/sim)
 npm run analyze:economics        # game-theory report: deviation matrix, chip flows (see ECONOMICS.md)
@@ -33,9 +30,7 @@ npx vite-node web/src/sim/table-bridge.ts       # the table over JSON lines (sho
 
 python ai_art_critic.py          # optional local AI critic (Ollama llava / OpenAI) on :5050
 
-firebase deploy --only database  # security rules
-firebase deploy --only functions # AI critique cloud functions
-firebase deploy --only hosting
+npm run build && npm start       # production: one Node process serves the app and the rooms (deploy plan: ARCHITECTURE.md)
 ```
 
 ## Local Development
@@ -44,27 +39,25 @@ firebase deploy --only hosting
 - Host: `http://localhost:5173/host.html` (the lobby's join link and QR code use this PC's Wi-Fi address, so phones can scan it)
 - Player tabs: `http://localhost:5173/player.html?room=ABCD&testId=1&name=Alice`
 
-`?testId=N` isolates localStorage, so one browser can simulate many players. The screens talk to the room server by default; `?transport=firebase` (or `vite --mode firebase`) uses Firebase and its emulators until Firebase is removed.
+`?testId=N` isolates localStorage, so one browser can simulate many players.
 
 ## Architecture
 
-**Stack:** React 18 + TypeScript + Vite (`web/`: entries `web/host.html`, `web/player.html`, static files in `web/public` incl. the rule pages), Firebase Realtime Database (modular SDK) + Anonymous Auth, Cloud Functions (Node 22) for production AI critique, optional local Flask server for AI critique. The original vanilla pages were retired on 2026-11-07. Moving to an own Node room server (server-authoritative; plan in `ARCHITECTURE.md`).
+**Stack:** React 18 + TypeScript + Vite (`web/`: entries `web/host.html`, `web/player.html`, static files in `web/public` incl. the rule pages) and our own Node room server (`server/`: WebSockets, SQLite via `node:sqlite`, HMAC session tokens), which is the referee and serves the built app. Optional local Flask critic for AI critique. Firebase and the original vanilla pages were retired on 2026-11-07 (`ARCHITECTURE.md`).
 
 **Key files:**
 - `web/src/core/` — the rules engine, pure: actions are `(game, …) => Plan` built with `Tx` (`tx.ts`); `actions.ts`, `duel.ts`, `admin.ts`, `voting.ts`, `party.ts`/`partyflow.ts` (Sketch-Off + Whack-an-Elf), `duelgame.ts` (duel picker, wheel, in-app duel games), `scoring.ts` (Party Score, spectator bets), `settings.ts` (`DEFAULTS`, `config()`), `rules.ts` (target helpers)
 - `web/src/host/` — host/TV screen (`TurnPanel.tsx`, `Sidebar.tsx` admin, `PartyPanel.tsx`, `DuelModal.tsx`), `useHostAutomation.ts` arms the `hostAuto` timers
 - `web/src/player/` — phone: join/rejoin, sealed bids (`BidPanel.tsx`), opener choices and duels (`StatusCard.tsx`), reprisals, party games (`PartyCard.tsx`), votes
-- `web/src/firebase/` — `app.ts` (config, emulator routing, auth), `game.ts` (`useGame`, `applyPlan`, `useServerOffset`)
+- `web/src/net/` — the screens' side of the room server: `client.ts` (`RoomClient`), `hooks.tsx` (`useRoom`, `useServerOffset`), `api.ts` (create / lobby / join), `protocol.ts`, `lan.ts` (the TV's Wi-Fi join link)
 - `web/src/ui/` — shared UI: `mascots.ts` (Santa / elf / reindeer pop-ups, `?mascots=0` disables), `whack.tsx`, `icons.tsx`, `chips.ts`, `notes.tsx` (duel help text)
-- `database.rules.json` — security rules (auth required; players own their node via `ownerUid`, host via `hostUid`)
-- `functions/index.js` — `critiqueDrawing` (OpenAI) and `critiqueDrawingGemini` (Vertex AI via `@google/genai`); model IDs from `functions/.env`
 - `ai_art_critic.py` — local Flask critic: `/critique`, `/witty-verdict` (Draw Off verdict), `/health`
 - `jingle_brawl_env.py` — Deep RL self-play simulation for balance testing
-- `e2e/` — Playwright specs + `helpers.js` (invariants, emulator REST helpers)
+- `e2e/` — Playwright specs + `helpers.js` (invariants; `dbGet`/`dbPut`/`dbPatch` through the server's debug API)
 - `agents/` — persona-agent play-testing harness (playability + settings/balance sweeps); see `agents/README.md`
 - `server/` — the room server (own `tsconfig.json`: no DOM, so `web/src/core` must stay DOM-free). `room/actor.ts` is one room's referee (intent → checks → `dispatch` → commit → save → timers from `hostAuto` → each screen its `projectGame` view), runtime-agnostic (Clock/Store/Conn); `room/rooms.ts` the registry + token secret; `store/` SQLite (`node:sqlite`) or memory; `node/` HTTP API (`/api/rooms`, join, lobby), WebSocket (`/ws`), static `dist/`, and `--debug-api` (localhost-only test helpers). Wire types: `web/src/net/protocol.ts`. Screens talk to it through `web/src/net/` (`RoomClient`, `useRoom`; first a whole view, then only what changed, `core/diff.ts`).
 
-**Real-time data flow:** host creates `games/{roomCode}` (claimed atomically by transaction) → all clients attach listeners → state changes propagate. Key paths: `players`, `gifts`, `currentTurn` (turn state machine), `phase`, `settings`, `minigame`, `lastDuel` (outcome the host publishes so phones show the right verdict).
+**Real-time data flow:** the host creates a room (`POST /api/rooms` → code + host token), phones join (`/join` → player token), every screen opens one WebSocket and sends intents; the room applies them and sends each screen its own view (then only what changed). Key paths: `players`, `gifts`, `currentTurn` (turn state machine), `phase`, `settings`, `minigame`, `lastDuel` (outcome the host publishes so phones show the right verdict).
 
 **Game state machine:**
 ```
@@ -74,7 +67,7 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 **Conventions that matter:**
 - A Misfit-pile gift has `ownerId: 'misfit'` (+ `misfitOrder` for FIFO). Never `null`.
 - "In the bag" = player has no `giftId`; there is no separate bag list.
-- **Buttons send intents, never plans:** `send({ type: ... })` (`core/intents.ts`). An intent is a table offer (`core/table.ts`: `offers()` says who may press it and when, `perform()` builds the plan) or a host `admin_*` intent; `dispatch()` refuses anything not on that person's screen. A new button = an offer + a `perform` case (+ its shape in `parseIntent`). `core/boundary.test.ts` fails if a screen imports an action. The room server applies them (`server/`); on the Firebase transport the page still does.
+- **Buttons send intents, never plans:** `send({ type: ... })` (`core/intents.ts`). An intent is a table offer (`core/table.ts`: `offers()` says who may press it and when, `perform()` builds the plan) or a host `admin_*` intent; `dispatch()` refuses anything not on that person's screen. A new button = an offer + a `perform` case (+ its shape in `parseIntent`). `core/boundary.test.ts` fails if a screen imports an action. The room server applies them (`server/`).
 - One commit path for plans: `core/commit.ts` (claims), used by the tests, the simulator and (next) the room server.
 - Settings live in `games/{room}/settings`; read them through `config()` (`core/settings.ts`).
 - Actions that move chips claim a path first (`tx.claim(...)`, e.g. `currentTurn/resolvedBy` in `resolveDuel`): applied as a set-if-empty transaction, so a double-tap, a timer racing a button, or a second host tab can't charge/pay twice. New chip-moving actions should do the same.
@@ -114,4 +107,4 @@ Authoritative rules: `Jingle Brawl V2.md` (player-facing: `rules.html`, `quick-r
 
 ## Testing Notes
 
-Playwright runs sequentially (1 worker) against the room server (`--debug-api`; `TRANSPORT=firebase`: the emulators). Tests drive real host + phone pages and assert invariants (`e2e/helpers.js`). **Every bug fix or new code path must ship with a test that fails without it** (`e2e/regressions.spec.js` for fixes). See `TESTING.md`.
+Playwright runs sequentially (1 worker) against the room server (`--debug-api`). Tests drive real host + phone pages and assert invariants (`e2e/helpers.js`). **Every bug fix or new code path must ship with a test that fails without it** (`e2e/regressions.spec.js` for fixes). See `TESTING.md`.

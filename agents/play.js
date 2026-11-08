@@ -25,7 +25,7 @@
 //                      seats and leave the host page and your phone to you (--players = agent count, default 4)
 //   --phones URL       app the agents' phones load (default $PLAYER_BASE / $BASE_URL / the dev server :5173)
 //
-// Needs the app + room server (npm run dev); starts them if they aren't running (TRANSPORT=firebase: the emulators).
+// Needs the app + room server (npm run dev); starts them if they aren't running.
 
 const fs = require('fs');
 const path = require('path');
@@ -70,8 +70,6 @@ function parseArgs(argv) {
 
 const PAGES = () => (process.env.PLAYER_BASE || process.env.BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
 const PAGE_URL = () => `${PAGES()}/player.html`;
-const DB_URL = 'http://127.0.0.1:9000/.json?ns=jingle-brawl-e8308-default-rtdb';
-const AUTH_URL = 'http://127.0.0.1:9099/emulator/v1/projects/jingle-brawl-e8308/config';
 // Any answer means it is running (the database answers 401 at its root: the rules forbid reading it)
 const up = async (url) => { try { return (await fetch(url)).status < 500; } catch { return false; } };
 
@@ -86,16 +84,10 @@ async function ensureServers() {
       throw new Error(`Nothing is serving ${PAGES()} — start the app first`);
     }
   }
-  const firebase = process.env.TRANSPORT === 'firebase';
-  if (firebase && (!(await up(DB_URL)) || !(await up(AUTH_URL)))) {
-    console.log('Starting the Firebase emulators (database + auth)…');
-    started.push(spawn('firebase', ['emulators:start', '--only', 'database,auth', '--project', 'jingle-brawl-e8308'],
-      { cwd: root, stdio: 'ignore', shell: true }));
-  }
   const deadline = Date.now() + 90000;
-  for (const url of firebase ? [PAGE_URL(), DB_URL, AUTH_URL] : [PAGE_URL()]) {
+  for (const url of [PAGE_URL()]) {
     while (!(await up(url))) {
-      if (Date.now() > deadline) throw new Error(`Not reachable: ${url} (is Java 21+ / the Firebase CLI installed?)`);
+      if (Date.now() > deadline) throw new Error(`Not reachable: ${url} `);
       await new Promise((r) => setTimeout(r, 500));
     }
   }

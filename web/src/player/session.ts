@@ -1,7 +1,7 @@
 // The phone remembers which game it joined (per ?testId tab) so a refresh can rejoin.
 import { storageKey } from '../net/storage';
 
-/** token: the room server's session token (absent on Firebase). */
+/** token: the room server's session token. */
 export interface Session { room: string; playerId: string; name: string; token?: string }
 
 const K = { room: 'jingleBrawl_player_room', id: 'jingleBrawl_player_id', name: 'jingleBrawl_player_name', token: 'jingleBrawl_player_token' };

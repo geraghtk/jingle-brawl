@@ -6,7 +6,7 @@
 // player.giftId <-> gift.ownerId consistent, the turn always resolves, no page
 // errors). Ambiguous chip splits (Santa Tax) are printed, not asserted.
 //
-// Each test is one fresh emulator room with 3 players.
+// Each test is one fresh room with 3 players.
 const { test, expect } = require('@playwright/test');
 const H = require('./helpers');
 

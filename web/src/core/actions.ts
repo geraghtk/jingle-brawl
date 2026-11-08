@@ -1,5 +1,5 @@
 // Every game action as a pure function: (game, …) → Plan (one atomic write + log lines).
-// Host and phones call the same functions; the Firebase layer applies the plan.
+// The room server runs these for every screen (core/intents.ts dispatch) and applies the plan.
 // Ported rule-for-rule from the original host.html / player.html.
 import { avatarOf, freeAvatar, isAvatar } from './avatars';
 import { config, minCost, partyGameFor, variableStartingChips } from './settings';

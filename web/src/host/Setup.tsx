@@ -8,8 +8,7 @@ import { Glyphs, Icon } from '../ui/icons';
 
 const PARTY = ['sketch_off', 'whack_elf'];
 const NL = '\n'; // the duel list is one per line
-const isProd = /\.(web\.app|firebaseapp\.com)$/.test(location.hostname);
-const DEFAULT_CRITIC = isProd ? 'https://us-central1-jingle-brawl-e8308.cloudfunctions.net/critiqueDrawingGemini' : 'http://localhost:5050';
+const DEFAULT_CRITIC = 'http://localhost:5050'; // the local critic (ai_art_critic.py)
 
 function Select({ id, label, hint, value, onChange, options }: {
   id: string; label: string; hint?: ReactNode; value: string; onChange: (v: string) => void; options: [string, string][];

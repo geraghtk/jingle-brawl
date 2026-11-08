@@ -22,7 +22,6 @@ same Wi-Fi can join). Rooms live in rooms.db. To simulate many players in one br
 
 ```bash
 npm run test:e2e                         # Playwright: host + phones end-to-end on the room server
-cd functions && npm test                 # Cloud Function parser tests
 python -m unittest discover -s tests     # local AI critic tests
 ```
 
@@ -35,35 +34,26 @@ plays every settings preset and writes a balance report. See [`agents/README.md`
 ## Runbook
 
 ### Game night (production)
-1. Open `https://<project>.web.app/host.html` on the big screen, choose settings, **Create New Game**.
-2. Players scan the QR code / open the join URL and enter a name. Start needs ≥ 2 players.
+1. On the PC by the TV: `npm run build && npm start`, open `http://localhost:8787/host.html`, choose settings, **Create New Game**.
+2. Players on the same Wi-Fi scan the QR code (it carries the PC's Wi-Fi address) and enter a name. Start needs ≥ 2 players.
 3. If a phone dies, the host has **Manual Override** under every waiting step, and the
    **Admin** tab (edit chips, move gifts, skip/reset a turn, undo the last duel).
-4. A refreshed host or phone offers **Rejoin** (state lives in Firebase).
+4. A refreshed host or phone offers **Rejoin** (rooms live in `rooms.db`; a restarted server picks them up).
 5. Tiebreakers: Sketch-Off and Whack-an-Elf need nothing extra (everyone plays on their phone; the host has
-   **Skip ahead** if someone stalls). AI Draw Off needs the critic URL in settings —
-   on Firebase Hosting it defaults to the `critiqueDrawingGemini` function.
+   **Skip ahead** if someone stalls).
 
 ### Deploying
-```bash
-firebase deploy --only database     # rules (database.rules.json) — test with the emulator first
-firebase deploy --only functions    # AI critic; set model IDs in functions/.env (see AI_ART_CRITIC.md)
-firebase deploy --only hosting
-```
-Pre-flight: `npm run test:e2e` green; Anonymous Auth enabled in the console; for
-functions, Blaze plan + Vertex AI API enabled (Gemini) or `OPENAI_API_KEY` secret set.
-After deploying functions, `GET https://us-central1-<project>.cloudfunctions.net/health`
-shows the models in use.
+One Node process serves the app and the rooms: `npm run build && npm start` (`--port`, `--db`, `JB_TOKEN_SECRET`).
+Hosting it online (HTTPS, a disk for `rooms.db`) is planned in `ARCHITECTURE.md`.
 
 ### Troubleshooting
 | Symptom | Fix |
 |---|---|
-| "Could not create a game" / `permission_denied` locally | emulators not running → `npm run emulator` |
-| Same in production | Anonymous sign-in disabled, or rules not deployed |
-| AI critic error in production | model ID retired → update `GEMINI_MODEL` in `functions/.env`, redeploy |
+| Phones can't open the join link | same Wi-Fi as the PC? Windows firewall allowing Node on private networks? |
+| "please reload: the game was updated" | the page is older than the server: reload it |
 | AI critic "Connection refused" locally | start `python ai_art_critic.py` (and `ollama serve`) |
 
 ## Project docs
 - [`CLAUDE.md`](CLAUDE.md) — architecture & conventions (start here when changing code)
 - [`CODE_REVIEW.md`](CODE_REVIEW.md) — review findings, fixed bugs, open roadmap, rules-vs-code decisions
-- [`FIREBASE_SETUP.md`](FIREBASE_SETUP.md) · [`AI_ART_CRITIC.md`](AI_ART_CRITIC.md) · [`GAME_FLOW_AUDIT.md`](GAME_FLOW_AUDIT.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`AI_ART_CRITIC.md`](AI_ART_CRITIC.md) · [`GAME_FLOW_AUDIT.md`](GAME_FLOW_AUDIT.md)

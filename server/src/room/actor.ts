@@ -234,7 +234,7 @@ export class RoomActor {
     return true;
   }
 
-  /** Debug API (tests): write paths directly, as the old emulator helpers did. Logged. */
+  /** Debug API (tests): write paths directly. Logged. */
   debugWrite(updates: Record<string, unknown>): void {
     const tx = new Tx(this.game);
     for (const [k, v] of Object.entries(updates)) tx.set(k, v);

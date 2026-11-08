@@ -2,7 +2,7 @@
 // Simulation Lab, Python) can seat its people at a game of Yule Duel. One request per line, one
 // reply per line. Two backends behind the same commands:
 //   engine  the real rules engine on a virtual clock (sim/table.ts): fast, seeded, replayable
-//   live    the real app in a browser against the emulators (sim/live.ts): real screens, real time
+//   live    the real app in a browser against the room server (sim/live.ts): real screens, real time
 //
 //   {"cmd": "new", "backend": "engine", "seed": 1, "settings": {}, "autoHost": true,
 //    "people": [{"id": "ada", "name": "Ada", "age": 12, "skills": {"duel": 0.7, "whack": 0.4, "sketch": 0.9}}]}

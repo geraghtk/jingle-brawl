@@ -8,7 +8,7 @@ const ROOT = resolve(__dirname, '../../..');
 
 const ORIGINAL_PAGES = [
   'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/JingleBrawlV2.html',
-  'Jingle Brawl V2.md', 'ai_art_critic.py', 'functions/index.js',
+  'Jingle Brawl V2.md', 'ai_art_critic.py',
   'web/host.html', 'web/player.html',
 ];
 

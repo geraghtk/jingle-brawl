@@ -3,37 +3,29 @@
 Where Jingle Brawl (Yuel Duel) is today, where it is going, and why. Decided 2026-11-07; the
 mini-game spec is `yule_duel_agent_spec_updated.md`.
 
-## Today
+## Before (until 2026-11-07)
 
 ```
 host.html (TV + host console, one page)        player.html (phones)
-        │  React + TS (web/src)                        │
         └──────── Firebase Realtime Database ──────────┘
                   games/{room}: whole game, world-readable,
                   mostly writable by any signed-in user
 ```
 
-- **Rules engine** `web/src/core`: pure. Actions are `(game, …) => Plan` built with `Tx`
-  (`tx.ts`); a Plan is a multi-path update plus an optional claim (set-if-empty guard).
-- **Who can press what**: `core/table.ts` `offers()` / `perform()` (the phone's buttons, the
-  host console incl. Manual Override).
-- **Automatic host steps**: `core/hostauto.ts` derives every timer from state (party-game
-  phases, duel vote, wheel, in-app duel winner, ties). The host tab arms them
-  (`host/useHostAutomation.ts`); the simulator runs them on a virtual clock (`sim/table.ts`).
-- **Transport**: `web/src/firebase/game.ts` (`useGame`, `applyPlan`, `useServerOffset`).
-- **Duel hand-off**: in-app duel games set `currentTurn/duelGameWinner`; the hostauto step calls
+What stopped this being a product: no secrets (any phone could read sealed bids, so a hidden
+timer or a challenge answer couldn't exist); any signed-in user could rewrite the game; the host
+tab was the referee and the only clock (close it and the game stalled); the TV and the host
+console were one page; open, paid AI-critic endpoints; no CI, staging, room cleanup or
+observability. The rules engine was already pure, which made the move cheap:
+
+- **Rules engine** `web/src/core`: actions are `(game, …) => Plan` built with `Tx` (`tx.ts`).
+- **Who can press what**: `core/table.ts` `offers()` / `perform()`; `core/intents.ts` adds the
+  host's admin intents, `parseIntent` (shape and bounds) and `dispatch`.
+- **Automatic steps**: `core/hostauto.ts` derives every timer from state.
+- **Duel hand-off**: duel games set `currentTurn/duelGameWinner`; a hostauto step calls
   `resolveDuel` (`core/duel.ts`), which moves chips and gifts once (claim `resolvedBy`).
 
-### What stops this being a product
-1. No secrets: every phone (and anyone with the room code) can read sealed bids; a hidden
-   timer or a challenge answer cannot exist.
-2. Client-authoritative writes: any signed-in user can rewrite the turn, gifts or mini-game.
-3. The host tab is the referee and the only clock: close it and the game stalls.
-4. The TV and the host console are one page.
-5. Open, paid AI-critic endpoints (no auth, CORS `*`, no rate limit). No CI, no staging, no
-   room cleanup, no observability.
-
-## Target
+## Now (S1-S7 done 2026-11-07)
 
 ```
 LOCAL (now)                          LATER (when chosen)
@@ -66,7 +58,14 @@ PC: node room server                 same server on Fly.io / Railway / Cloud Run
 - Sealed bids are hidden from everyone, the host included, until the reveal; the host has an
   audited "peek".
 - With `publicChips` off, others' chips are hidden until the game ends.
-- AI Draw Off stays, ported behind the server (keys on the server, host-only, rate-limited).
+- AI Draw Off comes back as an in-app duel game (the two duelists draw, the AI critic judges),
+  run by the server. Keys are BYO per room, held only in server memory (never in the game, the
+  database, logs or any view), rate-limited, forgotten at the game's end, after inactivity, on
+  request or on restart; a server env key can be a default. If the critic fails, the host picks
+  the winner (marked as a host decision); nobody wins by default.
+- Hosting: Cloudflare's free tier (a Durable Objects adapter for the same room actor) is the
+  proposed hosted target, after a load test of its free limits; the Node server stays the
+  local/LAN version.
 - Pass the Gremlin ships as an in-app duel game: 2 players direct duel; 3+ everyone plays and the
   two duelists are resolved (duelist-only sudden death if a bystander is doomed).
 - "Yuel Duel" is the brand (the logo says so), not a typo.
@@ -86,9 +85,11 @@ PC: node room server                 same server on Fly.io / Railway / Cloud Run
 6. `game.minigame` is already a union (PartyGame | DrawOff); the new runtime gets its own field.
 
 ## Roadmap
-Plan: P0.1 retire the original pages → S1 intents + single commit path → S2
-per-viewer projections → S3 room server (P0.1-S3 done 2026-11-07) → S4 client transport → S5 tests on the server → S6
-flip default + LAN join QR → S7 remove Firebase → S8 separate TV view → M1 mini-game runtime
-contracts → M2 Pass the Gremlin. Production track alongside: deploy (Docker + Fly.io), CI, abuse
-limits, room TTL, observability, privacy page, reconnect UX. Ring Toss (M4) and the Gift Conveyor
-(M5) come after, with their own approval.
+Done 2026-11-07: P0.1 retire the original pages → S1 intents + single commit path → S2
+per-viewer projections → S3 room server → S4 client transport → S5 suite on the server → S6
+server by default, `npm run dev`, Wi-Fi join link → S7 Firebase removed.
+
+Next: AI Draw Off as a duel game (BYO keys) → S8 separate TV view → M1 mini-game runtime
+contracts → M2 Pass the Gremlin. Production track alongside: deploy (Cloudflare free tier or a
+small VPS), CI, abuse limits, room TTL, observability, privacy page, reconnect UX. Ring Toss (M4)
+and the Gift Conveyor (M5) come after, with their own approval.

@@ -1,14 +1,10 @@
-// Phone app: join / rejoin, then the game screen for this player. On the room server, joining
-// returns a session token; on Firebase the phone writes itself into the game.
-import { onDisconnect, set } from 'firebase/database';
+// Phone app: join / rejoin, then the game screen for this player. Joining returns a session
+// token from the room server; a refresh rejoins with it.
 import { useEffect, useState } from 'react';
-import { cleanName, joinPlayer } from '../core/actions';
-import { AVATARS, avatarOf } from '../core/avatars';
-import { signedIn } from '../firebase/app';
-import { applyPlan, gameRef, readGame, useGame } from '../firebase/game';
+import { cleanName } from '../core/actions';
+import { AVATARS } from '../core/avatars';
 import { joinRoom, lobby } from '../net/api';
 import { OffsetProvider, useRoom } from '../net/hooks';
-import { onServer } from '../net/transport';
 import { GameScreen } from './GameScreen';
 import { PlayerProvider, useToast } from './PlayerContext';
 import { clearSession, loadSession, saveSession } from './session';
@@ -27,12 +23,6 @@ function Hero() {
   );
 }
 
-async function markConnected(s: Session) {
-  const ref = gameRef(s.room, `players/${s.playerId}/connected`);
-  await set(ref, true);
-  onDisconnect(ref).set(false);
-}
-
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [saved, setSaved] = useState<Session | null | undefined>(undefined); // undefined = checking
@@ -42,16 +32,9 @@ export function App() {
   useEffect(() => {
     const s = loadSession();
     if (!s) { setSaved(null); return; }
-    if (onServer) {
-      // the room checks the token when the phone connects; here: is the room still there?
-      lobby(s.room).then((l) => { if (l.exists && s.token) setSaved(s); else { clearSession(); setSaved(null); } })
-        .catch(() => setSaved(null));
-      return;
-    }
-    readGame(s.room).then((g) => {
-      if (g?.players?.[s.playerId]) setSaved(s);
-      else { clearSession(); setSaved(null); }
-    });
+    // the room checks the token when the phone connects; here: is the room still there?
+    lobby(s.room).then((l) => { if (l.exists && s.token) setSaved(s); else { clearSession(); setSaved(null); } })
+      .catch(() => setSaved(null));
   }, []);
 
   async function join(room: string, rawName: string, age: number | null, avatar: string | null = null) {
@@ -59,36 +42,18 @@ export function App() {
     const name = cleanName(rawName);
     if (room.length !== 4) return toast('Please enter a valid 4-letter room code');
     if (!name) return toast('Please enter your name');
-    if (onServer) {
-      try {
-        const { pid, token } = await joinRoom(room, { name, age, avatar });
-        const s = { room, playerId: pid, name, token };
-        saveSession(s);
-        setSession(s);
-        toast('Joined the game! 🎄');
-      } catch (e) {
-        toast((e as Error).message || 'Could not join. Please try again.');
-      }
-      return;
+    try {
+      const { pid, token } = await joinRoom(room, { name, age, avatar });
+      const s = { room, playerId: pid, name, token };
+      saveSession(s);
+      setSession(s);
+      toast('Joined the game! 🎄');
+    } catch (e) {
+      toast((e as Error).message || 'Could not join. Please try again.');
     }
-    const game = await readGame(room);
-    if (!game) return toast('Game not found! Check the room code.');
-    const uid = await signedIn();
-    if (!uid) return toast('Could not sign in. Check your connection and try again.');
-    const playerId = `player_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const joined = await applyPlan(room, joinPlayer(game, { playerId, name, uid, now: Date.now(), age, avatar })).catch(() => false);
-    if (!joined) return toast('Could not join. Please try again.');
-    const s = { room, playerId, name };
-    saveSession(s);
-    onDisconnect(gameRef(room, `players/${playerId}/connected`)).set(false);
-    setSession(s);
-    toast('Joined the game! 🎄');
   }
 
-  async function rejoin(s: Session) {
-    if (onServer) { setSession(s); toast('Reconnected! 🎄'); return; }
-    await signedIn();
-    await markConnected(s);
+  function rejoin(s: Session) {
     setSession(s);
     toast('Reconnected! 🎄');
   }
@@ -96,7 +61,7 @@ export function App() {
   return (
     <>
       <div className="container">
-        {session ? (onServer ? <ServerPlaying session={session} toast={toast} /> : <Playing session={session} toast={toast} />)
+        {session ? <Playing session={session} toast={toast} />
           : saved === undefined ? null
           : saved ? <Rejoin s={saved} onRejoin={() => rejoin(saved)} onOther={() => { clearSession(); setSaved(null); }} />
           : <Join onJoin={join} />}
@@ -119,10 +84,7 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
   useEffect(() => {
     if (room.trim().length !== 4) { setTaken(new Set()); return; }
     let live = true;
-    const takenNow = onServer
-      ? lobby(room.trim()).then((l) => l.avatars || [])
-      : readGame(room.trim()).then((g) => Object.values(g?.players || {}).map((p) => avatarOf(p.name, p.avatar).id));
-    takenNow.then((list) => {
+    lobby(room.trim()).then((l) => l.avatars || []).then((list) => {
       if (!live) return;
       const ids = new Set(list);
       setTaken(ids);
@@ -190,25 +152,9 @@ function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; on
   );
 }
 
+/** This phone's own view of the room, live. A refused token means the phone isn't in that game
+ *  any more: back to the join screen. */
 function Playing({ session, toast }: { session: Session; toast: (m: string) => void }) {
-  const { game } = useGame(session.room);
-  if (!game) return null;
-  const leave = () => {
-    if (!confirm('Leave this game?')) return;
-    set(gameRef(session.room, `players/${session.playerId}/connected`), false);
-    clearSession();
-    location.reload();
-  };
-  return (
-    <PlayerProvider room={session.room} me={session.playerId} game={game} toast={toast}>
-      <GameScreen onLeave={leave} />
-    </PlayerProvider>
-  );
-}
-
-/** On the room server: this phone's own view of the room, live. A refused token means the
- *  phone isn't in that game any more: back to the join screen. */
-function ServerPlaying({ session, toast }: { session: Session; toast: (m: string) => void }) {
   const { client, game, offset, fatal } = useRoom(session.room, session.token);
   useEffect(() => { if (fatal) clearSession(); }, [fatal]);
   if (fatal) {
