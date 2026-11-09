@@ -27,7 +27,7 @@ export type Intent = Offer | AdminIntent;
 
 // --- parsing ------------------------------------------------------------------------------------
 
-type Field = 'id' | 'id?' | 'idOrNull' | 'text' | 'text?' | 'int' | 'int?' | 'bool?' | 'drawing?' | 'path' | 'action';
+type Field = 'id' | 'id?' | 'idOrNull' | 'text' | 'text?' | 'int' | 'int?' | 'bool?' | 'drawing?' | 'path' | 'action' | 'ids' | 'ids?' | 'mode?';
 const INT: Record<string, [number, number]> = {
   amount: [0, 999], index: [0, 50], v: [0, 1e9], score: [-1000, 1000], chips: [0, 9999], naughtyLevel: [0, 20], seed: [-(2 ** 31), 2 ** 32],
 };
@@ -41,6 +41,7 @@ const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   host_spin: {}, close_voting: {}, start_duel_app: {}, duel_winner: { id: 'id' }, skip_party: {}, endgame: {},
   reveal_auction: {}, skip_auction: {}, auction_duel: {}, complete_drawoff: {}, end: {},
   arena_pause: {}, arena_resume: {}, arena_cancel: {}, arena_no_contest: {},
+  lab_start: { gameId: 'id', players: 'ids', mode: 'mode?', duelists: 'ids?' }, lab_end: {},
   admin_set_chips: { pid: 'id', chips: 'int' }, admin_add_gift: { name: 'text', ownerId: 'id' },
   admin_save_gift: { giftId: 'id', name: 'text?', naughtyLevel: 'int', ownerId: 'idOrNull' },
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },
@@ -64,6 +65,8 @@ function fieldOk(kind: Field, key: string, v: unknown): boolean {
     case 'bool': return typeof v === 'boolean';
     case 'drawing': return typeof v === 'string' && v.length <= MAX_DRAWING && /^data:(image\/(png|jpeg|webp)(;base64)?)?,/.test(v);
     case 'path': return v === 'steal' || v === 'auction';
+    case 'ids': return Array.isArray(v) && v.length >= 1 && v.length <= 50 && v.every((x) => typeof x === 'string' && ID.test(x));
+    case 'mode': return typeof v === 'string' && ['direct_duel', 'free_for_all', 'party_with_duelists', 'captain_teams', 'cooperative'].includes(v);
     // a mini-game's own action: a small plain object (the game validates what's inside)
     case 'action': return !!v && typeof v === 'object' && !Array.isArray(v) && JSON.stringify(v).length <= 2000;
     default: return false;

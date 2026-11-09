@@ -108,7 +108,10 @@ Done 2026-11-08, M5: the Great Gift Conveyor, game #3: captain-led teams (`engin
 phone-to-phone production line (`engines/workflow.ts`), the winning captain wins the duel, reward
 recommendations applied as Party points by the hand-off.
 
+Done 2026-11-08: the Game Lab: from the lobby the host tries any registered mini-game on the real
+phones and TV (chosen players, mode, duelists), practice only, no gift engine involved
+(`minigames/lab.ts`).
+
 Next: choose the hosting (Cloudflare free tier via a Durable Objects adapter, or one small VM/Fly
-machine with the Dockerfile); M3 leftovers after real-phone playtests (tuning the doom's skew
-towards slow players, device testing); then, with approval, M4 Reindeer Ring Toss and M5 the
-Gift Conveyor.
+machine with the Dockerfile); real-phone playtests in the Game Lab to tune the games (the doom's
+skew towards slow players, Ring Toss flick and peg sizes, the Conveyor's pace).

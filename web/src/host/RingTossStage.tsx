@@ -21,6 +21,12 @@ export interface RingView {
   me?: string; myLeft?: number; myScore?: number; nextAt?: number;
 }
 
+/** A view as it arrives: empty lists and maps don't travel (the finished game has no rings left). */
+export const ringView = (raw: unknown): RingView => {
+  const v = (raw || {}) as RingView;
+  return { ...v, pool: v.pool || [], left: v.left || {}, scores: v.scores || {}, throws: v.throws || [], pegs: v.pegs || [] };
+};
+
 export const RING_COLORS = ['#ff3366', '#18b88a', '#8a7bff', '#ffb000', '#38b6e6', '#ff7a59', '#c04fd6', '#2f6fde', '#7cc242', '#e0457b', '#00a3a3', '#9b6b3c'];
 export const ringColor = (participants: string[], pid: string) => RING_COLORS[Math.max(0, participants.indexOf(pid)) % RING_COLORS.length];
 
@@ -102,7 +108,7 @@ export function RingTossStage() {
   const { game, tv } = useHost();
   const offset = useServerOffset();
   const av = game.arenaView!;
-  const v = av.view as RingView;
+  const v = ringView(av.view);
   const [now, setNow] = useState(() => Date.now() + offset);
   useEffect(() => {
     let raf = 0;

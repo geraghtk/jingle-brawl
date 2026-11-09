@@ -113,6 +113,8 @@ export interface Turn {
   duelGameWinner?: PlayerId;       // an in-app duel game decided it; the host resolves
   duelGameOutcome?: { status: 'no_contest'; reason: string } | null; // it couldn't decide: the host picks
   arenaHandedOff?: string;         // a runtime mini-game handed its result back (once)
+  /** A Game Lab game in the lobby (minigames/lab.ts): practice, nothing at stake; how it was set up. */
+  lab?: { gameId: string; players: PlayerId[]; mode: string; duelists?: PlayerId[] };
   // double-tap guards (claimTurn)
   duelStartedBy?: PlayerId;
   resolvedBy?: PlayerId;

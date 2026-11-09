@@ -78,7 +78,8 @@ export function hostAuto(game: Game): AutoStep[] {
   if (arena?.lifecycle === 'active') {
     for (const d of arena.deadlines) out.push({ key: `arena|${arena.instanceId}|${d.id}|${d.at}`, at: d.at, quiet: true, run: (g, ctx) => arenaDeadline(g, d.id, ctx) });
   }
-  if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled')) {
+  // (a Game Lab game keeps its result on the screens until the host plays again or leaves)
+  if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled') && !t?.lab) {
     out.push({ key: `arena|${arena.instanceId}|handoff`, at: 0, quiet: true, run: (g) => handoff(g) });
   }
 

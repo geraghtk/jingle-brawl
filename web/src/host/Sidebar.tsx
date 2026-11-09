@@ -7,6 +7,7 @@ import { giftless, wrappedGifts } from '../core/rules';
 import { MISFIT } from '../core/types';
 import { useHost } from './HostContext';
 import { useModal } from './Modal';
+import { LabModal } from './LabModal';
 import { Glyphs, Icon } from '../ui/icons';
 import '../ui/connection.css';
 
@@ -149,6 +150,9 @@ function GameTab({ onExit }: { onExit: () => void }) {
         {game.phase === 'lobby' ? (
           <div id="lobby-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', margin: '0.25rem 0' }}>Waiting in the lobby. Start the game from the room-code card.</p>
+            <button className="btn btn-secondary" data-testid="lab-open" disabled={!!game.currentTurn} onClick={() => setModal(<LabModal onClose={() => setModal(null)} />)}>
+              <Glyphs>🧪 Game Lab: try a mini-game</Glyphs>
+            </button>
           </div>
         ) : (
           <div id="game-controls" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

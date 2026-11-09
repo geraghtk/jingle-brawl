@@ -7,7 +7,7 @@ import type { SwipePath } from '../core/minigames/engines/gesture';
 import { miss } from '../core/minigames/engines/targets';
 import { RingScene } from '../host/RingTossStage';
 import type { RingView } from '../host/RingTossStage';
-import { ringColor } from '../host/RingTossStage';
+import { ringColor, ringView } from '../host/RingTossStage';
 import { useServerOffset } from '../net/hooks';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
@@ -20,7 +20,7 @@ export function RingTossCard() {
   const { game, me, send } = usePlayer();
   const offset = useServerOffset();
   const av = game.arenaView!;
-  const v = av.view as RingView;
+  const v = ringView(av.view);
   const [now, setNow] = useState(() => Date.now() + offset);
   const [buttons, setButtons] = useState(false);
   const [error, setError] = useState('');

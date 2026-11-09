@@ -470,6 +470,22 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       const info = duelAppInfo(av?.gameId);
       const paused = av?.lifecycle === 'paused';
       const over = av?.lifecycle === 'completed' || av?.lifecycle === 'cancelled';
+      if (t.lab) {
+        // the Game Lab (lobby): practice; the result stays until the host plays again or leaves
+        const lab = t.lab;
+        return {
+          badge: `🧪 GAME LAB: ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
+          action: over ? `Practice over: ${av?.result?.reason || 'done'}` : `${lab.players.map((id) => nm(game, id)).join(', ')} ${lab.players.length === 1 ? 'is' : 'are'} practising: nothing is won or lost`,
+          details: <ArenaStage />,
+          buttons: <>
+            {over && <button className="btn btn-primary" data-testid="lab-again" onClick={() => send({ type: 'lab_start', gameId: lab.gameId, players: lab.players, mode: lab.mode, ...(lab.duelists ? { duelists: lab.duelists } : {}) })}>🔁 Play again</button>}
+            {!over && (paused
+              ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
+              : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>)}
+            <button className="btn btn-secondary" data-testid="lab-end" onClick={() => send({ type: 'lab_end' })}>🚪 Back to the lobby</button>
+          </>,
+        };
+      }
       return {
         badge: `${info?.emoji ?? '🎮'} ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
         action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}: ${info?.label ?? 'a mini-game'} decides it`,
