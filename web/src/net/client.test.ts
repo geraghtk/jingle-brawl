@@ -49,6 +49,21 @@ describe('RoomClient', () => {
     expect(rooms.get(code)!.state.version).toBe(before);
   });
 
+  it("connects after start, stop, start (React's development mode mounts every screen twice)", async () => {
+    const { rooms, url } = await boot();
+    const { code, token } = rooms.create({});
+    const host = new RoomClient(code, token, url).start();
+    host.stop();                                                        // the first mount goes away at once
+    host.start();                                                       // the real one
+    stop.push(() => host.stop());
+    await until(() => host.status === 'open' && !!host.game);
+    host.start();                                                       // a stray second start: still one socket
+    const first = (host as unknown as { ws: WebSocket }).ws;
+    await new Promise((r) => setTimeout(r, 100));
+    expect((host as unknown as { ws: WebSocket }).ws).toBe(first);
+    expect(host.status).toBe('open');
+  });
+
   it("learns the server's clock (the offset to this device's)", async () => {
     const { rooms, url } = await boot();
     const { code } = rooms.create({});

@@ -48,7 +48,9 @@ export class RoomClient {
   constructor(readonly room: string, private token: string | undefined, private url = defaultUrl()) {}
 
   start(): this {
-    this.open();
+    // again after stop() too: React's development mode mounts a screen, unmounts it and mounts it again
+    this.stopped = false;
+    if (!this.ws || this.ws.readyState > WebSocket.OPEN) this.open();   // not a second socket
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisible);
     return this;
   }
