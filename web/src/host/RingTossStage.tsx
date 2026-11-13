@@ -1,10 +1,9 @@
 // Reindeer Ring Toss on the TV (and the host console): the arena itself. The reindeer is drawn from
-// the game's own pegs (the antler tips ARE the scoring zones), each ring flies on the same flight
-// the server used (engines/projectile) from the moment it was thrown, by the room's clock, and stays
+// the game's own pegs (the antler tips ARE the scoring zones), each ring flies to where the server
+// landed it (engines/projectile: real gravity, drag, a spin) from the moment it was thrown, by the room's clock, and stays
 // where it landed in its thrower's colour. Scores and rings left beside it.
 import { useEffect, useRef, useState } from 'react';
-import type { Launch } from '../core/minigames/engines/gesture';
-import { flightAt } from '../core/minigames/engines/projectile';
+import { arcAt, arcFor } from '../core/minigames/engines/projectile';
 import type { FlightParams } from '../core/minigames/engines/projectile';
 import type { Peg } from '../core/minigames/engines/targets';
 import { useServerOffset } from '../net/hooks';
@@ -124,7 +123,7 @@ export function RingScene({ v, participants, offset, instance = '', compact = fa
       {/* the smoke of a ring that came down behind the reindeer rises in front of it, where it shows */}
       {misses.filter((t) => t.z >= DEER_Z).map((t) => { const at = toScreen(t.x, t.z); return <Puff key={`p${t.n}`} sx={at.sx} sy={at.sy} r={ringR(at.k)} color={RING_COLORS[color(t)]} />; })}
       {/* rings in the air: moved every frame without React */}
-      <Flights key={instance} throws={flying} startOf={startOf} offset={offset} flight={v.flight} participants={participants} ends={ringerEnds} nodes={flightNodes} />
+      <Flights key={instance} throws={flying} startOf={startOf} offset={offset} participants={participants} ends={ringerEnds} nodes={flightNodes} />
     </svg>
   );
 }
@@ -164,9 +163,8 @@ const HAT_DROP = 67;
 const PRONG_DROP = 10;
 /** Rings on the ground nearer than this are in front of the reindeer; further ones behind it. */
 const DEER_Z = 1.65;
-/** A throw that reaches the reindeer goes over its antlers (this high at its depth), then comes down;
- *  no arc goes higher than ARC_MAX (the top of the screen). */
-const CLEAR_H = 1.63, ARC_MAX = 1.55;
+/** A ring this high is as far up as rings go (its shadow is faintest then). */
+const HIGH = 1.55;
 /** A ring's size: RING_R as it comes up from the bottom of the screen, about 22 at the reindeer (k^2.5: it
  *  shrinks quickly, so it reads as going away). */
 const RING_R = 70;
@@ -286,24 +284,17 @@ function Puff({ sx, sy, r: ring, color }: { sx: number; sy: number; r: number; c
   );
 }
 
-/** How long a ring is in the air on screen: a throw that reaches the reindeer takes a little longer (its
- *  arc goes up over the antlers), so its drop down behind it is unhurried (drawing only: the room's landing and score don't change). */
-export const visMs = (t: { x: number; z: number; ms: number }) => (Math.hypot(t.x, t.z) >= DEER_Z - 0.12 ? Math.round(t.ms * 1.2) : t.ms);
+/** How long a ring is in the air on screen: its arc's time (engines/projectile arcFor: real gravity, so a
+ *  longer, higher throw is up longer), but down before the room moves on (it waits the flight's ms + 300).
+ *  A ringer's arc ends on its tip. Drawing only: the room's landing and score don't change. */
+export const visMs = (t: { x: number; z: number; ms: number; pegId?: string | null }) =>
+  Math.min(t.ms + 250, arcFor(Math.hypot(t.x, t.z), t.pegId ? TIP_H[t.pegId] ?? 1.15 : 0).ms);
 
-/** How high a ring is, `u` of the way through its flight (drawing only: where it lands is the room's).
- *  One smooth curve, its top at `apex` of the way: sin(pi * u^p). A ringer rises over its tip and
- *  settles onto it; a throw that reaches the reindeer clears its antlers (as far as the screen allows)
- *  and comes down behind it at a steady rate; a short one is the plain arc. */
-function arcHeight(t: RingThrow, u: number, plain: number, endH: number): number {
-  const curve = (apex: number) => Math.sin(Math.PI * u ** (Math.log(0.5) / Math.log(apex)));
-  if (endH > 0) return 0.4 * curve(0.5) + endH * u * u * (3 - 2 * u);
-  const range = Math.hypot(t.x, t.z);
-  if (range >= DEER_Z - 0.12) {
-    const apex = 0.58, at = Math.min(0.95, DEER_Z / range);
-    const needed = CLEAR_H / Math.max(0.2, Math.sin(Math.PI * at ** (Math.log(0.5) / Math.log(apex))));
-    return Math.min(ARC_MAX, needed) * curve(apex);
-  }
-  return plain;
+/** A ring in the air spins and wobbles as it flies (a thrown ring is never quite flat): how far it's tipped
+ *  (degrees) and how open it looks (its height over its width), `ms` into its flight. Each ring its own. */
+function tumble(n: number, ms: number, angle: number): { deg: number; open: number } {
+  const s = ms / 1000, ph = n * 1.7;
+  return { deg: angle * 40 + 12 * Math.sin(s * 9.5 + ph), open: 0.42 + 0.13 * Math.sin(s * 15 + ph * 0.6) };
 }
 
 type FlightNodes = Map<number, { ring: SVGEllipseElement | null; shadow: SVGEllipseElement | null; back?: SVGEllipseElement | null }>;
@@ -320,39 +311,44 @@ function FlightsBehind({ throws, nodes, participants }: { throws: RingThrow[]; n
   );
 }
 
-function Flights({ throws, startOf, offset, flight, participants, ends, nodes }: {
-  throws: RingThrow[]; startOf: (t: RingThrow) => number; offset: number; flight: FlightParams; participants: string[];
+function Flights({ throws, startOf, offset, participants, ends, nodes }: {
+  throws: RingThrow[]; startOf: (t: RingThrow) => number; offset: number; participants: string[];
   /** A ringer's flight ends on its peg's tip: where (x, z) and how high. */
   ends: Map<number, { x: number; z: number; h: number }>;
   /** Shared with FlightsBehind (its back copies). */
   nodes: { current: FlightNodes };
 }) {
-  const live = useRef({ throws, startOf, offset, flight, ends });
-  live.current = { throws, startOf, offset, flight, ends };
+  const live = useRef({ throws, startOf, offset, ends });
+  live.current = { throws, startOf, offset, ends };
   const place = (t: RingThrow, at: number) => {
     const n = nodes.current.get(t.n);
     if (!n?.ring || !n.shadow) return;
     // live.current: the frame loop outlives renders, so it must read this render's starts (a stale
     // closure timed a replay's ring #1 from the last game's ring #1: it was "already down")
-    const u = Math.min(1, Math.max(0, (at - live.current.startOf(t)) / visMs(t)));
-    const f = flightAt({ angle: t.angle, power: t.power } as Launch, u * t.ms, live.current.flight);
-    const end = live.current.ends.get(t.n);
-    const x = t.x * u + (end ? (end.x - t.x) * u : 0), z = t.z * u + (end ? (end.z - t.z) * u : 0);
-    const hh = arcHeight(t, u, f.h, end?.h ?? 0);
+    const dur = visMs(t), since = at - live.current.startOf(t);
+    const u = Math.min(1, Math.max(0, since / dur));
+    // real gravity (engines/projectile arcAt): quick out of the hand, top late, a steep drop; a ringer drops onto its tip
+    const end = live.current.ends.get(t.n) ?? { x: t.x, z: t.z, h: 0 };
+    const f = arcAt(arcFor(Math.hypot(end.x, end.z), end.h), u);
+    const x = end.x * f.along, z = end.z * f.along, hh = f.h;
     const c = toScreen(x, z, hh), g = toScreen(x, z, 0);
+    const tb = tumble(t.n, Math.max(0, since), t.angle);
+    const spin = `rotate(${tb.deg.toFixed(1)} ${c.sx.toFixed(1)} ${c.sy.toFixed(1)})`;
     // past the reindeer: behind it (the copy in the back layer shows, the front one hides)
     const behind = z > DEER_Z + 0.01;
     n.ring.style.visibility = n.shadow.style.visibility = behind ? 'hidden' : '';
     if (n.back) {
       n.back.style.visibility = behind ? '' : 'hidden';
       n.back.setAttribute('cx', String(c.sx)); n.back.setAttribute('cy', String(c.sy));
-      n.back.setAttribute('rx', String(ringR(c.k))); n.back.setAttribute('ry', String(ringR(c.k) * 0.42)); n.back.setAttribute('stroke-width', String(ringR(c.k) * 0.22));
+      n.back.setAttribute('rx', String(ringR(c.k))); n.back.setAttribute('ry', String(ringR(c.k) * tb.open)); n.back.setAttribute('stroke-width', String(ringR(c.k) * 0.22));
+      n.back.setAttribute('transform', spin);
     }
     const r = ringR(c.k);
     n.ring.setAttribute('cx', String(c.sx)); n.ring.setAttribute('cy', String(c.sy));
-    n.ring.setAttribute('rx', String(r)); n.ring.setAttribute('ry', String(r * 0.42)); n.ring.setAttribute('stroke-width', String(r * 0.22));
+    n.ring.setAttribute('rx', String(r)); n.ring.setAttribute('ry', String(r * tb.open)); n.ring.setAttribute('stroke-width', String(r * 0.22));
+    n.ring.setAttribute('transform', spin);
     n.shadow.setAttribute('cx', String(g.sx)); n.shadow.setAttribute('cy', String(g.sy));
-    const lift = Math.min(1, hh / CLEAR_H);
+    const lift = Math.min(1, hh / HIGH);
     n.shadow.setAttribute('rx', String(ringR(g.k) * 0.9 * (1 - 0.6 * lift))); n.shadow.setAttribute('ry', String(ringR(g.k) * 0.3 * (1 - 0.6 * lift)));
     n.shadow.setAttribute('opacity', String(0.28 * (1 - 0.8 * lift)));
   };

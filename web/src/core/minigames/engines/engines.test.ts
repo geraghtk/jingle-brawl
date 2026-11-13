@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { AIM_GAIN, FLICK_SPEED, MAX_ANGLE, MAX_POWER, launchFrom, launchFromControls, parsePath, pathFor } from './gesture';
 import type { SwipePath } from './gesture';
-import { DEFAULT_FLIGHT, flightAt, landing } from './projectile';
+import { DEFAULT_ARC, DEFAULT_FLIGHT, arcAt, arcFor, flightAt, landing } from './projectile';
 import { miss, score } from './targets';
 import type { Peg } from './targets';
 
@@ -100,5 +100,42 @@ describe('targets', () => {
   it('a miss says which way it was off the nearest peg', () => {
     expect(miss(pegs, 0, 1.4)).toMatchObject({ nearest: 'a' });
     expect(miss(pegs, 0, 1.4).dz).toBeCloseTo(0.4);
+  });
+});
+
+describe('arcs (how a flight looks)', () => {
+  const heights = (range: number, endH = 0, n = 40) => { const a = arcFor(range, endH); return Array.from({ length: n + 1 }, (_, i) => arcAt(a, i / n).h); };
+
+  it('real gravity: the same pull on every throw (height changes by the same amount each step, any throw)', () => {
+    for (const [range, endH] of [[0.8, 0], [1.3, 0], [1.86, 0], [1.68, 1.33]]) {
+      const h = heights(range, endH), a = arcFor(range, endH), dt = a.ms / 1000 / 40;
+      for (let i = 1; i < 40; i++) expect((h[i + 1] - 2 * h[i] + h[i - 1]) / (dt * dt)).toBeCloseTo(-DEFAULT_ARC.gravity, 1);
+    }
+  });
+
+  it('starts in the hand, comes down where it lands; a longer throw goes higher and is up longer', () => {
+    const short = arcFor(0.8), long = arcFor(1.86);
+    expect(arcAt(short, 0)).toEqual({ along: 0, h: 0 });
+    expect(arcAt(long, 1).along).toBeCloseTo(1);
+    expect(arcAt(long, 1).h).toBeCloseTo(0, 2);
+    expect(long.apex).toBeGreaterThan(short.apex);
+    expect(long.ms).toBeGreaterThan(short.ms);
+    expect(long.apex).toBeLessThanOrEqual(DEFAULT_ARC.maxApex);
+    // and still looks faster: more ground per second
+    expect(1.86 / long.ms).toBeGreaterThan(0.8 / short.ms);
+  });
+
+  it('air drag: quick out of the hand, so a long throw is still high when it passes the antlers, then drops behind', () => {
+    const a = arcFor(1.86);
+    let u = 0; while (arcAt(a, u).along * 1.86 < 1.65) u += 0.001;   // over the reindeer (depth 1.65)
+    expect(arcAt(a, u).h).toBeGreaterThan(1.33);                     // above its antler tips
+    expect(u).toBeLessThan(0.7);                                     // and the rest of the time, falling
+  });
+
+  it('a ringer tops out above its tip and drops onto it from above', () => {
+    const a = arcFor(1.68, 1.33);
+    expect(a.apex).toBeGreaterThan(1.33);
+    expect(arcAt(a, 1).h).toBeCloseTo(1.33, 2);
+    expect(arcAt(a, 0.95).h).toBeGreaterThan(arcAt(a, 1).h);          // coming down, not easing up to it
   });
 });

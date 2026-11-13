@@ -27,6 +27,32 @@ export function landing(l: Launch, p: FlightParams = DEFAULT_FLIGHT): Landing {
   return { x: range * Math.sin(l.angle), z: range * Math.cos(l.angle), ms };
 }
 
+/** How a flight looks (drawing only: where it lands is landing()'s). Real gravity, the same for every
+ *  throw, and a little air drag: it leaves the hand quick and slows along the ground, so its top comes
+ *  late and it drops steeply at the end (a long throw clears the reindeer's antlers, then falls behind).
+ *  A longer throw goes higher (loft x its distance, between minApex and maxApex), so it's up longer;
+ *  how long falls out of the gravity. Heights are in the scene's height units (the top of a TV is about 1.55). */
+export interface ArcParams { gravity: number; drag: number; loft: number; minApex: number; maxApex: number }
+export const DEFAULT_ARC: ArcParams = { gravity: 7.9, drag: 3, loft: 0.83, minApex: 0.45, maxApex: 1.55 };
+
+/** One flight's arc: how long it's in the air, how high it gets, how fast it starts upward. */
+export interface Arc { ms: number; apex: number; vz: number }
+
+/** The arc of a throw that travels `range` along the ground and comes down at height `endH` (0: the
+ *  ground; a ringer ends on its tip, so it tops out above it and drops onto it). */
+export function arcFor(range: number, endH = 0, p: ArcParams = DEFAULT_ARC): Arc {
+  const apex = Math.max(endH + 0.25, Math.min(p.maxApex, Math.max(p.minApex, p.loft * range)));
+  const up = Math.sqrt((2 * apex) / p.gravity), down = Math.sqrt((2 * (apex - endH)) / p.gravity);
+  return { ms: Math.round((up + down) * 1000), apex, vz: p.gravity * up };
+}
+
+/** `u` of the way through the flight (by time): how far along the ground it is (0 to 1) and how high. */
+export function arcAt(a: Arc, u: number, p: ArcParams = DEFAULT_ARC): { along: number; h: number } {
+  const s = Math.max(0, Math.min(1, u)), t = (s * a.ms) / 1000;
+  const along = p.drag > 0 ? (1 - Math.exp(-p.drag * s)) / (1 - Math.exp(-p.drag)) : s;
+  return { along, h: Math.max(0, a.vz * t - (p.gravity * t * t) / 2) };
+}
+
 /** Where it is `t` ms after launch (for drawing): x, z and its height above the ground. */
 export function flightAt(l: Launch, t: number, p: FlightParams = DEFAULT_FLIGHT): { x: number; z: number; h: number; done: boolean } {
   const end = landing(l, p);

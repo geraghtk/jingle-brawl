@@ -91,9 +91,14 @@
 
 /* The landing effects start the moment a ring lands. They play whatever the OS motion setting is (the
    game's feedback; Kevin, 2026-11-12: reduced motion off by default). */
-/* a ringer: the ring pops, a flash, stars burst outward spinning, gold twinkles, its points rise */
-.rt-ring.ringer { transform-box: fill-box; transform-origin: center; animation: rt-pop .4s ease-out forwards; }
-@keyframes rt-pop { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.6); } }
+/* a ringer: it clatters on the prong (a rock, settling), then pops; a flash, stars burst outward spinning, gold twinkles, its points rise */
+.rt-ring.ringer { transform-box: fill-box; transform-origin: center; animation: rt-pop .5s ease-out forwards; }
+@keyframes rt-pop {
+  0% { opacity: 1; transform: rotate(-9deg) scale(1); }
+  18% { transform: rotate(7deg) scale(1); }
+  34% { opacity: 1; transform: rotate(-3deg) scale(1); }
+  100% { opacity: 0; transform: rotate(0deg) scale(1.6); }
+}
 .rt-flash { transform-box: fill-box; transform-origin: center; animation: rt-flash .45s ease-out forwards; }
 @keyframes rt-flash { 0% { opacity: 1; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.8); } }
 .rt-fly { animation: rt-fly 1.2s cubic-bezier(.12, .8, .3, 1) both; }
@@ -108,8 +113,14 @@
 @keyframes rt-twinkle { 0% { opacity: 0; scale: .2; } 40% { opacity: 1; scale: 1.2; } 100% { opacity: 0; scale: .3; } }
 .rt-plus { font: 900 34px/1 var(--f6-disp, system-ui); stroke: #fff; stroke-width: 5px; paint-order: stroke; animation: rt-plus 1.2s ease-out both; }
 @keyframes rt-plus { 0% { opacity: 0; transform: translateY(6px) scale(.6); } 18% { opacity: 1; transform: translateY(0) scale(1.15); } 30% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px); } }
-/* a miss: the ring crumples, its bits scatter and fall, a soft puff of snow dust rises and thins */
-.rt-ring.miss { transform-box: fill-box; transform-origin: center; animation: rt-crumple .3s ease-in forwards; }
+/* a miss: it hits the snow and bounces once (squashed as it lands), then crumples; its bits scatter and
+   fall, a soft puff of snow dust rises and thins */
+.rt-ring.miss { transform-box: fill-box; transform-origin: center bottom; animation: rt-bounce .3s linear, rt-crumple .3s ease-in .3s forwards; }
+@keyframes rt-bounce {
+  0% { transform: translateY(0) scale(1.18, .78); animation-timing-function: ease-out; }
+  50% { transform: translateY(-42%) scale(.96, 1.04); animation-timing-function: ease-in; }
+  100% { transform: translateY(0) scale(1.1, .88); }
+}
 @keyframes rt-crumple { 0% { opacity: 1; transform: scale(1, 1); } 100% { opacity: 0; transform: scale(1.25, .4); } }
 .rt-smoke { transform-box: fill-box; transform-origin: center; animation: rt-smoke 1.2s ease-out both; }
 @keyframes rt-smoke {
