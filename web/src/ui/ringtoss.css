@@ -129,9 +129,20 @@
   55% { opacity: .85; }
   100% { opacity: 0; transform: translate(var(--drift), var(--rise)) scale(1.6); }
 }
-.rt-bit { transform-box: fill-box; transform-origin: center; animation: rt-bit .9s cubic-bezier(.2, .7, .4, 1) both; }
+/* a miss's pieces (RingTossStage bits()): each flies on its own: across at a steady pace, up slowing then
+   down speeding (gravity), spinning, its own time; they go as the ring crumples, after its bounce */
+.rt-bit-x { animation: rt-bit-x var(--dur) linear var(--delay) both; }
+@keyframes rt-bit-x { from { transform: translateX(0); } to { transform: translateX(var(--dx)); } }
+.rt-bit-y { animation: rt-bit-y var(--dur) linear var(--delay) both; }
+@keyframes rt-bit-y {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(.3, .6, .6, 1); }
+  42% { transform: translateY(var(--up)); animation-timing-function: cubic-bezier(.4, 0, .7, .4); }
+  100% { transform: translateY(var(--down)); }
+}
+.rt-bit { transform-box: fill-box; transform-origin: center; animation: rt-bit var(--dur) linear var(--delay) both; }
 @keyframes rt-bit {
-  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
-  60% { opacity: 1; transform: translate(var(--dx), var(--dy)) rotate(220deg); }
-  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.1), calc(var(--dy) + 30px)) rotate(320deg); }
+  0% { opacity: 0; rotate: 0deg; scale: .8; }
+  6% { opacity: 1; scale: 1; }
+  72% { opacity: 1; }
+  100% { opacity: 0; rotate: var(--rot); scale: .7; }
 }

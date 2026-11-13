@@ -275,13 +275,39 @@ function Puff({ sx, sy, r: ring, color }: { sx: number; sy: number; r: number; c
         <circle key={i} className="rt-smoke" cx={x * r} cy={y * r * 0.5} r={s * r} fill="url(#rt-smoke)"
           style={{ ['--rise' as string]: `${(-r * (0.5 + i * 0.12)).toFixed(1)}px`, ['--drift' as string]: `${(x * r * 0.6).toFixed(1)}px`, animationDelay: `${i * 30}ms` }} />
       ))}
-      {Array.from({ length: 10 }, (_, i) => {
-        const a = (i / 10) * Math.PI * 2 + 0.3;
-        return <rect key={`b${i}`} className="rt-bit" x={-4} y={-3} width={8 + (i % 3) * 2} height={5} rx={2.5} fill={color}
-          style={{ ['--dx' as string]: `${(Math.cos(a) * r * 1.5).toFixed(1)}px`, ['--dy' as string]: `${(Math.sin(a) * r * 0.6 - r * 0.6).toFixed(1)}px` }} />;
-      })}
+      {bits(sx, sy, ring, color)}
     </g>
   );
+}
+
+/** A missed ring's pieces as it crumples: curved chips of its band, each its own size, shade, throw and
+ *  spin, up and out then falling (gravity: the CSS eases each one up, then down). Seeded by where it landed,
+ *  so every ring breaks differently but the same way on each render. */
+function bits(sx: number, sy: number, ring: number, color: string) {
+  let seed = (Math.round(sx * 7) * 73856093) ^ (Math.round(sy * 7) * 19349663);
+  const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const r = Math.max(ring, 26), R = Math.max(ring, 32) * 1.4, n = 10 + Math.floor(rnd() * 5);   // R: how far they fly
+  return Array.from({ length: n }, (_, i) => {
+    const a = -Math.PI / 2 + (rnd() - 0.5) * 2.8;                 // mostly up, some sideways
+    const v = R * (0.6 + rnd() * 1.4);                             // how hard it flies
+    const up = Math.min(-R * 0.25, Math.sin(a) * v * 1.1), dx = Math.cos(a) * v * 1.3;
+    const down = r * (0.3 + rnd() * 0.7);                          // where it ends, below where it started
+    const rr = r * (0.5 + rnd() * 0.4), span = 0.4 + rnd() * 0.8, w = Math.max(3, r * (0.14 + rnd() * 0.12));
+    const arc = `M${(rr * Math.cos(-span / 2)).toFixed(1)},${(rr * Math.sin(-span / 2)).toFixed(1)} A${rr.toFixed(1)},${rr.toFixed(1)} 0 0 1 ${(rr * Math.cos(span / 2)).toFixed(1)},${(rr * Math.sin(span / 2)).toFixed(1)}`;
+    const vars = {
+      ['--dx' as string]: `${dx.toFixed(1)}px`, ['--up' as string]: `${up.toFixed(1)}px`, ['--down' as string]: `${down.toFixed(1)}px`,
+      ['--rot' as string]: `${Math.round((rnd() - 0.5) * 1100)}deg`, ['--dur' as string]: `${Math.round(650 + rnd() * 550)}ms`,
+      ['--delay' as string]: `${Math.round(260 + rnd() * 90)}ms`,
+    };
+    return (
+      <g key={`b${i}`} className="rt-bit-x" style={vars}>
+        <g className="rt-bit-y">
+          <path className="rt-bit" d={arc} transform={`rotate(${Math.round(rnd() * 360)})`} fill="none" stroke={shade(color, (rnd() - 0.5) * 0.7)}
+            strokeWidth={w.toFixed(1)} strokeLinecap="round" />
+        </g>
+      </g>
+    );
+  });
 }
 
 /** How long a ring is in the air on screen: its arc's time (engines/projectile arcFor: real gravity, so a
