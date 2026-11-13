@@ -15,6 +15,7 @@ import { useJoinOrigin } from '../net/lan';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
 import { ArenaStage } from './ArenaStage';
+import { useArenaFull } from './ArenaFull';
 import { duelAppInfo } from '../core/duelgame';
 import { OptionList, useModal } from './Modal';
 import { PartyPanel } from './PartyPanel';
@@ -31,6 +32,7 @@ export function TurnPanel() {
   const host = useHost();
   const setModal = useModal();
   const p = usePanel(host, setModal);
+  const { full } = useArenaFull();                                    // full screen: its header has the buttons
   return (
     <div className="card turn-panel" id="turn-panel">
       {!p.lobby && <span className={`phase-badge ${p.badgeClass ?? ''}`} id="phase-badge"><Glyphs>{p.badge}</Glyphs></span>}
@@ -41,9 +43,16 @@ export function TurnPanel() {
         <div className="card-title" id="bids-container-title">{p.areaTitle ?? 'Bids'}</div>
         <div className="bids-grid" id="bids-grid">{p.area}</div>
       </div>
-      {!host.tv && <div className="action-buttons" id="action-buttons">{p.buttons}</div>}
+      {!host.tv && !full && <div className="action-buttons" id="action-buttons">{p.buttons}</div>}
     </div>
   );
+}
+
+/** The turn panel's buttons on their own (a mini-game full screen on the console shows them in its header). */
+export function PanelButtons() {
+  const host = useHost();
+  const p = usePanel(host, useModal());
+  return <>{p.buttons}</>;
 }
 
 // --- the lobby ------------------------------------------------------------------------------
@@ -231,6 +240,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
   const { game, send, cfg, room } = host;
   const t = game.currentTurn;
   const close = () => setModal(null);
+  const arenaFull = useArenaFull();
 
   if (!t) {
     if (game.phase === 'lobby') return { lobby: true };
@@ -476,8 +486,9 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         return {
           badge: `🧪 GAME LAB: ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
           action: over ? `Practice over: ${av?.result?.reason || 'done'}` : `${lab.players.map((id) => nm(game, id)).join(', ')} ${lab.players.length === 1 ? 'is' : 'are'} practising: nothing is won or lost`,
-          details: <ArenaStage />,
+          details: arenaFull.full ? <p className="arena-full-note">Showing full screen</p> : <ArenaStage />,
           buttons: <>
+            {!arenaFull.full && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
             {over && <button className="btn btn-primary" data-testid="lab-again" onClick={() => send({ type: 'lab_start', gameId: lab.gameId, players: lab.players, mode: lab.mode, ...(lab.duelists ? { duelists: lab.duelists } : {}) })}>🔁 Play again</button>}
             {!over && (paused
               ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
@@ -489,8 +500,9 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return {
         badge: `${info?.emoji ?? '🎮'} ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
         action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}: ${info?.label ?? 'a mini-game'} decides it`,
-        details: <ArenaStage />,
+        details: arenaFull.full ? <p className="arena-full-note">Showing full screen</p> : <ArenaStage />,
         buttons: over ? null : <>
+          {!arenaFull.full && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
           {paused
             ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
             : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>}

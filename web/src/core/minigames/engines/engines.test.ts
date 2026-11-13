@@ -1,7 +1,7 @@
 // The throw engines, on their own: a swipe becomes a launch the same way on any phone; a launch
 // lands in the same place every time; a landing scores the best peg it falls on.
 import { describe, expect, it } from 'vitest';
-import { FLICK_SPEED, MAX_ANGLE, MAX_POWER, launchFrom, launchFromControls, parsePath, pathFor } from './gesture';
+import { AIM_GAIN, FLICK_SPEED, MAX_ANGLE, MAX_POWER, launchFrom, launchFromControls, parsePath, pathFor } from './gesture';
 import type { SwipePath } from './gesture';
 import { DEFAULT_FLIGHT, flightAt, landing } from './projectile';
 import { miss, score } from './targets';
@@ -15,6 +15,15 @@ describe('gestures', () => {
     const left = launchFrom(pathFor({ angle: -0.2, power: 0.8 }))!;
     expect(left.angle).toBeCloseTo(-0.2);
     expect(left.power).toBeCloseTo(0.8);
+  });
+
+  it("aim: the whole stroke, both directions in screen heights, turned down (a wobble isn't a wild throw)", () => {
+    const at = (deg: number): SwipePath => { const r = (deg * Math.PI) / 180; return [[0.25, 0.9, 0], [0.25 + 0.3 * Math.sin(r), 0.9 - 0.3 * Math.cos(r), 100]]; };
+    expect(launchFrom(at(10))!.angle).toBeCloseTo(AIM_GAIN * (10 * Math.PI) / 180);           // 10 degrees of flick: 4.5 of throw
+    expect(launchFrom(at(-25))!.angle).toBeCloseTo(-AIM_GAIN * (25 * Math.PI) / 180);
+    // a curl in the last few ms doesn't swing it: the stroke's direction aims
+    const curl: SwipePath = [[0.25, 0.9, 0], [0.25, 0.75, 50], [0.25, 0.62, 90], [0.3, 0.6, 100]];
+    expect(Math.abs(launchFrom(curl)!.angle)).toBeLessThan(0.1);                    // its last 10 ms alone would say 0.5
   });
 
   it('measured in screen heights and ms, so screen size and touch sample rate make no difference', () => {

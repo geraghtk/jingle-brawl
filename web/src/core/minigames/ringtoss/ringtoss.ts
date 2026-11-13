@@ -17,13 +17,17 @@ import { score, zoneDistance } from '../engines/targets';
 import type { Peg } from '../engines/targets';
 import { headToHead } from '../scoring';
 
-/** The reindeer: two antlers (outer tip 1, inner tip 3) and the golden peg between them (5). */
+/** The reindeer: two antlers (the far prong 1, the tall prong 3) and its party hat between them (5). */
 export const PEGS: Peg[] = [
-  { id: 'left-outer', x: -0.3, z: 1.52, rx: 0.07, rz: 0.11, points: 1 },
-  { id: 'left-inner', x: -0.19, z: 1.68, rx: 0.06, rz: 0.09, points: 3 },
-  { id: 'golden', x: 0, z: 1.78, rx: 0.045, rz: 0.07, points: 5 },
-  { id: 'right-inner', x: 0.19, z: 1.68, rx: 0.06, rz: 0.09, points: 3 },
-  { id: 'right-outer', x: 0.3, z: 1.52, rx: 0.07, rz: 0.11, points: 1 },
+  // under the antler tips and the hat's tip of the reindeer (web/public/art/ringtoss/, tools/art/reindeer.py
+  // variant g seed 4, placed by RingTossStage's DEER), which stands at depth 1.65: the far prongs, the
+  // tall ones, the hat. Forgiving (playtest, 2026-11-12: "pretty hard to get a hit"): about 2 degrees of
+  // aim and +-0.11 to 0.17 of distance (the 5-point hat smallest, the 1-point prongs biggest); where a far and a tall prong's zones overlap, the tall one counts.
+  { id: 'left-outer', x: -0.3263, z: 1.65, rx: 0.07, rz: 0.17, points: 1 },
+  { id: 'left-inner', x: -0.2461, z: 1.65, rx: 0.05, rz: 0.14, points: 3 },
+  { id: 'golden', x: 0, z: 1.65, rx: 0.045, rz: 0.11, points: 5 },
+  { id: 'right-inner', x: 0.2461, z: 1.65, rx: 0.05, rz: 0.14, points: 3 },
+  { id: 'right-outer', x: 0.3263, z: 1.65, rx: 0.07, rz: 0.17, points: 1 },
 ];
 const GOLDEN = PEGS.find((p) => p.id === 'golden')!;
 
@@ -158,7 +162,7 @@ export const ringToss: GameDefinition<RingConfig, RingState, RingAction> = {
     if (a?.kind !== 'throw') return { ok: false, error: 'Not a throw' };
     const path = a.path !== undefined ? parsePath(a.path) : null;
     const launch = path ? launchFrom(path) : a.path === undefined ? launchFromControls(a) : null;
-    if (!launch) return { ok: false, error: 'Swipe up to throw' };
+    if (!launch) return { ok: false, error: 'Flick up to throw' };
     return { ok: true, action: { kind: 'throw', launch, via: path ? 'swipe' : 'controls' } };
   },
 

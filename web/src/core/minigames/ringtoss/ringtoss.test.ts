@@ -65,7 +65,7 @@ describe('Reindeer Ring Toss', () => {
     const plan = arenaAct(g, 'p1', { action: { ...toss('miss'), points: 5, pegId: 'golden', x: 0, z: 1.78 } }, ctx(NOW + 100));
     g = apply(g, plan);
     expect(st(g).throws[0]).toMatchObject({ pegId: null, points: 0 });
-    expect(arenaAct(g, 'p2', { action: { kind: 'throw', path: [[0.5, 0.2, 0], [0.5, 0.9, 100]] } }, ctx(NOW + 100)).error).toMatch(/Swipe up/);
+    expect(arenaAct(g, 'p2', { action: { kind: 'throw', path: [[0.5, 0.2, 0], [0.5, 0.9, 100]] } }, ctx(NOW + 100)).error).toMatch(/Flick up/);
     expect(arenaAct(g, 'p2', { action: { kind: 'throw', score: 99 } }, ctx(NOW + 100)).error).toBeTruthy();
   });
 

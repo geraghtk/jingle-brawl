@@ -11,14 +11,19 @@ export interface FlightParams {
   flightMs: number;      // how long a flight of baseRange + rangePerPower takes (others scale)
 }
 
-export const DEFAULT_FLIGHT: FlightParams = { version: '1', baseRange: 0.6, rangePerPower: 1.1, arc: 0.35, flightMs: 900 };
+/** v2: a slower, higher arc you can follow on a TV (about 1 to 1.3 s). v3: a flick's speed matters a
+ *  little less (0.85 of distance per unit of power, from 0.75): a brisk flick (power about 1.06) reaches
+ *  the Ring Toss reindeer, 10% too fast or slow is about 0.09 off, and the hardest throw lands just
+ *  behind it (1.86), not in the distance. v4: a harder throw is quicker in the air too. */
+export const DEFAULT_FLIGHT: FlightParams = { version: '4', baseRange: 0.75, rangePerPower: 0.85, arc: 0.5, flightMs: 1300 };
 
 /** Where it comes down: x across (negative left), z into the scene, from a launch at (0, 0). */
 export interface Landing { x: number; z: number; ms: number }
 
 export function landing(l: Launch, p: FlightParams = DEFAULT_FLIGHT): Landing {
   const range = p.baseRange + p.rangePerPower * l.power;
-  const ms = Math.round(p.flightMs * (0.6 + 0.4 * range / (p.baseRange + p.rangePerPower)));
+  // a harder throw goes further AND faster (it looks it): about 1.4 s for a soft lob, 1 s for the hardest
+  const ms = Math.round(p.flightMs * (1.15 - 0.3 * Math.min(1.3, Math.max(0, l.power))));
   return { x: range * Math.sin(l.angle), z: range * Math.cos(l.angle), ms };
 }
 

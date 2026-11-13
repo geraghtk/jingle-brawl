@@ -13,7 +13,7 @@
 .rt-swatch { width: 16px; height: 16px; border-radius: 50%; border: 4px solid; }
 .rt-left { color: #9aa3b2; font-size: 11px; letter-spacing: -1px; }
 .rt-pts { font: 900 22px/1 var(--f6-disp, system-ui); min-width: 2ch; text-align: right; }
-.rt-ring.flying { filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .25)); }
+.rt-flights { pointer-events: none; }
 
 .rt-card { text-align: center; }
 .rt-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -24,7 +24,17 @@
 .rt-ring-dot { width: 18px; height: 18px; border-radius: 50%; border: 4px solid; }
 .rt-pad { position: relative; height: 220px; border-radius: 20px; background: linear-gradient(#f2f6fa, #dfe8f2); touch-action: none; -webkit-user-select: none; user-select: none; display: grid; place-items: end center; padding-bottom: 26px; cursor: grab; }
 .rt-pad.disabled { opacity: .55; }
-.rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; transition: transform .05s linear; }
+.rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; will-change: transform; }
+/* the whole screen is the flick surface while you can throw (under the host's tab bar, if they play too) */
+.rt-fullpad { position: fixed; inset: 0; z-index: 40; background: linear-gradient(#f2f6fa, #dfe8f2); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 14px 16px 34px; box-sizing: border-box; overflow: hidden; -webkit-user-select: none; user-select: none; }
+#seat-panel-game .rt-fullpad { top: 64px; }
+.rt-fullpad.disabled .rt-pad-ring { opacity: .45; }
+.rt-pad-surface { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+.rt-fullpad-info { position: absolute; top: 14px; left: 16px; right: 16px; pointer-events: none; text-align: center; }
+.rt-fullpad .rt-pad-ring { position: relative; margin-bottom: 14px; }
+.rt-fullpad .rt-pad-hint { position: relative; top: auto; pointer-events: none; font-weight: 800; color: var(--muted, #6a7180); }
+.rt-feedback.big { font-size: 22px; margin: 14px 0 0; line-height: 1.25; }
+.rt-escape { pointer-events: auto; position: relative; }
 .rt-pad-hint { position: absolute; top: 14px; left: 0; right: 0; font-weight: 800; color: var(--muted, #6a7180); pointer-events: none; }
 .rt-link { margin-top: 8px; border: 0; background: none; color: var(--muted, #6a7180); text-decoration: underline; font-weight: 700; cursor: pointer; }
 .rt-wait { font-weight: 700; color: var(--muted, #6a7180); }
@@ -35,3 +45,76 @@
 .rt-meter span { display: block; height: 100%; }
 .rt-hold { min-height: 72px; border: 0; border-radius: 18px; background: var(--accent, #ff3366); color: #fff; font: 800 18px/1.2 var(--f6-body, system-ui); touch-action: none; }
 .rt-hold:disabled { opacity: .5; }
+
+/* a mini-game full screen (host/ArenaFull.tsx): the TV always, the console on request */
+.arena-full { position: fixed; inset: 0; z-index: 900; display: flex; flex-direction: column; background: #eef3f8; padding: 12px 18px 16px; box-sizing: border-box; }
+.arena-full-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.arena-full-title { font: 900 26px/1.1 var(--f6-disp, system-ui); }
+.arena-full-title small { font-size: 16px; color: var(--muted, #6a7180); }
+.arena-full-tools { display: flex; gap: 8px; }
+.arena-full-btn { border: 0; border-radius: 999px; padding: 8px 14px; background: var(--ink, #0d1018); color: #fff; font-weight: 800; cursor: pointer; }
+.arena-full-body { flex: 1; min-height: 0; overflow: auto; }
+.arena-full .rt-stage { height: 100%; display: flex; flex-direction: column; }
+.arena-full .rt-banner { align-self: center; font-size: 24px; }
+.arena-full .rt-layout { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(240px, 22%); align-items: center; }
+.arena-full .rt-scene { width: 100%; height: 100%; max-height: calc(100vh - 130px); object-fit: contain; }
+.arena-full .rt-board li { font-size: 20px; padding: 10px 14px; }
+.arena-full .rt-pts { font-size: 30px; }
+.arena-full-note { color: var(--muted, #6a7180); font-weight: 700; }
+.arena-full-host { display: flex; gap: 8px; flex-wrap: wrap; }
+.arena-full-host .btn { padding: 8px 14px; font-size: 14px; }
+/* thrown: the ring carries on up and off the screen (then it's on the TV) */
+.rt-pad-ring.gone { transition: transform .38s cubic-bezier(.3, .7, .5, 1), opacity .38s ease-in; opacity: 0; }
+
+/* the scene takes the width; the scores are a slim row of chips under it */
+.rt-layout { display: flex; flex-direction: column; gap: 10px; }
+.rt-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.rt-board li { display: inline-flex; grid-template-columns: none; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; font-size: 15px; }
+.rt-board .rt-left { display: none; }
+.rt-board .rt-pts { font-size: 20px; min-width: 0; }
+.arena-full .rt-layout { display: flex; }
+.arena-full .rt-scene { flex: 1; min-height: 0; max-height: none; }
+.arena-full .rt-board li { font-size: 17px; padding: 5px 12px 5px 5px; }
+.arena-full .rt-pts { font-size: 24px; }
+/* the star floats; a missed ring fades away */
+/* a miss: it lands, then goes up in a puff of smoke */
+.rt-ring.miss { transform-box: fill-box; transform-origin: center; animation: rt-vanish 1.5s ease-in forwards; }
+@keyframes rt-vanish { 0%, 20% { opacity: 1; transform: scale(1); } 36% { opacity: 0; transform: scale(.55); } 100% { opacity: 0; transform: scale(.55); } }
+.rt-puff circle { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-puff 1.5s ease-out forwards; }
+@keyframes rt-puff {
+  0%, 18% { opacity: 0; transform: translate(0, 0) scale(.2); }
+  30% { opacity: .95; transform: translate(calc(var(--dx, 0px) * .5), -4px) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), -26px) scale(1.7); }
+}
+/* full screen: one floor across the whole screen, not a box in it */
+.arena-full:has(.rt-stage) { background: #dfe7f2; }
+.arena-full .rt-scene { border-radius: 14px; }
+/* full screen: the winter backdrop fills the whole game area (the scene's own copy would leave bars) */
+.arena-full .rt-layout { background: url('/art/ringtoss/backdrop.webp') center 60% / cover no-repeat; border-radius: 14px; padding-bottom: 10px; }
+.arena-full .rt-backdrop { display: none; }
+.arena-full .rt-board li { box-shadow: 0 2px 8px rgba(13, 16, 24, .12); }
+.arena-full .rt-scene { background: transparent; }
+
+/* a ringer: it pops, then bursts into stars in its thrower's colour; its points float up */
+.rt-ring.ringer { transform-box: fill-box; transform-origin: center; animation: rt-pop 1.6s ease-out forwards; }
+@keyframes rt-pop { 0%, 30% { opacity: 1; transform: scale(1); } 42% { opacity: 1; transform: scale(1.3); } 55%, 100% { opacity: 0; transform: scale(1.5); } }
+.rt-burst polygon { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-star 1.6s cubic-bezier(.2, .7, .3, 1) forwards; }
+@keyframes rt-star {
+  0%, 36% { opacity: 0; transform: translate(0, 0) scale(.3) rotate(0deg); }
+  44% { opacity: 1; transform: translate(calc(var(--dx) * .25), calc(var(--dy) * .25)) scale(1) rotate(40deg); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.6) rotate(200deg); }
+}
+.rt-plus { font: 900 34px/1 var(--f6-disp, system-ui); stroke: #fff; stroke-width: 5px; paint-order: stroke; opacity: 0; animation: rt-plus 1.6s ease-out forwards; }
+@keyframes rt-plus { 0%, 36% { opacity: 0; transform: translateY(0); } 46% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px); } }
+
+/* full screen: the clock sits in the top bar, between the title and the buttons */
+.arena-full .rt-banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; z-index: 2; white-space: nowrap; }
+.arena-full .rt-stage { position: static; }
+
+/* a miss's bits, in its thrower's colour: they scatter as the ring goes */
+.rt-puff .rt-bit { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-bit 1.5s cubic-bezier(.2, .7, .3, 1) forwards; }
+@keyframes rt-bit {
+  0%, 18% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  24% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(260deg); }
+}

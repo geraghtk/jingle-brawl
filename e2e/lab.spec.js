@@ -19,6 +19,16 @@ async function runOut(room, page) {
   throw new Error('the lab game never finished');
 }
 
+/** A brisk flick straight up the phone's flick surface (pointer events at a finger's pace). */
+const flick = (page) => page.getByTestId('ringtoss-pad').evaluate((pad) => new Promise((done) => {
+  const r = pad.getBoundingClientRect(), x0 = r.left + r.width / 2, y0 = r.bottom - 120, dist = 0.45 * window.innerHeight;
+  const fire = (type, f) => pad.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x0, clientY: y0 - dist * f }));
+  fire('pointerdown', 0);
+  let k = 0;
+  const step = () => { k++; const f = Math.min(1, (k * 16) / 100); fire(f >= 1 ? 'pointerup' : 'pointermove', f); if (f >= 1) done(); else setTimeout(step, 16); };
+  setTimeout(step, 16);
+}));
+
 test('the Game Lab: a mini-game from the lobby, practice only, play again, back to the lobby', async ({ browser }) => {
   test.setTimeout(120000);
   const r = await H.createGame(browser, {});
@@ -72,6 +82,20 @@ test('the Game Lab: a mini-game from the lobby, practice only, play again, back 
     await r.host.getByTestId('lab-again').click();
     await expect.poll(async () => (await H.dbGet(r.roomCode, 'arena'))?.instanceId).not.toBe(first);
     expect((await H.dbGet(r.roomCode, 'arena')).lifecycle).toBe('active');
+
+    // the replay's first ring flies its whole arc on the TV (a stale frame loop once timed it from the
+    // last game's ring #1, so it was "already down" and just appeared): many frames, real movement
+    await alice.getByTestId('ringtoss-controls-toggle').click();     // back to flicking: the whole screen
+    const arc = tv.evaluate(() => new Promise((done) => {
+      const ys = []; const t0 = performance.now();
+      const f = () => { const r = document.querySelector('.rt-flights:not(.behind) .rt-ring'); if (r) ys.push(+r.getAttribute('cy')); if (performance.now() - t0 < 2500) requestAnimationFrame(f); else done(ys); };
+      requestAnimationFrame(f);
+    }));
+    await flick(alice);
+    const ys = await arc;
+    expect(ys.length).toBeGreaterThan(20);
+    expect(new Set(ys.map((y) => Math.round(y))).size).toBeGreaterThan(15);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(100);    // it rose and fell, not a dot
 
     // back to the lobby (stops it), then the real game starts as usual
     await r.host.getByTestId('lab-end').click();

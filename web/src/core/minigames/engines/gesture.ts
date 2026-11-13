@@ -3,7 +3,8 @@
 // phone never says where its throw lands, and every phone is measured in its own screen heights, so
 // a big phone or a fast touch screen is no advantage. Nothing here is about rings or reindeer.
 
-/** A swipe as the phone saw it: [x, y, t] with x and y in 0..1 of its screen (y grows downward), t in ms. */
+/** A swipe as the phone saw it: [x, y, t] with x and y in screen HEIGHTS (both: a sideways millimetre
+ *  counts as much as an upward one, whatever the phone's shape; y grows downward), t in ms. */
 export type SwipePath = [number, number, number][];
 
 export interface Launch {
@@ -11,8 +12,13 @@ export interface Launch {
   power: number;   // 0..MAX_POWER, about 1 for a brisk flick
 }
 
-export const GESTURE_VERSION = '1';
+export const GESTURE_VERSION = '2';
 export const MAX_ANGLE = 0.5;
+/** A flick's direction to the throw's: a flick 10 degrees off straight up throws 4.5 degrees off.
+ *  With the Ring Toss reindeer that puts the outer antler tips about 25 degrees off vertical and the
+ *  edge of the TV picture about 40; a target is about 4 degrees of flick wide. A natural wobble of a
+ *  few degrees costs a ringer, not the whole screen. */
+export const AIM_GAIN = 0.45;
 export const MAX_POWER = 1.3;
 /** Screen heights per second that make power 1 (a brisk flick). */
 export const FLICK_SPEED = 3;
@@ -28,14 +34,15 @@ export function parsePath(raw: unknown): SwipePath | null {
   for (const p of raw) {
     if (!Array.isArray(p) || p.length !== 3 || !p.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [x, y, t] = p as number[];
-    if (x < -0.5 || x > 1.5 || y < -0.5 || y > 1.5 || t < 0 || t > 5000) return null;
+    if (x < -0.5 || x > 3 || y < -0.5 || y > 1.5 || t < 0 || t > 5000) return null;   // x: a landscape tablet is ~1.6 heights wide
     if (out.length && t < out[out.length - 1][2]) return null;          // time only moves on
     out.push([x, y, t]);
   }
   return out;
 }
 
-/** A swipe's launch: upward is forward; its direction aims, its speed at release is the power.
+/** A swipe's launch: upward is forward. The whole stroke's direction aims (steadier than its last
+ *  few ms, which curl), turned down by AIM_GAIN; its speed at release is the power.
  *  null: not a throw (downward, or too slow to leave the hand). */
 export function launchFrom(path: SwipePath): Launch | null {
   const end = path[path.length - 1];
@@ -49,7 +56,9 @@ export function launchFrom(path: SwipePath): Launch | null {
   const speed = Math.hypot(dx, dy) / (dt / 1000);            // screen heights (roughly) per second
   const power = Math.min(MAX_POWER, speed / FLICK_SPEED);
   if (power < 0.1) return null;
-  const angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, Math.atan2(dx, dy)));
+  const first = path[0];
+  const aimX = end[0] - first[0], aimY = first[1] - end[1];
+  const angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, AIM_GAIN * Math.atan2(aimX, Math.max(1e-6, aimY))));
   return { angle, power };
 }
 
@@ -63,9 +72,10 @@ export function launchFromControls(raw: unknown): Launch | null {
 /** A swipe that makes `launch` (for tests and the simulated hands): straight, steady, 100 ms. */
 export function pathFor(launch: Launch, steps = 6): SwipePath {
   const dist = launch.power * FLICK_SPEED * 0.1;
-  const dx = Math.sin(launch.angle) * dist, dy = Math.cos(launch.angle) * dist;
+  const flick = launch.angle / AIM_GAIN;                     // the hand's direction that makes this aim
+  const dx = Math.sin(flick) * dist, dy = Math.cos(flick) * dist;
   return Array.from({ length: steps + 1 }, (_, k): [number, number, number] => {
     const f = k / steps;
-    return [0.5 + dx * f, 0.9 - dy * f, Math.round(100 * f)];
+    return [0.25 + dx * f, 0.9 - dy * f, Math.round(100 * f)];
   });
 }

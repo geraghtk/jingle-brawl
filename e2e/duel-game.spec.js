@@ -111,7 +111,7 @@ test('an in-app duel game settles it: everyone plays Whack-an-Elf, the better-pl
   try {
     const { host, roomCode, pages, p, opener, bidder } = s;
     await expect(host.getByTestId('duel-game-name')).toContainText('Whack-an-Elf', { timeout: 8000 });
-    await expect(host.getByTestId(`modal-winner-${p[opener].id}`)).toHaveCount(0); // the game decides
+    await expect(host.getByTestId(`modal-winner-${p[opener].id}`)).toHaveCount(0, { timeout: 10000 }); // the game decides (after the 4.8 s spin)
     await host.getByTestId('start-duel-app').click();
     await H.waitForTurnPhase(roomCode, 'minigame_party');
     for (const n of NAMES) await expect(pages[n].locator('#party-card')).toContainText('Whack-an-Elf');

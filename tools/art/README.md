@@ -24,6 +24,18 @@ save it as WebP: avatars at 256 px, icons at 160 px (`<name>.webp`).
   `web/public/art/gremlin/{calm,uneasy,unstable}.webp` (256 px; one seed's take of each mood so they match).
   The prompt never says "gremlin": Flux draws the film's creatures for that word.
 
+## Reindeer Ring Toss
+
+`reindeer.py` renders the Ring Toss reindeer wide (1536 x 896), flat cartoon style with no sticker border,
+and cuts it out without squaring (`--variant bg`: the winter backdrop). The chosen take (variant g, seed 4:
+whimsical but battle-ready, a party hat whose tip is the 5-point peg, very wide antlers) had its left half
+mirrored, so both sides score alike, and the grey ground shadow under its beard removed; it and
+`backdrop.webp` (bg seed 2) are in `web/public/art/ringtoss/`. The snowdrift it stands in is drawn in
+`host/RingTossStage.tsx`. A new reindeer means measuring its antler tips and hat tip and moving the pegs
+(`ringtoss.ts` PEGS) and the placement (`DEER`, `TIP_H` and the view's `SX`/`SZ` in
+`host/RingTossStage.tsx`) together. `reindeer_blender.py` builds one in Blender instead (exact tip
+positions, but it looked less finished than the Flux art; kept for reference).
+
 ## Whack-an-Elf (Blender)
 
 `whack.py` builds the Whack-an-Elf pieces from primitives in Blender (cel shading + inverted-hull

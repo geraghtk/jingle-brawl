@@ -1,5 +1,6 @@
 // The TV screen: top strip, turn panel, players / gifts / records, and the sidebar.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ArenaFull, FullCtx } from './ArenaFull';
 import type { ReactNode } from 'react';
 import { giftless, wrappedGifts } from '../core/rules';
 import { partyStandings } from '../core/scoring';
@@ -25,7 +26,12 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   const [mvpSeen, setMvpSeen] = useState(false);
   const { game, tv } = useHost();
   useHostAutomation();
+  const [consoleFull, setFull] = useState(false);
+  const arenaOn = game.currentTurn?.phase === 'minigame_arena' && !!game.arenaView;
+  const full = arenaOn && (tv || consoleFull);                    // the TV: always, while a mini-game is on
+  useEffect(() => { setFull(arenaOn); }, [arenaOn]);             // the console too, by default (✕ goes back)
   return (
+    <FullCtx.Provider value={{ full, setFull }}>
     <ModalCtx.Provider value={setModal}>
       <div id="game-screen">
         <Strip />
@@ -45,7 +51,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       <DuelVerdict />
       {game.phase === 'ended' && !mvpSeen && <MvpReveal game={game} variant="tv" onClose={() => setMvpSeen(true)} />}
       <div className="coin-animation-container" id="coin-animation-container" />
+      {full && <ArenaFull />}
     </ModalCtx.Provider>
+    </FullCtx.Provider>
   );
 }
 

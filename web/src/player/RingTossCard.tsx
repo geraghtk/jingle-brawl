@@ -1,13 +1,13 @@
-// Reindeer Ring Toss on a phone: swipe up on the pad to throw a ring at the reindeer on the TV. The
-// phone sends the swipe as it happened (screen fractions and ms); the room works out where it lands.
-// Feedback on your last ring (a ringer, or which way it was off), a small copy of the scene, your
-// score and rings. No swiping? "Use buttons": aim, then hold to charge and let go to throw.
+// Reindeer Ring Toss on a phone: the controller. While you can throw, the whole screen is the flick
+// surface (eyes on the TV, not the phone): flick up anywhere, its direction aims and its speed is
+// the power. The phone sends the flick as it happened (screen fractions and ms); the room works out
+// where it lands. On it: your score, rings left, and how your last ring went. No flicking? "Use
+// buttons": aim, then hold to charge and let go to throw.
 import { useEffect, useRef, useState } from 'react';
 import type { SwipePath } from '../core/minigames/engines/gesture';
 import { miss } from '../core/minigames/engines/targets';
-import { RingScene } from '../host/RingTossStage';
 import type { RingView } from '../host/RingTossStage';
-import { ringColor, ringView } from '../host/RingTossStage';
+import { ringColor, ringView, visMs } from '../host/RingTossStage';
 import { useServerOffset } from '../net/hooks';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
@@ -28,7 +28,7 @@ export function RingTossCard() {
 
   const mine = v.throws.filter((t) => t.pid === me);
   const last = mine.at(-1);
-  const lastLanded = last && now >= last.at + last.ms;
+  const lastLanded = last && now >= last.at + visMs(last);   // with the TV: when the ring comes down there
   const seen = useRef(0);
   useEffect(() => {
     if (!last || !lastLanded || seen.current === last.n) return;
@@ -49,26 +49,42 @@ export function RingTossCard() {
   const secs = Math.max(0, Math.ceil((v.stageEndsAt - now) / 1000));
   const color = ringColor(av.participants, me);
 
+  const top = (
+    <div className="rt-top">
+      <span className="rt-stage-pill" data-testid="ringtoss-stage-pill">
+        {v.stage === 'practice' ? 'Practice' : v.stage === 'tiebreak' ? 'Tiebreak' : v.stage === 'done' ? 'Done' : 'Scored'} · {secs}s
+      </span>
+      <span className="rt-mine" aria-label={`Your score ${v.myScore ?? 0}`}>Score <b data-testid="ringtoss-my-score">{v.myScore ?? 0}</b></span>
+    </div>
+  );
+  const rings = (
+    <div className="rt-rings" aria-label={`${left} rings left`}>
+      {Array.from({ length: left }, (_, i) => <span key={i} className="rt-ring-dot" style={{ borderColor: color }} />)}
+    </div>
+  );
+  if (canThrow && !buttons) {
+    return (
+      <FlickSurface disabled={waiting} color={color} onSwipe={(path) => throwIt({ path })}>
+        {top}
+        {rings}
+        <div className="rt-feedback big" aria-live="polite" data-testid="ringtoss-feedback">{feedback(v, last, !!lastLanded)}</div>
+        <div className="grem-error" role="alert">{error}</div>
+        <button type="button" className="rt-link rt-escape" onPointerDown={(e) => e.stopPropagation()} onClick={() => setButtons(true)} data-testid="ringtoss-controls-toggle">
+          Use buttons instead of flicking
+        </button>
+      </FlickSurface>
+    );
+  }
+
   return (
     <div className="card rt-card" data-testid="ringtoss-card">
-      <div className="rt-top">
-        <span className="rt-stage-pill" data-testid="ringtoss-stage-pill">
-          {v.stage === 'practice' ? 'Practice' : v.stage === 'tiebreak' ? 'Tiebreak' : v.stage === 'done' ? 'Done' : 'Scored'} · {secs}s
-        </span>
-        <span className="rt-mine" aria-label={`Your score ${v.myScore ?? 0}`}>Score <b data-testid="ringtoss-my-score">{v.myScore ?? 0}</b></span>
-      </div>
-      <RingScene v={v} participants={av.participants} now={now} compact />
+      {top}
       <div className="rt-feedback" aria-live="polite" data-testid="ringtoss-feedback">{feedback(v, last, !!lastLanded)}</div>
       {canThrow ? (
         <>
-          <div className="rt-rings" aria-label={`${left} rings left`}>
-            {Array.from({ length: left }, (_, i) => <span key={i} className="rt-ring-dot" style={{ borderColor: color }} />)}
-          </div>
-          {buttons ? <Controls disabled={waiting} color={color} onThrow={(aim, power) => throwIt({ aim, power })} />
-            : <SwipePad disabled={waiting} color={color} onSwipe={(path) => throwIt({ path })} />}
-          <button type="button" className="rt-link" onClick={() => setButtons(!buttons)} data-testid="ringtoss-controls-toggle">
-            {buttons ? 'Swipe instead' : 'Use buttons instead of swiping'}
-          </button>
+          {rings}
+          <Controls disabled={waiting} color={color} onThrow={(aim, power) => throwIt({ aim, power })} />
+          <button type="button" className="rt-link" onClick={() => setButtons(false)} data-testid="ringtoss-controls-toggle">Flick instead</button>
         </>
       ) : (
         <p className="rt-wait" data-testid="ringtoss-wait">
@@ -83,8 +99,8 @@ export function RingTossCard() {
 
 /** Your last ring in words you can act on. */
 function feedback(v: RingView, last: RingView['throws'][number] | undefined, landed: boolean): string {
-  if (v.stage === 'practice' && !last) return 'Swipe up to throw. Faster goes further; the angle aims.';
-  if (!last) return 'Swipe up to throw!';
+  if (v.stage === 'practice' && !last) return 'Watch the TV and flick up anywhere: the direction aims, faster goes further.';
+  if (!last) return 'Flick up to throw!';
   if (!landed) return 'In the air…';
   if (last.pegId) {
     const p = v.pegs.find((x) => x.id === last.pegId)!;
@@ -96,41 +112,57 @@ function feedback(v: RingView, last: RingView['throws'][number] | undefined, lan
   return `Missed: a bit ${[depth, side].filter(Boolean).join(' and ') || 'off'}`;
 }
 
-/** Swipe up from the ring. The path goes as screen fractions and ms since the touch began. */
-function SwipePad({ onSwipe, disabled, color }: { onSwipe: (path: SwipePath) => void; disabled: boolean; color: string }) {
+/** The whole screen, while you can throw: flick up anywhere. The ring follows your finger and, when
+ *  you let go, carries on up and off the screen along your flick (then it's on the TV). The path goes
+ *  in screen heights (across too: a sideways millimetre is a millimetre) and ms since the touch began;
+ *  the room turns it into the throw. */
+function FlickSurface({ onSwipe, disabled, color, children }: { onSwipe: (path: SwipePath) => void; disabled: boolean; color: string; children: React.ReactNode }) {
   const path = useRef<SwipePath | null>(null);
   const t0 = useRef(0);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+  const [gone, setGone] = useState<{ x: number; y: number } | null>(null);     // the ring leaving the screen
+  useEffect(() => { if (!gone) return; const id = setTimeout(() => setGone(null), 420); return () => clearTimeout(id); }, [gone]);
   const pt = (e: React.PointerEvent): [number, number, number] => [
-    e.clientX / window.innerWidth, e.clientY / window.innerHeight, Math.round(e.timeStamp - t0.current),
+    e.clientX / window.innerHeight, e.clientY / window.innerHeight, Math.round(e.timeStamp - t0.current),
   ];
+  const h = () => window.innerHeight;
+  const ringAt = gone ? `translate(${gone.x}px, ${gone.y}px) scale(.7)` : drag ? `translate(${drag.x}px, ${Math.min(0, drag.y)}px)` : undefined;
   return (
-    <div className={`rt-pad${disabled ? ' disabled' : ''}`} data-testid="ringtoss-pad"
-      onPointerDown={(e) => {
-        if (disabled) return;
-        try { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* a pointer the browser no longer knows */ }
-        t0.current = e.timeStamp;
-        path.current = [pt(e)];
-        setDrag({ x: 0, y: 0 });
-      }}
-      onPointerMove={(e) => {
-        if (!path.current) return;
-        const p = pt(e);
-        path.current.push(p);
-        if (path.current.length > 64) path.current.splice(1, 1);        // keep the start and the release
-        setDrag({ x: (p[0] - path.current[0][0]) * window.innerWidth, y: (p[1] - path.current[0][1]) * window.innerHeight });
-      }}
-      onPointerUp={(e) => {
-        const p = path.current;
-        path.current = null;
-        setDrag(null);
-        if (!p) return;
-        p.push(pt(e));
-        if (p[0][1] - p[p.length - 1][1] > 0.03) onSwipe(p.slice(-64));
-      }}
-      onPointerCancel={() => { path.current = null; setDrag(null); }}>
-      <span className="rt-pad-ring" style={{ borderColor: color, transform: drag ? `translate(${drag.x}px, ${Math.min(0, drag.y)}px)` : undefined }} />
-      <span className="rt-pad-hint">{disabled ? 'Next ring…' : 'Swipe up ↑'}</span>
+    <div className={`rt-fullpad${disabled ? ' disabled' : ''}`} data-testid="ringtoss-card">
+      <div className="rt-pad-surface" data-testid="ringtoss-pad"
+        onPointerDown={(e) => {
+          if (disabled) return;
+          try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* a pointer the browser no longer knows */ }
+          t0.current = e.timeStamp;
+          path.current = [pt(e)];
+          setDrag({ x: 0, y: 0 });
+        }}
+        onPointerMove={(e) => {
+          if (!path.current) return;
+          const p = pt(e);
+          path.current.push(p);
+          if (path.current.length > 64) path.current.splice(1, 1);        // keep the start and the release
+          setDrag({ x: (p[0] - path.current[0][0]) * h(), y: (p[1] - path.current[0][1]) * h() });
+        }}
+        onPointerUp={(e) => {
+          const p = path.current;
+          path.current = null;
+          setDrag(null);
+          if (!p) return;
+          p.push(pt(e));
+          const up = p[0][1] - p[p.length - 1][1];
+          if (up > 0.03) {
+            // off the top along the stroke: from where the finger let go, on past the top edge
+            const dx = (p[p.length - 1][0] - p[0][0]) / up, last = drag ?? { x: 0, y: 0 };
+            const rise = h() + 120;
+            setGone({ x: last.x + dx * rise, y: last.y - rise });
+            onSwipe(p.slice(-64));
+          }
+        }}
+        onPointerCancel={() => { path.current = null; setDrag(null); }} />
+      <div className="rt-fullpad-info">{children}</div>
+      <span className={`rt-pad-ring${gone ? ' gone' : ''}`} style={{ borderColor: color, transform: ringAt }} />
+      <span className="rt-pad-hint">{disabled ? 'Next ring…' : 'Flick up anywhere ↑'}</span>
     </div>
   );
 }
