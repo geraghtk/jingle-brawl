@@ -50,13 +50,6 @@
             --shadow-card: 0 8px 28px rgba(15,20,35,0.06);
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -368,7 +361,6 @@
         .avatar-opt.on { border-color: var(--ink); transform: scale(1.08); box-shadow: 0 4px 12px rgba(13, 16, 24, .25); }
         .avatar-opt:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
         .avatar-opt:disabled { opacity: .28; filter: grayscale(1); cursor: not-allowed; }
-        @media (prefers-reduced-motion: reduce) { .avatar-opt { transition: none; } }
 
         .status-icon {
             font-size: 3rem;
@@ -1104,7 +1096,6 @@
         [data-motion="lively"] .fz-sticker { animation: f6Pop 0.5s cubic-bezier(.3,1.4,.5,1) both; }
         [data-motion="lively"] .f6-rise { animation: f6Rise 0.45s ease both; }
         [data-motion="lively"] .f6-wiggle { animation: f6Wiggle 0.8s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 
 /* ===== 2026-10 phone pass: one stage per moment, quiet rows for the rest ===== */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -1169,7 +1160,6 @@ button.callit-corner:focus-visible { outline: 3px solid var(--ink); outline-offs
 .callit-foot { margin-top: 14px; font-size: 15px; line-height: 1.45; color: var(--ink2); }
 .callit-tally { margin-top: 10px; font-size: 14px; color: var(--muted); }
 .callit-tally strong { color: var(--ink); }
-@media (prefers-reduced-motion: reduce) { .callit-corner { transition: none; } }
 
 /* your gift + the table: flat rows under the stage */
 .table-rows { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px 16px; margin-bottom: 12px; }
@@ -1237,6 +1227,5 @@ button.callit-corner:focus-visible { outline: 3px solid var(--ink); outline-offs
 .seat-tabs .yd-icon { width: 20px; height: 20px; }
 .seat-dot { position: absolute; top: 8px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent, #ff3366); box-shadow: 0 0 0 3px #fff; animation: seatPulse 1.2s ease-in-out infinite; }
 @keyframes seatPulse { 50% { transform: scale(1.35); } }
-@media (prefers-reduced-motion: reduce) { .seat-dot { animation: none; } }
 .seat-host-panel { margin: 0 -16px; }
 .host-frame { display: block; width: 100%; height: calc(100dvh - 70px); border: 0; background: var(--bg, #eceef2); }

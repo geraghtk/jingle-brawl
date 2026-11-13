@@ -28,7 +28,6 @@
 @keyframes gremBob { 50% { transform: translateY(-8px) rotate(-4deg); } }
 @keyframes gremShake { 25% { transform: rotate(-10deg) scale(1.05); } 75% { transform: rotate(10deg) scale(1.05); } }
 @keyframes gremPulse { 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { .grem .grem-face, .grem .grem-meter span { animation: none !important; } }
 
 /* M3: the Gremlin's sticker, sound switch, memory_flash, perfect_timing, the doom */
 .grem { position: relative; }
@@ -58,6 +57,3 @@
 .grem.tv.jumped .grem-holder { animation: gremPop .45s ease-out; }
 @keyframes gremPop { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } to { transform: scale(1); } }
 @keyframes gremBoom { 0% { transform: scale(.3) rotate(-20deg); } 50% { transform: scale(1.5) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
-@media (prefers-reduced-motion: reduce) {
-  .grem .grem-row.show .grem-sym, .grem.doomed .grem-boom, .grem.tv.jumped .grem-holder { animation: none !important; }
-}

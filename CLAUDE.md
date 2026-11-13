@@ -79,6 +79,7 @@ lobby → main (draw → bidding → reveal → [duel_pending | yield_pending | 
 - Never put user/AI text into `dangerouslySetInnerHTML`; let React escape it.
 - Avatars and icons are sticker pictures (`web/public/art`, made with `tools/art`, see its README): a player picks an avatar when they join (`core/avatars.ts`, `players/{id}/avatar`); emoji in the React app render as icons through `<Icon>`/`<Glyphs>` (`ui/icons.tsx`, alt text = the emoji, so role names in tests are unchanged).
 - The server's guards (`server/src/node/`): per-address limits (`limits.ts`; `--debug-api` turns them off, so dev and the suite never hit them), security headers + CSP (no inline scripts or `on*=` handlers in pages: use a file), JSON logs + `/metrics` (`log.ts`; never names, drawings, keys or addresses). Rooms are deleted 2 h after the end / 24 h idle (`Rooms.purge`), so codes come back: tokens carry the room's `born` and the socket checks it.
+- No reduced-motion mode: the game ignores the OS `prefers-reduced-motion` setting everywhere (its animations are the feedback; a site-wide rule once blanked Ring Toss's stars and smoke). Don't add `@media (prefers-reduced-motion)` rules or `matchMedia` checks.
 - No em dashes in anything players see (screens, mascots, rule pages, critic replies): `web/src/ui/copy.test.ts` checks.
 
 ## Mini-game platform (`web/src/core/minigames/`)

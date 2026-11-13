@@ -16,4 +16,3 @@
 .duel-wheel.spinning .wheel-result { background: transparent; color: inherit; opacity: 0.7; }
 .duel-wheel.stopped .wheel-result { animation: wheelLand 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
 @keyframes wheelLand { from { transform: scale(0.7); } }
-@media (prefers-reduced-motion: reduce) { .wheel-disc { transition: none; } .duel-wheel.stopped .wheel-result { animation: none; } }

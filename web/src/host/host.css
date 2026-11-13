@@ -55,13 +55,6 @@
             --focus-ring: 3px solid var(--accent);
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -1239,7 +1232,6 @@
         .reveal-col.shown .reveal-bar.runner { background: #ffc53d; color: var(--ink); }
         .reveal-outcome { opacity: 0; animation: f6RevealIn 400ms ease forwards; }
         @keyframes f6RevealIn { to { opacity: 1; } }
-        @media (prefers-reduced-motion: reduce) { .reveal-outcome { opacity: 1; animation: none; } }
         .reveal-amount {
             font-size: 44px;
             opacity: 0;
@@ -1440,9 +1432,6 @@
         }
         .duel-pending-row .dp-side { font-size: clamp(28px, 3.4vw, 44px); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .duel-pending-row .dp-vs { font-size: 24px; display: inline-block; }
-        @media (prefers-reduced-motion: reduce) {
-            .reveal-bar, .reveal-amount { transition: none !important; }
-        }
 
         /* ===== zine accents ===== */
         .fz-sticker {
@@ -1486,7 +1475,6 @@
         [data-motion="lively"] .fz-sticker { animation: f6Pop 0.5s cubic-bezier(.3,1.4,.5,1) both; }
         [data-motion="lively"] .f6-rise { animation: f6Rise 0.45s ease both; }
         [data-motion="lively"] .f6-wiggle { animation: f6Wiggle 0.8s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 
 /* ===== duel voting: the table calls it before the host can ===== */
 .duel-win-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -1562,9 +1550,6 @@
 .verdict-callers { background: rgba(13, 16, 24, 0.22); }
 .verdict-fund { background: var(--surface); color: var(--ink); }
 .verdict-fund .jb-chip { --size: 24px; }
-@media (prefers-reduced-motion: reduce) {
-  .verdict-stage, .verdict-body > * { animation: none; }
-}
 
 /* setup: the duels you'll play */
 .duel-games-input { min-height: 140px; resize: vertical; font: 600 14px/1.6 var(--f6-body); }

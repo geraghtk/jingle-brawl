@@ -105,6 +105,8 @@ export function RingScene({ v, participants, offset, instance = '', compact = fa
             <stop offset="0" stopColor={shade(c, 0.45)} /><stop offset="0.45" stopColor={c} /><stop offset="1" stopColor={shade(c, -0.45)} />
           </linearGradient>
         ))}
+        <radialGradient id="rt-smoke"><stop offset="0" stopColor="#8e9db3" stopOpacity="0.95" /><stop offset="0.5" stopColor="#a9b6c8" stopOpacity="0.8" /><stop offset="1" stopColor="#c9d2de" stopOpacity="0" /></radialGradient>
+        <radialGradient id="rt-flash"><stop offset="0" stopColor="#fff" stopOpacity="1" /><stop offset="0.4" stopColor="#fff6c8" stopOpacity="0.85" /><stop offset="1" stopColor="#fff6c8" stopOpacity="0" /></radialGradient>
         <linearGradient id="rt-snow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset="1" stopColor="#d9e5f3" /></linearGradient>
         {/* a ringer's front half: the same ring, cut along its middle (no seams) */}
         {ringers.map(({ t, at }) => <clipPath key={t.n} id={`rt-front-${instance}-${t.n}`}><rect x={0} y={at.sy} width={W} height={H} /></clipPath>)}
@@ -112,13 +114,15 @@ export function RingScene({ v, participants, offset, instance = '', compact = fa
       <image className="rt-backdrop" href={BACKDROP} x={0} y={0} width={W} height={H} preserveAspectRatio="xMidYMid slice" />
       {/* misses behind the reindeer, whole ringers (their backs show behind the antler), the reindeer, then
           each ringer's front half over the antler, then the misses in front */}
-      {misses.filter((t) => t.z >= DEER_Z).map((t) => <Ring key={t.n} at={toScreen(t.x, t.z)} color={color(t)} practice={t.stage === 'practice'} ground />)}
+      {misses.filter((t) => t.z >= DEER_Z).map((t) => <Ring key={t.n} at={toScreen(t.x, t.z)} color={color(t)} practice={t.stage === 'practice'} ground hidePuff />)}
       {ringers.map(({ t, at }) => <Ring key={`b${t.n}`} at={at} color={color(t)} practice={t.stage === 'practice'} ringer />)}
       <FlightsBehind key={`b${instance}`} throws={flying} nodes={flightNodes} participants={participants} />
       <Reindeer pegs={v.pegs} compact={compact} />
       {ringers.map(({ t, at }) => <g key={`f${t.n}`} clipPath={`url(#rt-front-${instance}-${t.n})`}><Ring at={at} color={color(t)} practice={t.stage === 'practice'} ringer /></g>)}
       {ringers.map(({ t, at }) => <Burst key={`s${t.n}`} at={at} color={RING_COLORS[color(t)]} points={t.points} />)}
       {misses.filter((t) => t.z < DEER_Z).map((t) => <Ring key={t.n} at={toScreen(t.x, t.z)} color={color(t)} practice={t.stage === 'practice'} ground />)}
+      {/* the smoke of a ring that came down behind the reindeer rises in front of it, where it shows */}
+      {misses.filter((t) => t.z >= DEER_Z).map((t) => { const at = toScreen(t.x, t.z); return <Puff key={`p${t.n}`} sx={at.sx} sy={at.sy} r={ringR(at.k)} color={RING_COLORS[color(t)]} />; })}
       {/* rings in the air: moved every frame without React */}
       <Flights key={instance} throws={flying} startOf={startOf} offset={offset} flight={v.flight} participants={participants} ends={ringerEnds} nodes={flightNodes} />
     </svg>
@@ -137,8 +141,8 @@ function restHeight(p: Peg, stack: number): number {
   return (ground.sy - r.sy) / (HZ * ground.k);
 }
 
-/** A missed ring lands, then goes up in a puff of smoke (only ringers stay): gone after this long. */
-const MISS_FADE_MS = 1500;
+/** A missed ring goes up in a puff of snow dust as it lands: gone after this long. */
+const MISS_FADE_MS = 1300;
 
 /** A colour lighter (amt > 0) or darker (amt < 0): the ring's shading. */
 function shade(hex: string, amt: number): string {
@@ -163,11 +167,12 @@ const DEER_Z = 1.65;
 /** A throw that reaches the reindeer goes over its antlers (this high at its depth), then comes down;
  *  no arc goes higher than ARC_MAX (the top of the screen). */
 const CLEAR_H = 1.63, ARC_MAX = 1.55;
-/** A ring's size: near the thrower RING_R, smaller with distance (k squared: it reads as further away). */
-const RING_R = 54.7;
-export const ringR = (k: number) => RING_R * k * k;
-/** A ringer sits there a moment, then bursts into stars in its thrower's colour and is gone. */
-const RINGER_MS = 1600;
+/** A ring's size: RING_R as it comes up from the bottom of the screen, about 22 at the reindeer (k^2.5: it
+ *  shrinks quickly, so it reads as going away). */
+const RING_R = 70;
+export const ringR = (k: number) => RING_R * k ** 2.5;
+/** A ringer bursts into stars in its thrower's colour as it lands, and is gone after this long. */
+const RINGER_MS = 1300;
 
 function Reindeer({ pegs, compact }: { pegs: Peg[]; compact: boolean }) {
   return (
@@ -206,8 +211,10 @@ function Knobs({ pegs, compact }: { pegs: Peg[]; compact: boolean }) {
 /** A ring with some body: shaded top to bottom, a darker inner edge, a shine along the top; on the
  *  ground, a soft shadow under it. (A ringer is drawn whole behind the antler and again, cut along its
  *  middle, over it: so it hangs round the prong with no seams.) */
-function Ring({ at, color, practice = false, ground = false, ringer = false }: {
+function Ring({ at, color, practice = false, ground = false, ringer = false, hidePuff = false }: {
   at: { sx: number; sy: number; k: number }; color: number; practice?: boolean; ground?: boolean; ringer?: boolean;
+  /** Its smoke is drawn elsewhere (a ring behind the reindeer: the smoke rises in front, where it shows). */
+  hidePuff?: boolean;
 }) {
   const r = ringR(at.k), ry = r * 0.42, sw = r * 0.24;
   const { sx, sy } = at;
@@ -220,48 +227,61 @@ function Ring({ at, color, practice = false, ground = false, ringer = false }: {
         <path d={top(r - sw * 0.38, ry - sw * 0.3)} fill="none" stroke="#000" strokeOpacity={0.22} strokeWidth={sw * 0.22} />
         <path d={`M${sx - r * 0.55},${sy - ry * 0.92} A${r},${ry} 0 0 1 ${sx + r * 0.25},${sy - ry * 1.02}`} fill="none" stroke="#fff" strokeOpacity={0.6} strokeWidth={sw * 0.25} strokeLinecap="round" />
       </g>
-      {ground && <Puff sx={sx} sy={sy} r={r} color={RING_COLORS[color]} />}
+      {ground && !hidePuff && <Puff sx={sx} sy={sy} r={r} color={RING_COLORS[color]} />}
     </g>
   );
 }
 
-/** A ringer's moment: it bursts into stars in its thrower's colour, and its points float up. */
+/** A ringer's moment, right as it lands: a flash, then stars burst outward in its thrower's colour, each
+ *  spinning as it flies, with gold twinkles; its points rise. (Positions are offsets the CSS animates to.) */
 function Burst({ at, color, points }: { at: { sx: number; sy: number; k: number }; color: string; points: number }) {
-  const r = Math.max(ringR(at.k), 24) * 1.3, n = 10;   // a good burst even far away
-  const star = (cx: number, cy: number, R: number) => Array.from({ length: 10 }, (_, i) => {
-    const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? R * 0.45 : R;
-    return `${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)}`;
-  }).join(' ');
+  const r = Math.max(ringR(at.k), 26) * 1.6, n = 12;   // a good burst even far away
+  const star = (R: number) => {
+    const pts = Array.from({ length: 10 }, (_, i) => {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? R * 0.48 : R;
+      return `${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`;
+    });
+    return `M${pts.join('L')}Z`;
+  };
+  const twinkle = (R: number) => `M0,${-R} Q0,0 ${R},0 Q0,0 0,${R} Q0,0 ${-R},0 Q0,0 0,${-R}Z`;
   return (
-    <g className="rt-burst" aria-hidden>
+    <g className="rt-burst" aria-hidden transform={`translate(${at.sx.toFixed(1)} ${at.sy.toFixed(1)})`}>
+      <circle className="rt-flash" r={r * 1.1} fill="url(#rt-flash)" />
       {Array.from({ length: n }, (_, i) => {
-        const a = (i / n) * Math.PI * 2 + 0.3;
-        return <polygon key={i} points={star(at.sx, at.sy, r * (0.42 + (i % 2) * 0.16))} fill={color} stroke="#fff" strokeWidth={1.5}
-          style={{ ['--dx' as string]: `${Math.cos(a) * r * 2.6}px`, ['--dy' as string]: `${Math.sin(a) * r * 1.8 - r}px` }} />;
+        const a = (i / n) * Math.PI * 2 + (i % 2) * 0.2, d = r * (2.2 + (i % 3) * 0.5);
+        return (
+          <g key={i} className="rt-fly" style={{ ['--dx' as string]: `${(Math.cos(a) * d).toFixed(1)}px`, ['--dy' as string]: `${(Math.sin(a) * d * 0.8 - r * 0.4).toFixed(1)}px`, animationDelay: `${(i % 3) * 25}ms` }}>
+            <path className="rt-spin" d={star(r * (0.3 + (i % 3) * 0.08))} fill={color} stroke="#fff" strokeWidth={2} strokeLinejoin="round"
+              style={{ animationDirection: i % 2 ? 'reverse' : 'normal' }} />
+          </g>
+        );
       })}
-      {points > 0 && <text x={at.sx} y={at.sy - r * 0.6} textAnchor="middle" className="rt-plus" fill={color}>+{points}</text>}
+      {Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * Math.PI * 2 + 0.5, d = r * (1.3 + (i % 2) * 0.9);
+        return <path key={`t${i}`} className="rt-twinkle" d={twinkle(r * 0.22)} fill="#ffe27a"
+          transform={`translate(${(Math.cos(a) * d).toFixed(1)} ${(Math.sin(a) * d * 0.8 - r * 0.3).toFixed(1)})`} style={{ animationDelay: `${80 + i * 45}ms` }} />;
+      })}
+      {points > 0 && <text y={-r * 0.7} textAnchor="middle" className="rt-plus" fill={color}>+{points}</text>}
     </g>
   );
 }
 
-/** A missed ring disintegrates: it breaks into bits in its thrower's colour that scatter, under a puff of
- *  grey-blue smoke (grey, not white: it lands on snow). */
+/** A missed ring, right as it lands: it crumples into bits in its thrower's colour that scatter and fall,
+ *  under a soft puff of snow dust (shaded grey-blue, no outlines: it lands on snow). */
 function Puff({ sx, sy, r: ring, color }: { sx: number; sy: number; r: number; color: string }) {
-  const n = 8, r = Math.max(ring, 34) * 1.6;   // a good cloud even for a ring far away
+  const r = Math.max(ring, 34) * 1.6;   // a good cloud even for a ring far away
+  const blobs = [[-0.55, 0.05, 0.62], [0.5, 0.0, 0.66], [0, -0.2, 0.78], [-0.2, 0.25, 0.5], [0.3, 0.28, 0.52]];
   return (
-    <g className="rt-puff" aria-hidden>
-      {Array.from({ length: 9 }, (_, i) => {
-        const a = (i / 9) * Math.PI * 2 + 0.2;
-        return <rect key={`b${i}`} className="rt-bit" x={sx + Math.cos(a) * ring * 0.8 - 3} y={sy + Math.sin(a) * ring * 0.35 - 4} width={11} height={8} rx={3}
-          fill={color} style={{ ['--dx' as string]: `${Math.cos(a) * r * 1.6}px`, ['--dy' as string]: `${Math.sin(a) * r * 0.7 - r * 0.9}px` }} />;
+    <g className="rt-puff" aria-hidden transform={`translate(${sx.toFixed(1)} ${sy.toFixed(1)})`}>
+      {blobs.map(([x, y, s], i) => (
+        <circle key={i} className="rt-smoke" cx={x * r} cy={y * r * 0.5} r={s * r} fill="url(#rt-smoke)"
+          style={{ ['--rise' as string]: `${(-r * (0.5 + i * 0.12)).toFixed(1)}px`, ['--drift' as string]: `${(x * r * 0.6).toFixed(1)}px`, animationDelay: `${i * 30}ms` }} />
+      ))}
+      {Array.from({ length: 10 }, (_, i) => {
+        const a = (i / 10) * Math.PI * 2 + 0.3;
+        return <rect key={`b${i}`} className="rt-bit" x={-4} y={-3} width={8 + (i % 3) * 2} height={5} rx={2.5} fill={color}
+          style={{ ['--dx' as string]: `${(Math.cos(a) * r * 1.5).toFixed(1)}px`, ['--dy' as string]: `${(Math.sin(a) * r * 0.6 - r * 0.6).toFixed(1)}px` }} />;
       })}
-      {Array.from({ length: n }, (_, i) => {
-        const a = (i / n) * Math.PI * 2;
-        const x = sx + Math.cos(a) * r * 0.8, y = sy + Math.sin(a) * r * 0.35;
-        return <circle key={i} cx={x} cy={y} r={r * (0.34 + (i % 3) * 0.08)} fill={i % 2 ? '#c3cddc' : '#d9e1ec'} stroke="#8396b0" strokeWidth={2.5}
-          style={{ ['--dx' as string]: `${Math.cos(a) * r * 0.5}px`, animationDelay: `${(i % 3) * 40}ms` }} />;
-      })}
-      <circle cx={sx} cy={sy - r * 0.1} r={r * 0.5} fill="#ced8e5" stroke="#8396b0" strokeWidth={2.5} />
     </g>
   );
 }

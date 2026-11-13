@@ -76,16 +76,6 @@
 .arena-full .rt-scene { flex: 1; min-height: 0; max-height: none; }
 .arena-full .rt-board li { font-size: 17px; padding: 5px 12px 5px 5px; }
 .arena-full .rt-pts { font-size: 24px; }
-/* the star floats; a missed ring fades away */
-/* a miss: it lands, then goes up in a puff of smoke */
-.rt-ring.miss { transform-box: fill-box; transform-origin: center; animation: rt-vanish 1.5s ease-in forwards; }
-@keyframes rt-vanish { 0%, 20% { opacity: 1; transform: scale(1); } 36% { opacity: 0; transform: scale(.55); } 100% { opacity: 0; transform: scale(.55); } }
-.rt-puff circle { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-puff 1.5s ease-out forwards; }
-@keyframes rt-puff {
-  0%, 18% { opacity: 0; transform: translate(0, 0) scale(.2); }
-  30% { opacity: .95; transform: translate(calc(var(--dx, 0px) * .5), -4px) scale(1); }
-  100% { opacity: 0; transform: translate(var(--dx, 0px), -26px) scale(1.7); }
-}
 /* full screen: one floor across the whole screen, not a box in it */
 .arena-full:has(.rt-stage) { background: #dfe7f2; }
 .arena-full .rt-scene { border-radius: 14px; }
@@ -95,26 +85,42 @@
 .arena-full .rt-board li { box-shadow: 0 2px 8px rgba(13, 16, 24, .12); }
 .arena-full .rt-scene { background: transparent; }
 
-/* a ringer: it pops, then bursts into stars in its thrower's colour; its points float up */
-.rt-ring.ringer { transform-box: fill-box; transform-origin: center; animation: rt-pop 1.6s ease-out forwards; }
-@keyframes rt-pop { 0%, 30% { opacity: 1; transform: scale(1); } 42% { opacity: 1; transform: scale(1.3); } 55%, 100% { opacity: 0; transform: scale(1.5); } }
-.rt-burst polygon { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-star 1.6s cubic-bezier(.2, .7, .3, 1) forwards; }
-@keyframes rt-star {
-  0%, 36% { opacity: 0; transform: translate(0, 0) scale(.3) rotate(0deg); }
-  44% { opacity: 1; transform: translate(calc(var(--dx) * .25), calc(var(--dy) * .25)) scale(1) rotate(40deg); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.6) rotate(200deg); }
-}
-.rt-plus { font: 900 34px/1 var(--f6-disp, system-ui); stroke: #fff; stroke-width: 5px; paint-order: stroke; opacity: 0; animation: rt-plus 1.6s ease-out forwards; }
-@keyframes rt-plus { 0%, 36% { opacity: 0; transform: translateY(0); } 46% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px); } }
-
 /* full screen: the clock sits in the top bar, between the title and the buttons */
 .arena-full .rt-banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; z-index: 2; white-space: nowrap; }
 .arena-full .rt-stage { position: static; }
 
-/* a miss's bits, in its thrower's colour: they scatter as the ring goes */
-.rt-puff .rt-bit { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rt-bit 1.5s cubic-bezier(.2, .7, .3, 1) forwards; }
+/* The landing effects start the moment a ring lands. They play whatever the OS motion setting is (the
+   game's feedback; Kevin, 2026-11-12: reduced motion off by default). */
+/* a ringer: the ring pops, a flash, stars burst outward spinning, gold twinkles, its points rise */
+.rt-ring.ringer { transform-box: fill-box; transform-origin: center; animation: rt-pop .4s ease-out forwards; }
+@keyframes rt-pop { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.6); } }
+.rt-flash { transform-box: fill-box; transform-origin: center; animation: rt-flash .45s ease-out forwards; }
+@keyframes rt-flash { 0% { opacity: 1; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.8); } }
+.rt-fly { animation: rt-fly 1.2s cubic-bezier(.12, .8, .3, 1) both; }
+@keyframes rt-fly {
+  0% { opacity: 1; transform: translate(0, 0) scale(.3); }
+  55% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1); }
+  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.12), calc(var(--dy) * 1.12 + 26px)) scale(.6); }
+}
+.rt-spin { transform-box: fill-box; transform-origin: center; animation: rt-spin .7s linear infinite; }
+@keyframes rt-spin { to { transform: rotate(360deg); } }
+.rt-twinkle { transform-box: fill-box; transform-origin: center; animation: rt-twinkle .7s ease-in-out both; }
+@keyframes rt-twinkle { 0% { opacity: 0; scale: .2; } 40% { opacity: 1; scale: 1.2; } 100% { opacity: 0; scale: .3; } }
+.rt-plus { font: 900 34px/1 var(--f6-disp, system-ui); stroke: #fff; stroke-width: 5px; paint-order: stroke; animation: rt-plus 1.2s ease-out both; }
+@keyframes rt-plus { 0% { opacity: 0; transform: translateY(6px) scale(.6); } 18% { opacity: 1; transform: translateY(0) scale(1.15); } 30% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px); } }
+/* a miss: the ring crumples, its bits scatter and fall, a soft puff of snow dust rises and thins */
+.rt-ring.miss { transform-box: fill-box; transform-origin: center; animation: rt-crumple .3s ease-in forwards; }
+@keyframes rt-crumple { 0% { opacity: 1; transform: scale(1, 1); } 100% { opacity: 0; transform: scale(1.25, .4); } }
+.rt-smoke { transform-box: fill-box; transform-origin: center; animation: rt-smoke 1.2s ease-out both; }
+@keyframes rt-smoke {
+  0% { opacity: 0; transform: translate(0, 0) scale(.35); }
+  12% { opacity: 1; }
+  55% { opacity: .85; }
+  100% { opacity: 0; transform: translate(var(--drift), var(--rise)) scale(1.6); }
+}
+.rt-bit { transform-box: fill-box; transform-origin: center; animation: rt-bit .9s cubic-bezier(.2, .7, .4, 1) both; }
 @keyframes rt-bit {
-  0%, 18% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
-  24% { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(260deg); }
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  60% { opacity: 1; transform: translate(var(--dx), var(--dy)) rotate(220deg); }
+  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.1), calc(var(--dy) + 30px)) rotate(320deg); }
 }

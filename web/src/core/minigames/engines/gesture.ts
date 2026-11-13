@@ -12,7 +12,7 @@ export interface Launch {
   power: number;   // 0..MAX_POWER, about 1 for a brisk flick
 }
 
-export const GESTURE_VERSION = '2';
+export const GESTURE_VERSION = '3';
 export const MAX_ANGLE = 0.5;
 /** A flick's direction to the throw's: a flick 10 degrees off straight up throws 4.5 degrees off.
  *  With the Ring Toss reindeer that puts the outer antler tips about 25 degrees off vertical and the
@@ -20,8 +20,9 @@ export const MAX_ANGLE = 0.5;
  *  few degrees costs a ringer, not the whole screen. */
 export const AIM_GAIN = 0.45;
 export const MAX_POWER = 1.3;
-/** Screen heights per second that make power 1 (a brisk flick). */
-export const FLICK_SPEED = 3;
+/** Screen heights per second that make power 1 (a brisk flick). v3: 4.2, from 3: a real player's natural
+ *  flick (playtest 2026-11-12) ran 4 or more and 8 of 11 throws hit the power cap. */
+export const FLICK_SPEED = 4.2;
 /** The end of the swipe counts: how a flick leaves the finger, not how it started. Measured over
  *  the last stretch of at least this long (enough samples to be steady on any touch screen). */
 export const RELEASE_WINDOW_MS = 40;

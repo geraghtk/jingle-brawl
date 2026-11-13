@@ -158,3 +158,45 @@ test('the Game Lab: every game runs to its result on the TV, the console and the
     for (const c of contexts) await c.close();
   }
 });
+
+test('Ring Toss feedback plays even with the OS reduced-motion setting on (the game ignores it): a ringer bursts into stars, a long miss goes up in smoke in front of the reindeer', async ({ browser }) => {
+  test.setTimeout(90000);
+  const r = await H.createGame(browser, {});
+  const { contexts, errors: phoneErrors } = await H.joinPlayers(browser, r.roomCode, ['Alice']);
+  const tvCtx = await browser.newContext({ viewport: { width: 1600, height: 900 }, reducedMotion: 'reduce' });
+  try {
+    const tv = await tvCtx.newPage();
+    await tv.goto(`${H.BASE}/tv.html?room=${r.roomCode}`);
+    await r.host.getByTestId('lab-open').click();
+    await r.host.getByTestId('lab-game').selectOption('reindeer_ring_toss');
+    await r.host.getByTestId('lab-start').click();
+    await expect(tv.getByTestId('ringtoss-scene')).toBeVisible();
+    // two rings thrown just now (as the room records them): a ringer on the right far prong, a long miss
+    const a = await H.dbGet(r.roomCode, 'arena');
+    const pid = a.participants[0], at = Date.now() + 300;
+    const ring = (n, extra) => ({ n, pid, at, stage: 'practice', angle: 0, power: 1, ms: 1000, points: 0, off: 0, ...extra });
+    await H.dbPut(r.roomCode, 'arena/state/throws', [
+      ring(1, { x: 0.3263, z: 1.65, pegId: 'right-outer' }),
+      ring(2, { x: -0.1, z: 1.86, pegId: null }),
+    ]);
+    await H.dbPut(r.roomCode, 'arena/stateVersion', a.stateVersion + 1);
+    // the most each effect shows over the next few seconds
+    const peak = await tv.evaluate(() => new Promise((done) => {
+      const best = { stars: 0, smoke: 0 }; const t0 = performance.now();
+      const look = () => {
+        const op = (sel) => Math.max(0, ...[...document.querySelectorAll(sel)].map((e) => +getComputedStyle(e).opacity));
+        best.stars = Math.max(best.stars, op('.rt-burst .rt-fly'));
+        best.smoke = Math.max(best.smoke, op('.rt-puff .rt-smoke'));
+        if (performance.now() - t0 < 4500) setTimeout(look, 50); else done(best);
+      };
+      look();
+    }));
+    expect(peak.stars).toBeGreaterThan(0.6);
+    expect(peak.smoke).toBeGreaterThan(0.6);
+    expect([...r.errors, ...phoneErrors]).toEqual([]);
+  } finally {
+    await tvCtx.close();
+    await r.hostCtx.close();
+    for (const c of contexts) await c.close();
+  }
+});

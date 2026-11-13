@@ -47,5 +47,4 @@
 .cv-sleigh-icon { font-size: 40px; }
 .cv-sleigh b { font: 900 34px/1 var(--f6-disp, system-ui); }
 .cv-wrong { color: #d7263d; }
-@media (prefers-reduced-motion: reduce) { .cv-stow-icon, .cv-stow, .cv-box.working { animation: none !important; } }
 .cv-stage > .rt-banner { justify-self: center; }

@@ -16,8 +16,7 @@ export function DuelWheel({ spin, offset, size = 300 }: { spin: WheelSpin; offse
   const final = TURNS * 360 - (spin.index + 0.5) * seg;
   const spunAt = typeof spin.spunAt === 'number' ? spin.spunAt : Date.now() + offset;
   const left = Math.max(0, SPIN_MS - (Date.now() + offset - spunAt));
-  const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const [angle, setAngle] = useState(left > 300 && !reduced ? 0 : final);
+  const [angle, setAngle] = useState(left > 300 ? 0 : final);
   const [done, setDone] = useState(angle === final);
   useEffect(() => {
     if (angle === final) return;

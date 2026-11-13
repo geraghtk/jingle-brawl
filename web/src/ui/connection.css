@@ -9,6 +9,5 @@
   background: var(--accent, #ff3366); animation: conn-pulse 1s ease-in-out infinite;
 }
 @keyframes conn-pulse { 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) { .conn-dot { animation: none; } }
 .seat-link { margin-top: 0.75rem; display: flex; gap: 0.75rem; align-items: center; }
 .seat-link a { word-break: break-all; font-weight: 700; font-size: 0.8rem; }

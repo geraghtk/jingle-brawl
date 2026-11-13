@@ -44,7 +44,3 @@
   from { transform: translateY(0) rotateX(0) rotate(0); }
   to { transform: translateY(calc(100vh + 120px)) rotateX(720deg) rotate(200deg); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .mvp-stage, .mvp-name, .mvp-score, .mvp-hint { animation: none !important; }
-  .mvp-rain { display: none; }
-}

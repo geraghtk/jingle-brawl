@@ -61,10 +61,9 @@ export function flyChips({ from, to, count, size = 34, stagger = 90, duration = 
   const a = centerOf(from);
   const b = centerOf(to);
   const n = Math.max(0, Math.min(count | 0, 12));
-  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  // drawn = chips actually animated (0 when an end is off-screen or motion is reduced)
-  document.dispatchEvent(new CustomEvent('jb:chips', { detail: { from: label(from), to: label(to), count, drawn: !a || !b || reduced ? 0 : n } }));
-  if (!a || !b || !n || reduced) { if (onDone) setTimeout(onDone, 0); return; }
+  // drawn = chips actually animated (0 when an end is off-screen)
+  document.dispatchEvent(new CustomEvent('jb:chips', { detail: { from: label(from), to: label(to), count, drawn: !a || !b ? 0 : n } }));
+  if (!a || !b || !n) { if (onDone) setTimeout(onDone, 0); return; }
   const dx = b.x - a.x;
   const lift = Math.min(240, 50 + Math.hypot(dx, b.y - a.y) * 0.35);
   let landed = 0;

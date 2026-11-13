@@ -22,12 +22,10 @@ export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: Pla
     const scored = Object.values(players).filter((p) => partyScore(p) > 0).map((p) => p.name);
     return scored.length > 1 ? scored : Object.values(players).map((p) => p.name);
   }, [players]);
-  const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const [rolling, setRolling] = useState(!reduced);
-  const [shown, setShown] = useState(reduced ? winnerLabel : contenders[0] || winnerLabel);
+  const [rolling, setRolling] = useState(true);
+  const [shown, setShown] = useState(contenders[0] || winnerLabel);
 
   useEffect(() => {
-    if (reduced) return;
     // Slot-machine roll: fast, then slower, then the winner
     let i = 0;
     let delay = 70;

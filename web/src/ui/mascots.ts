@@ -6,7 +6,7 @@
 //   Mascots.say('elf', 'text', opts)     show one directly.
 //
 // They never block clicks (pointer-events: none), queue rather than overlap, keep a polite
-// gap between appearances, respect prefers-reduced-motion, and `?mascots=0` turns them off.
+// gap between appearances, and `?mascots=0` turns them off.
 // @ts-nocheck — a straight port of mascots.js (DOM-only, no React); typed at its edges.
 const OFF = new URLSearchParams(location.search).get('mascots') === '0';
 const GAP_MS = 5000;        // quiet time before idle chatter
@@ -69,7 +69,6 @@ const css = `
     .mascot { --mascot-size: 92px; } .mascot.left { left: 8px; } .mascot.right { right: 8px; }
     .mascot .bubble { max-width: 210px; font-size: 13px; padding: 10px 12px; }
   }
-  @media (prefers-reduced-motion: reduce) { .mascot { transition: none; } .mascot.hop svg, .mascot-kick { animation: none; } }
 `;
 
 const queue = [];
