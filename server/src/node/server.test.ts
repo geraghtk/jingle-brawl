@@ -2,7 +2,11 @@
 // plays to the end with everyone pressing only what their own view offers. Time is a fake clock.
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { rng } from '../../../web/src/core/rng';
 import { HOST, offers } from '../../../web/src/core/table';
 import type { Offer, Who } from '../../../web/src/core/table';
@@ -14,18 +18,36 @@ import { Rooms } from '../room/rooms';
 import { MemoryStore } from '../store/store';
 import { FakeClock } from '../testing/fakeClock';
 import { createAppServer } from './http';
+import type { ServerOpts } from './http';
 
+const HOUR = 60 * 60 * 1000;
 let close: (() => void) | null = null;
-afterEach(() => { close?.(); close = null; });
+const dirs: string[] = [];
+afterEach(() => { close?.(); close = null; for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
-async function boot() {
+async function boot(opts: Partial<ServerOpts> = {}) {
   const clock = new FakeClock();
-  const rooms = new Rooms(new MemoryStore(), clock, { secret: 'test' });
-  const app = createAppServer({ rooms, staticDir: null, debugApi: true });
+  const store = new MemoryStore();
+  const rooms = new Rooms(store, clock, { secret: 'test' });
+  const app = createAppServer({ rooms, staticDir: null, debugApi: true, ...opts });
   await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', () => r()));
-  const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+  const port = (app.server.address() as AddressInfo).port;
+  const base = `http://127.0.0.1:${port}`;
   close = () => { app.close(); rooms.close(); };
-  return { clock, base, rooms };
+  return { clock, base, port, rooms, store, app };
+}
+
+/** One request exactly as written: the path is not tidied (fetch would resolve `..` itself) and any header can be set. */
+function raw(port: number, path: string, { method = 'GET', headers = {}, body }: { method?: string; headers?: Record<string, string>; body?: string } = {}) {
+  return new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path, method, headers }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode || 0, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
 }
 
 const post = async <T>(url: string, body: unknown): Promise<T> => (await fetch(url, { method: 'POST', body: JSON.stringify(body) })).json() as Promise<T>;
@@ -100,5 +122,78 @@ describe('the room server', () => {
     expect(forged.frames.some((m) => m.t === 'error' && m.fatal)).toBe(true);
     const lobby = await (await fetch(`${base}/api/rooms/ZZZZ/lobby`)).json();
     expect(lobby).toEqual({ exists: false });
+  });
+});
+
+describe('the gates', () => {
+  it('without --debug-api nothing under /debug answers: no read, no write, no reload', async () => {
+    const { base, rooms } = await boot({ debugApi: false });
+    const { code } = await post<CreateRoomRes>(`${base}/api/rooms`, {});
+    const version = rooms.get(code)!.state.version;
+    const tries: [string, string, string?][] = [
+      ['GET', `/debug/rooms/${code}`], ['GET', `/debug/rooms/${code}/phase`], ['GET', '/debug'], ['GET', '/debug/rooms/ZZZZ'],
+      ['PUT', `/debug/rooms/${code}/phase`, '"ended"'], ['PATCH', `/debug/rooms/${code}`, '{"phase":"ended"}'],
+      ['POST', `/debug/rooms/${code}/reload`], ['DELETE', `/debug/rooms/${code}`],
+    ];
+    for (const [method, path, body] of tries) {
+      const res = await fetch(`${base}${path}`, { method, body });
+      expect([method, path, res.status]).toEqual([method, path, 404]);
+      expect(await res.json()).toEqual({ error: 'not found' });
+    }
+    expect(rooms.get(code)!.state.game.phase).toBe('lobby');
+    expect(rooms.get(code)!.state.version).toBe(version);
+  });
+
+  it("a code that comes back is a new room: the old room's host and player tokens are refused on the socket", async () => {
+    const { base, clock, rooms, store } = await boot();
+    const { code, token } = await post<CreateRoomRes>(`${base}/api/rooms`, {});
+    const ada = await post<JoinRes>(`${base}/api/rooms/${code}/join`, { name: 'Ada' });
+    const before = [await connect(base, code, token), await connect(base, code, ada.token)];
+    expect(before.every((s) => s.game)).toBe(true);                          // while the room lives, both open it
+    for (const s of before) s.ws.close();
+    clock.advance(25 * HOUR);
+    rooms.sweep(HOUR);
+    expect(rooms.purge()).toEqual([code]);
+    // the code is dealt again (as Rooms.create would), and by chance the new room has a player with Ada's id
+    store.create(code, { phase: 'lobby', createdAt: clock.now(), settings: {}, players: { [ada.pid]: { name: 'Zed', chips: 10 } } }, clock.now());
+    for (const old of [token, ada.token]) {
+      const s = await connect(base, code, old);
+      expect(s.game).toBeNull();
+      expect(s.frames).toEqual([{ t: 'error', error: 'not your room', fatal: true }]);
+    }
+    expect(rooms.get(code)!.screens).toBe(0);
+    const fresh = rooms.token({ room: code, born: rooms.get(code)!.born, role: 'host' });
+    expect((await connect(base, code, fresh)).game!.players![ada.pid].name).toBe('Zed');
+  });
+
+  it('static files: nothing outside the static folder is ever served, however the path is dressed up', async () => {
+    const top = mkdtempSync(join(tmpdir(), 'jb-static-')); dirs.push(top);
+    const dist = join(top, 'dist');
+    mkdirSync(join(dist, 'assets'), { recursive: true });
+    mkdirSync(join(top, 'dist-evil'));
+    writeFileSync(join(dist, 'player.html'), '<p>the app</p>');
+    writeFileSync(join(dist, 'assets', 'app.js'), '// app');
+    writeFileSync(join(top, 'package.json'), 'SECRET');
+    writeFileSync(join(top, 'dist-evil', 'x.txt'), 'SECRET');           // a sibling whose name starts like the folder's
+    const { port } = await boot({ staticDir: dist, debugApi: false });
+    expect((await raw(port, '/')).body).toBe('<p>the app</p>');
+    expect((await raw(port, '/assets/app.js')).body).toBe('// app');
+    const abs = join(top, 'package.json');
+    const outside = [
+      '/..%2f..%2fpackage.json', '/..%2fpackage.json', '/%2e%2e%2fpackage.json', '/assets/../../package.json', '/assets/..%2f..%2fpackage.json',
+      '/assets/%2e%2e/%2e%2e/package.json', '/..%5cpackage.json', '/assets/..%5c..%5cpackage.json', '/assets\\..\\..\\package.json',
+      '/%2e%2e/package.json', '/../package.json', '/../dist-evil/x.txt', '/..%2fdist-evil/x.txt', '/..%2fdist-evil%2fx.txt',
+      '/%252e%252e%252fpackage.json', '/..%252fpackage.json', '/....//package.json',
+      '/player.html%00', '/..%2fpackage.json%00', '/%00', '/assets/app.js%00.png', '/..%00/package.json',
+      `/${encodeURIComponent(abs)}`, `/${abs.replace(/\\/g, '/')}`, `/${encodeURIComponent(`../${abs}`)}`,
+      '/assets', '/assets/',
+    ];
+    for (const path of outside) {
+      for (const method of ['GET', 'HEAD']) {
+        const res = await raw(port, path, { method });
+        expect([path, res.status]).toEqual([path, 404]);
+        expect(res.body).not.toContain('SECRET');
+      }
+    }
   });
 });
