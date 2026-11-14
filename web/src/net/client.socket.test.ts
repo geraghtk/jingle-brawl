@@ -149,6 +149,28 @@ describe('RoomClient, frame by frame', () => {
     expect(sockets().flatMap((s) => s.intents())).toEqual([]);
   });
 
+  it('a press on a stopped screen is answered at once, not kept for whoever starts it next', async () => {
+    const c = client().start();
+    last().join(1, game({}));
+    c.stop();
+    expect(await outcome(c.send({ type: 'start' }))).toEqual({ ok: false, error: 'left the room' });
+    c.start();
+    last().join(2, game({}));
+    expect(sockets().flatMap((s) => s.intents())).toEqual([]);
+  });
+
+  it('a press waiting when the room turns the screen away is answered with the reason', async () => {
+    const c = client().start();
+    last().accept();
+    const pressed = c.send({ type: 'start' });                 // before the welcome: kept for it
+    last().say({ t: 'error', error: 'not your room', fatal: true });
+    last().drop();
+    expect(await outcome(pressed)).toEqual({ ok: false, error: 'not your room' });
+    vi.advanceTimersByTime(60_000);
+    expect(sockets().length).toBe(1);                          // and it stops trying
+    expect(await outcome(c.send({ type: 'start' }))).toEqual({ ok: false, error: 'not your room' });
+  });
+
   it('after a drop: presses made meanwhile go once on the new socket, with their ids, and the answers come back', async () => {
     const c = client().start();
     const s0 = last().join(1, game({}));

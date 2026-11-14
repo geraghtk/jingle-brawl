@@ -16,6 +16,7 @@ const SAMPLES = 6;
 /** No word from the room for this long: the connection is dead even if the browser hasn't noticed
  *  (a phone that slept, a Wi-Fi hop). Drop it and connect again. */
 export const SILENT_MS = 12_000;
+const LEFT = 'left the room';
 
 let seq = 0;
 /** Unique per press (crypto.randomUUID needs a secure page; phones on the Wi-Fi use plain http). */
@@ -66,8 +67,14 @@ export class RoomClient {
     this.ws = null;
     ws?.close();
     this.setStatus('closed');
-    for (const p of this.pending.values()) p.resolve({ ok: false, error: 'left the room' });
+    this.refuse(LEFT);
+  }
+
+  /** Nobody will answer the presses still waiting: say no to each, and never send them later. */
+  private refuse(error: string): void {
+    const waiting = [...this.pending.values()];
     this.pending.clear();
+    for (const p of waiting) p.resolve({ ok: false, error });
   }
 
   /** The host: a token that seats `pid` on another phone (null if the room said no). */
@@ -84,6 +91,7 @@ export class RoomClient {
   /** Ask the room for something. Resolves with the room's answer (kept across reconnects). */
   send(intent: Intent): Promise<Ack> {
     if (this.fatal) return Promise.resolve({ ok: false, error: this.fatal });
+    if (this.stopped) return Promise.resolve({ ok: false, error: LEFT });   // not kept for a later start()
     return new Promise((resolve) => {
       const id = actionId();
       this.pending.set(id, { intent, resolve });
@@ -208,7 +216,7 @@ export class RoomClient {
         this.critic = { ready: m.ready, ...(m.backend ? { backend: m.backend } : {}), ...(m.error ? { error: m.error } : {}) };
         return this.emit();
       case 'error':
-        if (m.fatal) { this.fatal = m.error; this.emit(); }
+        if (m.fatal) { this.fatal = m.error; this.refuse(m.error); this.emit(); }   // it won't connect again
         return;
     }
   }
