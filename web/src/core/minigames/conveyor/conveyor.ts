@@ -34,7 +34,7 @@ export interface ConveyorConfig {
   stowawayChance: number; rewardBase: number; rewardBonus: number;
   teams?: TeamAssignment;                      // the experience's deal (else the game deals, balanced)
 }
-export const DEFAULTS: ConveyorConfig = { quota: 5, roundMs: 90_000, overtimeMs: 20_000, maxStations: 4, stowawayChance: 0.25, rewardBase: 2, rewardBonus: 3 };
+export const DEFAULTS: ConveyorConfig = { quota: 5, roundMs: 90_000, overtimeMs: 20_000, maxStations: 4, stowawayChance: 0.25, rewardBase: 1, rewardBonus: 0 };   // a flat point each: team duels come up in most duels, and 2 + up to 3 swamped the Party Score
 
 export interface TeamState {
   teamId: 'A' | 'B'; captainId: PlayerId; members: PlayerId[];

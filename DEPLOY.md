@@ -14,7 +14,9 @@ disk for `rooms.db`, and HTTPS in front of it (phones' browsers want `wss://` on
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` (optional) | a default AI Draw Off critic for your own parties. Hosts can bring their own key per game instead (memory only). |
 | `PORT` | default 8080 in the image, 8787 otherwise |
 
-Never run production with `--debug-api` (it also switches off the abuse limits).
+Never run production with `--debug-api` (it also switches off the abuse limits). The server refuses to
+start with it when `--trust-proxy` / `JB_TRUST_PROXY=1` or `NODE_ENV=production` is set, and `/debug`
+answers only this machine asking by a localhost name.
 
 ## Docker
 

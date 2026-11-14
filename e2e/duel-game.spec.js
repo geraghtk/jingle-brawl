@@ -176,3 +176,70 @@ test('AI Draw Off settles the duel: the two duellists draw, the critic, with the
     await s.cleanup();
   }
 });
+
+test('team games come up for a regular duel by default: the picker says who plays, and everyone is dealt onto a team', async ({ browser }) => {
+  test.setTimeout(120000);
+  const four = ['Alice', 'Bob', 'Charlie', 'Dana'];
+  // the setup screen as a host finds it: "Team games" is its default (the suite's helper otherwise turns it off)
+  const { host, hostCtx, roomCode, errors } = await H.createGame(browser, { 'vote-window': '0', 'duel-pick': 'defender', 'duel-table-games': 'teams', 'duel-games': 'Thumb War' });
+  const { pages, contexts, errors: phoneErrors } = await H.joinPlayers(browser, roomCode, four);
+  try {
+    expect((await H.dbGet(roomCode, 'settings')).duelTableGames).toBe('teams');
+    await H.startGame(host, roomCode);
+    const turn = await H.drawGift(host, roomCode, 'Team Gift');
+    const p = await H.playersByName(roomCode);
+    const opener = H.openerNameOf(turn, p);
+    const [bidder] = four.filter((n) => n !== opener);
+    await H.allBid(pages, opener, { [bidder]: 1 });
+    await H.revealBids(host);
+    await H.clickStartDuel(host);
+    await H.waitForTurnPhase(roomCode, 'duel');
+
+    // the defender's list: the room game, then the team game, saying everyone plays
+    const def = pages[opener];
+    await expect(def.getByTestId('duel-game-0')).toHaveText('Thumb War');
+    await expect(def.getByTestId('duel-game-1')).toContainText('Gift Conveyor');
+    await expect(def.getByTestId('duel-game-who-1')).toHaveText('played on phones · in teams: everyone plays');
+    await expect(def.getByTestId('duel-game-2')).toHaveCount(0);            // not every whole-table game: only teams by default
+    await expect(host.getByTestId('duel-game-stage')).toContainText('teams');
+
+    await def.getByTestId('duel-game-1').click();
+    await expect(host.getByTestId('duel-game-name')).toContainText('Gift Conveyor');
+    await expect(pages[bidder].getByTestId('phone-duel-who')).toHaveText('on your phone · in teams: everyone plays');
+    await host.getByTestId('start-duel-app').click();
+    await H.waitForTurnPhase(roomCode, 'minigame_arena');
+    const a = await H.dbGet(roomCode, 'arena');
+    expect(a.mode).toBe('captain_teams');
+    expect([...a.participants].sort()).toEqual(four.map((n) => p[n].id).sort());
+    expect([...a.duelists].sort()).toEqual([p[opener].id, p[bidder].id].sort());
+    expect([...errors, ...phoneErrors]).toEqual([]);
+  } finally {
+    await hostCtx.close();
+    for (const c of contexts) await c.close();
+  }
+});
+
+test('"Every game the whole table plays" ticks them all on the setup screen; "Only the ones I tick" none', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const host = await ctx.newPage();
+  try {
+    await host.goto(`${H.BASE}/host.html`);
+    const box = (id) => host.locator(`#setting-duel-app-${id}`);
+    await expect(host.locator('#setting-duel-table-games')).toHaveValue('teams');
+    await expect(box('gift_conveyor')).toBeChecked();
+    await expect(box('reindeer_ring_toss')).not.toBeChecked();
+    await host.locator('#setting-duel-table-games').selectOption('all');
+    for (const id of ['gift_conveyor', 'reindeer_ring_toss', 'pass_the_gremlin', 'whack_elf', 'sketch_off']) await expect(box(id)).toBeChecked();
+    await expect(box('draw_off')).not.toBeChecked();                          // needs a key: never automatic
+    await host.locator('#setting-duel-table-games').selectOption('off');
+    for (const id of ['gift_conveyor', 'reindeer_ring_toss', 'whack_elf']) await expect(box(id)).not.toBeChecked();
+    // the ticks are the fine control: one game added by hand is what the room gets
+    await box('reindeer_ring_toss').check();
+    await host.getByRole('button', { name: /Create New Game/i }).click();
+    await host.waitForSelector('#game-screen', { state: 'visible' });
+    const room = (await host.locator('#room-code-display').textContent()).trim();
+    expect((await H.dbGet(room, 'settings')).duelAppGames).toEqual(['reindeer_ring_toss']);
+  } finally {
+    await ctx.close();
+  }
+});

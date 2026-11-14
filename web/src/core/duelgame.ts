@@ -7,7 +7,7 @@
 // the table knows what's being played. An in-app game settles the duel itself: everyone plays,
 // the duellist who places higher wins, the rest earn party points as usual.
 import { startDrawOff } from './drawoff';
-import { getDef } from './minigames/registry';
+import { getDef, registered } from './minigames/registry';
 import { startArena } from './minigames/runtime';
 import { assignTeams, recordPairs } from './minigames/engines/teams';
 import { GAMES } from './party';
@@ -16,7 +16,7 @@ import { startPartyGame } from './partyflow';
 import type { Rng } from './rng';
 import { config, gremlinKinds } from './settings';
 import { refuse, SERVER_TIME, Tx } from './tx';
-import type { Game, Plan, PlayerId, Turn } from './types';
+import type { DuelTableGames, Game, Plan, PlayerId, Turn } from './types';
 import { voteStatus } from './voting';
 
 export { DEFAULT_DUEL_GAMES } from './settings';
@@ -35,13 +35,51 @@ export interface DuelGameOption { name: string; kind: 'table' | 'app'; app?: Due
 export interface DuelGameChoice extends DuelGameOption { via: 'picker' | 'wheel' }
 export interface WheelSpin { options: DuelGameOption[]; index: number; spunAt: number | typeof SERVER_TIME }
 
-/** Everything the duel could be: the host's list + the in-app games they ticked. */
+/** Who plays an in-app duel game with `players` at the table: the duelists captain two teams of everyone,
+ *  everyone plays for themselves (the better-placed duelist wins), or only the two duelists do. */
+export type WhoPlays = 'teams' | 'everyone' | 'duelists';
+export function whoPlays(app: DuelApp | undefined, players: number): WhoPlays | null {
+  if (!app) return null;
+  if (app === 'draw_off') return 'duelists';
+  if (app in GAMES) return 'everyone';
+  const def = getDef(app);
+  if (!def) return null;
+  if (def.supportedModes.includes('captain_teams')) return 'teams';
+  return players >= 3 && def.supportedModes.includes('party_with_duelists') ? 'everyone' : 'duelists';
+}
+/** In words, for a picker's small print. */
+export const WHO_PLAYS: Record<WhoPlays, string> = { teams: 'in teams: everyone plays', everyone: 'everyone plays', duelists: 'just the two duelists' };
+
+/** A team game needs someone on each captain's team. */
+export const TEAM_TABLE = 4;
+
+/** The whole-table games that come up when the host ticked none themselves (settings.duelTableGames):
+ *  the team games (if the table is big enough for teams), or every game the whole table plays. */
+export function tableGames(mode: DuelTableGames, players: number): DuelApp[] {
+  if (mode === 'off') return [];
+  const defs = registered();
+  const teams = players >= TEAM_TABLE ? defs.filter((d) => d.supportedModes.includes('captain_teams')).map((d) => d.id) : [];
+  if (mode === 'teams') return teams;
+  const everyone = defs.filter((d) => !d.supportedModes.includes('captain_teams') && d.supportedModes.includes('party_with_duelists')).map((d) => d.id);
+  return [...teams, ...everyone, ...(Object.keys(GAMES) as PartyType[])];
+}
+
+/** The in-app games this game's duels can be: the ones the host ticked, else what duelTableGames says.
+ *  Either way a team game waits for a table big enough for teams. */
+export function duelApps(game: Game): DuelApp[] {
+  const cfg = config(game.settings);
+  const players = Object.keys(game.players || {}).length;
+  if (!cfg.duelAppsGiven) return tableGames(cfg.duelTableGames, players);
+  return cfg.duelAppGames.filter((a) => players >= TEAM_TABLE || whoPlays(a, players) !== 'teams');
+}
+
+/** Everything the duel could be: the host's list + the in-app games (ticked, or the table's default). */
 export function duelOptions(game: Game): DuelGameOption[] {
   const cfg = config(game.settings);
   const table = cfg.duelGames.map((name) => ({ name, kind: 'table' as const }));
   // not for a tiebreak duel: its winner goes on to the real duel rather than being settled like one
   const apps = game.currentTurn?.isTiebreak ? []
-    : cfg.duelAppGames.filter((a) => duelAppInfo(a)).map((app) => ({ name: duelAppInfo(app)!.label, kind: 'app' as const, app }));
+    : duelApps(game).filter((a) => duelAppInfo(a)).map((app) => ({ name: duelAppInfo(app)!.label, kind: 'app' as const, app }));
   return [...table, ...apps];
 }
 

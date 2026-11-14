@@ -31,6 +31,8 @@ export function setupFields(s: Settings): Record<string, string> {
   put('vote-window', s.voteWindow); put('duel-pick', s.duelPick); put('tax-threshold', s.taxThreshold); put('base-cost', s.baseCost);
   put('tiebreaker-method', s.tiebreakerMethod); put('party-prize', s.partyPrize);
   if (s.duelGames !== undefined) f['duel-games'] = Array.isArray(s.duelGames) ? s.duelGames.join('\n') : s.duelGames;
+  // a list of its own: exactly those games (the screen's default ticks the team games); else the table's default
+  if (s.duelTableGames || s.duelAppGames) f['duel-table-games'] = s.duelAppGames ? 'off' : s.duelTableGames!;
   for (const a of s.duelAppGames || []) f[`duel-app-${a}`] = 'on';
   if (s.publicChips) f['public-chips'] = 'on';
   return f;

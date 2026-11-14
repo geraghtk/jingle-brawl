@@ -11,7 +11,7 @@ describe('settings from the network', () => {
   it('keeps what the setup screen sends, as it is', () => {
     const sent: Settings = {
       publicChips: true, maxReprisalDepth: 2, maxBid: 99, maxWinnerPayout: 3, loserDividendRule: 'everyone', spectatorBets: 1, voteWindow: 60,
-      duelPick: 'wheel', duelGames: 'Thumb War\nStaring Contest', duelAppGames: ['whack_elf', 'reindeer_ring_toss'], gremlinChallenges: 'quick_math',
+      duelPick: 'wheel', duelTableGames: 'all', duelGames: 'Thumb War\nStaring Contest', duelAppGames: ['whack_elf', 'reindeer_ring_toss'], gremlinChallenges: 'quick_math',
       taxThreshold: 99, baseCost: 0, tiebreakerMethod: 'sketch_off', partyPrize: 'points', aiCriticBackend: 'gemini', startingChips: 20,
     };
     expect(sanitizeSettings(sent)).toEqual(sent);

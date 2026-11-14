@@ -12,7 +12,8 @@ import type { Game, Settings } from './types';
 
 /** p1 (defender) vs p2 (challenger) for gA; p3, p4 watch. */
 function duel(settings: Settings = {}, extra: Partial<NonNullable<Game['currentTurn']>> = {}): Game {
-  const g = table(4, { duelPick: 'defender', ...settings });
+  // duelTableGames off: these tests say which in-app games are on (the table's default has its own tests below)
+  const g = table(4, { duelPick: 'defender', duelTableGames: 'off', ...settings });
   g.gifts = { gA: { name: 'Gift A', ownerId: 'p1', naughtyLevel: 0 } };
   g.players!.p1.giftId = 'gA';
   g.currentTurn = { phase: 'duel', challengerId: 'p2', defenderId: 'p1', giftId: 'gA', pot: 2, ...extra };
@@ -145,6 +146,56 @@ describe('duel game: what gets played', () => {
     g = apply(g, G.spinDuelGame(g, ctx()));
     g.currentTurn!.voteEndsAt = NOW + 30000;
     expect(G.startDuelApp(g, ctx()).error).toBe('Waiting for votes');
+  });
+
+  describe('whole-table games in regular duels (settings.duelTableGames)', () => {
+    const apps = (g: Game) => G.duelOptions(g).filter((o) => o.kind === 'app').map((o) => o.app);
+
+    it('by default the team games come up, beside the room games, once the table is big enough for teams', () => {
+      const g = duel({ duelTableGames: undefined, duelGames: ['Thumb War'] });
+      expect(G.duelOptions(g)).toEqual([{ name: 'Thumb War', kind: 'table' }, { name: 'The Great Gift Conveyor', kind: 'app', app: 'gift_conveyor' }]);
+      // three at the table: a captain would have no team
+      delete g.players!.p4;
+      expect(apps(g)).toEqual([]);
+    });
+
+    it("'all' opens it to every game the whole table plays; 'off' to none; AI Draw Off is never automatic", () => {
+      expect(apps(duel({ duelTableGames: 'all' })).sort()).toEqual(['gift_conveyor', 'pass_the_gremlin', 'reindeer_ring_toss', 'sketch_off', 'whack_elf']);
+      expect(apps(duel({ duelTableGames: 'off' }))).toEqual([]);
+      expect(apps(duel({ duelTableGames: 'all' }))).not.toContain('draw_off');
+      // three at the table: everyone-plays games still work, team games wait for a fourth
+      const three = duel({ duelTableGames: 'all' });
+      delete three.players!.p4;
+      expect(apps(three).sort()).toEqual(['pass_the_gremlin', 'reindeer_ring_toss', 'sketch_off', 'whack_elf']);
+    });
+
+    it("the host's own ticks win: exactly those games, whatever the table's default", () => {
+      expect(apps(duel({ duelTableGames: 'all', duelAppGames: ['whack_elf'] }))).toEqual(['whack_elf']);
+      expect(apps(duel({ duelTableGames: 'teams', duelAppGames: [] }))).toEqual([]);
+    });
+
+    it('a tiebreak duel has no in-app games, default or not', () => {
+      expect(apps(duel({ duelTableGames: 'all' }, { isTiebreak: true }))).toEqual([]);
+    });
+
+    it('says who plays each game, from what the game supports', () => {
+      expect(G.whoPlays('gift_conveyor', 6)).toBe('teams');
+      expect(G.whoPlays('reindeer_ring_toss', 6)).toBe('everyone');
+      expect(G.whoPlays('reindeer_ring_toss', 2)).toBe('duelists');
+      expect(G.whoPlays('whack_elf', 4)).toBe('everyone');
+      expect(G.whoPlays('draw_off', 6)).toBe('duelists');
+      expect(G.whoPlays(undefined, 6)).toBeNull();
+      expect(G.whoPlays('no_such_game', 6)).toBeNull();
+    });
+
+    it('the default team game starts with the duelists as captains and everyone dealt in', () => {
+      const g0 = duel({ duelTableGames: undefined, duelGames: [] });
+      const picked = apply(g0, G.chooseDuelGame(g0, 'p1', 0));
+      expect(picked.currentTurn!.duelGame).toMatchObject({ app: 'gift_conveyor', via: 'picker' });
+      const g = apply(picked, G.startDuelApp(picked, ctx()));
+      expect(g.arena).toMatchObject({ mode: 'captain_teams', duelists: ['p2', 'p1'] });
+      expect([...g.arena!.participants].sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
+    });
   });
 
   it('a duelist whose phone is away still plays the whole-table game (they would lose the gift without a turn)', () => {

@@ -66,6 +66,8 @@ export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: Pla
             <span className="f6-num"><strong>{top.partyPoints || 0}</strong> party-game points</span>
             <span aria-hidden>+</span>
             <span className="f6-num"><strong>{top.votingWins || 0}</strong> correct duel calls</span>
+            <span aria-hidden>+</span>
+            <span className="f6-num"><strong>{top.duelsFought || 0}</strong> duels fought</span>
             <span aria-hidden>=</span>
             <span className="mvp-total f6-num">{partyScore(top)}</span>
           </div>

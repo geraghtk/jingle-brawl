@@ -98,7 +98,7 @@ test('the Gift Conveyor: captains, teams, phone-to-phone gifts, the TV factories
     const g = await H.waitForGame(r.roomCode, (x) => (x.lastDuel || x.currentTurn?.duelGameWinner ? x : false), { label: 'conveyor decided', timeout: 30000 });
     const winner = g.lastDuel?.winnerId ?? g.currentTurn?.duelGameWinner;
     expect(winner).toBe(teamA.captainId);
-    for (const id of teamA.members) expect(g.players[id].partyPoints || 0).toBeGreaterThanOrEqual(2);
+    for (const id of teamA.members) expect(g.players[id].partyPoints || 0).toBe(1);          // a flat point each
     for (const id of teamB.members) expect(g.players[id].partyPoints || 0).toBe(0);
     expect([...r.errors, ...phoneErrors]).toEqual([]);
   } finally {

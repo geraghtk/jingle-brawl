@@ -150,6 +150,50 @@ scripts: they import the engine by absolute path and are not part of the build o
 `npx vite-node tools/economy-review/<name>.ts`). Fold the useful ones (`sim2.ts` strategies,
 `sweep.ts`, `flows.ts`, `skill.ts`) into `web/src/sim/` with tests when Step 2b is acted on.
 
+**Decided and built (Kevin, 2026-11-13: "let's make these changes"):** final standings are by Party
+Score, not chips; +1 Party point for each duel you fight (`players/{id}/duelsFought`, added in
+`resolveDuel`); a flat 1 point to each winning Conveyor team member. Re-run on the engine's own score
+(`tools/economy-review/after.ts`, 1000 games a row, six players, fair share 17%): the never-spends
+player tops the standings 8% of the time (was 42% by chips), the most active 27% (was 2%); with a
+team game in every duel at a flat point, 12% and 25%, and the most skilled seat 27%.
+
+### Step 2c. Spectator bets as a real market (proposal: Kevin wants to keep betting, 2026-11-13)
+
+Today (setting off by default): each call stakes 1 chip, the wrong callers' chips are split between
+the right ones, the odd chip and "nobody right" go to the Fund. The review found why it misbehaves:
+the leftovers make it negative-sum (abstaining beats betting by 1.6 chips a game) and the crowd piles
+on the favourite, so a lone contrarian gains 3.5. Both are fixable, and the second is what a market
+is supposed to do once people can SEE the odds. Proposed design, to simulate before building:
+1. **A pool with live odds (parimutuel).** All stakes on a duel go into one pool, split between the
+   backers of the winner in proportion to their stakes. The phone and TV show what each duelist pays
+   right now ("Bob pays 3 for 1"), moving as calls come in: backing the underdog pays more, so the
+   payout depends on who is backing whom.
+2. **An opening line from performance.** Before anyone bets, the house prices the duel from each
+   duelist's record (duels won and lost so far, a neutral 50/50 for a first duel) and seeds the pool
+   with a couple of chips from the North Pole Fund laid against that line. The seed makes betting
+   positive-sum (so playing beats abstaining) and recycles taxed chips back to the table.
+3. **Nothing leaks.** Nobody backed the winner: stakes are returned. Remainders carry to the next duel's pool.
+4. **Who may bet.** Never the two duelists. In a team duel everyone is on a team, so no bets (a
+   teammate could throw it): the Party point for the winning team is the stake there.
+5. **Stake size**: 1 chip, or let a bettor choose 1 to 2 (a bigger say in the odds). Calls still score
+   +1 Party Score when right, bet or no bet.
+Simulate in `tools/economy-review/` first (current rule vs pool vs pool + seeded line; honest,
+contrarian, favourite-only and abstaining bettors): the target is that betting your real belief is at
+least as good as abstaining, and no fixed habit beats it. Then rule docs, `scoring.ts` `settleBets`,
+the vote UI, `ECONOMICS.md`.
+
+### Other simulators (asked 2026-11-13)
+Ours (`web/src/sim/`, `tools/economy-review/`) is home-built and runs the real rules engine, which
+no outside tool can do. Outside tools model the game rather than run it; the ones worth knowing:
+- **Learning agents** (self-play reinforcement learning: OpenSpiel, or PettingZoo with RLlib): find
+  exploits that fixed-habit bots never try. Highest value. `jingle_brawl_env.py` in this repo was an
+  earlier attempt and is out of date with the rules; better to wrap the real engine through
+  `sim/table-bridge.ts` (JSON lines) so the rules stay in one place.
+- **Machinations** (a visual game-economy modeller): good for explaining chip faucets and sinks to
+  people; it would only restate what `flows.ts` already measures.
+- **Gambit** (a game-theory solver): exact equilibria for a small cut-down model, e.g. one sealed bid
+  followed by a duel; a check on the review's `bne.ts`.
+
 ### Step 3. Test gaps and the bugs they hide
 Unit suite: 390 pass. The review read the specs; it did not run Playwright. Ranked by risk:
 
@@ -309,5 +353,12 @@ after Step 1, after Step 2, and before the landing page design.
   so bids are still checked against offers. Also fixed on the way: `saveGift` to an unknown owner made
   a phantom player (now refused; `'misfit'` means the pile). **Step 2 item 0 fixed** (an away duelist
   is always a participant; `duelgame.test.ts`).
-- 2026-11-13: full economy review started (auction, contest, faucet/sink, inequality, sensitivity
-  models against the simulator); findings to be added as **Step 2b** before team duels become the default.
+- 2026-11-13: connection client (5 commits: one socket per screen, every press answered, a room that
+  came back older), platform tidy (6 commits: Step 4 items 1 to 6 done), server (7 commits: the
+  endgame draw is a host step, a malformed path can't stop the server, debug API gate S7, S8, failed
+  saves, late presses, oversized bodies, floods) merged from agent worktrees. Step 1: S3 and S5 done
+  too; S4 (drawings out of game state) and S6 (lock the room, seat revocation) still open.
+- 2026-11-13: Step 2 items 0, 1, 2 built (`duelTableGames`: teams by default, all, off; the pickers
+  say who plays). Open: item 3 (mid-game switch), item 4 (team modes for Ring Toss and the Gremlin:
+  until then the only team game is the Conveyor).
+- 2026-11-13: economy review done (Step 2b) and its three changes built; betting market proposed (Step 2c).

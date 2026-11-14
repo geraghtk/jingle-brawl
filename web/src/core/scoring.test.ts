@@ -3,9 +3,18 @@ import { test } from 'vitest';
 import assert from 'node:assert';
 import * as S from './scoring';
 
-test('Party Score = party points + correct duel calls', () => {
+test('Party Score = party points + correct duel calls + duels fought', () => {
   assert.strictEqual(S.partyScore({ partyPoints: 3, votingWins: 2, votingLosses: 5 }), 5);
+  assert.strictEqual(S.partyScore({ partyPoints: 3, votingWins: 2, duelsFought: 4 }), 9);
   assert.strictEqual(S.partyScore({}), 0);
+});
+
+test('the standings are by Party Score, never by chips: sitting on your chips does not win', () => {
+  const rows = S.partyStandings({
+    saver: { name: 'Saver', chips: 10 }, fighter: { name: 'Fighter', chips: 1, duelsFought: 3, partyPoints: 1 }, caller: { name: 'Caller', chips: 6, votingWins: 2 },
+  });
+  assert.deepStrictEqual(rows.map((r) => [r.name, r.score, r.place, r.duels]), [['Fighter', 4, 1, 3], ['Caller', 2, 2, 0], ['Saver', 0, 3, 0]]);
+  assert.deepStrictEqual(S.partyMvps({ saver: { chips: 10 }, fighter: { duelsFought: 1 } }), ['fighter']);
 });
 
 test('Party MVP: highest score, ties share it, nobody if nobody scored', () => {

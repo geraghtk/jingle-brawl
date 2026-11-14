@@ -1,6 +1,6 @@
 // What the duellists play, on the TV: the defender picking (with a host override), the wheel
 // spinning, then the duel itself. The winner buttons wait until it's known.
-import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, UNDER } from '../core/duelgame';
+import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, UNDER, whoPlays } from '../core/duelgame';
 import { useServerOffset } from '../net/hooks';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useSecondsLeft } from '../ui/PartyResults';
@@ -32,7 +32,10 @@ export function DuelGameStage({ compact = false }: { compact?: boolean }) {
       <div className="duel-game-stage picking" data-testid="duel-game-stage">
         <div className="dgs-title"><Icon name="target" /> {name(picker!)} is picking the duel{youngPick && <span className="dgs-rule"> · under-16 rule</span>}</div>
         <div className="dgs-options">
-          {duelOptions(game).map((o) => <span key={o.name} className="dgs-option">{o.kind === 'app' && o.app && <><Glyphs>{duelAppInfo(o.app)?.emoji}</Glyphs> </>}{o.name}</span>)}
+          {duelOptions(game).map((o) => {
+            const who = whoPlays(o.app, Object.keys(game.players || {}).length);
+            return <span key={o.name} className="dgs-option">{o.kind === 'app' && o.app && <><Glyphs>{duelAppInfo(o.app)?.emoji}</Glyphs> </>}{o.name}{who && who !== 'duelists' && <small className="dgs-who"> · {who === 'teams' ? 'teams' : 'everyone'}</small>}</span>;
+          })}
         </div>
         {!tv && <button className="vote-gate-close" data-testid="host-spin" onClick={() => send({ type: 'host_spin' })}>
           Spin the wheel for them

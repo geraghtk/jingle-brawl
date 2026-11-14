@@ -13,6 +13,7 @@ const ACTION_MODULES = ['actions', 'duel', 'admin', 'partyflow', 'duelgame', 'vo
 const READ_ONLY = new Set([
   'cleanName', 'voteStatus', 'duelGameStep', 'duelOptions', 'duelPicker', 'duelAppWinner', 'SPIN_MS', 'UNDER',
   'DEFAULT_DUEL_GAMES', 'DRAW_OFF_MS', 'PROMPT_REVEAL_MS', 'duelAppInfo', 'isDrawOff', 'everyoneDrew',
+  'whoPlays', 'WHO_PLAYS', 'tableGames',
 ]);
 
 function screens(dir: string): string[] {

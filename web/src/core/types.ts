@@ -12,6 +12,7 @@ export type DividendRule = 'everyone' | 'defenders' | 'nobody';
 // Ties are always settled by a whole-table party game. 'random' / 'draw_off' / 'minigame' are only
 // read from older saved games (config() maps them).
 export type TiebreakerMethod = 'party_mix' | 'sketch_off' | 'whack_elf' | 'random' | 'draw_off' | 'minigame';
+export type DuelTableGames = 'teams' | 'all' | 'off';
 export type PartyPrize = 'points_chips' | 'points' | 'none';
 
 export type GremlinChallenges = 'mixed' | 'quick_math' | 'memory_flash' | 'perfect_timing';
@@ -32,6 +33,9 @@ export interface Settings {
   duelGames?: string | string[];   // out-of-game duels the host listed, one per line ("" = none: RTDB drops empty arrays)
   duelAppGames?: import('./duelgame').DuelApp[];  // in-app mini-games that may come up as the duel
   duelPick?: 'defender' | 'wheel' | 'off';
+  /** Which whole-table games come up for a regular duel when the host ticked none themselves: the team games
+   *  (the default: everyone is on a duelist's team), every whole-table game, or none. */
+  duelTableGames?: DuelTableGames;
   /** Pass the Gremlin's challenges: all three in turn, or just one kind. */
   gremlinChallenges?: GremlinChallenges;
   aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
@@ -53,6 +57,7 @@ export interface Player {
   duelWins?: number;
   duelLosses?: number;
   votingWins?: number;
+  duelsFought?: number;           // duels this player was in (each is +1 Party Score: playing counts)
   votingLosses?: number;
   partyPoints?: number;
 }

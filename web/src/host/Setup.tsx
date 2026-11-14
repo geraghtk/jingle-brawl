@@ -2,9 +2,13 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { DEFAULT_DUEL_GAMES } from '../core/settings';
+import { tableGames } from '../core/duelgame';
 import type { DuelApp } from '../core/duelgame';
 import { registered } from '../core/minigames/registry';
-import type { Settings } from '../core/types';
+import type { DuelTableGames, Settings } from '../core/types';
+
+/** At setup nobody has joined yet: tick the games for a table of any size (a team game still waits for four). */
+const ANY_TABLE = 99;
 import { Glyphs, Icon } from '../ui/icons';
 
 const PARTY = ['sketch_off', 'whack_elf'];
@@ -28,11 +32,16 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
   const [s, setS] = useState({
     'reprisal-depth': '1', 'max-bid': '4', 'max-payout': '2', 'starting-chips': '', 'loser-dividend': 'defenders',
     'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'party_mix', 'party-prize': 'points_chips',
-    'gremlin-challenges': 'mixed',
+    'gremlin-challenges': 'mixed', 'duel-table-games': 'teams',
   });
   const [publicChips, setPublicChips] = useState(false);
   const [duelGames, setDuelGames] = useState(DEFAULT_DUEL_GAMES.join(NL));
-  const [duelApps, setDuelApps] = useState<DuelApp[]>([]);
+  // the whole-table games that come up as a duel: the team games unless the host says otherwise (the ticks are the fine control)
+  const [duelApps, setDuelApps] = useState<DuelApp[]>(() => tableGames('teams', ANY_TABLE));
+  const setTableGames = (mode: string) => {
+    setS((x) => ({ ...x, 'duel-table-games': mode }));
+    setDuelApps((x) => [...tableGames(mode as DuelTableGames, ANY_TABLE), ...x.filter((a) => a === 'draw_off')]);
+  };
   const toggleApp = (a: DuelApp) => setDuelApps((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]));
   // AI Draw Off's critic: the host's own key goes to the room server once (memory only), never into the game
   const [critic, setCritic] = useState<{ backend: 'openai' | 'gemini' | 'local'; key: string }>({ backend: 'openai', key: '' });
@@ -50,6 +59,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
       voteWindow: parseInt(s['vote-window']),
       duelPick: s['duel-pick'] as Settings['duelPick'],
       duelGames: duelGames.split(NL).map((x) => x.trim()).filter(Boolean).join(NL), // text: an empty list must stay empty
+      duelTableGames: s['duel-table-games'] as DuelTableGames,
       duelAppGames: duelApps,
       ...(duelApps.includes('pass_the_gremlin') ? { gremlinChallenges: s['gremlin-challenges'] as Settings['gremlinChallenges'] } : {}),
       taxThreshold: parseInt(s['tax-threshold']),
@@ -95,6 +105,9 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
             <label className="label" htmlFor="setting-duel-games">🤜 Duels you'll play in the room</label>
             <textarea id="setting-duel-games" className="input duel-games-input" rows={6} value={duelGames} onChange={(e) => setDuelGames(e.target.value)} />
             <div className="hint">One per line. These go on the wheel and in the defender's list.</div>
+            <Select id="duel-table-games" label="🎮 Games on phones as duels" value={s['duel-table-games']} onChange={setTableGames}
+              hint="So a duel is not just two people: with four or more, the duellists captain teams. Tick or untick any game below."
+              options={[['teams', 'Team games (everyone is on a team)'], ['all', 'Every game the whole table plays'], ['off', 'Only the ones I tick']]} />
             <div className="duel-app-games">
               {(['whack_elf', 'sketch_off'] as DuelApp[]).map((a) => (
                 <label key={a} className="duel-app-game">

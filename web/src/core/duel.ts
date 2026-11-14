@@ -36,6 +36,8 @@ export function resolveDuel(game: Game, winnerId: PlayerId, now: number): Plan {
   const cfg = config(game.settings);
   const tx = new Tx(game).claim('currentTurn/resolvedBy', winnerId)
     .set('undo', { players: game.players || {}, gifts: game.gifts || {} });
+  // fighting a duel counts towards the Party Score, win or lose (duelists can't call their own duel)
+  tx.add(`players/${winnerId}/duelsFought`, 1).add(`players/${loserId}/duelsFought`, 1);
   const pot = t.pot || 0;
   if (pot > 0) tx.add(`players/${winnerId}/chips`, pot).event(`${name(game, winnerId)} wins pot of ${pot} chips!`, 'bid');
 

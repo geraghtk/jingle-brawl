@@ -31,9 +31,9 @@ and cuts it out without squaring (`--variant bg`: the winter backdrop). The chos
 whimsical but battle-ready, a party hat whose tip is the 5-point peg, very wide antlers) had its left half
 mirrored, so both sides score alike, and the grey ground shadow under its beard removed; it and
 `backdrop.webp` (bg seed 2) are in `web/public/art/ringtoss/`. The snowdrift it stands in is drawn in
-`host/RingTossStage.tsx`. A new reindeer means measuring its antler tips and hat tip and moving the pegs
+`ui/ringtoss/scene.ts`. A new reindeer means measuring its antler tips and hat tip and moving the pegs
 (`ringtoss.ts` PEGS) and the placement (`DEER`, `TIP_H` and the view's `SX`/`SZ` in
-`host/RingTossStage.tsx`) together. `reindeer_blender.py` builds one in Blender instead (exact tip
+`ui/ringtoss/scene.ts`) together. `reindeer_blender.py` builds one in Blender instead (exact tip
 positions, but it looked less finished than the Flux art; kept for reference).
 
 ## Whack-an-Elf (Blender)

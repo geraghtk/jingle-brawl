@@ -3,12 +3,12 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { gambitTargets, rankedBids, stealTargets, topTiedBidders } from '../core/rules';
 import { minCost } from '../core/settings';
-import { partyScore } from '../core/scoring';
+import { partyMvps, partyScore, partyStandings } from '../core/scoring';
 import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
-import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS } from '../core/duelgame';
+import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, WHO_PLAYS, whoPlays } from '../core/duelgame';
 import type { DuelApp } from '../core/duelgame';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../net/hooks';
@@ -139,21 +139,23 @@ function EndgameIdle() {
 
 function Final() {
   const { game, me, player } = usePlayer();
-  const standings = Object.entries(game.players || {}).map(([id, p]) => ({ id, chips: p.chips || 0 })).sort((a, b) => b.chips - a.chips);
-  const rank = standings.findIndex((e) => e.id === me) + 1;
+  // the standings are the Party Score (leftover chips are worth nothing); nobody scored: no places
+  const standings = partyStandings(game.players);
+  const rank = standings.some((r) => r.score > 0) ? standings.find((r) => r.id === me)?.place || 0 : 0;
+  const champ = partyMvps(game.players).includes(me);
   const gift = player.giftId ? game.gifts?.[player.giftId] : null;
   const score = partyScore(player);
   return (
     <Card>
       <div className="f6-cap">Game over · your night</div>
-      <div className="final-place f6-disp fz-riso">{rank > 0 ? `${ordinal(rank)} place.` : 'Game over.'}</div>
+      <div className="final-place f6-disp fz-riso" data-testid="final-place">{rank > 0 ? `${ordinal(rank)} place.` : 'Game over.'}</div>
       <div className="final-gift-wrap">
         <div className={`final-gift-tile${gift ? '' : ' none'}`}>{gift ? <Icon name="gift" /> : '🫥'}</div>
-        {rank === 1 && <span className="fz-sticker yel final-champ"><Icon name="trophy" /> CHAMP</span>}
+        {champ && <span className="fz-sticker yel final-champ"><Icon name="trophy" /> CHAMP</span>}
       </div>
       <div className="final-gift-name">{gift ? gift.name : 'No gift this year'}</div>
       <div className="final-stats">
-        <div className="fstat"><div className="fstat-v f6-disp f6-num">{player.chips}</div><div className="fstat-k">chips</div></div>
+        <div className="fstat"><div className="fstat-v f6-disp f6-num">{player.chips}</div><div className="fstat-k">chips left</div></div>
         <div className="fstat accent"><div className="fstat-v f6-disp f6-num">{gift ? <><Icon name="naughty" /> {gift.naughtyLevel ?? 0}</> : 'none'}</div><div className="fstat-k">gift naughty</div></div>
         {score > 0 && <div className="fstat"><div className="fstat-v f6-disp f6-num"><Icon name="medal" /> {score}</div><div className="fstat-k">party score</div></div>}
       </div>
@@ -357,11 +359,12 @@ function Duel({ t }: { t: Turn }) {
   const spinning = spunAt != null && spinLeft > 0;
   const picking = !!step || spinning;
   const picker = duelPicker(game);
+  const tableSize = Object.keys(game.players || {}).length;
   const appName = (o: { kind: string; app?: DuelApp; name: string }) => (o.kind === 'app' && o.app ? `${duelAppInfo(o.app)?.emoji} ${o.name}` : o.name);
   const duelGameLine = t.wheel && spinning
     ? <DuelWheel spin={t.wheel} offset={offset} size={230} />
     : t.duelGame
-      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong><Glyphs>{appName(t.duelGame)}</Glyphs></strong>{t.duelGame.kind === 'app' && <small>{t.duelGame.app === 'draw_off' ? 'the duellists draw · the AI judges' : 'on your phone · everyone plays'}</small>}</div>
+      ? <div className="duel-game-line" data-testid="phone-duel-game"><span>The duel</span><strong><Glyphs>{appName(t.duelGame)}</Glyphs></strong>{t.duelGame.kind === 'app' && <small data-testid="phone-duel-who">{t.duelGame.app === 'draw_off' ? 'the duellists draw · the AI judges' : `on your phone · ${WHO_PLAYS[whoPlays(t.duelGame.app, tableSize) ?? 'everyone']}`}</small>}</div>
       : step === 'picker' && picker !== me ? <div className="duel-game-line pending"><Icon name="target" /> {nm(game, picker)} is picking the duel…</div>
       : step === 'wheel' ? <div className="duel-game-line pending"><Icon name="wheel" /> Spinning the wheel…</div> : null;
 
@@ -378,7 +381,7 @@ function Duel({ t }: { t: Turn }) {
           {duelOptions(game).map((o, i) => (
             <button key={o.name} role="listitem" className="duel-pick" data-testid={`duel-game-${i}`} onClick={() => send({ type: 'pick_duel', index: i, name: o.name })}>
               <span className="duel-pick-name"><Glyphs>{appName(o)}</Glyphs></span>
-              {o.kind === 'app' && <small>played on phones · everyone joins in</small>}
+              {o.kind === 'app' && <small data-testid={`duel-game-who-${i}`}>played on phones · {WHO_PLAYS[whoPlays(o.app, tableSize) ?? 'everyone']}</small>}
             </button>
           ))}
         </div>

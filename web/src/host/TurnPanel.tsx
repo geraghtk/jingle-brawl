@@ -533,8 +533,9 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
 function finalTally(game: Game): Panel {
   const ranked = Object.entries(game.players || {})
     .map(([id, p]) => ({ id, name: p.name, chips: p.chips || 0, score: partyScore(p), gift: p.giftId ? game.gifts?.[p.giftId]?.name || 'Mystery gift' : 'No gift' }))
-    .sort((a, b) => b.chips - a.chips);
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));   // by Party Score: leftover chips are worth nothing
   const mvps = partyMvps(game.players);
+  const top = (p: { id: string }) => mvps.includes(p.id);
   return {
     badge: 'FINAL TALLY', badgeClass: '',
     action: <><span className="fz-sticker" style={{ marginRight: 12, verticalAlign: 'middle' }}>FINAL VERDICT</span> Who got <span style={{ color: 'var(--accent)' }}>what.</span></>,
@@ -543,18 +544,18 @@ function finalTally(game: Game): Panel {
       {mvps.length > 0 && (
         <div className="party-mvp" style={{ gridColumn: '1 / -1', textAlign: 'center', fontWeight: 800, fontSize: '1.15rem', marginBottom: 8 }}>
           <Icon name="medal" /> Party MVP: {mvps.map((id) => game.players![id].name).join(' & ')}
-          <span className="f6-cap" style={{ display: 'block', marginTop: 2 }}>Party Score = party-game points + correct duel calls</span>
+          <span className="f6-cap" style={{ display: 'block', marginTop: 2 }}>Party Score = party-game points + correct duel calls + duels fought</span>
         </div>
       )}
       <div className="f6-rows tally-grid" style={{ gridColumn: '1 / -1' }}>
         {ranked.map((p, i) => (
-          <div key={p.id} className={`f6-row${i === 0 ? ' top' : ''}`}>
+          <div key={p.id} className={`f6-row${top(p) ? ' top' : ''}`} data-testid={`tally-${p.id}`}>
             <span className="rank f6-num">{String(i + 1).padStart(2, '0')}</span>
             <Avatar name={p.name} avatar={game.players?.[p.id]?.avatar} size={38} />
-            <div className="who"><div className="nm">{p.name}{i === 0 && <> <Icon name="trophy" /></>}</div><div className="sub">{p.gift}</div></div>
+            <div className="who"><div className="nm">{p.name}{top(p) && <> <Icon name="trophy" /></>}</div><div className="sub">{p.gift}</div></div>
             <div className="stat">
-              <div className="big"><span className="f6-coin" /> {p.chips}</div>
-              {p.score > 0 && <div className="sub"><Icon name="medal" /> {p.score} party score</div>}
+              {p.score > 0 && <div className="big"><Icon name="medal" /> {p.score} party score</div>}
+              <div className="sub"><span className="f6-coin" /> {p.chips} chips left</div>
             </div>
           </div>
         ))}

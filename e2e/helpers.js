@@ -141,10 +141,11 @@ async function createGame(browser, settings = {}) {
   // Most tests call duels straight away: no duel-vote wait unless a test asks for one
   // (the setting only exists in the React host)
   // …and no duel-game pick/wheel (duelPick off) unless a test asks for one
-  const all = { 'vote-window': '0', 'duel-pick': 'off', ...settings };
+  // …and only the in-app duel games a test ticks itself ('duel-table-games' off: the screen's default ticks the team games)
+  const all = { 'vote-window': '0', 'duel-pick': 'off', 'duel-table-games': 'off', ...settings };
   for (const [id, value] of Object.entries(all)) {
     const select = host.locator(`#setting-${id}`); // a <select>, checkbox or textarea
-    if ((id === 'vote-window' || id === 'duel-pick') && !(await select.count())) continue;
+    if ((id === 'vote-window' || id === 'duel-pick' || id === 'duel-table-games') && !(await select.count())) continue;
     const kind = await select.evaluate((e) => (e.tagName === 'INPUT' ? e.type : e.tagName.toLowerCase()));
     if (kind === 'select') await select.selectOption(value);
     else if (kind === 'checkbox') await select.setChecked(value === true || value === 'on');

@@ -857,8 +857,8 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test('the final tally shows each Party Score (party points + correct calls) and crowns the Party MVP', async ({ browser }) => {
-    const { host, roomCode, cleanup, assertNoPageErrors } = await setup(browser);
+  test('the final tally shows each Party Score (party points + correct calls + duels fought), in that order, and crowns the Party MVP', async ({ browser }) => {
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
       const p = await H.playersByName(roomCode);
       await H.dbPatch(roomCode, {
@@ -870,6 +870,16 @@ test.describe('Regressions (2026-10 review)', () => {
       await expect(host.locator('.tally-grid .f6-row', { hasText: 'Alice' })).toContainText('2 party score');
       await expect(host.locator('.tally-grid .f6-row', { hasText: 'Charlie' })).not.toContainText('party score');
       await expect(host.locator('#bids-grid')).toContainText('Party MVP: Bob');
+      // the standings are by Party Score, not chips: a player who kept every chip and did nothing is last
+      await H.dbPatch(roomCode, { [`players/${p.Charlie.id}/chips`]: 50, [`players/${p.Alice.id}/duelsFought`]: 3 });
+      await expect(host.locator('.tally-grid .f6-row').first()).toContainText('Alice');          // 2 calls + 3 duels fought
+      await expect(host.locator('.tally-grid .f6-row', { hasText: 'Alice' })).toContainText('5 party score');
+      await expect(host.locator('.tally-grid .f6-row').last()).toContainText('Charlie');
+      await expect(host.locator('.tally-grid .f6-row').last()).toContainText('50 chips left');
+      await expect(host.locator('#bids-grid')).toContainText('Party MVP: Alice');
+      // each phone's place is its Party Score place too
+      await expect(pages.Alice.getByTestId('final-place')).toHaveText('1st place.', { timeout: 10000 });
+      await expect(pages.Charlie.getByTestId('final-place')).toHaveText('3rd place.');
       assertNoPageErrors();
     } finally {
       await cleanup();

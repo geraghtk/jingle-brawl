@@ -53,8 +53,13 @@ describe('Admin undo', () => {
     const before = { players: g.players, gifts: g.gifts };
     g = apply(g, D.resolveDuel(g, 'p2', NOW));
     expect(g.gifts!.gA.ownerId).toBe('p2');
+    // fighting a duel is a Party point each, winner and loser; the one who watched gets none for it
+    expect([g.players!.p1.duelsFought, g.players!.p2.duelsFought, g.players!.p3.duelsFought ?? 0]).toEqual([1, 1, 0]);
+    // a second tap can't count the duel twice: refused, or its claim is already taken
+    const again = D.resolveDuel(g, 'p2', NOW);
+    if (!again.error) expect(apply(g, again).players!.p2.duelsFought).toBe(1);
     g = apply(g, Admin.undoDuel(g));
-    expect({ players: g.players, gifts: g.gifts }).toEqual(before);
+    expect({ players: g.players, gifts: g.gifts }).toEqual(before);         // undo takes the points back too
     expect(g.undo ?? null).toBeNull();
     expect(Admin.undoDuel(g).error).toBeTruthy();
   });

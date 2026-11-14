@@ -1,6 +1,6 @@
 import type { DuelApp } from './duelgame';
 // House settings: defaults + reading what a game stored.
-import type { DividendRule, GremlinChallenges, PartyPrize, Settings } from './types';
+import type { DividendRule, DuelTableGames, GremlinChallenges, PartyPrize, Settings } from './types';
 
 export interface Config {
   publicChips: boolean;
@@ -17,7 +17,9 @@ export interface Config {
   spectatorBets: number;
   voteWindow: number;
   duelGames: string[];
-  duelAppGames: DuelApp[];
+  duelAppGames: DuelApp[];        // the in-app games the host ticked
+  duelAppsGiven: boolean;         // the host chose the list themselves (else: duelTableGames decides)
+  duelTableGames: DuelTableGames;
   duelPick: 'defender' | 'wheel' | 'off';
   gremlinChallenges: GremlinChallenges;
 }
@@ -40,6 +42,8 @@ export const DEFAULTS: Config = {
   voteWindow: 30,
   duelGames: DEFAULT_DUEL_GAMES,
   duelAppGames: [],
+  duelAppsGiven: false,
+  duelTableGames: 'teams',
   duelPick: 'defender',
   gremlinChallenges: 'mixed',
 };
@@ -78,6 +82,8 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (prize) out.partyPrize = prize;
   const pick = oneOf(r.duelPick, ['defender', 'wheel', 'off'] as const);
   if (pick) out.duelPick = pick;
+  const tableGames = oneOf(r.duelTableGames, ['teams', 'all', 'off'] as const);
+  if (tableGames) out.duelTableGames = tableGames;
   const grem = oneOf(r.gremlinChallenges, ['mixed', 'quick_math', 'memory_flash', 'perfect_timing'] as const);
   if (grem) out.gremlinChallenges = grem;
   const critic = oneOf(r.aiCriticBackend, ['openai', 'gemini', 'local', 'ollama'] as const);
@@ -121,6 +127,8 @@ export function config(settings: Settings | undefined): Config {
     duelGames: (typeof s.duelGames === 'string' ? s.duelGames.split('\n') : s.duelGames ? Object.values(s.duelGames) : DEFAULTS.duelGames)
       .map(String).map((x) => x.trim()).filter(Boolean),
     duelAppGames: s.duelAppGames ? Object.values(s.duelAppGames) : DEFAULTS.duelAppGames,
+    duelAppsGiven: !!s.duelAppGames,
+    duelTableGames: (['teams', 'all', 'off'] as const).find((x) => x === s.duelTableGames) ?? DEFAULTS.duelTableGames,
     duelPick: s.duelPick ?? DEFAULTS.duelPick,
     gremlinChallenges: (['mixed', 'quick_math', 'memory_flash', 'perfect_timing'] as const).find((x) => x === s.gremlinChallenges) ?? DEFAULTS.gremlinChallenges,
   };

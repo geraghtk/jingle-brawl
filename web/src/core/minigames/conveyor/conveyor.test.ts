@@ -132,7 +132,7 @@ describe('The Great Gift Conveyor', () => {
     expect(st(g).teams[0].delivered).toBe(1);
   });
 
-  it('first to the quota wins: the winning captain wins the duel; the winning team alone gets rewards, by contribution', () => {
+  it('first to the quota wins: the winning captain wins the duel; the winning team alone gets rewards, a point each', () => {
     let g = play(6, { quota: 2 });
     let now = NOW + 500;
     for (let i = 0; i < 200 && !arenaOf(g)!.result; i++) { g = workTeam(g, 0, now); now += 50; }
@@ -140,7 +140,7 @@ describe('The Great Gift Conveyor', () => {
     expect(r).toMatchObject({ status: 'resolved', duel: { winningDuelistId: 'p1', losingDuelistId: 'p2' } });
     const teamA = st(g).teams[0].members, teamB = st(g).teams[1].members;
     expect(r.rewards!.map((x) => x.playerId).sort()).toEqual([...teamA].sort());
-    expect(r.rewards!.every((x) => x.points >= 2)).toBe(true);
+    expect(r.rewards!.map((x) => x.points)).toEqual(teamA.map(() => 1));   // flat: team duels come up often, a bigger prize swamped the Party Score
     expect(r.rewards!.some((x) => teamB.includes(x.playerId))).toBe(false);
     // the experience applies them, once
     const before = Object.fromEntries(teamA.map((p) => [p, g.players![p].partyPoints || 0]));

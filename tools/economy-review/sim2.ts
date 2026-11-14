@@ -35,7 +35,7 @@ export interface Opts {
   teamLoserPoints?: number;              // what-if: points to each member of the losing team
 }
 export interface Res {
-  n: number; seats: { strategy: string; chipsLeft: number; giftValue: number; gotGift: boolean; spent: number; partyPoints: number; callPts: number; teamPts: number; tiePts: number; duelWins: number; duelLosses: number; duelsFought: number; firstOpenTurn: number; firstDuelWon: number | null; keptFirstGift: boolean }[];
+  n: number; seats: { strategy: string; chipsLeft: number; giftValue: number; gotGift: boolean; spent: number; partyPoints: number; engineScore: number; engineDuels: number; callPts: number; teamPts: number; tiePts: number; duelWins: number; duelLosses: number; duelsFought: number; firstOpenTurn: number; firstDuelWon: number | null; keptFirstGift: boolean }[];
   ledger: { start: number; end: number; taxBurned: number; costsBurned: number; dividendsMinted: number; tollsMoved: number; elfBonusMinted: number; betsBurned: number; betsMoved: number; bidsPaid: number; potsPaid: number };
   duels: { kind: string; bid: number; pot: number; tax: number; dividend: number; turn: number }[];
   bids: { turn: number; amount: number; n: number }[];   // every bid decision incl. 0
@@ -283,6 +283,7 @@ export function play(o: Opts): Res {
     return {
       strategy: o.strategies[i].name, chipsLeft: p.chips, gotGift: !!p.giftId, spent: spent[i], giftValue: p.giftId ? valueOf(i, gi(p.giftId)) : 0,
       partyPoints: (p.partyPoints || 0) + (p.votingWins || 0) + teamPts[i], callPts: p.votingWins || 0, teamPts: teamPts[i], tiePts: p.partyPoints || 0,
+      engineScore: (p.partyPoints || 0) + (p.votingWins || 0) + (p.duelsFought || 0), engineDuels: p.duelsFought || 0,   // as the engine itself now scores it
       duelWins: p.duelWins || 0, duelLosses: p.duelLosses || 0, duelsFought: fought[i], firstOpenTurn: firstOpen[i], firstDuelWon: firstDuel[i],
       keptFirstGift: p.giftId ? gi(p.giftId) === firstGift[i] : false,
     };
