@@ -5,13 +5,22 @@
 @media (max-width: 760px) { .rt-layout { grid-template-columns: 1fr; } }
 .rt-scene { width: 100%; height: auto; border-radius: 18px; display: block; background: #eef3f8; }
 .rt-scene.compact { border-radius: 14px; max-height: 200px; }
-.rt-peg-pts { font: 900 26px/1 var(--f6-disp, system-ui); fill: #3b2414; }
-.rt-scene.compact .rt-peg-pts { display: none; }
 .rt-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
 .rt-board li { display: grid; grid-template-columns: 18px 30px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 12px; background: var(--surface, #fff); font-weight: 700; }
 .rt-board li.duelist { box-shadow: inset 0 0 0 3px var(--accent, #ff3366); }
 .rt-swatch { width: 16px; height: 16px; border-radius: 50%; border: 4px solid; }
-.rt-left { color: #9aa3b2; font-size: 11px; letter-spacing: -1px; }
+/* a player's set: a pip per target (the hat's a little triangle), lit in their colour once ringed; then their full sets */
+.rt-set { display: inline-flex; align-items: center; gap: 3px; }
+.rt-set i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid #b9c2d0; box-sizing: border-box; }
+.rt-set i.hat { border-radius: 2px; transform: rotate(45deg) scale(.9); }
+.rt-set i.on { box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); }
+.rt-sets { font: 900 15px/1 var(--f6-disp, system-ui); color: #c58a00; margin-left: 3px; }
+.arena-full .rt-set i { width: 12px; height: 12px; }
+.arena-full .rt-sets { font-size: 19px; }
+/* a full set: big across the top, a pop and a hold */
+.rt-fullset { font: 900 54px/1 var(--f6-disp, system-ui); stroke: #fff; stroke-width: 8px; paint-order: stroke; animation: rt-fullset 1.3s ease-out both; }
+@keyframes rt-fullset { 0% { opacity: 0; transform: translateY(14px) scale(.5); } 14% { opacity: 1; transform: translateY(0) scale(1.12); } 24% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-16px); } }
+.rt-fullset { transform-box: fill-box; transform-origin: center; }
 .rt-pts { font: 900 22px/1 var(--f6-disp, system-ui); min-width: 2ch; text-align: right; }
 .rt-flights { pointer-events: none; }
 
@@ -21,7 +30,12 @@
 .rt-mine b { font: 900 22px/1 var(--f6-disp, system-ui); }
 .rt-feedback { min-height: 24px; margin: 8px 0; font-weight: 800; }
 .rt-rings { display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; }
-.rt-ring-dot { width: 18px; height: 18px; border-radius: 50%; border: 4px solid; }
+.rt-ring-dot { width: 18px; height: 18px; border-radius: 50%; border: 4px solid; transition: opacity .15s, transform .15s; }
+.rt-ring-dot.used { opacity: .25; transform: scale(.8); }
+.rt-rings.reloading .rt-ring-dot:not(.used) { animation: rt-refill .25s ease-out; }
+@keyframes rt-refill { from { transform: scale(.4); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+.rt-myset { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 0 0 8px; font-weight: 700; font-size: 14px; }
+.rt-myset .rt-set i { width: 13px; height: 13px; }
 .rt-pad { position: relative; height: 220px; border-radius: 20px; background: linear-gradient(#f2f6fa, #dfe8f2); touch-action: none; -webkit-user-select: none; user-select: none; display: grid; place-items: end center; padding-bottom: 26px; cursor: grab; }
 .rt-pad.disabled { opacity: .55; }
 .rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; will-change: transform; }
@@ -70,7 +84,6 @@
 .rt-layout { display: flex; flex-direction: column; gap: 10px; }
 .rt-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .rt-board li { display: inline-flex; grid-template-columns: none; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; font-size: 15px; }
-.rt-board .rt-left { display: none; }
 .rt-board .rt-pts { font-size: 20px; min-width: 0; }
 .arena-full .rt-layout { display: flex; }
 .arena-full .rt-scene { flex: 1; min-height: 0; max-height: none; }
@@ -146,3 +159,51 @@
   72% { opacity: 1; }
   100% { opacity: 0; rotate: var(--rot); scale: .7; }
 }
+
+/* The show (core/minigames/ringtoss/flair.ts): snow, the reindeer's glowing nose, trails, whose ringer and
+   their run, confetti for a full set, the start / the last five seconds / time's up, the board's crown. */
+.rt-snowfall { pointer-events: none; opacity: .9; }
+.rt-snowfall.far { opacity: .75; }
+.rt-flake { animation: rt-fall var(--dur) linear var(--delay) infinite; filter: drop-shadow(0 0 1.5px rgba(120, 150, 190, .7)); }
+@keyframes rt-fall {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(var(--sway), 330px); }
+  100% { transform: translate(0, 660px); }
+}
+.rt-nose { transform-box: fill-box; transform-origin: center; mix-blend-mode: screen; animation: rt-nose .9s ease-out both; pointer-events: none; }
+@keyframes rt-nose { 0% { opacity: 0; transform: scale(.6); } 15% { opacity: 1; transform: scale(1.9); } 45% { opacity: .9; transform: scale(1.35); } 100% { opacity: 0; transform: scale(1); } }
+.rt-nose.big { animation: rt-nose-big 1.3s ease-out both; }
+@keyframes rt-nose-big { 0% { opacity: 0; transform: scale(.6); } 12% { opacity: 1; transform: scale(3.2); } 30% { transform: scale(2); } 48% { opacity: 1; transform: scale(2.8); } 100% { opacity: 0; transform: scale(1); } }
+.rt-trail { pointer-events: none; }
+.rt-who { font-size: 22px; stroke-width: 4.5px; }
+.rt-conf-fall { animation: rt-conf-fall var(--dur) cubic-bezier(.3, .1, .7, 1) var(--delay) both; }
+@keyframes rt-conf-fall { from { translate: 0 0; opacity: 1; } 85% { opacity: 1; } to { translate: var(--sway) 700px; opacity: 0; } }
+.rt-conf { transform-box: fill-box; transform-origin: center; animation: rt-conf 1.2s linear infinite; }
+@keyframes rt-conf { from { rotate: 0deg; scale: 1 1; } 50% { scale: 1 .25; } to { rotate: var(--rot); scale: 1 1; } }
+.rt-splash, .rt-count { font: 900 150px/1 var(--f6-disp, system-ui); fill: #ff3366; stroke: #fff; stroke-width: 16px; paint-order: stroke; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; pointer-events: none; }
+.rt-splash { animation: rt-splash 1.5s ease-out both; }
+@keyframes rt-splash { 0% { opacity: 0; transform: scale(.3) rotate(-8deg); } 12% { opacity: 1; transform: scale(1.18) rotate(3deg); } 22% { transform: scale(1) rotate(0deg); } 72% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.5); } }
+.rt-count { font-size: 210px; fill: #0d1018; animation: rt-count .95s ease-out both; }
+@keyframes rt-count { 0% { opacity: 0; transform: scale(1.7); } 18% { opacity: .82; transform: scale(1); } 70% { opacity: .6; } 100% { opacity: 0; transform: scale(.8); } }
+.rt-banner.hurry { background: #e0143c; animation: rt-hurry .5s ease-in-out infinite alternate; }
+@keyframes rt-hurry { from { box-shadow: 0 0 0 0 rgba(224, 20, 60, .5); } to { box-shadow: 0 0 0 9px rgba(224, 20, 60, 0); } }
+.rt-board li { position: relative; }
+.rt-board li.leader, .arena-full .rt-board li.leader { box-shadow: 0 0 0 3px #ffc21a, 0 2px 8px rgba(13, 16, 24, .12); }
+.rt-board li.leader.duelist, .arena-full .rt-board li.leader.duelist { box-shadow: inset 0 0 0 3px var(--accent, #ff3366), 0 0 0 3px #ffc21a; }
+.rt-crown { position: absolute; top: -13px; left: 8px; width: 24px; height: 18px; transform: rotate(-14deg); animation: rt-crown .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes rt-crown { from { transform: translateY(-14px) rotate(-40deg) scale(.3); opacity: 0; } to { transform: rotate(-14deg); opacity: 1; } }
+.rt-run { display: inline-flex; align-items: center; gap: 1px; font: 900 15px/1 var(--f6-disp, system-ui); color: #d24a00; }
+.rt-flame { width: 14px; height: 18px; transform-origin: 50% 90%; animation: rt-flame .5s ease-in-out infinite alternate; }
+@keyframes rt-flame { from { transform: scale(1, .92) rotate(-4deg); } to { transform: scale(.94, 1.1) rotate(4deg); } }
+.rt-pts.pop { display: inline-block; animation: rt-pts-pop .45s cubic-bezier(.3, 1.7, .5, 1); }
+@keyframes rt-pts-pop { from { transform: scale(1.9); color: #e0143c; } to { transform: scale(1); } }
+.arena-full .rt-run { font-size: 19px; }
+.arena-full .rt-flame { width: 17px; height: 22px; }
+
+/* the phone: a ringer lights the whole pad in your colour (a full set, three times); the last ten seconds, the pill hurries */
+.rt-pad-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: rt-pad-flash .6s ease-out; }
+.rt-pad-flash.set { animation: rt-pad-flash .45s ease-out 3; }
+@keyframes rt-pad-flash { from { opacity: .5; } to { opacity: 0; } }
+.rt-feedback.big.hit { animation: rt-pts-pop .45s cubic-bezier(.3, 1.7, .5, 1); }
+.rt-stage-pill.hurry { background: #e0143c; animation: rt-hurry .5s ease-in-out infinite alternate; }
+.rt-need { color: var(--muted, #6a7180); font-weight: 800; }

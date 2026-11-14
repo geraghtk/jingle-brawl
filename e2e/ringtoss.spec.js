@@ -117,3 +117,97 @@ test('Ring Toss: practice, swipes and buttons, rings on the TV, the duel to the 
     await t.close();
   }
 });
+
+test('Ring Toss: unlimited rings, five at a time with a reload; a full set shows on the TV and the phone', async ({ browser }) => {
+  test.setTimeout(120000);
+  const t = await toRingToss(browser);
+  try {
+    await endStage(t.roomCode);                                        // practice over: the scored round
+    await expect(t.tv.getByTestId('ringtoss-stage-label')).toContainText('Throw!');
+    const al = t.pages[t.opener], me = t.p[t.opener].id;
+    const mine = async () => (await stateOf(t.roomCode)).throws.filter((x) => x.pid === me && x.stage === 'throwing').length;
+
+    // a batch of five, then the pad reloads (a flick then throws nothing)
+    for (let i = 0; i < 5; i++) { await swipe(al, (i - 2) * 0.05, 0.6); await al.waitForTimeout(700); }
+    await expect.poll(mine).toBe(5);
+    await expect(al.getByTestId('ringtoss-pad-hint')).toHaveText('Reloading…');
+    await expect(al.getByTestId('ringtoss-rings')).toHaveAttribute('aria-label', 'Reloading your rings');
+    await swipe(al, 0, 0.6);
+    await al.waitForTimeout(400);
+    expect(await mine()).toBe(5);
+
+    // the batch comes back (no limit but the clock) and throws again
+    await expect(al.getByTestId('ringtoss-pad-hint')).toHaveText(/Flick up/, { timeout: 5000 });
+    await expect(al.getByTestId('ringtoss-rings')).toHaveAttribute('aria-label', '5 rings in hand');
+    await swipe(al, 0, 0.6);
+    await expect.poll(mine).toBe(6);
+
+    // a ring that completes a set (recorded as the room scores it): the TV calls it, the board counts it, the phone says so
+    await al.waitForTimeout(1500);
+    const a = await H.dbGet(t.roomCode, 'arena');
+    const set = { n: 900, pid: me, at: Date.now() + 200, stage: 'throwing', angle: 0, power: 1.06, x: 0, z: 1.65, ms: 1000, pegId: 'golden', points: 1, off: 0, bonus: 5 };
+    await H.dbPut(t.roomCode, 'arena/state/throws', [...a.state.throws, set]);
+    await H.dbPut(t.roomCode, 'arena/state/sets', { [me]: 1 });
+    await H.dbPut(t.roomCode, 'arena/stateVersion', a.stateVersion + 1);
+    await expect(t.tv.getByTestId('ringtoss-fullset')).toHaveText('Full set! +5', { timeout: 5000 });
+    await expect(t.tv.getByTestId(`ringtoss-set-${me}`)).toHaveAttribute('aria-label', /1 full set/);
+    await expect(al.getByTestId('ringtoss-feedback')).toHaveText('Full set! +6');
+    expect([...t.errors, ...t.phoneErrors]).toEqual([]);
+  } finally {
+    await t.close();
+  }
+});
+
+test('Ring Toss: the show: Go!, whose ringer and their run, the leader, one to go, the last seconds', async ({ browser }) => {
+  test.setTimeout(120000);
+  const t = await toRingToss(browser);
+  const shot = async (page, name) => { if (process.env.RT_SHOTS) await page.screenshot({ path: `${process.env.RT_SHOTS}/${name}.png` }); };
+  try {
+    await endStage(t.roomCode);                                        // practice over: the scored round starts with a word
+    await expect(t.tv.getByTestId('ringtoss-splash')).toHaveText('Go!');
+    await shot(t.tv, 'go');
+    const al = t.pages[t.opener], me = t.p[t.opener].id;
+
+    // four ringers in a row on four targets (recorded as the room scores them), in the air now
+    const a = await H.dbGet(t.roomCode, 'arena');
+    const at = Date.now() + 300;
+    const ring = (n, pegId, x) => ({ n, pid: me, at, stage: 'throwing', angle: 0, power: 1.06, x, z: 1.65, ms: 1000, pegId, points: 1, off: 0 });
+    const four = [ring(901, 'left-outer', -0.3263), ring(902, 'left-inner', -0.2461), ring(903, 'golden', 0), ring(904, 'right-inner', 0.2461)];
+    await H.dbPut(t.roomCode, 'arena/state/throws', [...(a.state.throws || []), ...four]);
+    await H.dbPut(t.roomCode, 'arena/state/scores', { [me]: 4 });
+    await H.dbPut(t.roomCode, 'arena/state/got', { [me]: four.map((x) => x.pegId) });
+    await H.dbPut(t.roomCode, 'arena/stateVersion', a.stateVersion + 1);
+    await t.tv.waitForTimeout(700);
+    await shot(t.tv, 'flight');
+
+    // the TV: each burst says whose ring, the third and fourth call the run; the reindeer's nose lights up
+    await expect(t.tv.getByTestId('ringtoss-who').filter({ hasText: '4 in a row!' })).toContainText(t.opener, { timeout: 5000 });
+    await expect(t.tv.getByTestId('ringtoss-who').filter({ hasText: '3 in a row!' })).toHaveCount(1);
+    await expect(t.tv.getByTestId('ringtoss-nose')).toBeAttached();
+    await shot(t.tv, 'ringers');
+    // the phone: the pad lights up, the run, and the one target the set still needs
+    await expect(al.getByTestId('ringtoss-flash')).toBeAttached();
+    await expect(al.getByTestId('ringtoss-feedback')).toHaveText('Ringer! +1 · 4 in a row!');
+    await expect(al.getByTestId('ringtoss-need')).toHaveText('Just the far right tip to go!');
+    await shot(al, 'phone');
+    // the board: the run and the leader's crown, on that player only
+    await expect(t.tv.getByTestId(`ringtoss-run-${me}`)).toHaveAttribute('aria-label', '4 in a row');
+    await expect(t.tv.getByTestId(`ringtoss-score-${me}`).getByTestId('ringtoss-leader')).toBeVisible();
+    await expect(t.tv.getByTestId('ringtoss-leader')).toHaveCount(1);
+    await expect(t.tv.locator('[data-testid^=ringtoss-run-]')).toHaveCount(1);
+
+    // the last seconds are counted out on the TV, and the clock hurries on both
+    const b = await H.dbGet(t.roomCode, 'arena');
+    const ends = Date.now() + 4600;
+    await H.dbPut(t.roomCode, 'arena/state/stageEndsAt', ends);
+    await H.dbPut(t.roomCode, 'arena/deadlines', [{ id: 'stage', at: ends }]);
+    await H.dbPut(t.roomCode, 'arena/stateVersion', b.stateVersion + 1);
+    await expect(t.tv.getByTestId('ringtoss-count')).toHaveText(/^[1-4]$/, { timeout: 4000 });
+    await expect(t.tv.getByTestId('ringtoss-stage-label')).toHaveClass(/hurry/);
+    await expect(al.getByTestId('ringtoss-stage-pill')).toHaveClass(/hurry/);
+    await shot(t.tv, 'count');
+    expect([...t.errors, ...t.phoneErrors]).toEqual([]);
+  } finally {
+    await t.close();
+  }
+});

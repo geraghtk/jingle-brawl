@@ -1,7 +1,7 @@
 // Little sound effects, made on the spot with Web Audio (no files to load). Muted per device (the
 // choice is remembered); silent until the page has been touched, as browsers require.
 
-export type Cue = 'jump' | 'right' | 'wrong' | 'pass' | 'doom' | 'tick';
+export type Cue = 'jump' | 'right' | 'wrong' | 'pass' | 'doom' | 'tick' | 'fanfare' | 'ding' | 'thud' | 'go' | 'horn';
 
 const KEY = 'jb_muted';
 let ctx: AudioContext | null = null;
@@ -21,9 +21,16 @@ const CUES: Record<Cue, [number, number, number, OscillatorType][]> = {
   pass: [[880, 0, 0.06, 'triangle'], [660, 0.06, 0.06, 'triangle'], [440, 0.12, 0.1, 'triangle']],
   doom: [[160, 0, 0.35, 'sawtooth'], [110, 0.25, 0.5, 'sawtooth'], [70, 0.6, 0.7, 'square']],
   tick: [[1200, 0, 0.03, 'square']],
+  fanfare: [[660, 0, 0.1, 'triangle'], [880, 0.1, 0.1, 'triangle'], [990, 0.2, 0.1, 'triangle'], [1320, 0.3, 0.35, 'triangle']],
+  // a sleigh bell (a ringer), a ring in the snow, the start, time's up
+  ding: [[1319, 0, 0.28, 'sine'], [1976, 0, 0.2, 'sine'], [2637, 0.015, 0.34, 'sine']],
+  thud: [[150, 0, 0.09, 'sine'], [92, 0.03, 0.13, 'sine']],
+  go: [[523, 0, 0.1, 'square'], [784, 0.1, 0.28, 'square']],
+  horn: [[233, 0, 0.55, 'sawtooth'], [175, 0, 0.55, 'sawtooth'], [117, 0.05, 0.5, 'square']],
 };
 
-export function play(cue: Cue): void {
+/** `pitch` multiplies every note (a run of ringers climbs). */
+export function play(cue: Cue, pitch = 1): void {
   if (muted() || typeof window === 'undefined') return;
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -34,7 +41,7 @@ export function play(cue: Cue): void {
     for (const [f, at, len, wave] of CUES[cue]) {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = wave;
-      o.frequency.setValueAtTime(f, t0 + at);
+      o.frequency.setValueAtTime(f * pitch, t0 + at);
       g.gain.setValueAtTime(0.0001, t0 + at);
       g.gain.exponentialRampToValueAtTime(0.18, t0 + at + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
