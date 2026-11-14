@@ -5,6 +5,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { duelAppInfo } from '../core/duelgame';
 import { Glyphs } from '../ui/icons';
+import '../ui/arena.css';
 import { ArenaStage } from './ArenaStage';
 import { useHost } from './HostContext';
 import { PanelButtons } from './TurnPanel';

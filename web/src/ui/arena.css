@@ -1,0 +1,18 @@
+/* What every mini-game shares: the full-screen frame on the TV and the console (host/ArenaFull.tsx)
+   and a phone card's error line. A game's own rules inside the frame (.arena-full .rt-*) stay in its
+   own file. */
+
+/* a mini-game full screen: the TV always, the console on request */
+.arena-full { position: fixed; inset: 0; z-index: 900; display: flex; flex-direction: column; background: #eef3f8; padding: 12px 18px 16px; box-sizing: border-box; }
+.arena-full-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.arena-full-title { font: 900 26px/1.1 var(--f6-disp, system-ui); }
+.arena-full-title small { font-size: 16px; color: var(--muted, #6a7180); }
+.arena-full-tools { display: flex; gap: 8px; }
+.arena-full-btn { border: 0; border-radius: 999px; padding: 8px 14px; background: var(--ink, #0d1018); color: #fff; font-weight: 800; cursor: pointer; }
+.arena-full-body { flex: 1; min-height: 0; overflow: auto; }
+.arena-full-note { color: var(--muted, #6a7180); font-weight: 700; }
+.arena-full-host { display: flex; gap: 8px; flex-wrap: wrap; }
+.arena-full-host .btn { padding: 8px 14px; font-size: 14px; }
+
+/* a game card's error line ("Not now", "Too late"): its room is kept, so the card doesn't jump */
+.arena-error { color: #d7263d; font-weight: 700; min-height: 20px; }

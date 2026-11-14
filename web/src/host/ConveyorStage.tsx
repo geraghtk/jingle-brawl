@@ -8,6 +8,7 @@ import { TEAM_COLORS } from '../player/ConveyorCard';
 import { useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { play } from '../ui/sound';
+import '../ui/ringtoss.css';   // its clock is Ring Toss's .rt-banner (and the full-screen rules for it)
 import '../ui/conveyor.css';
 import { useHost } from './HostContext';
 

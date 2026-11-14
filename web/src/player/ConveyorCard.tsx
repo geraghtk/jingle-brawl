@@ -7,6 +7,7 @@ import type { Gift, Order, StepKind } from '../core/minigames/conveyor/conveyor'
 import { useServerOffset } from '../net/hooks';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
+import '../ui/arena.css';
 import '../ui/conveyor.css';
 
 export const PAPER_COLORS: Record<string, string> = { red: '#e23b3b', green: '#1fa36b', gold: '#f2b705', blue: '#2f6fde', purple: '#8a4bd6' };
@@ -71,7 +72,7 @@ export function ConveyorCard() {
       ) : job ? <Job job={job} act={act} /> : (
         <p className="cv-wait" data-testid="conveyor-waiting">Waiting for the next gift…</p>
       )}
-      <div className="grem-error" role="alert">{error}</div>
+      <div className="arena-error" role="alert">{error}</div>
     </div>
   );
 }

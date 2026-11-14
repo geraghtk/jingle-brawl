@@ -13,6 +13,7 @@ import { ringColor, ringView, SetPips, visMs } from '../host/RingTossStage';
 import { useServerOffset } from '../net/hooks';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
+import '../ui/arena.css';
 import '../ui/ringtoss.css';
 
 const CHARGE_PERIOD_MS = 1400;        // the hold-to-charge meter rises and falls in this long
@@ -90,7 +91,7 @@ export function RingTossCard() {
         {rings}
         {set}
         <div key={flash?.n ?? 0} className={`rt-feedback big${flash ? ' hit' : ''}`} aria-live="polite" data-testid="ringtoss-feedback">{said}</div>
-        <div className="grem-error" role="alert">{error}</div>
+        <div className="arena-error" role="alert">{error}</div>
         <button type="button" className="rt-link rt-escape" onPointerDown={(e) => e.stopPropagation()} onClick={() => setButtons(true)} data-testid="ringtoss-controls-toggle">
           Use buttons instead of flicking
         </button>
@@ -115,7 +116,7 @@ export function RingTossCard() {
             : v.stage === 'practice' ? 'Practice done: the scored rings start soon' : 'All your rings are thrown: watch the TV!'}
         </p>
       )}
-      <div className="grem-error" role="alert">{error}</div>
+      <div className="arena-error" role="alert">{error}</div>
     </div>
   );
 }

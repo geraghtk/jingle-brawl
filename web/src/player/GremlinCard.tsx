@@ -10,6 +10,7 @@ import { useServerOffset } from '../net/hooks';
 import { glyphs } from '../ui/icons';
 import { buzz, muted, play, setMuted } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
+import '../ui/arena.css';
 import '../ui/gremlin.css';
 
 export interface GremlinView {
@@ -99,7 +100,7 @@ export function GremlinCard() {
           {v.challengeKind === 'memory_flash' && v.sequence ? <MemoryFlash key={v.issuedAt} v={v} act={act} disabled={cooling} />
             : v.challengeKind === 'perfect_timing' && v.startAt != null ? <PerfectTiming key={v.issuedAt} v={v} act={act} offset={offset} disabled={cooling} />
             : v.prompt ? <QuickMath key={v.issuedAt} prompt={v.prompt} act={act} disabled={cooling} /> : null}
-          {cooling ? <div className="grem-error" role="alert">Wrong! A new one…</div> : <div className="grem-error" role="alert">{error}</div>}
+          {cooling ? <div className="grem-error arena-error" role="alert">Wrong! A new one…</div> : <div className="grem-error arena-error" role="alert">{error}</div>}
         </>
       )}
       {mine && v.stage === 'pass_ready' && (
@@ -111,7 +112,7 @@ export function GremlinCard() {
               <button key={id} data-testid={`gremlin-pass-${id}`} disabled={now < (v.canPassAt || 0)} onClick={() => act({ kind: 'pass', to: id })}>{name(id)}</button>
             ))}
           </div>
-          <div className="grem-error" role="alert">{error}</div>
+          <div className="grem-error arena-error" role="alert">{error}</div>
         </>
       )}
       {!mine && <p className="grem-sub">{inPool ? `Be ready: it could jump to you! (${name(v.holder)} is doing ${v.challengeLabel || 'a challenge'})` : "You're out of this round. Watch the TV!"}</p>}
