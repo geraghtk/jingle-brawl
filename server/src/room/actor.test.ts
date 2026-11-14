@@ -134,6 +134,24 @@ describe('a room', () => {
     expect(mg()?.scores?.[t.pids[0]]).toBeUndefined();
   });
 
+  it('a deadline applied by a late press is shown to every screen, though the press itself is refused', () => {
+    const t = setup(4, { tiebreakerMethod: 'whack_elf' });
+    const opener = revealed(t);
+    t.press(opener, { type: 'fight' });
+    t.clock.advance(0);
+    const mg = () => t.game().minigame as PartyGame;
+    t.clock.advance(mg().phaseEndsAt - t.clock.now() + 1000);
+    expect(mg().phase).toBe('playing');
+    t.clock.jump(mg().phaseEndsAt - t.clock.now() + 60_000);              // no timer ran: the press finds the deadline passed
+    expect(t.press(t.pids[0], { type: 'whack', score: 50 }).ok).toBe(false);
+    expect(mg().phase).not.toBe('playing');
+    for (const p of t.pids) expect(t.phones[p].last()).toEqual(projectGame(t.game(), { kind: 'phone', pid: p }));
+    expect(t.host.last()).toEqual(projectGame(t.game(), { kind: 'host' }));
+    expect(t.room.nextWakeAt()).not.toBeNull();
+    t.clock.advance(60_000);                                              // and the room's own clock is armed for what comes next
+    expect(t.game().minigame ?? null).toBeNull();
+  });
+
   it('a restart picks the room up where it was: timers come back from the state, nothing is paid twice', () => {
     const t = setup(4, { tiebreakerMethod: 'whack_elf' });
     const opener = revealed(t);
@@ -262,6 +280,60 @@ describe('the Misfit Lottery moves itself on', () => {
     lottery(t);
     t.clock.advance(1000);
     expect(replay(t.store, 'ABCD')).toEqual(t.store.load('ABCD')!.game);
+  });
+});
+
+describe('a save that fails (the disk is full, the database is locked)', () => {
+  /** The next `n` saves throw, as SQLite would. */
+  function failing(t: ReturnType<typeof setup>, n = 1) {
+    const real = t.store.commit.bind(t.store);
+    let left = n;
+    t.store.commit = (...args: Parameters<typeof real>) => { if (left-- > 0) throw new Error('disk full'); real(...args); };
+  }
+  const inStep = (t: ReturnType<typeof setup>) => {
+    expect(t.room.state.version).toBe(t.store.load('ABCD')!.version);
+    expect(t.room.state.game).toEqual(t.store.load('ABCD')!.game);
+    expect(replay(t.store, 'ABCD')).toEqual(t.store.load('ABCD')!.game);
+  };
+
+  it('a press whose save fails changed nothing: memory matches the store, no screen saw it, and the same press works when retried', () => {
+    const t = setup(3);
+    const sent = [t.host.got.length, ...t.pids.map((p) => t.phones[p].got.length)];
+    failing(t);
+    expect(() => t.room.handle(HOST, 'go', { type: 'start' })).toThrow('disk full');      // (ws.ts answers "Something went wrong")
+    expect(t.game().phase).toBe('lobby');
+    inStep(t);
+    expect([t.host.got.length, ...t.pids.map((p) => t.phones[p].got.length)]).toEqual(sent);
+    expect(t.room.handle(HOST, 'go', { type: 'start' })).toEqual({ ok: true });            // the retry is the same press
+    expect(t.game().phase).toBe('main');
+    expect(t.host.last()!.phase).toBe('main');
+    inStep(t);
+  });
+
+  it('a join whose save fails seats nobody', () => {
+    const t = setup(2);
+    failing(t);
+    expect(() => t.room.join({ name: 'Late' })).toThrow('disk full');
+    expect(Object.keys(t.game().players!).length).toBe(2);
+    inStep(t);
+    expect(t.room.join({ name: 'Late' })).toHaveProperty('pid');
+    inStep(t);
+  });
+
+  it('an automatic step whose save fails is not lost: it runs again, once', () => {
+    const t = setup(4, { tiebreakerMethod: 'whack_elf' });
+    const opener = revealed(t);
+    expect(t.press(opener, { type: 'fight' })).toEqual({ ok: true });
+    failing(t);
+    expect(() => t.clock.advance(0)).toThrow('disk full');                                 // the tie's party game could not be saved
+    expect(t.game().currentTurn!.phase).toBe('tiebreaker_pending');
+    inStep(t);
+    // (the Node server stops on an uncaught error and reloads the room; a room that lives on tries again at the next press)
+    expect(t.press(opener, { type: 'fight' }).ok).toBe(false);                             // (any press: the room looks at its clock first)
+    expect(t.game().currentTurn!.phase).toBe('minigame_party');
+    inStep(t);
+    const again = RoomActor.load('ABCD', t.deps)!;
+    expect(again.state.game.currentTurn!.phase).toBe('minigame_party');
   });
 });
 

@@ -143,13 +143,13 @@ export class RoomActor {
     if (seen) return seen.ok ? { ok: true } : { ok: false, error: seen.error || 'refused' };
     const intent = parseIntent(raw);
     if ('error' in intent) return this.remember(actionId, { ok: false, error: intent.error });
-    this.runDue();                                       // a deadline that has passed wins over this press
+    const moved = this.runDue();                         // a deadline that has passed wins over this press
     const seed = this.seed();
     const plan = dispatch(this.game, who, intent as Intent, { now: this.now(), rng: rng(seed) });
+    const done = !plan.error && this.commit(plan, who, 'intent', { intent, seed });
+    if (moved || done) this.afterChange();               // (a refused press still shows everyone what the clock just did)
     if (plan.error) return this.remember(actionId, { ok: false, error: plan.error });
-    if (!this.commit(plan, who, 'intent', { intent, seed })) return this.remember(actionId, { ok: false, error: 'someone got there first' });
-    this.afterChange();
-    return this.remember(actionId, { ok: true });
+    return this.remember(actionId, done ? { ok: true } : { ok: false, error: 'someone got there first' });
   }
 
   /** A phone joining: the server picks the player id. */
@@ -184,7 +184,12 @@ export class RoomActor {
       if (!step) break;
       this.fired.add(step.key);
       const seed = this.seed();
-      if (this.commit(step.run(this.game, { now, rng: rng(seed) }), HOST, 'auto', { step: step.key, seed })) changed = true;
+      try {
+        if (this.commit(step.run(this.game, { now, rng: rng(seed) }), HOST, 'auto', { step: step.key, seed })) changed = true;
+      } catch (e) {
+        this.fired.delete(step.key);                       // it did not happen (the save failed): still due
+        throw e;
+      }
     }
     return changed;
   }
@@ -258,13 +263,15 @@ export class RoomActor {
     const { game, applied } = commitPlan(this.game, plan, at);
     if (!applied) return false;
     this.lastActivity = at;
-    this.game = game;
-    this.version++;
+    // saved first: if the save throws, nothing has changed here either (memory never runs ahead of
+    // the store, so no screen is shown a move that a restart would undo) and the press can be retried.
     // the event keeps the plan too, so the room can be replayed from its log (replay.ts)
-    this.deps.store.commit(this.code, game, this.version, {
+    this.deps.store.commit(this.code, game, this.version + 1, {
       at, who, kind, ok: true,
       body: { ...(body as object), events: plan.events, plan: { updates: plan.updates, ...(plan.claim ? { claim: plan.claim } : {}) } },
     });
+    this.game = game;
+    this.version++;
     if (plan.events.length) this.broadcastLog(plan.events.map((e) => ({ ...e, at })));
     // (plan.then, the Misfit Lottery's next draw, is not run from here: it is a step in hostAuto,
     // read from the saved state, so it survives a restart and is cancelled with the room's timer)
