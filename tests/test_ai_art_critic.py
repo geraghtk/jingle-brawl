@@ -100,5 +100,31 @@ class NoEmDashes(unittest.TestCase):
         self.assertNotIn(EM, prompt)
 
 
+class OnlyTheRoomServerCallsIt(unittest.TestCase):
+    """The critic may fall back to this machine's OpenAI key: a web page, or the LAN, must not reach it."""
+
+    def test_no_cross_origin_access_for_web_pages(self):
+        client = fake_ollama("A wobbly penguin.", "SCORE: 70\nCRITIQUE: Nice.")
+        with mock.patch.object(critic, "get_ollama_client", return_value=client), \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
+            app = critic.app.test_client()
+            res = app.post("/critique", json={"image": "aGk=", "secretWord": "Penguin"}, headers={"Origin": "http://evil.example"})
+            pre = app.options("/critique", headers={"Origin": "http://evil.example", "Access-Control-Request-Method": "POST",
+                                                    "Access-Control-Request-Headers": "content-type"})
+        for r in (res, pre):
+            self.assertNotIn("Access-Control-Allow-Origin", r.headers)
+
+    def test_listens_on_this_machine_only_by_default(self):
+        self.assertEqual(critic.DEFAULT_HOST, "127.0.0.1")
+
+    def test_an_oversized_request_is_refused(self):
+        self.assertLessEqual(critic.app.config["MAX_CONTENT_LENGTH"], 8 * 1024 * 1024)
+        big = "x" * (critic.MAX_BODY_BYTES + 1024)
+        with mock.patch.object(critic, "get_ollama_client") as get_client:
+            res = critic.app.test_client().post("/critique", json={"image": big, "secretWord": "Penguin"})
+        self.assertEqual(res.status_code, 413)
+        get_client.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

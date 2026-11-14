@@ -104,7 +104,8 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
   else if (getDef(t.duelGame.app)) {
     // a runtime game: everyone plays if it can resolve the duelists that way (3+ at the table), else just the two
     const def = getDef(t.duelGame.app)!;
-    const everyone = Object.keys(game.players || {}).filter((id) => game.players![id].connected !== false);
+    // the duelists always play, even one whose phone is away right now (they'd lose the gift without a throw)
+    const everyone = [...new Set([...duelists, ...Object.keys(game.players || {}).filter((id) => game.players![id].connected !== false)])];
     const party = everyone.length >= 3 && def.supportedModes.includes('party_with_duelists');
     const arenaConfig = def.id === 'pass_the_gremlin' ? { challenges: gremlinKinds(config(game.settings).gremlinChallenges) } : undefined;
     let started: { error?: string };

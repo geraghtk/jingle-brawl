@@ -92,6 +92,22 @@ export function whackSequence(seed: number, playMs = GAMES.whack_elf.playMs): Wh
   return items;
 }
 
+/** A phone's clock may run this far ahead of the room's: a pop-up it already tapped counts. */
+export const WHACK_CLOCK_SLACK_MS = 1500;
+
+/** The most (and least) anyone can have scored `elapsedMs` into a Whack-an-Elf game: every elf and
+ *  golden elf up so far tapped at its fastest, no Grinch (the least: every Grinch, nothing else). The
+ *  room holds a phone's reported score to this: it can't claim a thousand. */
+export function whackBounds(seed: number, elapsedMs = Infinity, playMs = GAMES.whack_elf.playMs): { min: number; max: number } {
+  let min = 0, max = 0;
+  for (const p of whackSequence(seed, playMs)) {
+    if (p.at > elapsedMs + WHACK_CLOCK_SLACK_MS) break;
+    if (p.kind === 'grinch') min += whackPoints('grinch', 0);
+    else max += whackPoints(p.kind, 0);
+  }
+  return { min, max };
+}
+
 /** Sketch-Off score = votes received (no self-votes, only for real drawings). */
 export function sketchScores(votes: Record<PlayerId, PlayerId> | undefined, submissions: Record<PlayerId, unknown> | undefined) {
   const scoreOf: Record<PlayerId, number> = {};

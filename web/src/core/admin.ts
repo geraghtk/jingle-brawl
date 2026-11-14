@@ -1,23 +1,26 @@
 // Host admin: fix-ups when a phone dies or something goes wrong. Every edit keeps
 // player.giftId and gift.ownerId consistent (a Misfit always has ownerId 'misfit').
-import { refuse, Tx } from './tx';
+import { own, refuse, Tx } from './tx';
 import type { Game, Plan, PlayerId } from './types';
 import { MISFIT } from './types';
 
 const name = (game: Game, id: PlayerId | null | undefined) => (id && game.players?.[id]?.name) || 'Unknown';
+/** Ids here come from the host's console over the network: a player or gift is one the game really has. */
+const isPlayer = (game: Game, id: string) => own(game.players, id);
+const isGift = (game: Game, id: string) => own(game.gifts, id);
 
 function toMisfit(tx: Tx, giftId: string, now: number, naughtyLevel = 0) {
   tx.set(`gifts/${giftId}/ownerId`, MISFIT).set(`gifts/${giftId}/misfitOrder`, now).set(`gifts/${giftId}/naughtyLevel`, naughtyLevel);
 }
 
 export function setChips(game: Game, playerId: PlayerId, chips: number): Plan {
-  if (!game.players?.[playerId]) return refuse('No such player');
+  if (!isPlayer(game, playerId)) return refuse('No such player');
   const n = Math.max(0, Math.min(9999, Math.floor(chips) || 0));
   return new Tx(game).set(`players/${playerId}/chips`, n).event(`⚙️ Admin: Set ${name(game, playerId)}'s chips to ${n}`, 'gift').plan();
 }
 
 export function removePlayerGift(game: Game, playerId: PlayerId, now: number): Plan {
-  const giftId = game.players?.[playerId]?.giftId;
+  const giftId = isPlayer(game, playerId) ? game.players![playerId].giftId : null;
   if (!giftId) return refuse('Player has no gift');
   const tx = new Tx(game).set(`players/${playerId}/giftId`, null);
   toMisfit(tx, giftId, now);
@@ -25,9 +28,12 @@ export function removePlayerGift(game: Game, playerId: PlayerId, now: number): P
 }
 
 /** Rename / re-level / re-own a gift. newOwnerId null = Misfit pile. */
-export function saveGift(game: Game, giftId: string, edit: { name?: string; naughtyLevel: number; ownerId: PlayerId | null }, now: number): Plan {
-  const gift = game.gifts?.[giftId];
-  if (!gift) return refuse('No such gift');
+export function saveGift(game: Game, giftId: string, given: { name?: string; naughtyLevel: number; ownerId: PlayerId | null }, now: number): Plan {
+  if (!isGift(game, giftId)) return refuse('No such gift');
+  const gift = game.gifts![giftId];
+  // the Misfit pile is no owner (never a player called 'misfit'); any other owner must be at the table
+  const edit = { ...given, ownerId: given.ownerId === MISFIT ? null : given.ownerId };
+  if (edit.ownerId && !isPlayer(game, edit.ownerId)) return refuse('No such player');
   const nm = edit.name?.trim() || gift.name;
   const tx = new Tx(game).set(`gifts/${giftId}/name`, nm).set(`gifts/${giftId}/naughtyLevel`, edit.naughtyLevel);
   const old = gift.ownerId;
@@ -43,8 +49,8 @@ export function saveGift(game: Game, giftId: string, edit: { name?: string; naug
 }
 
 export function moveGiftToMisfit(game: Game, giftId: string, now: number): Plan {
-  const gift = game.gifts?.[giftId];
-  if (!gift) return refuse('No such gift');
+  if (!isGift(game, giftId)) return refuse('No such gift');
+  const gift = game.gifts![giftId];
   const tx = new Tx(game);
   toMisfit(tx, giftId, now);
   if (gift.ownerId !== MISFIT) tx.set(`players/${gift.ownerId}/giftId`, null);
@@ -52,8 +58,8 @@ export function moveGiftToMisfit(game: Game, giftId: string, now: number): Plan 
 }
 
 export function deleteGift(game: Game, giftId: string): Plan {
-  const gift = game.gifts?.[giftId];
-  if (!gift) return refuse('No such gift');
+  if (!isGift(game, giftId)) return refuse('No such gift');
+  const gift = game.gifts![giftId];
   const tx = new Tx(game).set(`gifts/${giftId}`, null);
   if (gift.ownerId !== MISFIT) tx.set(`players/${gift.ownerId}/giftId`, null);
   return tx.event(`⚙️ Admin: Deleted "${gift.name}"`, 'gift').plan();
@@ -67,8 +73,8 @@ export function addGift(game: Game, giftId: string, giftName: string, ownerId: P
   if (ownerId === MISFIT) {
     tx.set(`gifts/${giftId}`, { name: nm, naughtyLevel: 0, ownerId: MISFIT, misfitOrder: now, createdAt: now });
   } else {
-    if (!game.players?.[ownerId]) return refuse('No such player');
-    const theirs = game.players[ownerId].giftId;
+    if (!isPlayer(game, ownerId)) return refuse('No such player');
+    const theirs = game.players![ownerId].giftId;
     if (theirs) toMisfit(tx, theirs, now);
     tx.set(`gifts/${giftId}`, { name: nm, naughtyLevel: 0, ownerId, createdAt: now }).set(`players/${ownerId}/giftId`, giftId);
   }

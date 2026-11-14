@@ -1,6 +1,6 @@
 // Party mini-game flow: intro → playing → (voting) → results → the duel.
 import type { Rng } from './rng';
-import { GAMES, RESULTS_MS, SKETCH_PROMPTS, results as partyResults } from './party';
+import { GAMES, RESULTS_MS, SKETCH_PROMPTS, results as partyResults, whackBounds } from './party';
 import type { PartyGame, PartyType } from './party';
 import { pick } from './rng';
 import { config } from './settings';
@@ -84,7 +84,14 @@ export function voteSketch(game: Game, voter: PlayerId, target: PlayerId): Plan 
   if (voter === target) return refuse("You can't vote for your own drawing");
   return new Tx(game).set(`minigame/votes/${voter}`, target).plan();
 }
-export const reportWhack = (game: Game, pid: PlayerId, score: number, final: boolean): Plan =>
-  new Tx(game).set(`minigame/scores/${pid}`, { score, final }).plan();
+/** A phone's Whack-an-Elf score so far. The phone counts its own taps, so the room holds what it says
+ *  to what the pop-ups up to `now` could have scored (`whackBounds`; without `now`: the whole game's). */
+export function reportWhack(game: Game, pid: PlayerId, score: number, final: boolean, now?: number): Plan {
+  const mg = game.minigame as PartyGame | undefined;
+  const elapsed = now != null && mg?.playStartAt != null ? Math.max(0, now - mg.playStartAt) : Infinity;
+  const { min, max } = whackBounds(mg?.seed ?? 0, elapsed);
+  const held = Math.max(min, Math.min(max, Math.round(Number(score) || 0)));
+  return new Tx(game).set(`minigame/scores/${pid}`, { score: held, final }).plan();
+}
 
 export { topTiedBidders };

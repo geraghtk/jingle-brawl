@@ -6,10 +6,17 @@ const parts = (path: string) => path.split('/').filter(Boolean);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const clone = <T>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
+/** `o` has `k` as its own key (not `toString`, `constructor`, `__proto__`: an id from the network is
+ *  looked up with this, never with a bare `o[k]`). */
+export const own = (o: unknown, k: string): boolean => o != null && Object.prototype.hasOwnProperty.call(o, k);
+
+/** Path segments that would reach an object's prototype: never read through, never written. */
+const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function getPath(root: unknown, path: string): unknown {
   let cur: unknown = root;
   for (const k of parts(path)) {
-    if (!isObj(cur) && !Array.isArray(cur)) return undefined;
+    if ((!isObj(cur) && !Array.isArray(cur)) || !own(cur, k)) return undefined;
     cur = (cur as Record<string, unknown>)[k];
   }
   return cur;
@@ -18,9 +25,10 @@ export function getPath(root: unknown, path: string): unknown {
 /** RTDB semantics: null/undefined deletes; empty objects vanish. */
 function setPath(root: Record<string, unknown>, path: string, value: unknown) {
   const ks = parts(path);
+  if (ks.some((k) => UNSAFE.has(k))) throw new Error(`unsafe update path: ${path.slice(0, 80)}`);
   let cur: Record<string, unknown> = root;
   for (const k of ks.slice(0, -1)) {
-    if (!isObj(cur[k])) cur[k] = {};
+    if (!own(cur, k) || !isObj(cur[k])) cur[k] = {};
     cur = cur[k] as Record<string, unknown>;
   }
   const last = ks[ks.length - 1];

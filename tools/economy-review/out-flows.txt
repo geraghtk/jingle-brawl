@@ -1,0 +1,60 @@
+## Chip flows per game by table size (mixed table: bid2/value-scaled/bid3/passive/random/bid1 rotating), seeds 50000+, mean (SE)
+| n | games | supply | duels | sealed bids paid | pots back | tax burn | cost burn | dividends | elf bonus | net change | chips left | gross spend / supply | players >=75% chips | broke | max Naughty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 2000 | 30 | 3.4±0.0 | 5.1±0.1 | 3.9±0.0 | 1.2±0.0 | 3.9±0.1 | 1.5±0.0 | 0.08±0.01 | -3.6±0.1 | 88.0% | 0.302±0.003 | 70% | 1.4% | 3.6±0.0 |
+| 4 | 2000 | 40 | 5.2±0.0 | 7.9±0.1 | 6.0±0.0 | 2.0±0.0 | 7.1±0.1 | 2.2±0.0 | 0.23±0.01 | -6.6±0.1 | 83.5% | 0.375±0.003 | 63% | 2.1% | 4.4±0.0 |
+| 6 | 2000 | 60 | 8.3±0.0 | 13.9±0.1 | 10.1±0.0 | 3.7±0.0 | 12.1±0.1 | 3.1±0.0 | 0.67±0.02 | -12.0±0.1 | 80.0% | 0.432±0.002 | 59% | 3.2% | 5.1±0.0 |
+| 8 | 2000 | 80 | 11.4±0.0 | 19.9±0.1 | 14.2±0.0 | 5.4±0.0 | 16.8±0.1 | 4.0±0.0 | 1.66±0.03 | -16.6±0.1 | 79.3% | 0.459±0.002 | 58% | 3.3% | 5.5±0.0 |
+| 12 | 1000 | 144 | 17.7±0.0 | 33.7±0.1 | 22.7±0.0 | 10.0±0.1 | 28.5±0.3 | 6.0±0.1 | 3.94±0.05 | -28.5±0.2 | 80.2% | 0.432±0.002 | 63% | 2.1% | 6.2±0.0 |
+
+## Spend-down? bids by game progress (mixed table). share of bid decisions that are >0, mean positive bid, chips spent per player
+| n | early third: bid rate / mean bid | middle | late third | total net chips spent per player (start - end) | max a player could be charged if top bidder every turn |
+|---|---|---|---|---|---|
+| 3 | 71% / 2.20 | 52% / 2.18 | 38% / 2.08 | 1.20 | 8 |
+| 4 | 71% / 2.22 | 57% / 2.17 | 41% / 2.06 | 1.65 | 12 |
+| 6 | 66% / 2.19 | 51% / 2.05 | 38% / 1.97 | 2.00 | 20 |
+| 8 | 67% / 2.20 | 53% / 2.06 | 37% / 1.94 | 2.07 | 28 |
+| 12 | 65% / 2.17 | 49% / 2.03 | 37% / 1.96 | 2.37 | 44 |
+
+## Inequality over a game (mixed table): Gini of chips after 25/50/75/100% of gifts, Gini of final gift value, correlations
+| n | chip Gini 25% | 50% | 75% | end | gift-value Gini end | corr(final chips, final gift value) | P(chip leader has above-median gift) | corr(chips at 50%, final value) |
+|---|---|---|---|---|---|---|---|---|
+| 3 | 0.056±0.001 | 0.116±0.002 | 0.116±0.002 | 0.159±0.002 | 0.227±0.003 | 0.049 | 35% | 0.012 |
+| 4 | 0.052±0.001 | 0.113±0.002 | 0.162±0.002 | 0.203±0.002 | 0.245±0.002 | 0.022 | 51% | 0.009 |
+| 6 | 0.090±0.001 | 0.133±0.001 | 0.206±0.002 | 0.246±0.002 | 0.266±0.002 | 0.028 | 53% | 0.032 |
+| 8 | 0.077±0.001 | 0.147±0.001 | 0.202±0.002 | 0.262±0.002 | 0.277±0.002 | 0.001 | 54% | 0.026 |
+| 12 | 0.076±0.001 | 0.140±0.002 | 0.188±0.002 | 0.243±0.002 | 0.288±0.002 | -0.039 | 52% | -0.016 |
+
+## Snowballing: does winning your first duel compound? (n=6, by dividend rule; relative final gift value = mine - table mean)
+| dividend rule | won first duel: rel. value | lost first duel | difference (SE) | later-duel win rate after a first win | after a first loss | final chips after first win / loss |
+|---|---|---|---|---|---|---|
+| defenders | 0.18±0.04 | -0.16±0.04 | 0.34 (0.05) | 0.566 | 0.555 | 9.68 / 6.33 |
+| everyone | 0.12±0.04 | -0.09±0.04 | 0.21 (0.05) | 0.560 | 0.564 | 9.93 / 6.91 |
+| nobody | 0.20±0.04 | -0.18±0.04 | 0.39 (0.05) | 0.568 | 0.555 | 9.39 / 5.73 |
+
+## Position: when you first open (mixed table). relative final gift value, P(keep the gift you opened), relative to quality luck
+| n | first third of openers: rel. value / kept own / duels fought | middle | last third | first-vs-last diff (SE) |
+|---|---|---|---|---|
+| 4 | 0.01±0.04 / 30% / 2.64 | 0.04±0.07 / 40% / 2.46 | -0.21±0.09 / 52% / 2.21 | 0.21 (0.10) |
+| 6 | 0.06±0.04 / 23% / 2.87 | -0.07±0.05 / 27% / 2.68 | 0.03±0.07 / 43% / 2.31 | 0.03 (0.09) |
+| 8 | 0.09±0.04 / 20% / 2.97 | 0.06±0.05 / 26% / 2.62 | -0.01±0.08 / 40% / 2.27 | 0.10 (0.09) |
+| 12 | 0.09±0.05 / 16% / 3.19 | 0.05±0.06 / 22% / 2.61 | 0.12±0.08 / 31% / 2.19 | -0.03 (0.09) |
+n=6: 32.4% of players never open a gift (won one by challenge first); their rel. value -0.02±0.04
+
+## Allocative efficiency (n=6, 1000 games, seeds 70000+): 0% = everyone keeps what they open (random), 100% = best possible assignment
+| table | avg gift value | efficiency | value SD within game | duels |
+|---|---|---|---|---|
+| hoarder (no trades) | 5.56±0.04 | -0.8% ±1.2 | 2.68±0.02 | 0.0 |
+| passive | 5.69±0.04 | 11.9% ±1.1 | 2.75±0.02 | 3.3 |
+| bid 2 | 5.77±0.04 | 19.1% ±1.1 | 2.67±0.02 | 8.8 |
+| bid 4 | 5.76±0.04 | 18.2% ±1.1 | 2.66±0.02 | 8.0 |
+| value-scaled | 5.84±0.04 | 26.2% ±1.0 | 2.63±0.02 | 8.7 |
+| all-in | 5.74±0.04 | 16.6% ±1.1 | 2.67±0.02 | 8.4 |
+| mixed | 5.72±0.04 | 14.4% ±1.1 | 2.67±0.02 | 8.4 |
+
+## What is a chip worth? one seat's endowment changed, same seeds (n=6, others 10 chips, mixed table; the seat plays the named strategy)
+| focal strategy | 0 chips | 1 | 2 | 4 | 6 | 10 | 20 | 40 |  (focal final gift value - table mean, SE) |
+|---|---|---|---|---|---|---|---|---|---|
+| value-scaled | -1.04±0.07 | -1.03±0.07 | -0.76±0.07 | -0.31±0.07 | -0.08±0.07 | 0.33±0.07 | 0.71±0.07 | 0.76±0.07 | |
+| bid 4 | -1.00±0.07 | -0.95±0.07 | -0.72±0.07 | -0.48±0.07 | -0.11±0.07 | 0.50±0.07 | 1.31±0.07 | 1.43±0.07 | |
+| all-in | -1.03±0.07 | -1.00±0.07 | -0.78±0.07 | -0.56±0.07 | -0.19±0.07 | 0.50±0.07 | 1.34±0.07 | 1.57±0.07 | |

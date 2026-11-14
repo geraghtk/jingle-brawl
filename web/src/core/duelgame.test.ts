@@ -146,4 +146,20 @@ describe('duel game: what gets played', () => {
     g.currentTurn!.voteEndsAt = NOW + 30000;
     expect(G.startDuelApp(g, ctx()).error).toBe('Waiting for votes');
   });
+
+  it('a duelist whose phone is away still plays the whole-table game (they would lose the gift without a turn)', () => {
+    for (const app of ['reindeer_ring_toss', 'pass_the_gremlin']) {
+      const g0 = duel({ duelGames: [], duelAppGames: [app] }, { duelGame: { name: app, kind: 'app', app, via: 'picker' } });
+      g0.players!.p1.connected = false;                       // the defender's phone dropped
+      const g = apply(g0, G.startDuelApp(g0, ctx()));
+      expect(g.arena!.mode, app).toBe('party_with_duelists');
+      expect([...g.arena!.participants].sort(), app).toEqual(['p1', 'p2', 'p3', 'p4']);
+      expect(g.arena!.duelists, app).toEqual(['p2', 'p1']);
+    }
+    // two away of four, one of them a duelist: still everyone-plays (the two duelists and one bystander)
+    const g0 = duel({ duelGames: [], duelAppGames: ['reindeer_ring_toss'] }, { duelGame: { name: 'x', kind: 'app', app: 'reindeer_ring_toss', via: 'picker' } });
+    g0.players!.p1.connected = false;
+    g0.players!.p4.connected = false;
+    expect([...apply(g0, G.startDuelApp(g0, ctx())).arena!.participants].sort()).toEqual(['p1', 'p2', 'p3']);
+  });
 });

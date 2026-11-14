@@ -284,7 +284,7 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'steal': return D.executeSteal(game, offer.giftId);
     case 'cancel_steal': return D.cancelSteal(game);
     case 'nobids_defender': return D.noBidsDuel(game, offer.playerId);
-    case 'whack': return reportWhack(game, who, Math.round(Number(offer.score) || 0), !!offer.final);
+    case 'whack': return reportWhack(game, who, Math.round(Number(offer.score) || 0), !!offer.final, ctx.now);
     case 'sketch': return submitSketch(game, who, offer.drawing || 'data:,');
     case 'vote_sketch': return voteSketch(game, who, offer.pick);
     case 'start': return A.startGame(game);

@@ -1,0 +1,18 @@
+n=6, 2000 games/row, seeds 150000+, fair share of any title = 17%
+| deviant | Party points | rel. gift value | duels fought | P(1st in chip standings) | P(Party MVP) | P(MVP) if each duelist also gets +1 per duel | P(MVP) if +2 per duel |
+|---|---|---|---|---|---|---|---|
+| hoarder | today (calls + tie games) | -1.24 | 1.35 | 42% | 34% | 9% | 3% |
+| hoarder | team games every duel, 2 + up to 3 | -1.36 | 1.38 | 43% | 18% | 15% | 12% |
+| hoarder | team games every duel, flat 1 | -1.36 | 1.38 | 43% | 25% | 11% | 4% |
+| passive | today (calls + tie games) | +0.09 | 1.85 | 25% | 28% | 11% | 4% |
+| passive | team games every duel, 2 + up to 3 | +0.07 | 1.89 | 26% | 19% | 16% | 13% |
+| passive | team games every duel, flat 1 | +0.07 | 1.89 | 26% | 23% | 13% | 5% |
+| value-scaled | today (calls + tie games) | +0.44 | 3.22 | 11% | 13% | 20% | 23% |
+| value-scaled | team games every duel, 2 + up to 3 | +0.41 | 3.21 | 12% | 16% | 17% | 18% |
+| value-scaled | team games every duel, flat 1 | +0.41 | 3.21 | 12% | 15% | 19% | 22% |
+| spend-down | today (calls + tie games) | +0.85 | 3.62 | 7% | 10% | 23% | 29% |
+| spend-down | team games every duel, 2 + up to 3 | +0.86 | 3.65 | 7% | 15% | 18% | 19% |
+| spend-down | team games every duel, flat 1 | +0.86 | 3.65 | 7% | 12% | 21% | 28% |
+| all-in | today (calls + tie games) | +0.64 | 4.05 | 2% | 6% | 27% | 42% |
+| all-in | team games every duel, 2 + up to 3 | +0.46 | 4.08 | 2% | 15% | 19% | 23% |
+| all-in | team games every duel, flat 1 | +0.46 | 4.08 | 2% | 10% | 25% | 42% |

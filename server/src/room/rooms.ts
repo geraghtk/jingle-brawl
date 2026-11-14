@@ -1,6 +1,7 @@
 // Every room on this server: made on demand, loaded from the store after a restart, and the
 // token secret they share.
 import { randomInt } from 'node:crypto';
+import { sanitizeSettings } from '../../../web/src/core/settings';
 import type { Settings } from '../../../web/src/core/types';
 import { newSecret, sign } from '../auth/tokens';
 import type { Claims } from '../auth/tokens';
@@ -44,7 +45,7 @@ export class Rooms {
     if (this.live.size >= this.maxLive) throw new ServerFull();
     for (let tries = 0; tries < 50; tries++) {
       const code = Array.from({ length: 4 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join('');
-      const room = RoomActor.create(code, settings, this.deps());
+      const room = RoomActor.create(code, sanitizeSettings(settings), this.deps());
       if (!room) continue;
       this.live.set(code, room);
       return { code, token: this.token({ room: code, born: room.born, role: 'host' }) };

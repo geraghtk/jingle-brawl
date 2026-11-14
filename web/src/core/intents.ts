@@ -47,7 +47,8 @@ const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },
   admin_reset_turn: {}, admin_undo_duel: {}, admin_end_game: {}, admin_peek_bids: {},
 };
-const ID = /^[A-Za-z0-9_-]{1,64}$/;
+// an id is a key into players / gifts: never a name every object already has
+const ID = /^(?!(?:__proto__|constructor|prototype)$)[A-Za-z0-9_-]{1,64}$/;
 const MAX_TEXT = 80;
 const MAX_DRAWING = 600_000; // a phone's JPEG/PNG data URL
 

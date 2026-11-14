@@ -20,10 +20,15 @@ import json
 import os
 import re
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Allow host.html to call from same origin or different port
+# Only the room server calls this (server to server, JB_CRITIC_URL), never a browser: no CORS, so a
+# web page open on this PC can't use it; and no request bigger than a couple of drawings.
+MAX_BODY_BYTES = 4 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
+# This machine only, unless told otherwise (CRITIC_HOST=0.0.0.0 to serve a room server on another PC:
+# anyone who can reach it can then spend the OPENAI_API_KEY it falls back to).
+DEFAULT_HOST = "127.0.0.1"
 
 # Config - can override via env
 OLLAMA_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llava")
@@ -51,6 +56,13 @@ def get_ollama_client():
         return Client(host=OLLAMA_HOST)
     except ImportError:
         return None
+
+
+@app.before_request
+def refuse_oversized():
+    """Too big to be a drawing or two: say so before anything reads it (the handlers catch every error as a 500)."""
+    if (request.content_length or 0) > MAX_BODY_BYTES:
+        return jsonify({"error": "Request too large"}), 413
 
 
 @app.route("/health", methods=["GET"])
@@ -388,4 +400,4 @@ if __name__ == "__main__":
     print(f"Using vision model: {OLLAMA_MODEL}")
     print("Make sure Ollama is running: ollama serve")
     print("And pull a vision model: ollama pull llava")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host=os.environ.get("CRITIC_HOST", DEFAULT_HOST), port=port, debug=False)
