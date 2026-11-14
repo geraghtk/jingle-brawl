@@ -3,7 +3,8 @@
 // it on the sleigh; shoo out any stowaway first). Then it moves on to the next phone.
 import { useEffect, useRef, useState } from 'react';
 import { PAPERS, STOWAWAYS, TAGS, TOYS } from '../core/minigames/conveyor/conveyor';
-import type { Gift, Order, StepKind } from '../core/minigames/conveyor/conveyor';
+import type { StepKind } from '../core/minigames/conveyor/conveyor';
+import type { ConveyorView } from '../core/minigames/conveyor/view';
 import { useServerNow } from '../net/hooks';
 import { secsLeft } from '../ui/clock';
 import { buzz, play } from '../ui/sound';
@@ -13,18 +14,6 @@ import '../ui/conveyor.css';
 
 export const PAPER_COLORS: Record<string, string> = { red: '#e23b3b', green: '#1fa36b', gold: '#f2b705', blue: '#2f6fde', purple: '#8a4bd6' };
 export const TEAM_COLORS: Record<string, string> = { A: '#ff3366', B: '#18b88a' };
-
-export interface ConveyorTeamView {
-  teamId: 'A' | 'B'; captainId: string; members: string[]; delivered: number; wrong: number;
-  stations: { steps: StepKind[]; workers: string[] }[];
-  gifts: { id: string; step: number; station: number; working: boolean; stowaway: number | null }[];
-}
-export interface ConveyorView {
-  stage: 'running' | 'overtime' | 'done'; endsAt: number; quota: number; winner: 'A' | 'B' | null; steps: StepKind[];
-  teams: ConveyorTeamView[];
-  myTeam?: 'A' | 'B' | null; myStation?: number;
-  job?: { item: string; step: StepKind; order: Omit<Order, 'options'>; options: Order['options']; gift: Gift } | null;
-}
 
 const STEP_NAMES: Record<StepKind, string> = { pick: 'Pick', wrap: 'Wrap', label: 'Label', check: 'Check & load' };
 export const stowawayName = (n: number) => (STOWAWAYS[n] === '🦝' ? 'raccoon' : 'penguin');

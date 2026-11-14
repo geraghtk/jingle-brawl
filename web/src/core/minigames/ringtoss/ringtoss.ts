@@ -18,6 +18,7 @@ import type { FlightParams } from '../engines/projectile';
 import { score, zoneDistance } from '../engines/targets';
 import type { Peg } from '../engines/targets';
 import { headToHead } from '../scoring';
+import type { RingView } from './view';
 
 /** The reindeer: two antlers (a far prong and a tall prong each) and its party hat between them; each worth 1
  *  (the full set is the prize: RingConfig.setBonus). */
@@ -244,7 +245,7 @@ export const ringToss: GameDefinition<RingConfig, RingState, RingAction> = {
 
 /** Nothing about a ring toss is secret: every throw is on the TV. (The recent ones: older rings stay as dots.)
  *  `left` is as of `now`; `reloadAt` lets a screen show a batch coming back without a new view. */
-function publicView(s: RingState, now: number) {
+function publicView(s: RingState, now: number): RingView {
   return {
     stage: s.stage, stageEndsAt: s.stageEndsAt, pool: s.pool, scores: s.scores, tiebreakRound: s.tiebreakRound,
     left: Object.fromEntries(s.pool.map((p) => [p, inHand(s, p, now)])), reloadAt: s.reloadAt, got: s.got, sets: s.sets,

@@ -3,7 +3,7 @@
 // sleigh at the end with the count. A gift that moves on slides to its next station.
 import { useEffect, useRef } from 'react';
 import { STOWAWAYS } from '../core/minigames/conveyor/conveyor';
-import type { ConveyorView } from '../player/ConveyorCard';
+import type { ConveyorView } from '../core/minigames/conveyor/view';
 import { TEAM_COLORS } from '../player/ConveyorCard';
 import { useServerNow } from '../net/hooks';
 import { Avatar } from '../ui/avatar';

@@ -17,6 +17,7 @@ import { assignTeams, checkAssignment } from '../engines/teams';
 import type { TeamAssignment } from '../engines/teams';
 import { add, complete, dispatch, holding, layout, release, remove, stationOf, WORKFLOW_VERSION } from '../engines/workflow';
 import type { Floor, Line } from '../engines/workflow';
+import type { ConveyorView } from './view';
 
 export const TOYS = ['🧸', '🚂', '🎸', '🛹', '🪁', '🦖'];
 export const PAPERS = ['red', 'green', 'gold', 'blue', 'purple'];
@@ -282,7 +283,7 @@ export const conveyor: GameDefinition<ConveyorConfig, ConveyorState, ConveyorAct
 };
 
 /** Both factories as the TV draws them: the line, who works where, where each gift is. */
-function publicView(s: ConveyorState, _now: number) {
+function publicView(s: ConveyorState, _now: number): ConveyorView {
   return {
     stage: s.stage, endsAt: s.endsAt, quota: s.cfg.quota, winner: s.winner ?? null, steps: STEPS,
     teams: s.teams.map((t) => ({

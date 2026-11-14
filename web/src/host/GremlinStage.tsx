@@ -4,7 +4,7 @@
 // stays quiet (the host's phone has its own sounds).
 import { useEffect, useRef, useState } from 'react';
 import { GremlinFace } from '../player/GremlinCard';
-import type { GremlinView } from '../player/GremlinCard';
+import type { GremlinView } from '../core/minigames/gremlin/view';
 import { Avatar } from '../ui/avatar';
 import { play } from '../ui/sound';
 import '../ui/gremlin.css';

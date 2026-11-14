@@ -4,34 +4,16 @@
 // where it landed in its thrower's colour. Scores and rings left beside it.
 import { useEffect, useRef, useState } from 'react';
 import { arcAt, arcFor } from '../core/minigames/engines/projectile';
-import type { FlightParams } from '../core/minigames/engines/projectile';
 import type { Peg } from '../core/minigames/engines/targets';
 import { finalCount, leaderOf, STREAK_MIN, streakAt, streakCall, streakPitch } from '../core/minigames/ringtoss/flair';
+import { ringView } from '../core/minigames/ringtoss/view';
+import type { RingThrow, RingView } from '../core/minigames/ringtoss/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';
 import { useHost } from './HostContext';
-
-export interface RingThrow { n: number; pid: string; at: number; stage: 'practice' | 'throwing' | 'tiebreak'; angle: number; power: number; x: number; z: number; ms: number; pegId: string | null; points: number; bonus?: number }
-export interface RingView {
-  stage: 'practice' | 'throwing' | 'tiebreak' | 'done';
-  stageEndsAt: number; pool: string[]; left: Record<string, number>; scores: Record<string, number>; tiebreakRound: number;
-  /** The scored round: rings come `batch` at a time; a used-up batch is back at `reloadAt[pid]`. */
-  batch: number; reloadMs: number; reloadAt: Record<string, number>;
-  /** Each player's targets since their last full set, and their full sets (each worth setBonus). */
-  got: Record<string, string[]>; sets: Record<string, number>; setBonus: number;
-  practiceThrows: number; flight: FlightParams; pegs: Peg[]; throws: RingThrow[];
-  me?: string; myLeft?: number; myScore?: number; nextAt?: number;
-}
-
-/** A view as it arrives: empty lists and maps don't travel (the finished game has no rings left). */
-export const ringView = (raw: unknown): RingView => {
-  const v = (raw || {}) as RingView;
-  return { ...v, pool: v.pool || [], left: v.left || {}, scores: v.scores || {}, throws: v.throws || [], pegs: v.pegs || [],
-    reloadAt: v.reloadAt || {}, got: v.got || {}, sets: v.sets || {} };
-};
 
 export const RING_COLORS = ['#ff3366', '#18b88a', '#8a7bff', '#ffb000', '#38b6e6', '#ff7a59', '#c04fd6', '#2f6fde', '#7cc242', '#e0457b', '#00a3a3', '#9b6b3c'];
 export const colorIndex = (participants: string[], pid: string) => Math.max(0, participants.indexOf(pid)) % RING_COLORS.length;

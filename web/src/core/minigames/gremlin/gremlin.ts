@@ -14,6 +14,7 @@ import type { GameDefinition, MatchCtx, Transition } from '../contracts';
 import { singleLoser } from '../scoring';
 import { ALL_CHALLENGES, CHALLENGES, nextChallenge } from './challenges';
 import type { Challenge } from './challenges';
+import type { GremlinView } from './view';
 
 export interface GremlinConfig {
   doomMinMs: number; doomMaxMs: number;            // the main round's secret deadline window
@@ -208,7 +209,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
 };
 
 /** What everyone may know: never the answer, never the deadline. */
-function publicView(s: GremlinState, now: number) {
+function publicView(s: GremlinState, now: number): GremlinView {
   return {
     stage: s.stage, round: s.round, pool: s.pool, holder: s.holder, prevHolder: s.prevHolder ?? null,
     challengeKind: s.challenge.kind, challengeLabel: CHALLENGES[s.challenge.kind].label, solved: s.stage === 'pass_ready', danger: danger(s, now),

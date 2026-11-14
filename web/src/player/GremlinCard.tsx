@@ -5,27 +5,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { SYMBOLS, markerAt } from '../core/minigames/gremlin/challenges';
 import type { TimingParams } from '../core/minigames/gremlin/challenges';
-import type { Danger, Pass } from '../core/minigames/gremlin/gremlin';
+import type { Danger } from '../core/minigames/gremlin/gremlin';
+import type { GremlinView } from '../core/minigames/gremlin/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { glyphs } from '../ui/icons';
 import { buzz, muted, play, setMuted } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
 import '../ui/gremlin.css';
-
-export interface GremlinView {
-  stage: 'holding' | 'pass_ready' | 'sudden_death_intro' | 'doomed';
-  round: 'main' | 'sudden_death';
-  pool: string[]; holder: string; prevHolder: string | null;
-  challengeKind: string; challengeLabel?: string; solved: boolean; danger: Danger; trail: Pass[];
-  bystanderDoomed: string | null; doomed: string | null;
-  // the holder's own challenge
-  issuedAt?: number; cooldownUntil?: number | null;
-  prompt?: string;                                     // quick_math
-  sequence?: number[]; showMs?: number; length?: number; // memory_flash
-  startAt?: number; periodMs?: number; band?: [number, number]; // perfect_timing
-  canPassAt?: number; targets?: string[];
-}
 
 type Act = (action: unknown) => Promise<boolean>;
 
