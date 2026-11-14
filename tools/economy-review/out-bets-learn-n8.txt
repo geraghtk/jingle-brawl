@@ -1,0 +1,157 @@
+
+# n=8 (6 spectators a duel; 11.34 duels a game). Train 4000 games, eval 3000 games x 2, chips per game ± SE.
+
+## Best response: one learner, 2000000 training duels (it spectates 75% of them), 2 training seeds
+| design | crowd | table | learner (seed 1) | learner (seed 2) | honest in that seat | best fixed habit | learner - honest | learner - best habit | what it learned (seed 1) | curve: greedy profit/game after each fifth |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A | sharp | honest | +3.46±0.08 | +3.43±0.08 | -1.78±0.03 | contra +3.46±0.08 | +5.24±0.09 | +0.00±0.12 | mostly backs its underdog (contrarian); abstain 0% / favourite 0% / underdog 100%; same as honest 0% | 3.55, 3.55, 3.55, 3.55, 3.55 |
+| A | noisy | honest | +0.00±0.00 | +0.00±0.00 | -1.24±0.04 | abstain +0.00±0.00 | +1.24±0.04 | +0.00±0.00 | abstains; abstain 100% / favourite 0% / underdog 0%; same as honest 0% | 0.00, 0.00, 0.00, 0.00, 0.00 |
+| B | sharp | honest | +5.41±0.09 | +5.45±0.09 | -0.04±0.03 | contra +5.45±0.09 | +5.45±0.10 | -0.05±0.13 | mostly backs its underdog (contrarian); abstain 1% / favourite 0% / underdog 99%; same as honest 0% | 5.63, 5.60, 5.60, 5.60, 5.60 |
+| B | noisy | honest | +0.65±0.05 | +0.67±0.05 | -0.11±0.04 | contra +0.46±0.06 | +0.76±0.06 | +0.18±0.08 | mixed; abstain 62% / favourite 5% / underdog 34%; same as honest 5% | 0.63, 0.58, 0.59, 0.59, 0.59 |
+| C | sharp | honest | +6.23±0.10 | +6.22±0.10 | -0.04±0.03 | valueLast +6.61±0.10 | +6.27±0.10 | -0.38±0.14 | mostly backs its underdog (contrarian); abstain 7% / favourite 10% / underdog 83%; same as honest 10%, as value rule 62%; acting last: 14%/11%/75% | 6.51, 6.51, 6.52, 6.53, 6.53 |
+      belief <.55 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 81% | 1.6-2.2: underdog 55% | >2.2: favourite 74%
+      belief .55-.65 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 91% | 1.6-2.2: underdog 78% | >2.2: underdog 51%
+      belief .65-.75 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 95% | 1.6-2.2: underdog 95% | >2.2: underdog 95%
+      belief >.75 | fav pays <1.2: underdog 84% | 1.2-1.6: underdog 97% | 1.6-2.2: underdog 100% | >2.2: underdog 95%
+| C | sharp | value | +0.06±0.01 | +0.05±0.02 | +0.06±0.02 | honest +0.06±0.02 | +0.00±0.02 | +0.00±0.02 | mixed; abstain 42% / favourite 58% / underdog 0%; same as honest 58%, as value rule 42%; acting last: 100%/0%/0% | 0.01, 0.05, 0.05, 0.05, 0.05 |
+      belief <.55 | fav pays <1.2: abstain 100% | 1.2-1.6: (rare) | 1.6-2.2: (rare) | >2.2: (rare)
+      belief .55-.65 | fav pays <1.2: favourite 83% | 1.2-1.6: (rare) | 1.6-2.2: abstain 83% | >2.2: (rare)
+      belief .65-.75 | fav pays <1.2: favourite 83% | 1.2-1.6: (rare) | 1.6-2.2: abstain 45% | >2.2: (rare)
+      belief >.75 | fav pays <1.2: abstain 72% | 1.2-1.6: (rare) | 1.6-2.2: (rare) | >2.2: (rare)
+| C | noisy | honest | +1.91±0.06 | +1.90±0.06 | -0.11±0.04 | valueLast +2.59±0.07 | +2.03±0.08 | -0.68±0.09 | mixed; abstain 34% / favourite 25% / underdog 41%; same as honest 25%, as value rule 72%; acting last: 29%/30%/40% | 2.31, 2.38, 2.35, 2.39, 2.40 |
+| C | noisy | value | +0.23±0.02 | +0.23±0.02 | +0.20±0.03 | honest +0.20±0.03 | +0.03±0.04 | +0.03±0.04 | mixed; abstain 41% / favourite 58% / underdog 0%; same as honest 58%, as value rule 41%; acting last: 99%/1%/0% | 0.06, 0.07, 0.08, 0.08, 0.08 |
+| D1 | sharp | honest | +4.15±0.08 | +4.14±0.08 | +0.20±0.03 | valueLast +4.51±0.08 | +3.94±0.08 | -0.36±0.11 | mostly backs its underdog (contrarian); abstain 9% / favourite 12% / underdog 80%; same as honest 12%, as value rule 63%; acting last: 11%/15%/74% | 4.50, 4.54, 4.54, 4.52, 4.52 |
+      belief <.55 | fav pays <1.2: underdog 92% | 1.2-1.6: underdog 78% | 1.6-2.2: underdog 75% | >2.2: favourite 65%
+      belief .55-.65 | fav pays <1.2: underdog 96% | 1.2-1.6: underdog 96% | 1.6-2.2: underdog 87% | >2.2: underdog 70%
+      belief .65-.75 | fav pays <1.2: underdog 98% | 1.2-1.6: underdog 97% | 1.6-2.2: underdog 97% | >2.2: underdog 96%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: underdog 70% | 1.6-2.2: underdog 78% | >2.2: underdog 90%
+| D1 | sharp | value | +0.26±0.02 | +0.24±0.02 | -0.13±0.03 | abstain +0.00±0.00 | +0.39±0.04 | +0.26±0.02 | mixed; abstain 77% / favourite 13% / underdog 10%; same as honest 13%, as value rule 60%; acting last: 89%/9%/2% | 0.20, 0.26, 0.22, 0.28, 0.29 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 90% | >2.2: favourite 59%
+      belief .55-.65 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 91% | 1.6-2.2: abstain 73% | >2.2: favourite 63%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 84% | 1.6-2.2: abstain 82% | >2.2: underdog 52%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 99% | >2.2: underdog 80%
+| D1 | noisy | honest | +1.32±0.05 | +1.32±0.05 | -0.00±0.04 | valueLast +1.59±0.06 | +1.32±0.07 | -0.28±0.08 | mixed; abstain 32% / favourite 31% / underdog 37%; same as honest 31%, as value rule 64%; acting last: 37%/36%/27% | 1.52, 1.56, 1.61, 1.61, 1.60 |
+| D1 | noisy | value | +0.12±0.01 | +0.12±0.01 | +0.23±0.03 | honest +0.23±0.03 | -0.11±0.04 | -0.11±0.04 | abstains; abstain 91% / favourite 8% / underdog 1%; same as honest 8%, as value rule 87%; acting last: 96%/4%/0% | 0.08, 0.08, 0.09, 0.09, 0.09 |
+| D2 | sharp | honest | +2.57±0.06 | +2.60±0.06 | +0.01±0.03 | valueLast +2.85±0.06 | +2.57±0.07 | -0.28±0.09 | mostly backs its underdog (contrarian); abstain 16% / favourite 11% / underdog 73%; same as honest 11%, as value rule 57%; acting last: 23%/13%/64% | 2.79, 2.86, 2.86, 2.84, 2.85 |
+      belief <.55 | fav pays <1.2: underdog 98% | 1.2-1.6: underdog 71% | 1.6-2.2: underdog 61% | >2.2: favourite 64%
+      belief .55-.65 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 90% | 1.6-2.2: underdog 85% | >2.2: underdog 66%
+      belief .65-.75 | fav pays <1.2: underdog 84% | 1.2-1.6: underdog 93% | 1.6-2.2: underdog 96% | >2.2: underdog 95%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: underdog 54% | >2.2: underdog 79%
+| D2 | sharp | value | +0.23±0.02 | +0.20±0.02 | -0.32±0.03 | abstain +0.00±0.00 | +0.55±0.04 | +0.23±0.02 | mixed; abstain 76% / favourite 15% / underdog 9%; same as honest 15%, as value rule 43%; acting last: 89%/8%/3% | 0.25, 0.21, 0.19, 0.21, 0.20 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 88% | >2.2: favourite 63%
+      belief .55-.65 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 89% | >2.2: favourite 72%
+      belief .65-.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 83% | >2.2: underdog 65%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 99% | >2.2: abstain 67%
+| D2 | noisy | honest | +0.74±0.04 | +0.74±0.04 | -0.28±0.04 | valueLast +0.78±0.05 | +1.02±0.06 | -0.04±0.07 | mixed; abstain 41% / favourite 32% / underdog 27%; same as honest 32%, as value rule 58%; acting last: 44%/35%/21% | 0.86, 0.95, 0.96, 0.97, 0.97 |
+| D2 | noisy | value | +0.30±0.02 | +0.28±0.02 | +0.01±0.03 | honest +0.01±0.03 | +0.29±0.04 | +0.29±0.04 | mixed; abstain 70% / favourite 28% / underdog 2%; same as honest 28%, as value rule 59%; acting last: 90%/10%/0% | 0.26, 0.29, 0.27, 0.30, 0.29 |
+| D3 | sharp | honest | +1.68±0.05 | +1.68±0.05 | -0.04±0.03 | valueLast +1.80±0.06 | +1.72±0.06 | -0.12±0.08 | mostly backs its underdog (contrarian); abstain 26% / favourite 13% / underdog 62%; same as honest 13%, as value rule 54%; acting last: 24%/16%/60% | 1.84, 1.83, 1.86, 1.84, 1.86 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: underdog 74% | 1.6-2.2: abstain 56% | >2.2: favourite 66%
+      belief .55-.65 | fav pays <1.2: underdog 60% | 1.2-1.6: underdog 82% | 1.6-2.2: underdog 72% | >2.2: underdog 65%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: underdog 63% | 1.6-2.2: underdog 84% | >2.2: underdog 88%
+      belief >.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 54% | >2.2: favourite 62%
+| D3 | sharp | value | +0.17±0.02 | +0.17±0.02 | -0.44±0.03 | abstain +0.00±0.00 | +0.61±0.03 | +0.17±0.02 | mixed; abstain 77% / favourite 16% / underdog 7%; same as honest 16%, as value rule 34%; acting last: 90%/8%/2% | 0.10, 0.17, 0.25, 0.24, 0.20 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 92% | >2.2: favourite 42%
+      belief .55-.65 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 92% | >2.2: favourite 81%
+      belief .65-.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 93% | >2.2: favourite 74%
+      belief >.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 99% | >2.2: abstain 72%
+| D3 | noisy | honest | +0.37±0.03 | +0.37±0.03 | -0.44±0.03 | valueLast +0.19±0.05 | +0.80±0.05 | +0.18±0.06 | mixed; abstain 52% / favourite 33% / underdog 16%; same as honest 33%, as value rule 50%; acting last: 53%/34%/14% | 0.46, 0.41, 0.46, 0.48, 0.49 |
+| D3 | noisy | value | +0.31±0.02 | +0.32±0.02 | -0.13±0.03 | abstain +0.00±0.00 | +0.45±0.04 | +0.31±0.02 | mixed; abstain 73% / favourite 26% / underdog 2%; same as honest 26%, as value rule 39%; acting last: 89%/11%/0% | 0.20, 0.21, 0.22, 0.22, 0.22 |
+| D2w | sharp | honest | +2.80±0.07 | +2.85±0.06 | +0.01±0.03 | valueLast +2.85±0.06 | +2.79±0.07 | -0.05±0.09 | mostly backs its underdog (contrarian); abstain 14% / favourite 22% / underdog 64% (stake 2: 19%); same as honest 22%, as value rule 63%; acting last: 18%/8%/52% | 3.09, 3.11, 3.10, 3.09, 3.14 |
+      belief <.55 | fav pays <1.2: underdog 90% | 1.2-1.6: underdog 73% | 1.6-2.2: underdog 46% | >2.2: favourite 57%
+      belief .55-.65 | fav pays <1.2: underdog 91% | 1.2-1.6: underdog 86% | 1.6-2.2: underdog 68% | >2.2: underdog 61%
+      belief .65-.75 | fav pays <1.2: underdog 85% | 1.2-1.6: underdog 93% | 1.6-2.2: underdog 74% | >2.2: underdog 54%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 74% | 1.6-2.2: favourite x2 83% | >2.2: favourite x2 95%
+| D2w | sharp | value | +0.86±0.05 | +0.89±0.04 | -0.32±0.03 | abstain +0.00±0.00 | +1.19±0.05 | +0.86±0.05 | mixed; abstain 56% / favourite 38% / underdog 6% (stake 2: 40%); same as honest 38%, as value rule 62%; acting last: 75%/7%/2% | 0.80, 0.84, 0.73, 0.79, 0.74 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 53% | >2.2: favourite x2 39%
+      belief .55-.65 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: favourite x2 47% | >2.2: favourite x2 79%
+      belief .65-.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 99% | 1.6-2.2: favourite x2 73% | >2.2: favourite x2 92%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 91% | 1.6-2.2: favourite x2 73% | >2.2: favourite x2 96%
+| D2w | noisy | honest | +0.90±0.05 | +0.89±0.05 | -0.28±0.04 | valueLast +0.78±0.05 | +1.18±0.06 | +0.12±0.07 | mixed; abstain 41% / favourite 38% / underdog 20% (stake 2: 19%); same as honest 38%, as value rule 60%; acting last: 40%/23%/20% | 0.79, 0.92, 0.96, 0.95, 0.95 |
+| D2w | noisy | value | +1.05±0.05 | +1.06±0.05 | +0.01±0.03 | honest +0.01±0.03 | +1.04±0.06 | +1.04±0.06 | mixed; abstain 55% / favourite 42% / underdog 2% (stake 2: 41%); same as honest 42%, as value rule 65%; acting last: 81%/7%/0% | 1.03, 1.04, 1.02, 0.94, 0.98 |
+| G1 | sharp | honest | +0.77±0.04 | +0.76±0.04 | +0.21±0.02 | valueLast +0.98±0.04 | +0.55±0.05 | -0.21±0.06 | mixed; abstain 31% / favourite 25% / underdog 44%; same as honest 25%, as value rule 57%; acting last: 25%/31%/44% | 0.80, 0.88, 0.85, 0.90, 0.86 |
+      belief <.55 | fav pays <1.2: underdog 65% | 1.2-1.6: underdog 67% | 1.6-2.2: underdog 62% | >2.2: underdog 60%
+      belief .55-.65 | fav pays <1.2: abstain 78% | 1.2-1.6: underdog 77% | 1.6-2.2: underdog 78% | >2.2: underdog 69%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 72% | >2.2: favourite 97%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: favourite 65% | >2.2: favourite 99%
+| G1 | sharp | value | +0.17±0.02 | +0.17±0.02 | -0.01±0.03 | value +0.01±0.02 | +0.18±0.03 | +0.15±0.03 | mixed; abstain 77% / favourite 17% / underdog 6%; same as honest 17%, as value rule 68%; acting last: 86%/10%/4% | 0.15, 0.18, 0.14, 0.11, 0.15 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 99% | 1.6-2.2: abstain 75% | >2.2: favourite 54%
+      belief .55-.65 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 91% | 1.6-2.2: abstain 63% | >2.2: favourite 86%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 100% | >2.2: favourite 95%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 94% | >2.2: favourite 98%
+| G1 | noisy | honest | +0.56±0.03 | +0.57±0.03 | +0.07±0.03 | valueLast +0.41±0.04 | +0.49±0.05 | +0.15±0.05 | mixed; abstain 45% / favourite 51% / underdog 4%; same as honest 51%, as value rule 58%; acting last: 49%/41%/10% | 0.55, 0.53, 0.57, 0.55, 0.55 |
+| G1 | noisy | value | +0.10±0.01 | +0.08±0.01 | +0.18±0.03 | honest +0.18±0.03 | -0.08±0.04 | -0.08±0.04 | value rule: bets only when payout x belief beats the stake; abstain 89% / favourite 10% / underdog 1%; same as honest 10%, as value rule 88%; acting last: 96%/4%/0% | 0.03, 0.05, 0.05, 0.06, 0.06 |
+| Tc | sharp | honest | +0.94±0.04 | +0.92±0.04 | +0.30±0.03 | valueLast +1.20±0.04 | +0.63±0.05 | -0.26±0.06 | mixed; abstain 29% / favourite 31% / underdog 39%; same as honest 31%, as value rule 66%; acting last: 26%/28%/45% | 1.01, 1.12, 1.04, 1.07, 1.07 |
+      belief <.55 | fav pays <1.2: underdog 65% | 1.2-1.6: underdog 88% | 1.6-2.2: underdog 65% | >2.2: underdog 60%
+      belief .55-.65 | fav pays <1.2: underdog 75% | 1.2-1.6: underdog 96% | 1.6-2.2: underdog 79% | >2.2: favourite 78%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 84% | >2.2: favourite 98%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 84% | >2.2: favourite 100%
+| Tc | sharp | value | +0.52±0.02 | +0.52±0.02 | +0.49±0.03 | honest +0.49±0.03 | +0.03±0.04 | +0.03±0.04 | mixed; abstain 41% / favourite 56% / underdog 3%; same as honest 56%, as value rule 48%; acting last: 71%/27%/2% | 0.47, 0.50, 0.52, 0.52, 0.52 |
+      belief <.55 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 77% | 1.6-2.2: abstain 50% | >2.2: favourite 70%
+      belief .55-.65 | fav pays <1.2: favourite 83% | 1.2-1.6: abstain 83% | 1.6-2.2: abstain 57% | >2.2: favourite 93%
+      belief .65-.75 | fav pays <1.2: favourite 84% | 1.2-1.6: abstain 100% | 1.6-2.2: favourite 60% | >2.2: favourite 99%
+      belief >.75 | fav pays <1.2: abstain 73% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 82% | >2.2: favourite 99%
+| Tc | noisy | honest | +0.82±0.03 | +0.83±0.03 | +0.39±0.04 | valueLast +0.80±0.05 | +0.43±0.05 | +0.03±0.06 | mixed; abstain 44% / favourite 48% / underdog 8%; same as honest 48%, as value rule 60%; acting last: 47%/39%/14% | 0.88, 0.91, 0.90, 0.90, 0.83 |
+| Tc | noisy | value | +0.88±0.03 | +0.89±0.03 | +0.91±0.04 | honest +0.91±0.04 | -0.03±0.05 | -0.03±0.05 | mixed; abstain 32% / favourite 63% / underdog 5%; same as honest 63%, as value rule 48%; acting last: 62%/29%/9% | 0.80, 0.78, 0.79, 0.83, 0.84 |
+| H | sharp | honest | +1.08±0.04 | +1.07±0.04 | +0.68±0.03 | valueLast +1.30±0.04 | +0.40±0.04 | -0.22±0.06 | mixed; abstain 19% / favourite 53% / underdog 28%; same as honest 53%, as value rule 75%; acting last: 29%/37%/34% | 1.12, 1.14, 1.14, 1.16, 1.16 |
+      belief <.55 | fav pays <1.2: underdog 61% | 1.2-1.6: underdog 79% | 1.6-2.2: underdog 73% | >2.2: favourite 54%
+      belief .55-.65 | fav pays <1.2: abstain 61% | 1.2-1.6: underdog 65% | 1.6-2.2: underdog 91% | >2.2: favourite 96%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: favourite 67% | >2.2: favourite 98%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: favourite 72% | >2.2: favourite 99%
+| H | sharp | value | +0.71±0.03 | +0.66±0.03 | +0.54±0.03 | value +0.55±0.03 | +0.17±0.04 | +0.15±0.04 | mixed; abstain 44% / favourite 44% / underdog 12%; same as honest 44%, as value rule 57%; acting last: 60%/30%/10% | 0.74, 0.67, 0.67, 0.66, 0.66 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 65% | >2.2: favourite 54%
+      belief .55-.65 | fav pays <1.2: (rare) | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 63% | >2.2: favourite 96%
+      belief .65-.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 99% | 1.6-2.2: abstain 88% | >2.2: favourite 96%
+      belief >.75 | fav pays <1.2: abstain 100% | 1.2-1.6: abstain 100% | 1.6-2.2: abstain 75% | >2.2: favourite 99%
+| H | noisy | honest | +0.89±0.03 | +0.91±0.03 | +0.61±0.04 | valueLast +0.77±0.05 | +0.29±0.05 | +0.13±0.06 | mixed; abstain 34% / favourite 59% / underdog 6%; same as honest 59%, as value rule 64%; acting last: 38%/47%/15% | 0.75, 0.86, 0.86, 0.81, 0.80 |
+| H | noisy | value | +0.92±0.03 | +0.94±0.03 | +0.82±0.04 | honest +0.82±0.04 | +0.10±0.05 | +0.10±0.05 | mixed; abstain 33% / favourite 64% / underdog 3%; same as honest 64%, as value rule 62%; acting last: 60%/40%/0% | 0.91, 0.90, 0.93, 0.94, 0.93 |
+| E1 | sharp | honest | +8.76±0.12 | +8.74±0.12 | +0.97±0.04 | valueLast +9.22±0.12 | +7.78±0.13 | -0.46±0.17 | mostly backs its underdog (contrarian); abstain 3% / favourite 12% / underdog 85%; same as honest 12%, as value rule 69%; acting last: 7%/14%/79% | 9.05, 8.96, 8.96, 8.95, 8.94 |
+      belief <.55 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 100% | 1.6-2.2: underdog 80% | >2.2: favourite 61%
+      belief .55-.65 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 100% | 1.6-2.2: underdog 91% | >2.2: underdog 72%
+      belief .65-.75 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 99% | 1.6-2.2: underdog 98% | >2.2: underdog 96%
+      belief >.75 | fav pays <1.2: underdog 100% | 1.2-1.6: underdog 100% | 1.6-2.2: underdog 99% | >2.2: underdog 100%
+| E1 | sharp | value | +1.28±0.05 | +1.32±0.05 | +1.02±0.04 | value +1.19±0.05 | +0.26±0.06 | +0.09±0.07 | mixed; abstain 34% / favourite 32% / underdog 34%; same as honest 32%, as value rule 39%; acting last: 48%/39%/12% | 1.41, 1.33, 1.42, 1.40, 1.40 |
+      belief <.55 | fav pays <1.2: (rare) | 1.2-1.6: underdog 96% | 1.6-2.2: abstain 80% | >2.2: favourite 58%
+      belief .55-.65 | fav pays <1.2: (rare) | 1.2-1.6: underdog 64% | 1.6-2.2: abstain 59% | >2.2: favourite 74%
+      belief .65-.75 | fav pays <1.2: (rare) | 1.2-1.6: abstain 68% | 1.6-2.2: underdog 54% | >2.2: favourite 56%
+      belief >.75 | fav pays <1.2: (rare) | 1.2-1.6: underdog 56% | 1.6-2.2: underdog 48% | >2.2: underdog 69%
+| E1 | noisy | honest | +3.26±0.08 | +3.24±0.08 | +1.12±0.05 | valueLast +4.02±0.08 | +2.14±0.09 | -0.76±0.11 | mixed; abstain 17% / favourite 34% / underdog 49%; same as honest 34%, as value rule 69%; acting last: 18%/41%/41% | 3.51, 3.56, 3.51, 3.52, 3.49 |
+| E1 | noisy | value | +1.44±0.04 | +1.52±0.04 | +1.67±0.04 | honest +1.67±0.04 | -0.23±0.06 | -0.23±0.06 | mixed; abstain 33% / favourite 61% / underdog 6%; same as honest 61%, as value rule 47%; acting last: 45%/48%/8% | 1.44, 1.37, 1.36, 1.36, 1.36 |
+
+## Self-play: 8 independent learners, 3000000 training duels
+| design | crowd | bets placed | staked/game | net chips/game (tax burned) | a seat's profit/game | MAE pool / line / half | slope | two-sided | best fixed-habit deviation (habit profit - learner profit in that seat) | all deviations | what the focal learner does | curve: share of chances bet after each fifth |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | sharp | 0% | 0.0 | +0.00±0.00 (5.4) | +0.00±0.00 | 0.000 / 0.000 / 0.000 | 0.00 | 0% | abstain +0.00±0.00 | honest -2.86, value -2.86, fav -3.59, contra -4.74, random -3.81, valueLast -2.88, abstain +0.00 | abstains; abstain 100% / favourite 0% / underdog 0%; same as honest 0% | 1%, 0%, 0%, 0%, 0% |
+| A | noisy | 0% | 0.0 | +0.00±0.00 (5.4) | +0.00±0.00 | 0.000 / 0.000 / 0.000 | 0.00 | 0% | abstain +0.00±0.00 | honest -3.23, value -3.23, fav -3.59, contra -4.39, random -3.81, valueLast -3.23, abstain +0.00 | abstains; abstain 100% / favourite 0% / underdog 0%; same as honest 0% | 1%, 0%, 0%, 0%, 0% |
+| B | sharp | 4% | 3.0 | +0.00±0.00 (5.4) | +0.00±0.00 | 0.283 / 0.193 / 0.217 | 2.04 | 0% | abstain +0.00±0.00 | honest -0.00, value -0.00, fav -0.25, contra -0.72, random -0.35, valueLast -0.01, abstain +0.00 | abstains; abstain 95% / favourite 5% / underdog 0%; same as honest 5% | 14%, 14%, 10%, 6%, 4% |
+| B | noisy | 3% | 2.2 | +0.00±0.00 (5.4) | -0.00±0.00 | 0.313 / 0.169 / 0.195 | 1.89 | 0% | abstain +0.00±0.00 | honest -0.05, value -0.05, fav -0.12, contra -0.39, random -0.24, valueLast -0.05, abstain +0.00 | abstains; abstain 97% / favourite 3% / underdog 0%; same as honest 3% | 18%, 14%, 7%, 3%, 3% |
+| C | sharp | 4% | 2.9 | +0.00±0.00 (5.4) | +0.00±0.00 | 0.260 / 0.219 / 0.239 | 1.90 | 0% | abstain -0.00±0.00 | honest -0.04, value -0.00, fav -0.65, contra -1.70, random -0.88, valueLast -0.01, abstain -0.00 | abstains; abstain 96% / favourite 4% / underdog 0%; same as honest 4%, as value rule 96%; acting last: 100%/0%/0% | 12%, 10%, 11%, 8%, 4% |
+| C | noisy | 1% | 0.7 | +0.00±0.00 (5.4) | -0.00±0.00 | 0.270 / 0.184 / 0.220 | 1.76 | 0% | abstain +0.00±0.00 | honest -0.15, value -0.01, fav -0.28, contra -0.77, random -0.46, valueLast -0.02, abstain +0.00 | abstains; abstain 99% / favourite 1% / underdog 0%; same as honest 1%, as value rule 98%; acting last: 100%/0%/0% | 10%, 10%, 8%, 2%, 1% |
+| D1 | sharp | 12% | 8.0 | +0.69±0.01 (5.4) | +0.06±0.01 | 0.098 / 0.127 / 0.133 | 0.66 | 13% | honest +0.07±0.03 | honest +0.07, value -0.04, fav -0.36, contra -0.94, random -0.54, valueLast -0.25, abstain -0.06 | mixed; abstain 88% / favourite 10% / underdog 2%; same as honest 10%, as value rule 74%; acting last: 97%/1%/1% | 25%, 20%, 22%, 18%, 11% |
+| D1 | noisy | 3% | 1.8 | +0.12±0.01 (5.4) | +0.02±0.00 | 0.123 / 0.127 / 0.133 | 0.22 | 3% | honest +0.12±0.03 | honest +0.12, value -0.06, fav -0.23, contra -0.55, random -0.32, valueLast -0.11, abstain -0.02 | abstains; abstain 97% / favourite 3% / underdog 0%; same as honest 3%, as value rule 93%; acting last: 99%/1%/0% | 9%, 7%, 8%, 5%, 3% |
+| D2 | sharp | 15% | 10.0 | +0.67±0.01 (5.4) | +0.06±0.01 | 0.091 / 0.127 / 0.133 | 0.62 | 11% | honest +0.10±0.02 | honest +0.10, value -0.03, fav -0.57, contra -1.02, random -0.56, valueLast -0.19, abstain -0.06 | mixed; abstain 85% / favourite 14% / underdog 1%; same as honest 14%, as value rule 63%; acting last: 95%/3%/2% | 22%, 22%, 21%, 18%, 15% |
+| D2 | noisy | 4% | 2.7 | +0.20±0.01 (5.4) | +0.03±0.01 | 0.120 / 0.127 / 0.133 | 0.23 | 3% | honest +0.16±0.02 | honest +0.16, value -0.12, fav -0.25, contra -0.51, random -0.34, valueLast -0.21, abstain -0.03 | abstains; abstain 96% / favourite 4% / underdog 0%; same as honest 4%, as value rule 84%; acting last: 98%/2%/0% | 7%, 11%, 8%, 6%, 4% |
+| D3 | sharp | 21% | 14.0 | +0.93±0.02 (5.4) | +0.13±0.01 | 0.082 / 0.127 / 0.133 | 0.66 | 14% | honest +0.09±0.02 | honest +0.09, value -0.10, fav -0.68, contra -1.21, random -0.63, valueLast -0.32, abstain -0.13 | mixed; abstain 79% / favourite 20% / underdog 1%; same as honest 20%, as value rule 52%; acting last: 97%/2%/1% | 24%, 26%, 26%, 24%, 21% |
+| D3 | noisy | 9% | 5.9 | +0.39±0.01 (5.4) | +0.04±0.01 | 0.112 / 0.127 / 0.133 | 0.31 | 6% | honest +0.12±0.02 | honest +0.12, value -0.15, fav -0.33, contra -0.48, random -0.34, valueLast -0.28, abstain -0.04 | abstains; abstain 91% / favourite 9% / underdog 0%; same as honest 9%, as value rule 68%; acting last: 94%/5%/1% | 14%, 14%, 14%, 11%, 9% |
+| D2w | sharp | 16% | 18.4 | +1.87±0.03 (5.4) | +0.18±0.02 | 0.082 / 0.127 / 0.133 | 0.84 | 20% | abstain -0.18±0.02 | honest -0.50, value -0.27, fav -0.86, contra -0.80, random -0.69, valueLast -0.49, abstain -0.18 | mixed; abstain 84% / favourite 13% / underdog 3% (stake 2: 12%); same as honest 13%, as value rule 61%; acting last: 95%/2%/1% | 32%, 28%, 23%, 17%, 15% |
+| D2w | noisy | 5% | 5.1 | +0.43±0.01 (5.4) | +0.05±0.01 | 0.118 / 0.127 / 0.133 | 0.26 | 8% | abstain -0.05±0.01 | honest -0.33, value -0.16, fav -0.80, contra -0.37, random -0.58, valueLast -0.23, abstain -0.05 | abstains; abstain 95% / favourite 5% / underdog 0% (stake 2: 3%); same as honest 5%, as value rule 84%; acting last: 97%/2%/1% | 29%, 23%, 14%, 7%, 5% |
+| G1 | sharp | 15% | 10.0 | +0.74±0.01 (5.4) | +0.09±0.01 | 0.099 / 0.127 / 0.133 | 0.74 | 14% | honest +0.19±0.03 | honest +0.19, value -0.03, fav -0.37, contra -0.96, random -0.54, valueLast -0.17, abstain -0.09 | mixed; abstain 85% / favourite 13% / underdog 2%; same as honest 13%, as value rule 72%; acting last: 97%/2%/1% | 28%, 27%, 26%, 20%, 15% |
+| G1 | noisy | 2% | 1.7 | +0.11±0.01 (5.4) | +0.02±0.00 | 0.123 / 0.127 / 0.133 | 0.22 | 2% | honest +0.19±0.02 | honest +0.19, value -0.07, fav -0.18, contra -0.61, random -0.30, valueLast -0.08, abstain -0.02 | abstains; abstain 98% / favourite 2% / underdog 0%; same as honest 2%, as value rule 94%; acting last: 99%/1%/0% | 12%, 9%, 7%, 4%, 2% |
+| Tc | sharp | 45% | 30.4 | +4.24±0.03 (5.4) | +0.51±0.02 | 0.181 / 0.138 / 0.147 | 1.95 | 40% | value -0.01±0.04 | honest -0.04, value -0.01, fav -0.54, contra -1.35, random -0.67, valueLast -0.27, abstain -0.51 | mixed; abstain 54% / favourite 40% / underdog 6%; same as honest 40%, as value rule 70%; acting last: 79%/15%/6% | 55%, 51%, 50%, 49%, 45% |
+| Tc | noisy | 42% | 28.8 | +4.58±0.03 (5.4) | +0.55±0.03 | 0.165 / 0.133 / 0.140 | 1.37 | 49% | honest -0.03±0.04 | honest -0.03, value -0.16, fav -0.41, contra -0.89, random -0.58, valueLast -0.45, abstain -0.55 | mixed; abstain 56% / favourite 41% / underdog 3%; same as honest 41%, as value rule 69%; acting last: 77%/19%/4% | 54%, 52%, 50%, 44%, 43% |
+| H | sharp | 57% | 39.0 | +5.17±0.03 (5.4) | +0.62±0.03 | 0.107 / 0.127 / 0.133 | 1.40 | 47% | honest +0.08±0.04 | honest +0.08, value +0.02, fav -0.49, contra -1.05, random -0.59, valueLast -0.16, abstain -0.62 | mixed; abstain 41% / favourite 51% / underdog 8%; same as honest 51%, as value rule 60%; acting last: 68%/21%/11% | 59%, 60%, 59%, 58%, 58% |
+| H | noisy | 49% | 33.0 | +4.77±0.03 (5.4) | +0.56±0.03 | 0.121 / 0.127 / 0.133 | 0.97 | 50% | honest +0.13±0.04 | honest +0.13, value -0.24, fav -0.40, contra -0.77, random -0.51, valueLast -0.42, abstain -0.56 | mixed; abstain 50% / favourite 49% / underdog 2%; same as honest 49%, as value rule 55%; acting last: 67%/31%/2% | 58%, 56%, 54%, 50%, 49% |
+| E1 | sharp | 77% | 52.2 | +10.69±0.02 (5.4) | +1.26±0.04 | 0.066 / 0.127 / 0.133 | 0.97 | 95% | value -0.10±0.06 | honest -0.27, value -0.10, fav -0.50, contra -0.75, random -0.63, valueLast -0.99, abstain -1.26 | mixed; abstain 22% / favourite 54% / underdog 24%; same as honest 54%, as value rule 65%; acting last: 61%/23%/15% | 73%, 75%, 79%, 77%, 77% |
+| E1 | noisy | 71% | 48.0 | +10.72±0.02 (5.4) | +1.28±0.04 | 0.097 / 0.127 / 0.133 | 0.67 | 99% | honest -0.22±0.06 | honest -0.22, value -0.23, fav -0.68, contra -0.76, random -0.74, valueLast -1.11, abstain -1.28 | mixed; abstain 28% / favourite 59% / underdog 13%; same as honest 59%, as value rule 57%; acting last: 57%/31%/12% | 84%, 81%, 80%, 75%, 71% |
+
+Designs:
+  A: A today (sealed, losers pay winners, odd chip burned)
+  B: B pool, sealed
+  C: C pool, live odds
+  D1: D house line, S=1
+  D2: D house line, S=2
+  D3: D house line, S=3
+  D2w: D S=2, stake 1 or 2
+  G1: G1 house line S=1 + cap 3 for 1
+  Tc: T + cap 3 for 1
+  H: H house line S=1 + that duel tax as bonus + cap 3 for 1
+  E1: E1 live pool + 1 bonus chip (no line)

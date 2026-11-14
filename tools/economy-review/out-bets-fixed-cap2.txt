@@ -1,0 +1,24 @@
+Eval: 3000 engine games per table size (seeds 900000 + 10000*n + i), each replayed 2x with fresh beliefs/orders. Abstainer = 0 by construction.
+Columns: focal seat profit per game by habit; "pair" = joint profit of two seats, one always backing A, one always B (collusion probe);
+net = chips the betting adds to (+) or removes from (-) the whole table per game (table of the row habit, no deviant); tax = what the duel tax burned in those games;
+pool vs p: mean |closing pool share - true p| (line = the record line alone, half = always 50/50), slope of pool share on p (1 = calibrated), two-sided = duels with real backers on both sides.
+
+
+## n=6 (4 spectators a duel), 3000 games, 8.30 duels a game
+| design | crowd | table | honest | value | fav | contra | random | valueLast | pair A+B | net chips/game | staked/game | tax/game | bets placed | MAE pool / line / half | slope | two-sided |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| H2 | sharp | honest | +0.49±0.02 | +0.53±0.02 | -0.20±0.02 | -1.05±0.03 | -0.32±0.02 | +0.52±0.02 | -0.66±0.03 | +3.02±0.03 | 32.8 | 3.7 | 99% | 0.196 / 0.125 / 0.130 | 1.92 | 32% |
+| H2 | sharp | value | +0.47±0.02 | +0.45±0.02 | -0.26±0.02 | -0.99±0.03 | -0.28±0.02 | +0.38±0.02 | -0.65±0.02 | +2.78±0.03 | 23.9 | 3.7 | 72% | 0.162 / 0.125 / 0.130 | 1.62 | 26% |
+| H2 | noisy | honest | +0.30±0.02 | +0.36±0.02 | -0.09±0.02 | -0.81±0.03 | -0.26±0.03 | +0.37±0.02 | -0.53±0.02 | +1.82±0.04 | 32.7 | 3.7 | 99% | 0.148 / 0.125 / 0.130 | 1.17 | 70% |
+| H2 | noisy | value | +0.29±0.02 | +0.30±0.02 | -0.16±0.02 | -0.74±0.03 | -0.29±0.03 | +0.23±0.02 | -0.47±0.02 | +1.93±0.04 | 24.2 | 3.7 | 73% | 0.133 / 0.125 / 0.130 | 0.94 | 57% |
+
+## n=12 (10 spectators a duel), 3000 games, 17.66 duels a game
+| design | crowd | table | honest | value | fav | contra | random | valueLast | pair A+B | net chips/game | staked/game | tax/game | bets placed | MAE pool / line / half | slope | two-sided |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| H2 | sharp | honest | +0.68±0.03 | +0.93±0.03 | -0.81±0.04 | -3.25±0.05 | -1.06±0.04 | +1.11±0.03 | -2.82±0.04 | +8.20±0.09 | 173.7 | 9.9 | 98% | 0.221 / 0.127 / 0.133 | 2.14 | 46% |
+| H2 | sharp | value | +0.53±0.03 | +0.68±0.03 | -0.92±0.04 | -3.22±0.05 | -1.19±0.04 | +0.77±0.03 | -3.03±0.04 | +8.36±0.09 | 146.2 | 9.9 | 83% | 0.199 / 0.127 / 0.133 | 2.01 | 44% |
+| H2 | noisy | honest | +0.42±0.04 | +0.66±0.04 | -0.62±0.04 | -2.68±0.05 | -1.06±0.04 | +0.79±0.04 | -1.94±0.03 | +4.11±0.13 | 172.1 | 9.9 | 97% | 0.115 / 0.127 / 0.133 | 1.33 | 91% |
+| H2 | noisy | value | +0.32±0.04 | +0.46±0.04 | -0.73±0.04 | -2.64±0.05 | -1.21±0.04 | +0.49±0.04 | -2.04±0.04 | +4.75±0.12 | 153.5 | 9.9 | 87% | 0.107 / 0.127 / 0.133 | 1.21 | 86% |
+
+Designs:
+  H2: H with cap 2 for 1
