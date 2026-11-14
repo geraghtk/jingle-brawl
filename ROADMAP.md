@@ -159,6 +159,22 @@ team game in every duel at a flat point, 12% and 25%, and the most skilled seat 
 
 ### Step 2c. Spectator bets as a real market (proposal: Kevin wants to keep betting, 2026-11-13)
 
+**Simulated and built (2026-11-13).** Kevin: keep staked betting optional, fix it, decide later whether it
+becomes default. The simulation (`tools/economy-review/bets-*.ts`, a tabular learning bettor plus fixed
+habits on duels replayed from the real engine) found the proposal below does NOT pass: with no bonus a
+rational player never bets, and with no cap "always back the underdog" farms honest callers (12 to 23
+chips a game at twelve players). What passed and is now in the engine (`scoring.ts` `BETS`,
+`settleBets`, `poolOdds`, `betLine`; `duelgame.ts` `betsOpen`): one pool of the stakes + 1 chip from
+the Fund at the house line + that duel's tax; the winner's backers share it, at most 3 back for 1;
+the rest waits in `game.betPool`; nobody backed the winner: stakes returned; only with 4+ spectators,
+never on a duel the spectators play in. Honest betting beats sitting out (+0.5 to +0.8 chips a game),
+the best learned policy gains at most about 1.4 over honest, collusion gains nothing; worth at most
+about 0.1 gift points. **Still to do:** live "pays X for 1" and the pool on the phone and TV
+(`poolOdds` is ready for it), the four rule docs, a browser test, undo restoring `betPool`, re-run
+`analyze:economics` (the pool hands back roughly what the tax burns).
+
+The original proposal, kept for the record:
+
 Today (setting off by default): each call stakes 1 chip, the wrong callers' chips are split between
 the right ones, the odd chip and "nobody right" go to the Fund. The review found why it misbehaves:
 the leftovers make it negative-sum (abstaining beats betting by 1.6 chips a game) and the crowd piles
@@ -362,3 +378,7 @@ after Step 1, after Step 2, and before the landing page design.
   say who plays). Open: item 3 (mid-game switch), item 4 (team modes for Ring Toss and the Gremlin:
   until then the only team game is the Conveyor).
 - 2026-11-13: economy review done (Step 2b) and its three changes built; betting market proposed (Step 2c).
+- 2026-11-13: betting simulated (learning bettor + fixed habits) and the passing design built in the
+  engine (commit 141e33f; screens, rule docs and browser test still to do: see Step 2c). OpenSpiel
+  2.0.2 installed in `.venv-openspiel/` (not in git); the bridge to the engine is not built
+  (`tools/rl/README.md`). Next session: finish Step 2c's screens and docs, then Step 2 items 3 and 4.
