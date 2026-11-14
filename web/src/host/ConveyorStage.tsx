@@ -1,12 +1,13 @@
 // The Great Gift Conveyor on the TV (and the host console): two factories racing. Each lane is the
 // team's stations in a row (who works each one), the gifts on the tables and in the trays, and the
 // sleigh at the end with the count. A gift that moves on slides to its next station.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { STOWAWAYS } from '../core/minigames/conveyor/conveyor';
 import type { ConveyorView } from '../player/ConveyorCard';
 import { TEAM_COLORS } from '../player/ConveyorCard';
-import { useServerOffset } from '../net/hooks';
+import { useServerNow } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
+import { secsLeft } from '../ui/clock';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';   // its clock is Ring Toss's .rt-banner (and the full-screen rules for it)
 import '../ui/conveyor.css';
@@ -16,15 +17,13 @@ const STEP_NAMES: Record<string, string> = { pick: 'Pick', wrap: 'Wrap', label: 
 
 export function ConveyorStage() {
   const { game, tv } = useHost();
-  const offset = useServerOffset();
   const v = game.arenaView!.view as ConveyorView;
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
-  const [now, setNow] = useState(() => Date.now() + offset);
-  useEffect(() => { const id = setInterval(() => setNow(Date.now() + offset), 250); return () => clearInterval(id); }, [offset]);
+  const now = useServerNow();
   const total = v.teams.reduce((n, t) => n + t.delivered, 0);
   const seen = useRef(total);
   useEffect(() => { if (tv && total > seen.current) play('right'); seen.current = total; }, [total, tv]);
-  const secs = Math.max(0, Math.ceil((v.endsAt - now) / 1000));
+  const secs = secsLeft(v.endsAt, now);
   return (
     <div className="cv-stage" data-testid="conveyor-stage">
       <div className="rt-banner">

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SYMBOLS, markerAt } from '../core/minigames/gremlin/challenges';
 import type { TimingParams } from '../core/minigames/gremlin/challenges';
 import type { Danger, Pass } from '../core/minigames/gremlin/gremlin';
-import { useServerOffset } from '../net/hooks';
+import { useServerNow, useServerOffset } from '../net/hooks';
 import { glyphs } from '../ui/icons';
 import { buzz, muted, play, setMuted } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
@@ -37,7 +37,7 @@ export function GremlinCard() {
   const name = (id?: string | null) => (id && game.players?.[id]?.name) || 'Someone';
   const [error, setError] = useState('');
   const [quiet, setQuiet] = useState(muted);
-  const [, tick] = useState(0);
+  const now = useServerNow();
   const mine = v?.holder === me && v.stage !== 'doomed';
   const was = useRef<{ holder?: string; stage?: string; cooldown?: number | null }>({});
   useEffect(() => {
@@ -50,10 +50,8 @@ export function GremlinCard() {
     was.current = { holder: v?.holder, stage: v?.stage, cooldown: v?.cooldownUntil };
     setError('');
   }, [v?.holder, v?.stage, v?.issuedAt, v?.cooldownUntil]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const id = setInterval(() => tick((n) => n + 1), 250); return () => clearInterval(id); }, []);
 
   if (!av || !v) return null;
-  const now = Date.now() + offset;
   const act: Act = async (action) => {
     setError('');
     const ok = await send({ type: 'arena', action });

@@ -7,8 +7,9 @@ import { arcAt, arcFor } from '../core/minigames/engines/projectile';
 import type { FlightParams } from '../core/minigames/engines/projectile';
 import type { Peg } from '../core/minigames/engines/targets';
 import { finalCount, leaderOf, STREAK_MIN, streakAt, streakCall, streakPitch } from '../core/minigames/ringtoss/flair';
-import { useServerOffset } from '../net/hooks';
+import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
+import { secsLeft } from '../ui/clock';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';
 import { useHost } from './HostContext';
@@ -586,12 +587,11 @@ export function RingTossStage() {
   const offset = useServerOffset();
   const av = game.arenaView!;
   const v = ringView(av.view);
-  const [now, setNow] = useState(() => Date.now() + offset);
-  useEffect(() => { const id = setInterval(() => setNow(Date.now() + offset), 250); return () => clearInterval(id); }, [offset]);
+  const now = useServerNow();
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
   const duel: string[] = av.duelists || [];
   const order = [...av.participants].sort((a, b) => (v.scores[b] || 0) - (v.scores[a] || 0));
-  const secs = Math.max(0, Math.ceil((v.stageEndsAt - now) / 1000));
+  const secs = secsLeft(v.stageEndsAt, now);
   const leader = leaderOf(v.scores, av.participants);
   const hurry = v.stage === 'throwing' && secs <= 10;
   // out loud on the TV: the start, the last five seconds, time's up

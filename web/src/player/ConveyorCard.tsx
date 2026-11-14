@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { PAPERS, STOWAWAYS, TAGS, TOYS } from '../core/minigames/conveyor/conveyor';
 import type { Gift, Order, StepKind } from '../core/minigames/conveyor/conveyor';
-import { useServerOffset } from '../net/hooks';
+import { useServerNow } from '../net/hooks';
+import { secsLeft } from '../ui/clock';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
@@ -30,12 +31,10 @@ export const stowawayName = (n: number) => (STOWAWAYS[n] === '🦝' ? 'raccoon' 
 
 export function ConveyorCard() {
   const { game, send } = usePlayer();
-  const offset = useServerOffset();
   const v = game.arenaView!.view as ConveyorView;
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
-  const [now, setNow] = useState(() => Date.now() + offset);
+  const now = useServerNow();
   const [error, setError] = useState('');
-  useEffect(() => { const id = setInterval(() => setNow(Date.now() + offset), 250); return () => clearInterval(id); }, [offset]);
   const mine = v.teams.find((t) => t.teamId === v.myTeam);
   const theirs = v.teams.find((t) => t.teamId !== v.myTeam);
   const job = v.job;
@@ -52,7 +51,7 @@ export function ConveyorCard() {
     const ok = await send({ type: 'arena', action: { item: job!.item, ...action } });
     if (!ok) setError('Too late: that gift moved on');
   };
-  const secs = Math.max(0, Math.ceil((v.endsAt - now) / 1000));
+  const secs = secsLeft(v.endsAt, now);
   const station = v.myStation != null && v.myStation >= 0 ? mine.stations[v.myStation] : null;
 
   return (

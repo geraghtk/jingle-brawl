@@ -10,7 +10,8 @@ import { miss } from '../core/minigames/engines/targets';
 import { lastNeeded, PEG_NAMES, STREAK_MIN, streakAt, streakPitch } from '../core/minigames/ringtoss/flair';
 import type { RingView } from '../host/RingTossStage';
 import { ringColor, ringView, SetPips, visMs } from '../host/RingTossStage';
-import { useServerOffset } from '../net/hooks';
+import { useServerNow } from '../net/hooks';
+import { secsLeft } from '../ui/clock';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
@@ -21,13 +22,11 @@ const MAX_CHARGE = 1.3;
 
 export function RingTossCard() {
   const { game, me, send } = usePlayer();
-  const offset = useServerOffset();
   const av = game.arenaView!;
   const v = ringView(av.view);
-  const [now, setNow] = useState(() => Date.now() + offset);
+  const now = useServerNow(100);
   const [buttons, setButtons] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { const id = setInterval(() => setNow(Date.now() + offset), 100); return () => clearInterval(id); }, [offset]);
 
   const mine = v.throws.filter((t) => t.pid === me);
   const last = mine.at(-1);
@@ -58,7 +57,7 @@ export function RingTossCard() {
     const ok = await send({ type: 'arena', action: { kind: 'throw', ...action } });
     if (!ok) setError('That one didn’t go: try again');
   };
-  const secs = Math.max(0, Math.ceil((v.stageEndsAt - now) / 1000));
+  const secs = secsLeft(v.stageEndsAt, now);
   const color = ringColor(av.participants, me);
 
   const top = (
