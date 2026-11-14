@@ -205,6 +205,19 @@ describe('RoomClient, frame by frame', () => {
     expect(last().intents()).toEqual([]);
   });
 
+  it("a whole view on a new connection is the room's word, even at a lower version (the room came back older)", () => {
+    const c = client().start();
+    last().join(50, game({ note: 'old room' }));
+    last().drop();
+    vi.advanceTimersByTime(250);
+    last().join(2, game({ note: 'new room' }));
+    expect(c.game).toEqual(game({ note: 'new room' }));
+    expect(c.version).toBe(2);
+    last().say({ t: 'patch', base: 2, version: 3, updates: { note: 'and on' }, now: 0 });
+    expect(c.game).toEqual(game({ note: 'and on' }));
+    expect(live().length).toBe(1);                             // not hanging up over and over
+  });
+
   it('waits longer between tries, up to 5 s, and starts short again once it has connected', () => {
     client().start();
     const waits: number[] = [];

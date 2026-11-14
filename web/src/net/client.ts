@@ -180,7 +180,8 @@ export class RoomClient {
         this.flushKey();
         return;
       case 'state':
-        if (m.version < this.version && this.game) return;
+        // the room's word, whatever this screen held: only its own socket is heard, in order, so a
+        // lower version is a room that came back older (a restored database, a code given out again)
         this.game = m.game;
         this.version = m.version;
         return this.emit();
