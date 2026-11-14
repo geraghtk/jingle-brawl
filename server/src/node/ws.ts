@@ -40,7 +40,9 @@ export function wsServer(rooms: Rooms, { log = silentLogger, metrics = new Metri
       const now = Date.now();
       tokens = Math.min(BURST, tokens + ((now - last) / 1000) * PER_SECOND);
       last = now;
-      if (--tokens < 0) { metrics.inc('jb_rate_limited_total', { kind: 'message' }); return send({ t: 'error', error: 'slow down' }); }
+      // (a refused message costs nothing: a burst is not held against the socket once it is over)
+      if (tokens < 1) { metrics.inc('jb_rate_limited_total', { kind: 'message' }); return send({ t: 'error', error: 'slow down' }); }
+      tokens--;
       let msg: ClientMsg;
       try { msg = JSON.parse(String(data)); } catch { return send({ t: 'error', error: 'not JSON' }); }
       if (!msg || typeof msg !== 'object') return;

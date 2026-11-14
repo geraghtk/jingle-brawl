@@ -55,14 +55,28 @@ function json(res: ServerResponse, status: number, body: unknown, headers: Recor
   res.end(JSON.stringify(body ?? null));
 }
 
+/** A request body over MAX_BODY: answered, and its connection closed (the rest is never read). */
+class TooBig extends Error {
+  constructor() { super('too big'); }
+}
+
 async function body(req: IncomingMessage): Promise<unknown> {
-  let size = 0;
-  const chunks: Buffer[] = [];
-  for await (const c of req) {
-    size += (c as Buffer).length;
-    if (size > MAX_BODY) throw new Error('too big');
-    chunks.push(c as Buffer);
-  }
+  if (Number(req.headers['content-length']) > MAX_BODY) throw new TooBig();     // said so up front: not read at all
+  const chunks = await new Promise<Buffer[]>((done, fail) => {
+    let size = 0;
+    const got: Buffer[] = [];
+    const data = (c: Buffer) => {
+      size += c.length;
+      if (size <= MAX_BODY) { got.push(c); return; }
+      req.off('data', data);
+      req.pause();                    // (not destroyed here: the answer still has to go out on this socket)
+      fail(new TooBig());
+    };
+    req.on('data', data);
+    req.once('end', () => done(got));
+    req.once('error', fail);
+    req.once('aborted', () => fail(new Error('aborted')));
+  });
   const s = Buffer.concat(chunks).toString('utf8');
   return s ? JSON.parse(s) : null;
 }
@@ -222,6 +236,9 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
         log.warn('rooms.full', { live: rooms.size });
         return json(res, 503, { error: e.message }, { 'Retry-After': '300' });
       }
+      // the rest of an oversized body is not read: this connection ends with the answer, so the
+      // unread bytes are never taken for the caller's next request
+      if (e instanceof TooBig) res.setHeader('Connection', 'close');
       log.warn('http.error', { path: (req.url || '').split('?')[0].slice(0, 100), error: (e as Error).message.slice(0, 200) });
       json(res, 400, { error: (e as Error).message.slice(0, 200) });
     }
