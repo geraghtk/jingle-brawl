@@ -6,11 +6,13 @@ import { useHost } from './HostContext';
 import { GremlinStage } from './GremlinStage';
 import { RingTossStage } from './RingTossStage';
 import { ConveyorStage } from './ConveyorStage';
+import { RobotStage } from './RobotStage';
 
 const STAGES: Record<string, ComponentType> = {
   pass_the_gremlin: GremlinStage,
   reindeer_ring_toss: RingTossStage,
   gift_conveyor: ConveyorStage,
+  nutcracker_knockout: RobotStage,
 };
 
 export function ArenaStage() {

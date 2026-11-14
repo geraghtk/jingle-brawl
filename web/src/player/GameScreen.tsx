@@ -9,6 +9,7 @@ import { DrawOffCard } from './DrawOffCard';
 import { GremlinCard } from './GremlinCard';
 import { RingTossCard } from './RingTossCard';
 import { ConveyorCard } from './ConveyorCard';
+import { RobotCard } from './RobotCard';
 import { PartyCard } from './PartyCard';
 import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
@@ -20,6 +21,7 @@ const ARENA_CARDS: Record<string, ComponentType> = {
   pass_the_gremlin: GremlinCard,
   reindeer_ring_toss: RingTossCard,
   gift_conveyor: ConveyorCard,
+  nutcracker_knockout: RobotCard,
 };
 
 export function GameScreen({ onLeave }: { onLeave: () => void }) {

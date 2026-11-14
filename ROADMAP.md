@@ -382,3 +382,4 @@ after Step 1, after Step 2, and before the landing page design.
   engine (commit 141e33f; screens, rule docs and browser test still to do: see Step 2c). OpenSpiel
   2.0.2 installed in `.venv-openspiel/` (not in git); the bridge to the engine is not built
   (`tools/rl/README.md`). Next session: finish Step 2c's screens and docs, then Step 2 items 3 and 4.
+- 2026-11-13: **Nutcracker Knockout started** (Step 7; Kevin chose the name and asked that parts come off hit by hit, the head last). Built: `engines/fight.ts`, `robots/` rules and tests, the phone controller, the TV stage with real-time 3D (three.js 0.170, toon shading and ink outlines), `e2e/robots.spec.js`, rule docs. Open: Kevin's verdict on the look and the feel of the timings on real phones; hands are cosmetic (left and right punches are the same); no mode for the rest of the table yet (bystanders backing a corner); sounds are the stock cues; frame rate on a real TV untested.
