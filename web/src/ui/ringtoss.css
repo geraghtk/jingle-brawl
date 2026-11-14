@@ -4,7 +4,6 @@
 .rt-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 760px) { .rt-layout { grid-template-columns: 1fr; } }
 .rt-scene { width: 100%; height: auto; border-radius: 18px; display: block; background: #eef3f8; }
-.rt-scene.compact { border-radius: 14px; max-height: 200px; }
 .rt-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
 .rt-board li { display: grid; grid-template-columns: 18px 30px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 12px; background: var(--surface, #fff); font-weight: 700; }
 .rt-board li.duelist { box-shadow: inset 0 0 0 3px var(--accent, #ff3366); }
@@ -36,8 +35,6 @@
 @keyframes rt-refill { from { transform: scale(.4); opacity: .3; } to { transform: scale(1); opacity: 1; } }
 .rt-myset { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 0 0 8px; font-weight: 700; font-size: 14px; }
 .rt-myset .rt-set i { width: 13px; height: 13px; }
-.rt-pad { position: relative; height: 220px; border-radius: 20px; background: linear-gradient(#f2f6fa, #dfe8f2); touch-action: none; -webkit-user-select: none; user-select: none; display: grid; place-items: end center; padding-bottom: 26px; cursor: grab; }
-.rt-pad.disabled { opacity: .55; }
 .rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; will-change: transform; }
 /* the whole screen is the flick surface while you can throw (under the host's tab bar, if they play too) */
 .rt-fullpad { position: fixed; inset: 0; z-index: 40; background: linear-gradient(#f2f6fa, #dfe8f2); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 14px 16px 34px; box-sizing: border-box; overflow: hidden; -webkit-user-select: none; user-select: none; }
@@ -132,7 +129,7 @@
   55% { opacity: .85; }
   100% { opacity: 0; transform: translate(var(--drift), var(--rise)) scale(1.6); }
 }
-/* a miss's pieces (RingTossStage bits()): each flies on its own: across at a steady pace, up slowing then
+/* a miss's pieces (ui/ringtoss/effects.tsx bits()): each flies on its own: across at a steady pace, up slowing then
    down speeding (gravity), spinning, its own time; they go as the ring crumples, after its bounce */
 .rt-bit-x { animation: rt-bit-x var(--dur) linear var(--delay) both; }
 @keyframes rt-bit-x { from { transform: translateX(0); } to { transform: translateX(var(--dx)); } }

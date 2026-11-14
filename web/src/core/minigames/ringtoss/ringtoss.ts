@@ -24,7 +24,7 @@ import type { RingView } from './view';
  *  (the full set is the prize: RingConfig.setBonus). */
 export const PEGS: Peg[] = [
   // under the antler tips and the hat's tip of the reindeer (web/public/art/ringtoss/, tools/art/reindeer.py
-  // variant g seed 4, placed by RingTossStage's DEER), which stands at depth 1.65: the far prongs, the
+  // variant g seed 4, placed by DEER in ui/ringtoss/scene.ts), which stands at depth 1.65: the far prongs, the
   // tall ones, the hat. Forgiving (playtest, 2026-11-12: "pretty hard to get a hit"): about 2 degrees of
   // aim and +-0.11 to 0.17 of distance (the hat smallest, the far prongs biggest: the hat is the hard last
   // piece of a set); where a far and a tall prong's zones overlap, the tall one counts.
