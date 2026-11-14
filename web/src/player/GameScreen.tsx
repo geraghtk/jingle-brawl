@@ -1,5 +1,6 @@
 // The phone's game screen: header, the card for the current moment, my gift, the table.
 import { useEffect, useState } from 'react';
+import type { ComponentType } from 'react';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { observe as mascotsObserve } from '../ui/mascots';
 import { MvpReveal } from '../ui/MvpReveal';
@@ -13,6 +14,13 @@ import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
 import { StatusCard } from './StatusCard';
 import { VerdictModal } from './VerdictModal';
+
+/** The phone's card for each runtime mini-game (its stage on the TV: host/ArenaStage.tsx STAGES). */
+const ARENA_CARDS: Record<string, ComponentType> = {
+  pass_the_gremlin: GremlinCard,
+  reindeer_ring_toss: RingTossCard,
+  gift_conveyor: ConveyorCard,
+};
 
 export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const { game, me, player, cfg } = usePlayer();
@@ -28,7 +36,8 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const party = t?.phase === 'minigame_party';
   const drawOff = t?.phase === 'minigame_draw_off'; // AI Draw Off, a duel game
   const arenaGame = t?.phase === 'minigame_arena' ? game.arenaView?.gameId : undefined;
-  const arena = arenaGame === 'pass_the_gremlin' || arenaGame === 'reindeer_ring_toss' || arenaGame === 'gift_conveyor';
+  const arena = !!arenaGame;
+  const ArenaCard = arenaGame ? ARENA_CARDS[arenaGame] : undefined;
   const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
@@ -49,9 +58,9 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       {myReprisal && <ReprisalCard />}
       {party && <PartyCard />}
       {drawOff && <DrawOffCard />}
-      {arenaGame === 'pass_the_gremlin' && <GremlinCard />}
-      {arenaGame === 'reindeer_ring_toss' && <RingTossCard />}
-      {arenaGame === 'gift_conveyor' && <ConveyorCard />}
+      {arena && (ArenaCard ? <ArenaCard />
+        // a game this page doesn't know (the room is newer than the page)
+        : <div className="card" role="status" data-testid="arena-unknown"><p>This game needs a newer app. Reload this page to play.</p></div>)}
 
       {(gift || game.phase !== 'lobby') && (
         <div className="table-rows">

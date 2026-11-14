@@ -14,5 +14,8 @@
 .arena-full-host { display: flex; gap: 8px; flex-wrap: wrap; }
 .arena-full-host .btn { padding: 8px 14px; font-size: 14px; }
 
+/* a game this page doesn't know (host/ArenaStage.tsx) */
+.arena-unknown { text-align: center; font-weight: 700; color: var(--muted, #6a7180); }
+
 /* a game card's error line ("Not now", "Too late"): its room is kept, so the card doesn't jump */
 .arena-error { color: #d7263d; font-weight: 700; min-height: 20px; }
