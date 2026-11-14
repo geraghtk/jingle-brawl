@@ -90,6 +90,51 @@ describe('RoomClient, frame by frame', () => {
     expect(last().readyState).toBeGreaterThanOrEqual(FakeSocket.CLOSING);
   });
 
+  it('stop then start while a retry is waiting: still one socket, and no timer outlives stop', () => {
+    const c = client().start();
+    last().join(1, game({}));
+    last().drop();                                             // the Wi-Fi blips: a retry is on its way
+    c.stop();
+    expect(vi.getTimerCount()).toBe(0);
+    c.start();                                                 // the screen is mounted again
+    expect(sockets().length).toBe(2);
+    vi.advanceTimersByTime(10_000);                            // the old retry would have fired by now
+    expect(sockets().length).toBe(2);
+    expect(live().length).toBe(1);
+    last().join(2, game({ note: 'again' }));
+    expect(c.status).toBe('open');
+    expect(c.game).toEqual(game({ note: 'again' }));
+  });
+
+  it('a stray start while a retry is waiting does not open a second socket', () => {
+    const c = client().start();
+    last().join(1, game({}));
+    last().drop();
+    c.start();
+    vi.advanceTimersByTime(10_000);
+    expect(live().length).toBe(1);
+  });
+
+  it('a socket the screen has let go of is not listened to any more', () => {
+    const c = client().start();
+    const s0 = last().join(1, game({ note: 'first' }));
+    let told = 0;
+    c.subscribe(() => { told++; });
+    c.stop();
+    c.start();
+    const s1 = last();
+    expect(s1).not.toBe(s0);
+    told = 0;
+    s0.say({ t: 'patch', base: 1, version: 2, updates: { note: 'late' }, now: 0 });   // on its way when we hung up
+    s0.accept();                                                                         // nor may it say hello again
+    expect(c.version).toBe(1);
+    expect(told).toBe(0);
+    expect(s1.sent).toEqual([]);
+    vi.advanceTimersByTime(10);                                                          // the old socket finishes closing
+    expect(c.status).toBe('connecting');                                                 // the new one is not blamed for it
+    expect(live()).toEqual([s1]);
+  });
+
   it('presses still waiting when the screen stops are answered "no", and never sent in a later session', async () => {
     const c = client().start();
     last().join(1, game({}));

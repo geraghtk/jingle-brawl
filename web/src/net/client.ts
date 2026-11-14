@@ -39,6 +39,7 @@ export class RoomClient {
   private logListeners = new Set<(events: Log[]) => void>();
   private samples: { rtt: number; offset: number }[] = [];
   private retry = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private pinger: ReturnType<typeof setInterval> | null = null;
   private stopped = false;
   private heard = 0;
@@ -58,8 +59,13 @@ export class RoomClient {
   stop(): void {
     this.stopped = true;
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisible);
-    if (this.pinger) clearInterval(this.pinger);
-    this.ws?.close();
+    if (this.pinger) { clearInterval(this.pinger); this.pinger = null; }
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
+    // let go of the socket now: whatever it still says (or its close) is not this screen's any more
+    const ws = this.ws;
+    this.ws = null;
+    ws?.close();
+    this.setStatus('closed');
     for (const p of this.pending.values()) p.resolve({ ok: false, error: 'left the room' });
     this.pending.clear();
   }
@@ -111,10 +117,13 @@ export class RoomClient {
 
   private open(): void {
     if (this.stopped || this.fatal) return;
+    // one socket at a time: a retry still waiting (a start() got here first) must not open another
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
     this.setStatus('connecting');
     const ws = new WebSocket(this.url);
     this.ws = ws;
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.retry = 0;
       this.heard = Date.now();
       this.write({ t: 'hello', v: PROTOCOL, room: this.room, ...(this.token ? { token: this.token } : {}) });
@@ -123,6 +132,7 @@ export class RoomClient {
       this.pinger = setInterval(() => this.ping(), PING_MS);
     };
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;   // a socket we let go of can still deliver what was on its way
       this.heard = Date.now();
       let m: ServerMsg;
       try { m = JSON.parse(String(ev.data)); } catch { return; }
@@ -139,7 +149,7 @@ export class RoomClient {
     this.setStatus('closed');
     if (this.stopped || this.fatal) return;
     const wait = Math.min(5000, 250 * 2 ** this.retry++);
-    setTimeout(() => this.open(), wait);
+    this.retryTimer = setTimeout(() => { this.retryTimer = null; this.open(); }, wait);
   }
 
   /** A dead socket can look open for minutes (a phone waking up): if the room has gone quiet, start over. */
