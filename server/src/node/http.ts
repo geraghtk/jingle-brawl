@@ -87,6 +87,19 @@ function urlOf(req: IncomingMessage): URL | null {
 const decoded = (path: string) => { try { return decodeURIComponent(path); } catch { return null; } };
 
 const isLocal = (req: IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '');
+/** The name a request asked for is this machine's own (any port). A web page open in a browser on this
+ *  machine can aim a name of its own at 127.0.0.1 (DNS rebinding); its requests still carry that name. */
+const LOCAL_NAME = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/i;
+const askedLocally = (req: IncomingMessage) => LOCAL_NAME.test(req.headers.host || '');
+
+/** The debug API reads and writes any room, so it is for tests and dev on this machine only. Why a
+ *  server asked to start with it must not start (null: it may). Behind a proxy every caller looks local. */
+export function debugApiRefusal({ debugApi, trustProxy, nodeEnv }: { debugApi?: boolean; trustProxy?: boolean; nodeEnv?: string }): string | null {
+  if (!debugApi) return null;
+  if (trustProxy) return '--debug-api cannot be used with --trust-proxy (JB_TRUST_PROXY=1): behind a proxy every caller looks like this machine.';
+  if (nodeEnv === 'production') return '--debug-api cannot be used with NODE_ENV=production: it lets anyone on this machine read and rewrite every room.';
+  return null;
+}
 
 export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy = false, log = silentLogger, metricsToken }: ServerOpts) {
   const metrics = new Metrics();
@@ -104,6 +117,8 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
   /** /metrics: this machine (not through a proxy, where everyone looks local), or the token */
   const mayReadMetrics = (req: IncomingMessage) =>
     (!trustProxy && isLocal(req)) || (!!metricsToken && req.headers.authorization === `Bearer ${metricsToken}`);
+  /** /debug: only with --debug-api, never through a proxy, only from this machine, asked for by its own name */
+  const mayDebug = (req: IncomingMessage) => !!debugApi && !trustProxy && isLocal(req) && askedLocally(req);
   const tooMany = (res: ServerResponse, wait: number) =>
     json(res, 429, { error: 'Too many tries. Please wait a moment and try again.' }, { 'Retry-After': String(Math.ceil(wait / 1000)) });
 
@@ -167,7 +182,7 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
       }
 
       if (parts[0] === 'debug') {
-        if (!debugApi || !isLocal(req)) return json(res, 404, { error: 'not found' });
+        if (!mayDebug(req)) return json(res, 404, { error: 'not found' });
         const room = parts[1] === 'rooms' && parts[2] ? rooms.get(parts[2]) : null;
         if (!room) return json(res, 200, null);                     // like the database: a missing room reads as null
         const path = parts.slice(3).join('/');

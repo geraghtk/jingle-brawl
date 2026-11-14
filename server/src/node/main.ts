@@ -1,7 +1,8 @@
 // The room server: `npm start` (or `npx vite-node server/src/node/main.ts -- …`).
 //   --port 8787  --host 0.0.0.0 (phones on your Wi-Fi)  --db rooms.db | :memory:
-//   --static dist (the built app; off with --static none)  --debug-api (tests only, localhost only;
-//   also turns off the per-address limits)  --trust-proxy (behind a reverse proxy: client address
+//   --static dist (the built app; off with --static none)  --debug-api (tests and dev only, this
+//   machine only; also turns off the per-address limits; the server refuses to start with it behind
+//   a proxy or with NODE_ENV=production)  --trust-proxy (behind a reverse proxy: client address
 //   from X-Forwarded-For; or JB_TRUST_PROXY=1)
 // Logs: one JSON object per line on stdout. /metrics answers this machine, or anyone with
 // JB_METRICS_TOKEN as a Bearer token.
@@ -11,7 +12,7 @@ import { SqliteStore } from '../store/sqlite';
 import { Rooms } from '../room/rooms';
 import { criticSource } from '../critic/source';
 import { realClock } from './clock';
-import { createAppServer } from './http';
+import { createAppServer, debugApiRefusal } from './http';
 import { jsonLogger } from './log';
 
 const args = process.argv.slice(2);
@@ -20,6 +21,10 @@ const port = Number(process.env.PORT || flag('port', '8787'));
 const host = flag('host', '0.0.0.0');
 const db = flag('db', process.env.JB_DB || 'rooms.db');
 const statics = flag('static', 'dist');
+const debugApi = args.includes('--debug-api');
+const trustProxy = args.includes('--trust-proxy') || process.env.JB_TRUST_PROXY === '1';
+const refusal = debugApiRefusal({ debugApi, trustProxy, nodeEnv: process.env.NODE_ENV });
+if (refusal) { console.error(`Not starting: ${refusal}`); process.exit(1); }   // before any room is opened
 
 const store = db === ':memory:' ? new MemoryStore() : new SqliteStore(db);
 const rooms = new Rooms(store, realClock, { secret: process.env.JB_TOKEN_SECRET, critics: criticSource() });
@@ -30,8 +35,6 @@ const purge = () => { const gone = rooms.purge(); if (gone.length) log.info('roo
 setInterval(() => { rooms.sweep(2 * 60 * 60 * 1000); purge(); }, 10 * 60 * 1000).unref();
 purge();
 const recovered = rooms.recover();
-const debugApi = args.includes('--debug-api');
-const trustProxy = args.includes('--trust-proxy') || process.env.JB_TRUST_PROXY === '1';
 const app = createAppServer({ rooms, staticDir: statics === 'none' ? null : statics, debugApi, trustProxy,
   limits: debugApi ? false : {}, log, metricsToken: process.env.JB_METRICS_TOKEN || undefined });
 process.on('uncaughtException', (e) => { log.error('crash', { error: e.message, stack: e.stack?.slice(0, 2000) }); process.exit(1); });
