@@ -163,7 +163,8 @@ export class RoomActor {
     const tx = new Tx(this.game);
     for (const [k, v] of Object.entries(plan.updates)) tx.set(k, v);
     tx.set(`players/${pid}/connected`, false);
-    this.commit(tx.plan(), pid, 'system', { join: { name: req.name } });
+    // logged as the join took it (trimmed and cut like the player's name), never the request's raw value
+    this.commit(tx.plan(), pid, 'system', { join: { name: A.cleanName(String(req.name ?? '')) } });
     this.afterChange();
     return { pid };
   }

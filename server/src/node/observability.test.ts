@@ -8,7 +8,7 @@ import type { CreateRoomRes, ServerMsg } from '../../../web/src/net/protocol';
 import { Rooms } from '../room/rooms';
 import { MemoryStore } from '../store/store';
 import { FakeClock } from '../testing/fakeClock';
-import { clientError, createAppServer } from './http';
+import { clientError, createAppServer, sameSecret } from './http';
 import type { ServerOpts } from './http';
 import { Metrics, jsonLogger } from './log';
 
@@ -54,6 +54,21 @@ describe('logs and metrics', () => {
     expect((await fetch(`${base}/metrics`, { headers: { Authorization: 'Bearer nope' } })).status).toBe(404);
     expect((await fetch(`${base}/metrics`, { headers: { Authorization: 'Bearer s3cret' } })).status).toBe(200);
     expect(await (await fetch(`${base}/api/info`)).json()).toEqual({ ips: [] });   // no private addresses either
+  });
+
+  it('the metrics token is compared whole and in constant time: a near miss of any length is a miss, never an error', async () => {
+    expect(sameSecret('Bearer s3cret', 'Bearer s3cret')).toBe(true);
+    for (const miss of ['Bearer s3creT', 'Bearer s3cre', 'Bearer s3cret ', 'bearer s3cret', 's3cret', '', 'Bearer s3crét', 'Bearer s3creé', undefined, ['Bearer s3cret'], 7]) {
+      expect([miss, sameSecret(miss, 'Bearer s3cret')]).toEqual([miss, false]);
+    }
+    expect(sameSecret('clé', 'clé')).toBe(true);
+    const { base } = await boot({ trustProxy: true, metricsToken: 's3cret' });
+    // same length in characters, longer in bytes; shorter; longer; a prefix: all the same 404
+    for (const auth of ['Bearer s3crét', 'Bearer s3cre', 'Bearer s3cret0', 'Bearer s', 'Bearer s3creT', 'Basic s3cret']) {
+      const res = await fetch(`${base}/metrics`, { headers: { Authorization: Buffer.from(auth, 'utf8').toString('latin1') } });
+      expect([auth, res.status]).toEqual([auth, 404]);
+    }
+    expect((await fetch(`${base}/metrics`, { headers: { Authorization: 'Bearer s3cret' } })).status).toBe(200);
   });
 
   it("takes a browser's error report: trimmed, counted, logged; never the page's address", async () => {

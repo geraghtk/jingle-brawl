@@ -1,5 +1,6 @@
 // HTTP: make a room (the host), look at one (the join screen), join one (a phone), the built app,
 // and (only with --debug-api, only from this machine) the test helpers' direct reads and writes.
+import { timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -86,6 +87,14 @@ function urlOf(req: IncomingMessage): URL | null {
 }
 const decoded = (path: string) => { try { return decodeURIComponent(path); } catch { return null; } };
 
+/** Is this the secret? Compared in constant time, so the answer's timing says nothing about how much
+ *  of a guess was right (a different length is simply wrong). */
+export function sameSecret(given: unknown, secret: string): boolean {
+  if (typeof given !== 'string') return false;
+  const a = Buffer.from(given, 'utf8'), b = Buffer.from(secret, 'utf8');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 const isLocal = (req: IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '');
 /** The name a request asked for is this machine's own (any port). A web page open in a browser on this
  *  machine can aim a name of its own at 127.0.0.1 (DNS rebinding); its requests still carry that name. */
@@ -116,7 +125,7 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
   };
   /** /metrics: this machine (not through a proxy, where everyone looks local), or the token */
   const mayReadMetrics = (req: IncomingMessage) =>
-    (!trustProxy && isLocal(req)) || (!!metricsToken && req.headers.authorization === `Bearer ${metricsToken}`);
+    (!trustProxy && isLocal(req)) || (!!metricsToken && sameSecret(req.headers.authorization, `Bearer ${metricsToken}`));
   /** /debug: only with --debug-api, never through a proxy, only from this machine, asked for by its own name */
   const mayDebug = (req: IncomingMessage) => !!debugApi && !trustProxy && isLocal(req) && askedLocally(req);
   const tooMany = (res: ServerResponse, wait: number) =>

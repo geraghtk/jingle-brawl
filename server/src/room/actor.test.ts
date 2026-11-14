@@ -265,6 +265,26 @@ describe('the Misfit Lottery moves itself on', () => {
   });
 });
 
+describe('the event log', () => {
+  const joins = (t: ReturnType<typeof setup>) => t.store.events('ABCD', 0, 100000)
+    .map((e) => (e.body as { join?: { name: unknown } }).join).filter(Boolean).map((j) => j!.name);
+
+  it("a join is logged with the name the player got, never the raw request's (oversized, or not a string at all)", () => {
+    const t = setup(0);
+    const long = t.room.join({ name: `Ada ${'x'.repeat(60_000)}` }) as { pid: string };
+    const odd = t.room.join({ name: { toString: () => 'Bo', big: 'y'.repeat(60_000) } as never }) as { pid: string };
+    const list = t.room.join({ name: ['Cy', 'z'.repeat(60_000)] as never }) as { pid: string };
+    const stored = [long, odd, list].map((r) => t.game().players![r.pid].name);
+    expect(stored[0].length).toBeLessThanOrEqual(60);
+    expect(joins(t)).toEqual(stored);
+    for (const n of joins(t)) expect(typeof n).toBe('string');
+    expect(JSON.stringify(t.store.events('ABCD', 0, 100000)).length).toBeLessThan(20_000);   // not three 60 KB names
+    expect(t.room.join({ name: '   ' })).toHaveProperty('error');          // refused: nothing logged
+    expect(t.room.join({ name: null as never })).toHaveProperty('error');
+    expect(joins(t).length).toBe(3);
+  });
+});
+
 describe('tokens', () => {
   it('only the server can make one; a player token is not a host token; another room is another room', () => {
     const tok = sign('s3cret', { room: 'ABCD', born: 5, role: 'player', pid: 'p_1' });
