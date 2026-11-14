@@ -79,6 +79,13 @@ export function clientError(b: unknown) {
     stack: clip(r.stack, 2000), build: clip(r.build, 40) };
 }
 
+/** Where a request is going, as a URL on this server. A path that starts with `//` would be read as
+ *  another host's name (and may not parse at all): leading slashes count as one. Null: not a URL. */
+function urlOf(req: IncomingMessage): URL | null {
+  try { return new URL((req.url || '/').replace(/^\/{2,}/, '/'), 'http://x'); } catch { return null; }
+}
+const decoded = (path: string) => { try { return decodeURIComponent(path); } catch { return null; } };
+
 const isLocal = (req: IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '');
 
 export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy = false, log = silentLogger, metricsToken }: ServerOpts) {
@@ -103,7 +110,8 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
   const server = createServer(async (req, res) => {
     try {
       secure(req, res);
-      const url = new URL(req.url || '/', 'http://x');
+      const url = urlOf(req);
+      if (!url) return json(res, 404, { error: 'not found' });
       const parts = url.pathname.split('/').filter(Boolean);
 
       if (url.pathname === '/healthz') return json(res, 200, { ok: true, now: rooms.clock.now() });
@@ -171,8 +179,8 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
       }
 
       if (root && (req.method === 'GET' || req.method === 'HEAD')) {
-        const rel = url.pathname === '/' ? 'player.html' : decodeURIComponent(url.pathname);
-        const file = normalize(join(root, rel));
+        const rel = url.pathname === '/' ? 'player.html' : decoded(url.pathname);
+        const file = rel == null ? '' : normalize(join(root, rel));
         if ((file + sep).startsWith(root + sep) && existsSync(file) && statSync(file).isFile()) {
           const hashed = file.includes(`${sep}assets${sep}`);
           res.writeHead(200, {
@@ -196,7 +204,8 @@ export function createAppServer({ rooms, staticDir, debugApi, limits, trustProxy
   });
 
   server.on('upgrade', (req, socket, head) => {
-    if (new URL(req.url || '/', 'http://x').pathname !== '/ws') return socket.destroy();
+    // (an error thrown here is uncaught: it would stop the server)
+    if (urlOf(req)?.pathname !== '/ws') return socket.destroy();
     if (limiter) {
       const ip = clientIp(req, trustProxy);
       if (limiter.take('connect', ip) || !limiter.openSocket(ip)) {

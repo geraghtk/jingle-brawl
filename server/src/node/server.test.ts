@@ -195,5 +195,29 @@ describe('the gates', () => {
         expect(res.body).not.toContain('SECRET');
       }
     }
+    // two slashes first is still a path on this server, not another host's name; a bad escape is no file
+    for (const path of ['//..%2fpackage.json', '//[', '//%zz/x', '///..%2f..%2fpackage.json', '/%zz', '/assets/%E0%A4%A']) {
+      const res = await raw(port, path);
+      expect([path, res.status]).toEqual([path, 404]);
+    }
+    expect((await raw(port, '//assets/app.js')).body).toBe('// app');
+  });
+
+  it('a socket upgrade on a path that is not a URL is dropped; the server stays up', async () => {
+    const { port, base } = await boot();
+    const upgrade = { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==', 'Sec-WebSocket-Version': '13' };
+    const crashes: unknown[] = [];
+    const seen = (e: unknown) => crashes.push(e);
+    process.on('uncaughtException', seen);
+    try {
+      for (const path of ['//[', '//..%2fws', '//%zz']) {
+        expect(await raw(port, path, { headers: upgrade }).then(() => 'answered', () => 'dropped')).toBe('dropped');
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    } finally { process.off('uncaughtException', seen); }
+    expect(crashes).toEqual([]);                                             // in production an uncaught error stops the process
+    expect((await fetch(`${base}/healthz`)).status).toBe(200);
+    const { code } = await post<CreateRoomRes>(`${base}/api/rooms`, {});
+    expect((await connect(base, code)).game).toBeTruthy();                   // and real sockets still open
   });
 });
