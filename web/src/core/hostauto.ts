@@ -7,11 +7,12 @@ import { arenaDeadline, arenaOf, handoff } from './minigames/runtime';
 import { completeDrawOff, DRAW_GRACE_MS, everyoneDrew, isDrawOff, startDrawing, startJudging } from './drawoff';
 import * as A from './actions';
 import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from './duelgame';
-import { resolveDuel } from './duel';
+import { checkEndgameContinue, resolveDuel } from './duel';
 import { everyoneDone, GAMES } from './party';
 import type { PartyGame } from './party';
 import { advanceParty } from './partyflow';
 import type { Rng } from './rng';
+import { giftless, misfitPile } from './rules';
 import type { Game, Plan } from './types';
 import { openVoting } from './voting';
 
@@ -87,6 +88,14 @@ export function hostAuto(game: Game): AutoStep[] {
   if (t?.phase === 'tiebreaker_pending') {
     const c1 = t.tiebreakerC1!, c2 = t.tiebreakerC2!;
     out.push({ key: `tie|${t.giftId}|${t.openerId}`, at: 0, quiet: false, run: (g, ctx) => A.startTiebreaker(g, c1, c2, ctx) });
+  }
+
+  // the Misfit Lottery between two turns: the next giftless player is drawn, or the game is over.
+  // From the state, so a room that was restarted or put away in between still moves on. (Giftless
+  // players with no Misfit left: nothing to draw, the host ends the game.)
+  if (game.phase === 'endgame' && !t) {
+    const bag = giftless(game).length, pile = misfitPile(game).length;
+    if (!bag || pile) out.push({ key: `lottery|${bag}|${pile}`, at: 0, quiet: true, run: (g, ctx) => checkEndgameContinue(g, ctx.rng) });
   }
   return out;
 }

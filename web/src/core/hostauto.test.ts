@@ -55,4 +55,41 @@ describe('hostAuto', () => {
     const vote = hostAuto(g).find((s) => s.key.startsWith('vote|'))!;
     expect(vote.at).toBe(NOW + SPIN_MS);
   });
+
+  describe('the Misfit Lottery', () => {
+    const lottery = (): Game => ({
+      ...table(3), phase: 'endgame',
+      players: { p1: { name: 'P1', chips: 10, giftId: 'g1' }, p2: { name: 'P2', chips: 10, giftId: 'g2' }, p3: { name: 'P3', chips: 10 } },
+      gifts: { g1: { name: 'Socks', ownerId: 'p1', naughtyLevel: 0 }, g2: { name: 'Mug', ownerId: 'p2', naughtyLevel: 0 }, g3: { name: 'Candle', ownerId: 'misfit', naughtyLevel: 0, misfitOrder: 1 } },
+    });
+    const step = (g: Game) => hostAuto(g).find((s) => s.key.startsWith('lottery|'));
+
+    it('between two endgame turns the next giftless player is drawn straight away, from the state alone', () => {
+      let g = lottery();
+      expect(step(g)?.at).toBe(0);
+      g = apply(g, step(g)!.run(g, ctx(1)));
+      expect(g.currentTurn).toMatchObject({ phase: 'endgame_choice', activePlayerId: 'p3', misfitId: 'g3' });
+      expect(step(g)).toBeUndefined();                                    // a turn is on: nothing to draw
+    });
+
+    it('everyone holds a gift: the step ends the game', () => {
+      let g = lottery();
+      g = { ...g, players: { ...g.players, p3: { name: 'P3', chips: 10, giftId: 'g3' } }, gifts: { ...g.gifts, g3: { name: 'Candle', ownerId: 'p3', naughtyLevel: 0 } } };
+      g = apply(g, step(g)!.run(g, ctx(1)));
+      expect(g.phase).toBe('ended');
+      expect(hostAuto(g)).toEqual([]);
+    });
+
+    it('no step outside the endgame, or when the giftless have no Misfit to face (the host ends that game)', () => {
+      expect(step({ ...lottery(), phase: 'main' })).toBeUndefined();
+      const g = lottery();
+      expect(step({ ...g, gifts: { g1: g.gifts!.g1, g2: g.gifts!.g2 } })).toBeUndefined();
+    });
+
+    it('each draw is a new step: the key follows who is still giftless and what is on the pile', () => {
+      const g = lottery();
+      const more: Game = { ...g, gifts: { ...g.gifts, g4: { name: 'Hat', ownerId: 'misfit', naughtyLevel: 0, misfitOrder: 2 } } };
+      expect(step(more)!.key).not.toBe(step(g)!.key);
+    });
+  });
 });

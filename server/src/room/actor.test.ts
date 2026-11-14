@@ -176,6 +176,95 @@ describe('a room', () => {
   });
 });
 
+/** Three at the table, two holding a gift, one Misfit on the pile: the host starts the Misfit Lottery. */
+function lottery(t: ReturnType<typeof setup>) {
+  expect(t.press(HOST, { type: 'start' })).toEqual({ ok: true });
+  const [a, b] = t.pids;
+  t.room.debugWrite({
+    gifts: { g1: { name: 'Socks', ownerId: a, naughtyLevel: 0 }, g2: { name: 'Mug', ownerId: b, naughtyLevel: 0 }, g3: { name: 'Candle', ownerId: 'misfit', naughtyLevel: 0, misfitOrder: 1 } },
+    [`players/${a}/giftId`]: 'g1', [`players/${b}/giftId`]: 'g2',
+  });
+  expect(t.press(HOST, { type: 'endgame' })).toEqual({ ok: true });
+  expect(t.game().phase).toBe('endgame');
+}
+
+describe('the Misfit Lottery moves itself on', () => {
+  it('the next giftless player is drawn without anyone pressing anything', () => {
+    const t = setup(3);
+    lottery(t);
+    t.clock.advance(1000);
+    expect(t.game().currentTurn).toMatchObject({ phase: 'endgame_choice', activePlayerId: t.pids[2], misfitId: 'g3' });
+  });
+
+  it('a restart between two endgame turns still draws the next player (the step comes back from the state)', () => {
+    const t = setup(3);
+    lottery(t);
+    expect(t.game().currentTurn ?? null).toBeNull();                      // between turns: saved like this
+    const saved = t.store.load('ABCD')!;
+    // the server dies here: a new process, a new clock, the room from the store
+    const clock = new FakeClock();
+    clock.t = t.clock.now();
+    const store = new MemoryStore();
+    store.create('ABCD', saved.game, saved.updatedAt);
+    const again = RoomActor.load('ABCD', { store, clock, seed: () => 7 })!;
+    expect(again.nextWakeAt()).not.toBeNull();
+    clock.advance(60_000);
+    expect(again.state.game.currentTurn).toMatchObject({ phase: 'endgame_choice', activePlayerId: t.pids[2] });
+  });
+
+  it('a room put away between two endgame turns (evict) picks up where it was', () => {
+    const t = setup(3);
+    lottery(t);
+    t.room.close();
+    const again = RoomActor.load('ABCD', t.deps)!;
+    t.clock.advance(60_000);
+    expect(again.state.game.currentTurn).toMatchObject({ phase: 'endgame_choice', activePlayerId: t.pids[2] });
+    expect(again.state.version).toBe(t.store.load('ABCD')!.version);     // one room, one history
+  });
+
+  it('a closed room commits nothing more: not from a timer it left behind, not from a late press', () => {
+    const t = setup(3);
+    lottery(t);
+    const version = t.store.load('ABCD')!.version;
+    const events = t.store.events('ABCD', 0, 100000).length;
+    t.room.close();
+    t.clock.advance(60_000);
+    expect(t.room.state.game.currentTurn ?? null).toBeNull();
+    expect(t.room.handle(HOST, 'late', { type: 'end' }).ok).toBe(false);
+    expect('error' in t.room.join({ name: 'Late' })).toBe(true);
+    expect(t.store.load('ABCD')!.version).toBe(version);
+    expect(t.store.events('ABCD', 0, 100000).length).toBe(events);
+  });
+
+  it('a press that reaches a closed room is not remembered: resent to the room loaded next, it is played', () => {
+    const t = setup(3);
+    t.room.close();
+    expect(t.room.handle(HOST, 'late', { type: 'start' }).ok).toBe(false);
+    const again = RoomActor.load('ABCD', t.deps)!;
+    expect(again.handle(HOST, 'late', { type: 'start' })).toEqual({ ok: true });
+    expect(again.state.game.phase).toBe('main');
+  });
+
+  it('with giftless players and no Misfit left there is nothing to draw: the host ends the game', () => {
+    const t = setup(3);
+    lottery(t);
+    t.clock.advance(1000);
+    t.room.debugWrite({ currentTurn: null, 'gifts/g3/ownerId': t.pids[0] });
+    const before = t.room.state.version;
+    t.clock.advance(60_000);
+    expect(t.room.state.version).toBe(before);                             // no step spinning on a state it can't change
+    expect(t.room.nextWakeAt()).toBeNull();
+    expect(t.press(HOST, { type: 'end' })).toEqual({ ok: true });
+  });
+
+  it('the log replays to the saved state through the endgame', () => {
+    const t = setup(3);
+    lottery(t);
+    t.clock.advance(1000);
+    expect(replay(t.store, 'ABCD')).toEqual(t.store.load('ABCD')!.game);
+  });
+});
+
 describe('tokens', () => {
   it('only the server can make one; a player token is not a host token; another room is another room', () => {
     const tok = sign('s3cret', { room: 'ABCD', born: 5, role: 'player', pid: 'p_1' });

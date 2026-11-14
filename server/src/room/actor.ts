@@ -9,7 +9,6 @@ import { randomInt } from 'node:crypto';
 import * as A from '../../../web/src/core/actions';
 import { commitPlan } from '../../../web/src/core/commit';
 import { diff } from '../../../web/src/core/diff';
-import { checkEndgameContinue, drawEndgamePlayer } from '../../../web/src/core/duel';
 import { isDrawOff, judged } from '../../../web/src/core/drawoff';
 import { arenaOf } from '../../../web/src/core/minigames/runtime';
 import type { DrawOffScore } from '../../../web/src/core/drawoff';
@@ -51,7 +50,6 @@ const CRITIC_CALLS_PER_10_MIN = 12;   // a stuck loop can't run up the host's bi
 export type Ack = { ok: true } | { ok: false; error: string };
 
 export const PRESENCE_GRACE_MS = 5000;  // a phone that drops its socket is "away" only after this
-const THEN_DELAY_MS = 500;              // endgame follow-ups (the host page used to wait for its listener)
 
 export class RoomActor {
   private game: Game;
@@ -137,6 +135,8 @@ export class RoomActor {
 
   /** A press from a screen. `actionId` makes resends safe: the same press is answered, not redone. */
   handle(who: Who, actionId: string, raw: unknown): Ack {
+    // put away (a restart, a sweep): not remembered, so the same press works on the room loaded next
+    if (this.closed) return { ok: false, error: 'The room is restarting. Please try again.' };
     this.lastActivity = this.now();
     if (typeof actionId !== 'string' || !actionId || actionId.length > 80) return { ok: false, error: 'bad action id' };
     const seen = this.deps.store.recallAction(this.code, actionId);
@@ -154,6 +154,7 @@ export class RoomActor {
 
   /** A phone joining: the server picks the player id. */
   join(req: JoinReq): { pid: string } | { error: string } {
+    if (this.closed) return { error: 'The room is restarting. Please try again.' };
     const pid = `p_${randomInt(36 ** 6).toString(36).padStart(6, '0')}`;
     const plan = A.joinPlayer(this.game, { playerId: pid, name: String(req.name ?? ''), uid: null, now: this.now(),
       age: typeof req.age === 'number' ? req.age : null, avatar: typeof req.avatar === 'string' ? req.avatar : null });
@@ -251,6 +252,7 @@ export class RoomActor {
   // --- committing ------------------------------------------------------------------------------
 
   private commit(plan: Plan, who: Who, kind: EventRow['kind'], body: unknown): boolean {
+    if (this.closed) return false;       // put away: the room loaded after this one is the referee now
     const at = this.now();
     const { game, applied } = commitPlan(this.game, plan, at);
     if (!applied) return false;
@@ -263,14 +265,8 @@ export class RoomActor {
       body: { ...(body as object), events: plan.events, plan: { updates: plan.updates, ...(plan.claim ? { claim: plan.claim } : {}) } },
     });
     if (plan.events.length) this.broadcastLog(plan.events.map((e) => ({ ...e, at })));
-    if (plan.then) {
-      const then = plan.then;
-      this.deps.clock.at(at + THEN_DELAY_MS, () => {
-        const seed = this.seed();
-        const next = then === 'drawEndgamePlayer' ? drawEndgamePlayer(this.game, rng(seed)) : checkEndgameContinue(this.game, rng(seed));
-        if (!next.error && this.commit(next, HOST, 'auto', { then, seed })) this.afterChange();
-      });
-    }
+    // (plan.then, the Misfit Lottery's next draw, is not run from here: it is a step in hostAuto,
+    // read from the saved state, so it survives a restart and is cancelled with the room's timer)
     return true;
   }
 
