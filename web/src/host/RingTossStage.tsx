@@ -11,13 +11,12 @@ import type { RingThrow, RingView } from '../core/minigames/ringtoss/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
+import { colorIndex, RING_COLORS, ringColor } from '../ui/ringtoss/colors';
+import { DEER, TIP_H, visMs } from '../ui/ringtoss/scene';
+import { SetPips } from '../ui/ringtoss/SetPips';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';
 import { useHost } from './HostContext';
-
-export const RING_COLORS = ['#ff3366', '#18b88a', '#8a7bff', '#ffb000', '#38b6e6', '#ff7a59', '#c04fd6', '#2f6fde', '#7cc242', '#e0457b', '#00a3a3', '#9b6b3c'];
-export const colorIndex = (participants: string[], pid: string) => Math.max(0, participants.indexOf(pid)) % RING_COLORS.length;
-export const ringColor = (participants: string[], pid: string) => RING_COLORS[colorIndex(participants, pid)];
 
 /** The scene: world x (across) and z (into the scene) to the picture, with a little perspective. */
 export const W = 1000, H = 620;
@@ -222,12 +221,6 @@ function shade(hex: string, amt: number): string {
   return `#${[n >> 16, (n >> 8) & 255, n & 255].map((v) => ch(v).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** The reindeer (tools/art/reindeer.py, variant g seed 4, its left half mirrored so both sides score
- *  alike), standing chest-deep in a snowdrift (drawn here, in front of it) at depth 1.65: the 1088 x 791
- *  art at 0.58 from (184.5, 127.6). In the art the far prongs' tips are at (84, 32), the tall ones at
- *  (197, 100), the hat's tip at (544, 30); the pegs (ringtoss.ts PEGS) are under them, TIP_H is how high. */
-const DEER = { src: 'art/ringtoss/reindeer.webp', x: 184.5, y: 127.6, w: 631, h: 458.8 };
-const TIP_H: Record<string, number> = { 'left-outer': 1.329, 'right-outer': 1.329, 'left-inner': 1.181, 'right-inner': 1.181, golden: 1.333 };
 const BACKDROP = 'art/ringtoss/backdrop.webp';
 /** A ring on the hat slides down the cone to where the cone fills it (px below the tip); on a prong it
  *  slides a little way down. */
@@ -438,12 +431,6 @@ function bits(sx: number, sy: number, ring: number, color: string) {
   return [...chunks, ...splinters];
 }
 
-/** How long a ring is in the air on screen: its arc's time (engines/projectile arcFor: real gravity, so a
- *  longer, higher throw is up longer), but down before the room moves on (it waits the flight's ms + 300).
- *  A ringer's arc ends on its tip. Drawing only: the room's landing and score don't change. */
-export const visMs = (t: { x: number; z: number; ms: number; pegId?: string | null }) =>
-  Math.min(t.ms + 250, arcFor(Math.hypot(t.x, t.z), t.pegId ? TIP_H[t.pegId] ?? 1.15 : 0).ms);
-
 /** A ring in the air spins and wobbles as it flies (a thrown ring is never quite flat): how far it's tipped
  *  (degrees) and how open it looks (its height over its width), `ms` into its flight. Each ring its own. */
 function tumble(n: number, ms: number, angle: number): { deg: number; open: number } {
@@ -549,17 +536,6 @@ function Flights({ throws, startOf, offset, participants, ends, nodes }: {
         </g>
       ))}
     </g>
-  );
-}
-
-/** A player's set so far: a pip per target (lit once ringed since their last set), and their full sets. */
-export function SetPips({ v, pid, color }: { v: RingView; pid: string; color: string }) {
-  const got = v.got[pid] || [], sets = v.sets[pid] || 0;
-  return (
-    <span className="rt-set" aria-label={`Set: ${got.length} of ${v.pegs.length}${sets ? `, ${sets} full ${sets === 1 ? 'set' : 'sets'}` : ''}`} data-testid={`ringtoss-set-${pid}`}>
-      {v.pegs.map((p) => <i key={p.id} className={`${p.id === 'golden' ? 'hat' : ''}${got.includes(p.id) ? ' on' : ''}`} style={got.includes(p.id) ? { background: color, borderColor: color } : undefined} />)}
-      {sets > 0 && <b className="rt-sets">×{sets}</b>}
-    </span>
   );
 }
 

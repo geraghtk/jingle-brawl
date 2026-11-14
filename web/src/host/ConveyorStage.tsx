@@ -4,16 +4,14 @@
 import { useEffect, useRef } from 'react';
 import { STOWAWAYS } from '../core/minigames/conveyor/conveyor';
 import type { ConveyorView } from '../core/minigames/conveyor/view';
-import { TEAM_COLORS } from '../player/ConveyorCard';
 import { useServerNow } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
+import { STEP_NAMES, TEAM_COLORS } from '../ui/conveyor';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';   // its clock is Ring Toss's .rt-banner (and the full-screen rules for it)
 import '../ui/conveyor.css';
 import { useHost } from './HostContext';
-
-const STEP_NAMES: Record<string, string> = { pick: 'Pick', wrap: 'Wrap', label: 'Label', check: 'Check & load' };
 
 export function ConveyorStage() {
   const { game, tv } = useHost();

@@ -3,19 +3,15 @@
 // it on the sleigh; shoo out any stowaway first). Then it moves on to the next phone.
 import { useEffect, useRef, useState } from 'react';
 import { PAPERS, STOWAWAYS, TAGS, TOYS } from '../core/minigames/conveyor/conveyor';
-import type { StepKind } from '../core/minigames/conveyor/conveyor';
 import type { ConveyorView } from '../core/minigames/conveyor/view';
 import { useServerNow } from '../net/hooks';
 import { secsLeft } from '../ui/clock';
+import { PAPER_COLORS, STEP_NAMES, TEAM_COLORS } from '../ui/conveyor';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
 import '../ui/conveyor.css';
 
-export const PAPER_COLORS: Record<string, string> = { red: '#e23b3b', green: '#1fa36b', gold: '#f2b705', blue: '#2f6fde', purple: '#8a4bd6' };
-export const TEAM_COLORS: Record<string, string> = { A: '#ff3366', B: '#18b88a' };
-
-const STEP_NAMES: Record<StepKind, string> = { pick: 'Pick', wrap: 'Wrap', label: 'Label', check: 'Check & load' };
 export const stowawayName = (n: number) => (STOWAWAYS[n] === '🦝' ? 'raccoon' : 'penguin');
 
 export function ConveyorCard() {

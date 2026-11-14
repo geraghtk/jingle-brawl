@@ -5,9 +5,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { SYMBOLS, markerAt } from '../core/minigames/gremlin/challenges';
 import type { TimingParams } from '../core/minigames/gremlin/challenges';
-import type { Danger } from '../core/minigames/gremlin/gremlin';
 import type { GremlinView } from '../core/minigames/gremlin/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
+import { GremlinFace } from '../ui/gremlin';
 import { glyphs } from '../ui/icons';
 import { buzz, muted, play, setMuted } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
@@ -104,14 +104,6 @@ export function GremlinCard() {
       {!!v.trail.length && <div className="grem-trail">{v.trail.slice(-5).map((p, i) => <span key={i}>{name(p.from)} → {name(p.to)}{p.random ? ' 🎲' : ''}</span>)}</div>}
     </div>
   );
-}
-
-/** The Gremlin itself: its sticker, or the emoji while the art isn't there. */
-export function GremlinFace({ danger }: { danger: Danger }) {
-  const [art, setArt] = useState(true);
-  return art
-    ? <img className="grem-art" src={`art/gremlin/${danger}.webp`} alt="👹" draggable={false} onError={() => setArt(false)} />
-    : <span>👹</span>;
 }
 
 function QuickMath({ prompt, act, disabled }: { prompt: string; act: Act; disabled: boolean }) {
