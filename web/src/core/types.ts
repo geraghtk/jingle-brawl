@@ -144,7 +144,9 @@ export interface LastDuel {
   dividend: number;
   loserPaid: number;
   at: number | ServerTime;
-  bets?: { pool: number; toBank: number; winners: number };
+  /** Spectator bets on this duel: the pool, what each winning chip got back, what went back to the Fund,
+   *  how many backed the winner, what waits for the next duel; `returned`: nobody backed the winner. */
+  bets?: { pool: number; each: number; toBank: number; winners: number; carry: number; returned?: boolean };
 }
 
 export interface Game {
@@ -158,6 +160,8 @@ export interface Game {
   currentTurn?: Turn | null;
   minigame?: import('./party').PartyGame | import('./drawoff').DrawOff | null;
   lastDuel?: LastDuel | null;
+  /** Spectator bets: chips left in the pool by earlier duels, waiting for the next one (scoring.ts). */
+  betPool?: number | null;
   /** players + gifts as they were before the last duel was resolved (Admin → Undo); never shown. */
   undo?: Pick<Game, 'players' | 'gifts'> | null;
   /** A runtime mini-game (core/minigames): server only; each screen gets arenaView instead. */

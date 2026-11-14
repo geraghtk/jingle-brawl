@@ -11,7 +11,8 @@ import { refuse, Tx } from './tx';
 import type { Game, Plan, Player, PlayerId, Settings, Turn } from './types';
 import { startPartyGame } from './partyflow';
 import { voteStatus } from './voting';
-import { duelGameStep } from './duelgame';
+import { betsOpen, duelGameStep } from './duelgame';
+import { BETS } from './scoring';
 
 export interface Ctx { now: number; rng: Rng }
 
@@ -268,7 +269,7 @@ function startMinigameTiebreakTx(tx: Tx, goal: 'pick_one' | 'pick_two', tied: Pl
   startPartyGame(tx, partyGameFor(cfgOf(tx.game).tiebreakerMethod, ctx.rng), goal, tied, ctx);
 }
 
-/** Spectator vote on someone else's duel (stakes 1 chip when spectator bets are on). */
+/** Spectator vote on someone else's duel (it stakes a chip when bets are open on this duel: duelgame betsOpen). */
 export function voteOnDuel(game: Game, voterId: PlayerId, votedFor: PlayerId, now: number): Plan {
   const t = game.currentTurn;
   if (!t || t.phase !== 'duel' || t.isTiebreak) return refuse('Cannot vote on this duel');
@@ -278,7 +279,7 @@ export function voteOnDuel(game: Game, voterId: PlayerId, votedFor: PlayerId, no
   if (duelGameStep(game)) return refuse('Wait until the duel is picked');
   if (!voteStatus(game, now).accepting) return refuse('Voting has closed');
   const chips = game.players?.[voterId]?.chips || 0;
-  const stake = cfgOf(game).spectatorBets && chips >= 1 ? 1 : 0;
+  const stake = betsOpen(game) && chips >= BETS.stake ? BETS.stake : 0;
   return new Tx(game).set(`currentTurn/duelVotes/${voterId}`, { playerId: voterId, votedFor, stake, timestamp: now }).plan();
 }
 

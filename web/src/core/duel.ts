@@ -3,7 +3,7 @@ import { config, minCost } from './settings';
 import type { Rng } from './rng';
 import { pick } from './rng';
 import { dividendFor, giftless, misfitPile, naughtyAfterDuel, potAndTax, reprisalAllowed, reprisalTargets, stealTargets } from './rules';
-import { settleBets } from './scoring';
+import { betLine, settleBets } from './scoring';
 import { refuse, SERVER_TIME, Tx } from './tx';
 import type { Game, Gift, Plan, Player, PlayerId, Turn } from './types';
 import { MISFIT } from './types';
@@ -159,13 +159,17 @@ function settleVotes(tx: Tx, t: Turn, winnerId: PlayerId, bets: boolean) {
     tx.add(`players/${voterId}/${right ? 'votingWins' : 'votingLosses'}`, 1);
     if (right) tx.event(`✅ ${name(tx.game, voterId)} correctly predicted the winner!`, 'bid');
   }
-  if (!bets) return;
-  const r = settleBets(votes, winnerId);
+  if (!bets || !t.challengerId || !t.defenderId) return;
+  const players = tx.game.players || {};
+  const carry = Number(tx.game.betPool) || 0;
+  const r = settleBets(votes, winnerId, { a: t.challengerId, line: betLine(players[t.challengerId], players[t.defenderId]), carry, tax: t.tax || 0 });
   for (const [voterId, change] of Object.entries(r.delta)) {
     if (change && tx.get(`players/${voterId}`)) tx.set(`players/${voterId}/chips`, Math.max(0, tx.get<number>(`players/${voterId}/chips`) + change));
   }
-  tx.set('lastDuel/bets', { pool: r.pool, toBank: r.toBank, winners: r.winners });
-  if (r.pool) tx.event(`🎲 Spectator bets: ${r.pool} chip${r.pool > 1 ? 's' : ''} → ${r.winners ? `${r.winners} right caller${r.winners > 1 ? 's' : ''}` : 'the North Pole Fund'}`, 'bid');
+  if (r.carry !== carry) tx.set('betPool', r.carry || null);
+  tx.set('lastDuel/bets', { pool: r.pool, each: r.each, toBank: r.toBank, winners: r.winners, carry: r.carry, ...(r.returned ? { returned: true } : {}) });
+  if (r.returned) tx.event('🎲 Spectator bets: nobody backed the winner, so every stake goes back', 'bid');
+  else if (r.pool) tx.event(`🎲 Spectator bets: a pool of ${r.pool} pays ${r.each} for 1 to ${r.winners} right caller${r.winners > 1 ? 's' : ''}${r.carry ? ` (${r.carry} left for the next pool)` : ''}`, 'bid');
 }
 
 // --- Reindeer Reprisal ------------------------------------------------------------------------

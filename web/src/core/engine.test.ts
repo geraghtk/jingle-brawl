@@ -166,18 +166,53 @@ describe('sealed-bid duels', () => {
     expect(g.players!.p1.chips).toBe(10);
   });
 
-  it('spectator votes count for Party Score; with bets on, right callers win the wrong callers\' chips', () => {
+  it('spectator votes count for Party Score; with bets on at a small table a call is still a free vote', () => {
     let g = opened(table(4, { spectatorBets: 1 }));
     g = bid(g, { p2: 1 });
     g = apply(g, A.startDuel(g, 'p2', 'p1'));
     g = apply(g, A.voteOnDuel(g, 'p3', 'p2', NOW));
     g = apply(g, A.voteOnDuel(g, 'p4', 'p1', NOW));
     expect(A.voteOnDuel(g, 'p2', 'p2', NOW).error).toBeTruthy(); // duellists can't vote
+    expect(g.currentTurn!.duelVotes!.p3.stake).toBe(0);          // two spectators are not a market
     g = apply(g, D.resolveDuel(g, 'p2', NOW));
-    expect(chipsOf(g)).toMatchObject({ p3: 11, p4: 9 });
+    expect(chipsOf(g)).toMatchObject({ p3: 10, p4: 10 });
     expect(g.players!.p3.votingWins).toBe(1);
     expect(g.players!.p4.votingLosses).toBe(1);
-    expect(g.lastDuel!.bets).toEqual({ pool: 1, toBank: 0, winners: 1 });
+  });
+
+  it('spectator bets at a table of six: a pool with the Fund\'s chip and the duel\'s tax, capped, the rest waiting', () => {
+    let g = opened(table(6, { spectatorBets: 1, taxThreshold: 2, maxWinnerPayout: 2 }));
+    g = bid(g, { p2: 4 });                                        // 4 paid in: pot 2, tax 2
+    g = apply(g, A.startDuel(g, 'p2', 'p1'));
+    expect(g.currentTurn!.tax).toBe(2);
+    g = apply(g, A.voteOnDuel(g, 'p3', 'p2', NOW));               // one on the challenger
+    for (const id of ['p4', 'p5', 'p6']) g = apply(g, A.voteOnDuel(g, id, 'p1', NOW));
+    expect(Object.values(g.currentTurn!.duelVotes!).map((v) => v.stake)).toEqual([1, 1, 1, 1]);
+    expect(A.voteOnDuel(g, 'p3', 'p1', NOW).error).toBe('You already voted!');   // a bet stands once placed
+    const before = chipsOf(g);
+    g = apply(g, D.resolveDuel(g, 'p2', NOW));
+    // pool: 4 stakes + 1 from the Fund + 2 tax = 7; p3 and the Fund's half chip share it: capped at 3 for 1
+    expect(g.lastDuel!.bets).toEqual({ pool: 7, each: 3, toBank: 1, winners: 1, carry: 3 });
+    expect(g.players!.p3.chips).toBe(before.p3 + 2);
+    for (const id of ['p4', 'p5', 'p6']) expect(g.players![id].chips).toBe(before[id] - 1);
+    expect(g.betPool).toBe(3);                                    // waits for the next duel
+  });
+
+  it('no chip bets on a duel the spectators play in: a team game or one the whole table plays', () => {
+    const duel = (app: string | null, extra = {}) => {
+      const g = table(6, { spectatorBets: 1, duelPick: 'defender', duelAppGames: app ? [app] : [], duelGames: ['Thumb War'] });
+      g.currentTurn = { phase: 'duel', challengerId: 'p2', defenderId: 'p1', pot: 1, ...(app ? { duelGame: { name: app, kind: 'app' as const, app, via: 'picker' as const } } : { duelGame: { name: 'Thumb War', kind: 'table' as const, via: 'picker' as const } }), ...extra };
+      return g;
+    };
+    const stake = (g: Game) => apply(g, A.voteOnDuel(g, 'p3', 'p2', NOW)).currentTurn!.duelVotes!.p3.stake;
+    expect(stake(duel(null))).toBe(1);                            // a duel in the room: bets are on
+    expect(stake(duel('draw_off'))).toBe(1);                      // only the duellists draw
+    expect(stake(duel('gift_conveyor'))).toBe(0);                 // everyone is on a team
+    expect(stake(duel('reindeer_ring_toss'))).toBe(0);            // everyone throws
+    expect(stake(duel('whack_elf'))).toBe(0);
+    const broke = duel(null);
+    broke.players!.p3.chips = 0;
+    expect(stake(broke)).toBe(0);                                 // nothing to stake: the vote still counts
   });
 });
 

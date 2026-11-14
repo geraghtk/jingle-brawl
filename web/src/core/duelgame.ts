@@ -14,6 +14,7 @@ import { GAMES } from './party';
 import type { PartyType } from './party';
 import { startPartyGame } from './partyflow';
 import type { Rng } from './rng';
+import { BETS } from './scoring';
 import { config, gremlinKinds } from './settings';
 import { refuse, SERVER_TIME, Tx } from './tx';
 import type { DuelTableGames, Game, Plan, PlayerId, Turn } from './types';
@@ -71,6 +72,18 @@ export function duelApps(game: Game): DuelApp[] {
   const players = Object.keys(game.players || {}).length;
   if (!cfg.duelAppsGiven) return tableGames(cfg.duelTableGames, players);
   return cfg.duelAppGames.filter((a) => players >= TEAM_TABLE || whoPlays(a, players) !== 'teams');
+}
+
+/** Are chip bets being taken on this duel (settings.spectatorBets)? Only with enough spectators for a
+ *  pool to mean something, and never on a duel the spectators play in themselves (a team game, or one
+ *  the whole table plays: a bettor could play to lose). Otherwise a call is a free vote. */
+export function betsOpen(game: Game): boolean {
+  const t = game.currentTurn;
+  if (!t || t.phase !== 'duel' || t.isTiebreak || !config(game.settings).spectatorBets) return false;
+  const players = Object.keys(game.players || {}).length;
+  if (players - 2 < BETS.minSpectators) return false;
+  const who = t.duelGame?.kind === 'app' ? whoPlays(t.duelGame.app, players) : null;
+  return who !== 'teams' && who !== 'everyone';
 }
 
 /** Everything the duel could be: the host's list + the in-app games (ticked, or the table's default). */
