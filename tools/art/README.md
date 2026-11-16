@@ -36,7 +36,18 @@ mirrored, so both sides score alike, and the grey ground shadow under its beard 
 `ui/ringtoss/scene.ts`) together. `reindeer_blender.py` builds one in Blender instead (exact tip
 positions, but it looked less finished than the Flux art; kept for reference).
 
-## Whack-an-Elf (Blender)
+## Whack-an-Elf pop-ups (Flux, 2D)
+
+The elf, the golden elf and the Grump are flat 2D like the rest of the game (the Blender ones looked
+like a different game). `whack2d.py out --seeds 5` renders takes of the elf and the Grump (full
+figures on grey; `out/sheet.png` to pick from); `whack2d_place.py out/cut --elf elf-up-3 --grump
+grump-up-2` cuts the top of each chosen take onto the hole's 384 px canvas (its cut edge below the
+lip, so it rises out of the hole) and writes all six pictures to `web/public/art/whack/`: the golden
+elf is the elf recoloured (same pose), and each `-bonk` is the same picture tilted with stars (two
+takes of "the same character, dazed" never matched). The Grump is an original character (a sour
+purple troll in a top hat): the prompt never names anyone else's.
+
+## Whack-an-Elf holes and mallet (Blender)
 
 `whack.py` builds the Whack-an-Elf pieces from primitives in Blender (cel shading + inverted-hull
 outline, to sit with the stickers) and renders them with one camera, so the layers line up:

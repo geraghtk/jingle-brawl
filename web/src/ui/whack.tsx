@@ -1,6 +1,9 @@
-// Whack-an-Elf art (web/public/art/whack, rendered in Blender by tools/art/whack.py): a snowy hole in
-// two layers so a pop-up sinks behind the front lip, the elf / golden elf / Grump and their bonked
-// faces, and a candy-cane mallet that swings on a hit. Every picture shares the hole's camera.
+// Whack-an-Elf art (web/public/art/whack): a snowy hole in two layers so a pop-up sinks behind the front
+// lip (rendered in Blender by tools/art/whack.py), a candy-cane mallet that swings on a hit, and the
+// pop-ups in the game's flat 2D look (tools/art/whack2d.py + whack2d_place.py: Flux, then placed on the
+// hole's canvas): the elf, the golden elf (the same elf turned to gold) and the Grump, each with a
+// bonked twin (the same picture knocked askew, stars round its head). Every picture shares the hole's
+// 384 px canvas.
 import type { WhackKind } from '../core/party';
 
 export type HoleState = 'down' | 'up' | 'hit';
