@@ -933,28 +933,58 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test("spectator bets (experiment): a right call wins the wrong callers' chips", async ({ browser }) => {
-    const names = ['Alice', 'Bob', 'Charlie', 'Dana'];
+  test('spectator bets (optional): stakes go into a pool with a chip from the Fund; a lone right call gets 3 for 1, the rest waits', async ({ browser }) => {
+    const names = ['Alice', 'Bob', 'Charlie', 'Dana', 'Eve', 'Frank'];           // four spectators: enough for a pool
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'spectator-bets': '1' }, names);
     try {
       const turn = await H.drawGift(host, roomCode, 'Bet Gift');
+      const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
+      const [bidder, right, ...wrong] = names.filter((n) => n !== opener);
+      await H.allBid(pages, opener, { [bidder]: 1 });
+      await H.revealBids(host);
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      await expect(pages[right].locator('#status-card')).toContainText(/stakes 1 chip into the pool/i);
+      await pages[right].getByRole('button', { name: new RegExp(`🏆 ${bidder}`) }).click();
+      for (const n of wrong) await pages[n].getByRole('button', { name: new RegExp(`🏆 ${opener}`) }).click();
+      await H.waitForGame(roomCode, (g) => Object.keys(g.currentTurn?.duelVotes || {}).length === 4, { label: 'all four voted' });
+      expect(Object.values((await H.dbGet(roomCode, 'currentTurn')).duelVotes).map((v) => v.stake)).toEqual([1, 1, 1, 1]);
+      await H.declareWinner(host, bidder);
+      await H.waitForGame(roomCode, (g) => (g.lastDuel?.bets ? g : false), { label: 'bets settled' });
+
+      // the pool: 4 stakes + 1 from the Fund = 5; the one right call and the Fund's half chip share it, capped at 3 for 1
+      const p = await H.playersByName(roomCode);
+      expect(p[right].chips).toBe(12);
+      for (const n of wrong) expect(p[n].chips).toBe(9);
+      expect(await H.dbGet(roomCode, 'lastDuel/bets')).toEqual({ pool: 5, each: 3, toBank: 1, winners: 1, carry: 1 });
+      expect(await H.dbGet(roomCode, 'betPool')).toBe(1);                         // waits for the next duel
+      assertNoPageErrors();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test('spectator bets at a small table: two spectators are not a market, so a call is a free vote and says so', async ({ browser }) => {
+    const names = ['Alice', 'Bob', 'Charlie', 'Dana'];
+    const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser, { 'spectator-bets': '1' }, names);
+    try {
+      const turn = await H.drawGift(host, roomCode, 'Free Gift');
       const opener = H.openerNameOf(turn, await H.playersByName(roomCode));
       const [bidder, right, wrong] = names.filter((n) => n !== opener);
       await H.allBid(pages, opener, { [bidder]: 1 });
       await H.revealBids(host);
       await H.clickStartDuel(host);
       await H.waitForTurnPhase(roomCode, 'duel');
-      await expect(pages[right].locator('#status-card')).toContainText(/bet 1 chip/i);
+      await expect(pages[right].locator('#status-card')).toContainText('A correct call adds 1 to your Party Score');
+      await expect(pages[right].locator('#status-card')).not.toContainText(/stakes 1 chip/i);
       await pages[right].getByRole('button', { name: new RegExp(`🏆 ${bidder}`) }).click();
       await pages[wrong].getByRole('button', { name: new RegExp(`🏆 ${opener}`) }).click();
       await H.waitForGame(roomCode, (g) => Object.keys(g.currentTurn?.duelVotes || {}).length === 2, { label: 'both voted' });
       await H.declareWinner(host, bidder);
-      await H.waitForGame(roomCode, (g) => (g.lastDuel?.bets ? g : false), { label: 'bets settled' });
-
+      await H.waitForGame(roomCode, (g) => (g.lastDuel ? g : false), { label: 'duel settled' });
       const p = await H.playersByName(roomCode);
-      expect(p[right].chips).toBe(11);
-      expect(p[wrong].chips).toBe(9);
-      expect(await H.dbGet(roomCode, 'lastDuel/bets')).toEqual({ pool: 1, toBank: 0, winners: 1 });
+      expect([p[right].chips, p[wrong].chips]).toEqual([10, 10]);
+      expect(p[right].votingWins).toBe(1);
       assertNoPageErrors();
     } finally {
       await cleanup();

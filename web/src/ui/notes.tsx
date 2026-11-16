@@ -30,8 +30,9 @@ export function spectatorLoserNote(cfg: Config, turn: Turn): ReactNode {
 }
 
 /** What a vote on someone else's duel is worth. */
-export function voteStakeNote(cfg: Config, chips: number): string {
-  if (!cfg.spectatorBets) return 'A correct call adds 1 to your Party Score 🏅';
+export function voteStakeNote(cfg: Config, chips: number, betsOpen = true): string {
+  // bets are a house setting, and even then only open on some duels (enough spectators, none of them playing)
+  if (!cfg.spectatorBets || !betsOpen) return 'A correct call adds 1 to your Party Score 🏅';
   if (chips < 1) return 'No chips to bet, but your vote still counts for your Party Score 🏅';
   return 'With bets open, your call stakes 1 chip into the pool: the winner\'s backers share it, up to 3 back for 1. Correct calls also add to your Party Score 🏅';
 }

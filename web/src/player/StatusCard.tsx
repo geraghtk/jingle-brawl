@@ -8,7 +8,7 @@ import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
-import { duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, WHO_PLAYS, whoPlays } from '../core/duelgame';
+import { betsOpen, duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, WHO_PLAYS, whoPlays } from '../core/duelgame';
 import type { DuelApp } from '../core/duelgame';
 import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../net/hooks';
@@ -475,7 +475,7 @@ function Duel({ t }: { t: Turn }) {
         <div className="callit-foot">
           {myVote ? <><Icon name="check" /> You voted for <strong>{nm(game, myVote)}</strong></>
             : picking ? <>Voting opens once the duel is picked.</>
-            : canVote ? <>Tap a corner to back them. {voteStakeNote(cfg, player.chips)}</>
+            : canVote ? <>Tap a corner to back them. {voteStakeNote(cfg, player.chips, betsOpen(game))}</>
             : <>Voting closed. Watch the TV.</>}
         </div>
       )}
