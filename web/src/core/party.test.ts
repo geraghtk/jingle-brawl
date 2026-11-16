@@ -60,3 +60,13 @@ test('results() puts it together for Whack-an-Elf', () => {
   assert.deepStrictEqual(r.points, { c: 3, b: 2, a: 1 });
   assert.strictEqual(r.bonus, 'c');
 });
+
+test('Whack-an-Elf: three hits in a row is a roll, a point more each until an elf gets away or the Grump is tapped', () => {
+  let streak = 0;
+  const scored = ['elf', 'elf', 'elf', 'gold', 'elf'].map((kind) => { const t = P.whackTap(kind as P.WhackKind, 0.1, streak); streak = t.streak; return [t.points, t.roll]; });
+  assert.deepStrictEqual(scored, [[3, false], [3, false], [4, true], [7, true], [4, true]]);
+  const grump = P.whackTap('grump', 0.1, streak);
+  assert.deepStrictEqual(grump, { points: -3, streak: 0, roll: false });
+  assert.deepStrictEqual(P.whackTap('elf', 0.9, 0), { points: 1, streak: 1, roll: false });   // starting again
+  assert.strictEqual(P.WHACK_ROLL, 3);
+});

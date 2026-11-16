@@ -56,7 +56,9 @@ describe('Whack-an-Elf: a phone counts its own taps, the room holds the score to
   it('the ceiling is every elf at its fastest and no Grump; the floor is every Grump', () => {
     const seq = whackSequence(42);
     const b = whackBounds(42);
-    expect(b.max).toBe(seq.filter((p) => p.kind === 'elf').length * 3 + seq.filter((p) => p.kind === 'gold').length * 6);
+    // every elf at its fastest, and from the third in a row a point more each (one unbroken roll)
+    const hits = seq.filter((p) => p.kind !== 'grump').length;
+    expect(b.max).toBe(seq.filter((p) => p.kind === 'elf').length * 3 + seq.filter((p) => p.kind === 'gold').length * 6 + Math.max(0, hits - 2));
     expect(b.min).toBe(seq.filter((p) => p.kind === 'grump').length * -3);
   });
 });

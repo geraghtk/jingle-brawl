@@ -1,12 +1,13 @@
 // Party mini-games on the phone: intro → sketch pad / Whack-an-Elf → voting → results.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GAMES, rank, whackPoints, whackSequence } from '../core/party';
+import { GAMES, rank, WHACK_ROLL, whackScores, whackSequence, whackTap } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { useServerOffset } from '../net/hooks';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
+import { buzz, play } from '../ui/sound';
 import { WhackHole, WhackLegend, preloadWhackArt } from '../ui/whack';
 import type { HoleState } from '../ui/whack';
 import type { WhackKind } from '../core/party';
@@ -16,7 +17,7 @@ export function PartyCard() {
   const mg = game.minigame as PartyGame | undefined;
   if (!mg || !GAMES[mg.type] || !(mg.participants || []).includes(me)) return null;
   return (
-    <div className="card pg" id="party-card" data-testid="party-card">
+    <div className={`card pg${mg.type === 'whack_elf' && mg.phase === 'playing' ? ' whack-full' : ''}`} id="party-card" data-testid="party-card">
       <Screen key={`${mg.seed}|${mg.phase}`} mg={mg} />
     </div>
   );
@@ -39,8 +40,7 @@ function Screen({ mg }: { mg: PartyGame }) {
           {tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
             : `Not in the tie? Play for party points${cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip!' : '!'}`}
         </p>
-        <div className="pg-timer">{secs}s</div>
-        <p className="pg-sub">Get ready…</p>
+        {mg.type === 'whack_elf' && secs <= 3 ? <StartCount secs={secs} /> : <><div className="pg-timer">{secs}s</div><p className="pg-sub">Get ready…</p></>}
       </>
     );
   }
@@ -114,22 +114,45 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
   );
 }
 
+/** The last three seconds before the elves come: 3, 2, 1, each with a tick. */
+function StartCount({ secs }: { secs: number }) {
+  useEffect(() => { play('tick', secs <= 1 ? 1.5 : 1); }, [secs]);
+  return <div className="wh-count" key={secs} role="status" data-testid="whack-count">{Math.max(1, secs)}</div>;
+}
+
+const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+
+/** Whack-an-Elf on a phone: the whole screen is the board. Every phone gets the same pop-ups (the seed);
+ *  the phone counts its own taps and reports the score (the room holds it to what was possible). */
 function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: number }) {
-  const { send } = usePlayer();
+  const { send, game, me } = usePlayer();
   const items = useMemo(() => whackSequence(mg.seed), [mg.seed]);
   const [now, setNow] = useState(() => Date.now() + offset);
   const [score, setScore] = useState(0);
   const hit = useRef(new Set<number>());
-  const [floats, setFloats] = useState<{ cell: number; v: number; id: number }[]>([]);
+  const [floats, setFloats] = useState<{ cell: number; v: number; id: number; roll: boolean }[]>([]);
   const scoreRef = useRef(0);
   const sent = useRef<number | null>(null);
   const t0 = mg.playStartAt || 0;
+  // hits in a row; an elf that gets away (or the Grump) ends it
+  const streak = useRef(0);
+  const [roll, setRoll] = useState(0);
+  const settled = useRef(0);                    // pop-ups before this one are over (hit or gone)
   // what each hole showed last, so a pop-up slides back down (or stays bonked) after its time is up
   const last = useRef<({ kind: WhackKind; hit: boolean } | undefined)[]>([]);
 
   useEffect(() => {
     preloadWhackArt();
-    const frame = setInterval(() => setNow(Date.now() + offset), 40);
+    play('go');
+    const frame = setInterval(() => {
+      const at = Date.now() + offset;
+      setNow(at);
+      // an elf that went back down untapped ends the roll
+      while (settled.current < items.length && items[settled.current].at + items[settled.current].upMs < at - t0) {
+        const i = settled.current++;
+        if (!hit.current.has(i) && items[i].kind !== 'grump' && streak.current) { streak.current = 0; setRoll(0); }
+      }
+    }, 40);
     const report = (final: boolean) => {
       if (final || sent.current !== scoreRef.current) { sent.current = scoreRef.current; send({ type: 'whack', score: scoreRef.current, final }); }
     };
@@ -137,6 +160,8 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
     const end = setTimeout(() => { clearInterval(frame); clearInterval(live); report(true); }, Math.max(0, mg.phaseEndsAt - (Date.now() + offset) - 150));
     return () => { clearInterval(frame); clearInterval(live); clearTimeout(end); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // the last five seconds tick
+  useEffect(() => { if (secs <= 5 && secs >= 1) play('tick', secs === 1 ? 1.5 : 1); }, [secs]);
 
   const t = now - t0;
   const showing = Array.from({ length: 9 }, (_, c) => items.findIndex((it) => it.cell === c && t >= it.at && t < it.at + it.upMs));
@@ -145,19 +170,34 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
     if (idx < 0 || hit.current.has(idx)) return;
     hit.current.add(idx);
     const it = items[idx];
-    const v = whackPoints(it.kind, (Date.now() + offset - t0 - it.at) / it.upMs);
-    scoreRef.current += v;
+    const r = whackTap(it.kind, (Date.now() + offset - t0 - it.at) / it.upMs, streak.current);
+    streak.current = r.streak;
+    setRoll(r.streak);
+    scoreRef.current += r.points;
     setScore(scoreRef.current);
+    // a bonk you can hear and feel: the Grump groans, gold rings, a roll climbs
+    if (it.kind === 'grump') { play('wrong'); buzz([90, 40, 120]); }
+    else if (it.kind === 'gold') { play('ding', 1.2); buzz([20, 20, 40]); }
+    else { play(r.roll ? 'ding' : 'thud', r.roll ? 1 + Math.min(r.streak, 10) * 0.07 : 1.4); buzz(25); }
     const id = Math.random();
-    setFloats((f) => [...f, { cell: c, v, id }]);
-    setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 650);
+    setFloats((f) => [...f, { cell: c, v: r.points, id, roll: r.roll }]);
+    setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 750);
   };
+  // where I stand right now (the others' scores as they last reported)
+  const others = whackScores((game.minigame as PartyGame | undefined)?.scores);
+  const ids = mg.participants || [];
+  const place = 1 + ids.filter((id) => id !== me && (others[id] || 0) > score).length;
 
   return (
     <>
-      <h3><Icon name="mallet" /> Whack-an-Elf!</h3>
-      <div className="pg-timer">{secs}s</div>
-      <div className="whack-score" key={score}>{score}</div>
+      <div className="whack-top">
+        <span className={`whack-clock${secs <= 5 ? ' hurry' : ''}`} aria-label={`${secs} seconds left`}>{secs}s</span>
+        <span className="whack-score" key={score} aria-label={`Your score ${score}`} data-testid="whack-score">{score}</span>
+        <span className="whack-place" data-testid="whack-place">{ordinal(place)}<small> of {ids.length}</small></span>
+      </div>
+      <div className={`whack-roll${roll >= WHACK_ROLL ? ' on' : ''}`} aria-live="polite" data-testid="whack-roll">
+        {roll >= WHACK_ROLL ? `On a roll! ${roll} in a row: +1 each` : t < 900 ? 'Go!' : roll > 0 ? `${roll} in a row` : 'Tap the elves, not the Grump'}
+      </div>
       <div className="whack-grid">
         {showing.map((idx, c) => {
           const it = idx >= 0 ? items[idx] : undefined;
@@ -168,11 +208,12 @@ function WhackBoard({ mg, secs, offset }: { mg: PartyGame; secs: number; offset:
           const state: HoleState = up ? 'up' : shown?.hit ? 'hit' : 'down';
           return (
             <button key={c} className={`whack-cell wh-cell ${state}${shown ? ` ${shown.kind}` : ''}`} data-cell={c} data-kind={it ? it.kind : ''}
+              aria-label={up ? (it!.kind === 'grump' ? 'The Grump: leave it' : it!.kind === 'gold' ? 'A golden elf' : 'An elf') : 'An empty hole'}
               onPointerDown={() => tap(c)}>
               <WhackHole kind={shown?.kind} state={state} />
               <span className="wh-hit" />
               {floats.filter((f) => f.cell === c).map((f) => (
-                <div key={f.id} className="whack-float" style={{ color: f.v > 0 ? '#1f9d55' : '#d7263d' }}>{f.v > 0 ? `+${f.v}` : f.v}</div>
+                <div key={f.id} className={`whack-float${f.v < 0 ? ' bad' : f.roll ? ' roll' : ''}`}>{f.v > 0 ? `+${f.v}` : f.v}</div>
               ))}
             </button>
           );

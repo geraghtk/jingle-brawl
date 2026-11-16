@@ -788,7 +788,7 @@ test.describe('Regressions (2026-10 review)', () => {
       expect(mg.results.winners).toEqual([p[t1].id]);
       expect(mg.results.bonus).toBe(p[opener].id);
       await expect(pages[t2].locator('#party-card')).toContainText('wins the tie');
-      await expect(host.locator('#bids-grid')).toContainText('Elf Bonus');
+      await expect(host.getByTestId('whack-stage')).toContainText('Elf Bonus');           // the console shows it full screen, like the TV
 
       await skipAhead(host); // continue to the duel
       const duel = await H.waitForTurnPhase(roomCode, 'duel');

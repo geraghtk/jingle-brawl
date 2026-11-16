@@ -468,7 +468,13 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return {
         badge: `${g.emoji} ${g.label.toUpperCase()}`, badgeClass: 'reveal', action: `${g.emoji} ${g.label}: everyone plays!`,
         details: 'Tied bidders play for the tie; everyone else for party points.',
-        areaTitle: 'Party game', area: mg ? <PartyPanel mg={mg} /> : null,
+        // Whack-an-Elf is full screen by default (host/WhackStage.tsx): one copy of it at a time
+        areaTitle: 'Party game', area: !mg ? null : arenaFull.full && mg.type === 'whack_elf' ? <p className="arena-full-note">Showing full screen</p> : (
+          <>
+            <PartyPanel mg={mg} />
+            {mg.type === 'whack_elf' && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
+          </>
+        ),
         buttons: mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => send({ type: 'skip_party' }, { quiet: true })}>
           <Glyphs>{mg.phase === 'results' ? '⚔️ Continue to the duel' : '⏭ Skip ahead'}</Glyphs>
         </button>,

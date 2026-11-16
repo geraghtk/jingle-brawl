@@ -41,7 +41,7 @@ export const GAMES: Record<PartyType, { label: string; emoji: string; introMs: n
   },
   whack_elf: {
     label: 'Whack-an-Elf', emoji: '🔨', introMs: 7000, playMs: 20000,
-    rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grump and lose 3!',
+    rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Three in a row is a roll: every hit scores 1 more until you miss one. Tap the Grump and lose 3!',
   },
 };
 export const METHODS = Object.keys(GAMES) as PartyType[];
@@ -92,18 +92,31 @@ export function whackSequence(seed: number, playMs = GAMES.whack_elf.playMs): Wh
   return items;
 }
 
+/** A roll: this many hits in a row (no elf let go, no Grump tapped) and every hit from then on scores a bonus. */
+export const WHACK_ROLL = 3;
+export const WHACK_ROLL_BONUS = 1;
+/** One tap on a pop-up, `frac` of the way through its time up, with `streak` hits in a row before it:
+ *  what it scores and the streak after. The Grump costs points and ends the roll. */
+export function whackTap(kind: WhackKind, frac: number, streak: number): { points: number; streak: number; roll: boolean } {
+  if (kind === 'grump') return { points: whackPoints(kind, frac), streak: 0, roll: false };
+  const next = streak + 1, roll = next >= WHACK_ROLL;
+  return { points: whackPoints(kind, frac) + (roll ? WHACK_ROLL_BONUS : 0), streak: next, roll };
+}
+
 /** A phone's clock may run this far ahead of the room's: a pop-up it already tapped counts. */
 export const WHACK_CLOCK_SLACK_MS = 1500;
 
 /** The most (and least) anyone can have scored `elapsedMs` into a Whack-an-Elf game: every elf and
- *  golden elf up so far tapped at its fastest, no Grump (the least: every Grump, nothing else). The
- *  room holds a phone's reported score to this: it can't claim a thousand. */
+ *  golden elf up so far tapped at its fastest, in one unbroken roll, no Grump (the least: every Grump,
+ *  nothing else). The room holds a phone's reported score to this: it can't claim a thousand. */
 export function whackBounds(seed: number, elapsedMs = Infinity, playMs = GAMES.whack_elf.playMs): { min: number; max: number } {
-  let min = 0, max = 0;
+  let min = 0, max = 0, streak = 0;
   for (const p of whackSequence(seed, playMs)) {
     if (p.at > elapsedMs + WHACK_CLOCK_SLACK_MS) break;
-    if (p.kind === 'grump') min += whackPoints('grump', 0);
-    else max += whackPoints(p.kind, 0);
+    if (p.kind === 'grump') { min += whackPoints('grump', 0); continue; }
+    const tap = whackTap(p.kind, 0, streak);
+    max += tap.points;
+    streak = tap.streak;
   }
   return { min, max };
 }
