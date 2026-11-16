@@ -1,33 +1,45 @@
 // Nutcracker Knockout (game #4). Two wind-up toy robots on the TV, one for each duelist, driven from
-// their phones: punch left, punch right, hold to block. The room is the referee (engines/fight.ts):
-// a punch winds up and lands a moment later, a block stops it and leaves the puncher open, a block
-// timed to the punch stuns them, a punch into a wind-up counts double. Every hit knocks a part off
-// (PARTS, in order); the last hit takes the head, and that is the round. Best of three.
+// their phones: a quick jab, a slow haymaker, hold to block, tap to dodge. The room is the referee
+// (engines/fight.ts): a punch winds up and lands a moment later; a block stops a jab and leaves the
+// jabber open; a haymaker smashes through a block; a dodge makes any punch miss; a punch into a
+// wind-up counts extra. A part takes a couple of blows (HITS_PER_PART): the first knocks it loose,
+// the next knocks it off (PARTS, in order); the last part is the head, and that is the round. Best of three.
 //   direct_duel  the two duelists fight; everyone else watches the TV.
 // A round that runs out of time goes to the robot with more parts left; level: sudden death (the next
 // hit takes the head). Still level: most punches landed over the match, then the host decides.
 import type { PlayerId } from '../../types';
 import type { GameDefinition, GameResult, MatchCtx, Transition } from '../contracts';
-import { canGuard, canPunch, DEFAULT_FIGHT, guard, newFight, nextAt, punch, settle, wholeFight } from '../engines/fight';
-import type { Fight, FightParams, Hand } from '../engines/fight';
+import { canDodge, canGuard, canPunch, DEFAULT_FIGHT, dodge, guard, newFight, nextAt, punch, settle, wholeFight } from '../engines/fight';
+import type { Fight, FightParams, PunchKind } from '../engines/fight';
 import { headToHead } from '../scoring';
 import type { RobotView } from './view';
 
-/** What a robot loses, hit by hit: the last is always the head. As many as a robot has health. */
+/** What a robot loses, part by part: the last is always the head. */
 export const PARTS = ['hat', 'left_shoulder', 'right_shoulder', 'chest_door', 'key', 'head'] as const;
 export type Part = (typeof PARTS)[number];
-/** The parts a robot with `health` left has lost, first to last. */
-export const lost = (health: number, max: number = PARTS.length): Part[] => PARTS.slice(0, Math.max(0, Math.min(PARTS.length, max - health)));
+/** Blows a part takes: the first knocks it loose, the last knocks it off (a round was over too soon at one each). */
+export const HITS_PER_PART = 2;
+/** The parts a robot with `health` left of `max` has lost, first to last (the head only at nothing left). */
+export function lost(health: number, max: number = PARTS.length * HITS_PER_PART): Part[] {
+  const per = max / PARTS.length;
+  return PARTS.slice(0, Math.max(0, Math.min(PARTS.length, Math.floor((max - Math.max(0, health)) / per + 1e-9))));
+}
+/** The part that has been knocked loose but is still on (the next to go), if any. */
+export function loose(health: number, max: number = PARTS.length * HITS_PER_PART): Part | null {
+  const per = max / PARTS.length, gone = lost(health, max).length;
+  return health > 0 && gone < PARTS.length && max - health > gone * per + 1e-9 ? PARTS[gone] : null;
+}
 
 export interface RobotConfig {
   roundsToWin: number;
+  hitsPerPart: number;      // a robot's health is this many blows for each of its parts
   introMs: number;          // "Round 1... Fight!"
   roundMs: number;
   suddenMs: number;         // sudden death, once
   koMs: number;             // the head flies: before the next round
   fight: FightParams;
 }
-export const DEFAULTS: RobotConfig = { roundsToWin: 2, introMs: 3500, roundMs: 45_000, suddenMs: 20_000, koMs: 4000, fight: DEFAULT_FIGHT };
+export const DEFAULTS: RobotConfig = { roundsToWin: 2, hitsPerPart: HITS_PER_PART, introMs: 3500, roundMs: 60_000, suddenMs: 20_000, koMs: 4000, fight: DEFAULT_FIGHT };
 
 export type Stage = 'intro' | 'fighting' | 'ko' | 'done';
 export interface RobotState {
@@ -46,7 +58,7 @@ export interface RobotState {
   landed: Record<PlayerId, number>;
 }
 
-export type RobotAction = { kind: 'punch'; hand: Hand } | { kind: 'guard'; on: boolean };
+export type RobotAction = { kind: 'punch'; punch: PunchKind } | { kind: 'guard'; on: boolean } | { kind: 'dodge' };
 
 /** Stored state loses empty maps and lists: put them back before reading. */
 const whole = (s: RobotState): RobotState => ({ ...s, wins: s.wins || {}, landed: s.landed || {}, fight: wholeFight(s.fight) });
@@ -109,7 +121,7 @@ function tick(ctx: MatchCtx, s: RobotState): Transition<RobotState> {
 
 export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
   id: 'nutcracker_knockout', version: '1', label: 'Nutcracker Knockout', emoji: '🥊',
-  rules: 'The two duellists each drive a wind-up robot on the TV from their phone: punch left, punch right, hold to block. A block stops a punch and leaves the puncher open; every hit knocks a part off, and the last one takes the head. Best of three rounds.',
+  rules: 'The two duellists each drive a wind-up robot on the TV from their phone: a quick jab, a slow haymaker, hold to block, tap to dodge. A block stops a jab, a haymaker smashes through a block, a dodge makes anything miss. Blows knock the parts off one by one, and the last one is the head. Best of three rounds.',
   categories: ['real_time_action', 'physical_coordination', 'cross_device'],
   supportedModes: ['direct_duel'],
   compatibility: {
@@ -121,9 +133,10 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
   validateConfig(raw) {
     const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<RobotConfig>;
     const c: RobotConfig = { ...DEFAULTS, ...r, fight: { ...DEFAULT_FIGHT, ...(r.fight || {}) } };
-    // a robot has as many hits in it as it has parts to lose
-    c.fight = { ...c.fight, health: Math.max(1, Math.min(PARTS.length, Math.floor(c.fight.health) || PARTS.length)) };
-    if (!(c.roundsToWin >= 1 && c.roundsToWin <= 5 && c.roundMs > 0 && c.introMs >= 0 && c.koMs >= 0 && c.suddenMs > 0 && c.fight.windupMs > 0)) throw new Error('bad Nutcracker Knockout settings');
+    // a robot's health is its parts: so many blows each
+    c.hitsPerPart = Math.max(1, Math.min(4, Math.floor(c.hitsPerPart) || HITS_PER_PART));
+    c.fight = { ...c.fight, health: PARTS.length * c.hitsPerPart };
+    if (!(c.roundsToWin >= 1 && c.roundsToWin <= 5 && c.roundMs > 0 && c.introMs >= 0 && c.koMs >= 0 && c.suddenMs > 0 && c.fight.jabMs > 0 && c.fight.heavyMs > 0)) throw new Error('bad Nutcracker Knockout settings');
     return c;
   },
 
@@ -141,21 +154,25 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
     const i = seat(s, who);
     if (i == null) return { ok: false, error: 'Only the two duellists fight' };
     if (s.stage !== 'fighting') return { ok: false, error: s.stage === 'done' ? 'The fight is over' : 'Wait for the bell' };
-    const a = action as { kind?: unknown; hand?: unknown; on?: unknown } | null;
+    const a = action as { kind?: unknown; punch?: unknown; on?: unknown } | null;
     // as things stand now (a punch that has landed by now has landed)
     const now = settle(s.fight, Math.min(ctx.now, s.stageEndsAt), s.cfg.fight);
     if (now.ko != null || ctx.now >= s.stageEndsAt) return { ok: false, error: 'Wait for the bell' };
     if (a?.kind === 'punch') {
-      if (a.hand !== 'L' && a.hand !== 'R') return { ok: false, error: 'Left or right?' };
+      if (a.punch !== 'jab' && a.punch !== 'heavy') return { ok: false, error: 'A jab or a haymaker?' };
       if (!canPunch(now.fight, i, ctx.now)) return { ok: false, error: now.fight.f[i].guard ? 'Drop your guard to punch' : 'Not yet' };
-      return { ok: true, action: { kind: 'punch', hand: a.hand } };
+      return { ok: true, action: { kind: 'punch', punch: a.punch } };
+    }
+    if (a?.kind === 'dodge') {
+      if (!canDodge(now.fight, i, ctx.now)) return { ok: false, error: now.fight.f[i].guard ? 'Drop your guard to dodge' : 'Not yet' };
+      return { ok: true, action: { kind: 'dodge' } };
     }
     if (a?.kind === 'guard') {
       if (typeof a.on !== 'boolean') return { ok: false, error: 'Guard up or down?' };
       if (a.on && !canGuard(now.fight, i, ctx.now)) return { ok: false, error: 'Not yet' };
       return { ok: true, action: { kind: 'guard', on: a.on } };
     }
-    return { ok: false, error: 'Punch or block' };
+    return { ok: false, error: 'Punch, block or dodge' };
   },
 
   reduce(ctx, raw, who, a) {
@@ -163,7 +180,8 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
     const i = seat(s, who)!;
     const t = tick(ctx, s);
     if (t.state.stage !== 'fighting' || t.result) return t;            // the punch that just landed ended the round
-    const fight = a.kind === 'punch' ? punch(t.state.fight, i, a.hand, ctx.now, s.cfg.fight) : guard(t.state.fight, i, a.on, ctx.now);
+    const fight = a.kind === 'punch' ? punch(t.state.fight, i, a.punch, ctx.now, s.cfg.fight)
+      : a.kind === 'dodge' ? dodge(t.state.fight, i, ctx.now, s.cfg.fight) : guard(t.state.fight, i, a.on, ctx.now);
     const state: RobotState = { ...t.state, fight };
     return { state, deadlines: fightDeadlines(state), events: t.events };
   },
@@ -190,11 +208,12 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
     const now = settle(s.fight, ctx.now, s.cfg.fight);
     if (now.ko != null) return [];
     const me = now.fight.f[i], them = now.fight.f[i === 0 ? 1 : 0];
-    // a simulated hand: blocks a punch it sees coming (not always), drops a guard that has done its job, else swings
-    if (me.guard) return them.punch ? [] : [{ kind: 'guard', on: false }];
+    // a simulated hand: answers a punch it sees coming (blocks a jab, dodges a haymaker, not always), drops
+    // a guard that has done its job, else swings: mostly jabs, a haymaker at a guard or now and then
+    if (me.guard) return them.punch?.kind === 'jab' ? [] : [{ kind: 'guard', on: false }];
     if (!canPunch(now.fight, i, ctx.now)) return [];
-    if (them.punch && ctx.rng() < 0.6) return [{ kind: 'guard', on: true }];
-    return [{ kind: 'punch', hand: ctx.rng() < 0.5 ? 'L' : 'R' }];
+    if (them.punch && ctx.rng() < 0.6) return them.punch.kind === 'heavy' ? [{ kind: 'dodge' }] : [{ kind: 'guard', on: true }];
+    return [{ kind: 'punch', punch: them.guard || ctx.rng() < 0.25 ? 'heavy' : 'jab' }];
   },
 
   projectForPlayer: (raw, pid, now) => { const s = whole(raw); return { ...publicView(s, now), me: pid, mySeat: seat(s, pid) }; },
@@ -208,10 +227,12 @@ function publicView(s: RobotState, now: number): RobotView {
   const fight = s.stage === 'fighting' ? settle(s.fight, Math.min(now, s.stageEndsAt), s.cfg.fight).fight : s.fight;
   return {
     stage: s.stage, stageEndsAt: s.stageEndsAt, round: s.round, roundsToWin: s.cfg.roundsToWin, order: s.order, wins: s.wins, sudden: s.sudden,
-    maxHealth: s.cfg.fight.health, windupMs: s.cfg.fight.windupMs, guardMaxMs: s.cfg.fight.guardMaxMs,
+    maxHealth: s.cfg.fight.health, parts: PARTS.length, guardMaxMs: s.cfg.fight.guardMaxMs,
     fighters: fight.f.map((f) => ({
       health: f.health, lost: lost(f.health, s.cfg.fight.health), busyUntil: f.busyUntil || 0,
+      ...(loose(f.health, s.cfg.fight.health) ? { loose: loose(f.health, s.cfg.fight.health)! } : {}),
       ...(f.busy && f.busyUntil > now ? { busy: f.busy } : {}), ...(f.punch ? { punch: f.punch } : {}), ...(f.guard ? { guard: f.guard } : {}),
+      ...(f.dodge && f.dodge.until > now ? { dodge: f.dodge } : {}),
     })) as RobotView['fighters'],
     events: fight.events, ...(s.last ? { last: s.last } : {}),
   };

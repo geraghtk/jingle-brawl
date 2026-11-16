@@ -12,5 +12,5 @@ export const PART_NAMES: Record<Part, string> = {
 
 /** Why a robot can't do anything for a moment, in a word for its driver. */
 export const BUSY_WORDS: Record<Busy, string> = {
-  recover: '', blocked: 'Blocked! You are open', stunned: 'Stunned!', flinch: 'Ouch!', guard_break: 'Guard broken!',
+  recover: '', blocked: 'Blocked! You are open', whiff: 'Missed! You are open', flinch: 'Ouch!', guard_break: 'Guard broken!', dodge: 'Dodging',
 };

@@ -44,16 +44,22 @@
 .nk-mine i { width: 16px; height: 16px; border-radius: 4px; background: var(--robot); border: 2px solid #1d2a3a; box-sizing: border-box; }
 .nk-mine i.lost { background: transparent; border-style: dashed; border-color: #9aa3b2; }
 .nk-word { min-height: 30px; text-align: center; font: 900 24px/1.2 var(--f6-disp, system-ui); }
-.nk-pads { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 3fr 2fr; gap: 10px; }
+.nk-pads { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
 .nk-pad { position: relative; overflow: hidden; border: 0; border-radius: 22px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   touch-action: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 6px 0 rgba(13, 16, 24, .22); transition: transform .06s, box-shadow .06s, opacity .12s; }
 .nk-pad:active:not(:disabled), .nk-pad.swinging, .nk-pad.held { transform: translateY(5px); box-shadow: 0 1px 0 rgba(13, 16, 24, .22); }
 .nk-pad:disabled { opacity: .45; }
 .nk-pad.punch { background: var(--robot); }
-.nk-pad.block { grid-column: 1 / -1; background: var(--ink, #0d1018); }
+.nk-pad.punch.heavy { background: color-mix(in srgb, var(--robot) 70%, #000); }
+.nk-pad.block { background: var(--ink, #0d1018); }
+.nk-pad.dodge { background: #6a7180; }
+.nk-pad.dodge.held { background: #2f6fde; }
 .nk-pad.block.held { background: #2f6fde; }
-.nk-pad-big { font: 900 34px/1 var(--f6-disp, system-ui); position: relative; }
+.nk-pad-big { font: 900 30px/1 var(--f6-disp, system-ui); position: relative; }
 .nk-pad-small { font-weight: 700; font-size: 14px; opacity: .85; position: relative; }
 /* how much longer the guard holds before it breaks */
 .nk-guard-meter { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: #ffc21a; transform-origin: left center; }
 .nk-controller.waiting .nk-pad { opacity: .45; }
+/* a part that has been knocked loose rattles until the next blow takes it */
+.nk-part.loose, .nk-mine i.loose { animation: nk-loose .18s linear infinite alternate; opacity: .8; }
+@keyframes nk-loose { from { transform: rotate(-9deg) translateY(-1px); } to { transform: rotate(9deg) translateY(1px); } }

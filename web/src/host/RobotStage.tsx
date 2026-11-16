@@ -65,14 +65,16 @@ export function RobotStage() {
     if (!tv) return;
     for (const e of v.events) {
       if (e.n <= was.n) continue;
-      if (e.kind === 'hit') play('thud', 1.4);
-      else if (e.kind === 'counter') { play('thud', 0.9); play('wrong', 1.6); }
+      const heavy = e.punch === 'heavy';
+      if (e.kind === 'hit') { play('clank', heavy ? 0.7 : 1.15); if (heavy) play('thud', 0.8); }
+      else if (e.kind === 'counter') { play('clank', 0.8); play('thud', 0.7); }
       else if (e.kind === 'blocked') play('tick', 0.5);
-      else if (e.kind === 'parried') play('ding', 1.3);
+      else if (e.kind === 'smash') { play('clank', 0.55); play('pass', 0.7); }
+      else if (e.kind === 'dodged') play('whoosh');
       else if (e.kind === 'guard_break') play('pass', 0.7);
     }
     if (was.stage !== v.stage) {
-      if (v.stage === 'fighting') play('go');
+      if (v.stage === 'fighting') play('bell');
       else if (v.stage === 'ko') play(v.last?.how === 'knockout' ? 'doom' : 'horn');
       else if (v.stage === 'done') play('fanfare');
     }
@@ -83,6 +85,7 @@ export function RobotStage() {
   const corner = (i: 0 | 1) => {
     const pid = v.order[i], p = game.players?.[pid], f = v.fighters[i];
     const wins = v.wins[pid] || 0;
+    const left = v.parts - f.lost.length;
     return (
       <div className={`nk-corner ${i === 0 ? 'left' : 'right'}`} style={{ ['--robot' as string]: ROBOT_COLORS[i] }} data-testid={`robot-corner-${pid}`}>
         <div className="nk-who">
@@ -92,9 +95,9 @@ export function RobotStage() {
             {Array.from({ length: v.roundsToWin }, (_, k) => <i key={k} className={k < wins ? 'won' : ''} />)}
           </span>
         </div>
-        <div className="nk-parts" role="img" aria-label={`${f.health} of ${v.maxHealth} parts left`} data-testid={`robot-parts-${pid}`}>
-          {PARTS.slice(PARTS.length - v.maxHealth).map((part) => (
-            <span key={part} className={`nk-part${f.lost.includes(part) ? ' lost' : ''}${part === 'head' ? ' head' : ''}`} title={PART_NAMES[part]} />
+        <div className="nk-parts" role="img" aria-label={`${left} of ${v.parts} parts left${f.loose ? `, the ${PART_NAMES[f.loose]} is loose` : ''}`} data-testid={`robot-parts-${pid}`}>
+          {PARTS.map((part) => (
+            <span key={part} className={`nk-part${f.lost.includes(part) ? ' lost' : f.loose === part ? ' loose' : ''}${part === 'head' ? ' head' : ''}`} title={PART_NAMES[part]} />
           ))}
         </div>
       </div>

@@ -1,7 +1,7 @@
 // Little sound effects, made on the spot with Web Audio (no files to load). Muted per device (the
 // choice is remembered); silent until the page has been touched, as browsers require.
 
-export type Cue = 'jump' | 'right' | 'wrong' | 'pass' | 'doom' | 'tick' | 'fanfare' | 'ding' | 'thud' | 'go' | 'horn';
+export type Cue = 'jump' | 'right' | 'wrong' | 'pass' | 'doom' | 'tick' | 'fanfare' | 'ding' | 'thud' | 'go' | 'horn' | 'clank' | 'bell' | 'whoosh';
 
 const KEY = 'jb_muted';
 let ctx: AudioContext | null = null;
@@ -27,6 +27,10 @@ const CUES: Record<Cue, [number, number, number, OscillatorType][]> = {
   thud: [[150, 0, 0.09, 'sine'], [92, 0.03, 0.13, 'sine']],
   go: [[523, 0, 0.1, 'square'], [784, 0.1, 0.28, 'square']],
   horn: [[233, 0, 0.55, 'sawtooth'], [175, 0, 0.55, 'sawtooth'], [117, 0.05, 0.5, 'square']],
+  // tin on tin, the ring bell, a punch through the air
+  clank: [[185, 0, 0.07, 'square'], [1240, 0, 0.05, 'square'], [2210, 0.01, 0.09, 'triangle'], [760, 0.02, 0.12, 'triangle']],
+  bell: [[880, 0, 0.5, 'sine'], [1760, 0, 0.35, 'sine'], [2640, 0, 0.22, 'sine'], [880, 0.22, 0.6, 'sine'], [1760, 0.22, 0.4, 'sine']],
+  whoosh: [[520, 0, 0.05, 'sine'], [360, 0.04, 0.06, 'sine'], [240, 0.09, 0.08, 'sine']],
 };
 
 /** `pitch` multiplies every note (a run of ringers climbs). */

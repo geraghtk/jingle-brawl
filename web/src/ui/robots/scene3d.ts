@@ -40,6 +40,8 @@ interface Robot {
   parts: Record<Part, THREE.Object3D>;
   /** What the view last said was lost (to see a part go). */
   gone: Set<Part>;
+  /** Each part's own resting turn (a loose part rattles around it). */
+  rest: Map<Part, THREE.Euler>;
   /** Smoothed poses. */
   lean: number; guardAmt: number; reach: { L: number; R: number };
 }
@@ -99,11 +101,9 @@ function buildRobot(color: number): Robot {
     return { arm: { shoulder, elbow }, plate };
   };
   const L = arm(-0.45), R = arm(0.45);
-  return {
-    root, body, head, key, arms: { L: L.arm, R: R.arm },
-    parts: { hat, left_shoulder: L.plate, right_shoulder: R.plate, chest_door: chestDoor, key, head },
-    gone: new Set(), lean: 0, guardAmt: 0, reach: { L: 0, R: 0 },
-  };
+  const parts: Record<Part, THREE.Object3D> = { hat, left_shoulder: L.plate, right_shoulder: R.plate, chest_door: chestDoor, key, head };
+  const rest = new Map(Object.entries(parts).map(([k, o]) => [k as Part, o.rotation.clone()]));
+  return { root, body, head, key, arms: { L: L.arm, R: R.arm }, parts, rest, gone: new Set(), lean: 0, guardAmt: 0, reach: { L: 0, R: 0 } };
 }
 
 interface Loose { obj: THREE.Object3D; v: THREE.Vector3; spin: THREE.Vector3; born: number; rest: boolean }
@@ -168,6 +168,9 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
   const sparks: Spark[] = [];
   const starGeo = new THREE.OctahedronGeometry(0.09);
   let seenEvent = -1, last = performance.now(), shake = 0, primed = false, lastRound = -1;
+  /** The knockout: for a moment everything that flies is slowed, and the camera goes with the head. */
+  let slowUntil = 0, flyingHead: THREE.Object3D | null = null;
+  const look = LOOK.clone();
 
   /** Colour a robot's coat and hat (the first build uses placeholders). */
   function tint(r: Robot, hex: string) {
@@ -197,7 +200,7 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
       v: new THREE.Vector3(away * (big ? 2.6 : 1.6 + Math.random()), big ? 6.2 : 3 + Math.random() * 1.5, (Math.random() - 0.3) * (big ? 1.2 : 2.4)),
       spin: new THREE.Vector3(Math.random() * 8 - 4, Math.random() * 8 - 4, (big ? 9 : 6) * -away),
     });
-    if (big) shake = 0.5;
+    if (big) { shake = 0.5; slowUntil = performance.now() + 1300; flyingHead = copy; }
   }
 
   function burst(x: number, y: number, color: number, n: number, speed: number) {
@@ -210,27 +213,35 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     }
   }
 
-  /** How far a punching arm is thrown (0 at rest, negative drawn back, 1 at full reach). */
+  /** How far a punching arm is thrown (0 at rest, negative drawn back, 1 at full reach). A jab is the
+   *  left arm, quick and short on the draw; a haymaker is the right, drawn far back for a long time. */
   function reachOf(f: RobotFighterView, hand: 'L' | 'R', now: number): number {
     const p = f.punch;
-    if (!p || p.hand !== hand) return 0;
+    if (!p || (p.kind === 'heavy' ? 'R' : 'L') !== hand) return 0;
     const u = Math.max(0, Math.min(1, (now - p.at) / Math.max(1, p.lands - p.at)));
-    return u < 0.55 ? -0.5 * Math.sin((u / 0.55) * Math.PI / 2) : -0.5 + 1.5 * ((u - 0.55) / 0.45) ** 2;
+    const back = p.kind === 'heavy' ? 1.05 : 0.45, hold = p.kind === 'heavy' ? 0.72 : 0.5;
+    return u < hold ? -back * Math.sin((u / hold) * Math.PI / 2) : -back + (1 + back) * ((u - hold) / (1 - hold)) ** 2;
   }
 
   function pose(r: Robot, f: RobotFighterView, i: 0 | 1, now: number, dt: number, t: number, stage: RobotView['stage'], won: boolean) {
     const busy = f.busy && f.busyUntil > now ? f.busy : undefined;
     const down = f.health <= 0;
-    // lean: back when hit, further when stunned, forward into a punch, slumped when the head is gone
-    const wantLean = down ? -1.15 : busy === 'flinch' ? -0.38 : busy === 'stunned' ? -0.22 + Math.sin(t * 14) * 0.1 : busy === 'guard_break' ? 0.3 : f.punch ? 0.16 : f.guard ? -0.08 : 0;
-    r.lean = ease(r.lean, wantLean, dt, busy === 'flinch' ? 26 : 12);
+    const dodging = !!f.dodge && now < f.dodge.until;
+    // lean: back when hit, right back for a dodge, forward into a punch and stumbling after a miss, flat when the head is gone
+    const wantLean = down ? -1.15 : dodging ? -0.62 : busy === 'flinch' ? -0.38 : busy === 'whiff' ? 0.5 : busy === 'guard_break' ? 0.3
+      : f.punch ? (f.punch.kind === 'heavy' ? 0.26 : 0.16) : f.guard ? -0.08 : 0;
+    r.lean = ease(r.lean, wantLean, dt, busy === 'flinch' || dodging ? 26 : 12);
     r.body.rotation.z = -r.lean;
     r.body.position.y = 0.52 + (down ? -0.02 : Math.sin(t * 3.2 + i * 1.7) * 0.018);
     const step = Math.max(0, r.reach.L, r.reach.R) * LUNGE - Math.max(0, -r.lean) * 0.3;        // in with a punch, back when hit
     r.root.position.x = (i === 0 ? -GAP : GAP) + (i === 0 ? 1 : -1) * step;
-    r.head.rotation.z = busy === 'stunned' ? Math.sin(t * 9) * 0.25 : 0;
-    r.head.rotation.y = busy === 'stunned' ? Math.sin(t * 6) * 0.4 : 0;
-    r.key.rotation.x = t * (down ? 0 : busy === 'stunned' ? 0.6 : 3);
+    // a part that has been knocked loose rattles on the robot until the next blow takes it
+    for (const [part, obj] of Object.entries(r.parts) as [Part, THREE.Object3D][]) {
+      const base = r.rest.get(part)!;
+      const rattle = f.loose === part ? 1 : 0;
+      if (part === 'key') { obj.rotation.set(t * (down ? 0 : 3), base.y, base.z + rattle * Math.sin(t * 31) * 0.22); continue; }
+      obj.rotation.set(base.x + rattle * Math.sin(t * 27 + 1) * 0.12, base.y + rattle * Math.sin(t * 19) * 0.1, base.z + rattle * Math.sin(t * 33) * 0.16);
+    }
     r.guardAmt = ease(r.guardAmt, f.guard ? 1 : 0, dt, 22);
     const cheer = won && (stage === 'ko' || stage === 'done') ? 1 : 0;
     for (const hand of ['L', 'R'] as const) {
@@ -239,7 +250,7 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
       // snap out on the way in, ease back afterwards
       r.reach[hand] = target > r.reach[hand] ? ease(r.reach[hand], target, dt, 40) : ease(r.reach[hand], target, dt, f.punch ? 30 : 9);
       const reach = r.reach[hand];
-      const drop = busy === 'guard_break' || down ? 1 : 0;
+      const drop = busy === 'guard_break' || down || (busy === 'whiff' && !f.punch) ? 1 : 0;
       // shoulder swings forward (towards +x is a rotation about z); the elbow straightens as the punch goes out
       const ready = 0.55;                                                               // fists up, the fighting stance
       let sh = ready + reach * 1.42, el = 1.55 - Math.max(0, reach) * 1.5 + Math.max(0, -reach) * 0.5;
@@ -282,18 +293,21 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
       if (e.kind === 'hit') { burst(x, 1.75, 0xffe27a, 9, 3); shake = Math.max(shake, 0.12); }
       else if (e.kind === 'counter') { burst(x, 1.75, 0xff5a4a, 16, 4.2); shake = Math.max(shake, 0.25); }
       else if (e.kind === 'blocked') burst(x * 0.5, 1.6, 0xc9d2de, 6, 2);
-      else if (e.kind === 'parried') { burst(x * 0.5, 1.6, 0x8a7bff, 14, 3.4); shake = Math.max(shake, 0.1); }
+      else if (e.kind === 'smash') { burst(x * 0.6, 1.6, 0xffffff, 14, 3.6); burst(x, 1.7, 0xffe27a, 6, 2.6); shake = Math.max(shake, 0.22); }
+      else if (e.kind === 'dodged') burst(x * 1.5, 1.5, 0xdfe8f2, 5, 1.6);
       else if (e.kind === 'guard_break') burst((e.by === 0 ? -1 : 1) * GAP * 0.8, 1.5, 0xffffff, 8, 2.4);
     }
     seenEvent = Math.max(seenEvent, newest);
     primed = true;
 
+    const slow = stamp < slowUntil;
+    const pdt = dt * (slow ? 0.28 : 1);                                                   // the knockout, slowed
     for (let k = loose.length - 1; k >= 0; k--) {
       const l = loose[k];
       if (!l.rest) {
-        l.v.y -= 13 * dt;
-        l.obj.position.addScaledVector(l.v, dt);
-        l.obj.rotation.x += l.spin.x * dt; l.obj.rotation.y += l.spin.y * dt; l.obj.rotation.z += l.spin.z * dt;
+        l.v.y -= 13 * pdt;
+        l.obj.position.addScaledVector(l.v, pdt);
+        l.obj.rotation.x += l.spin.x * pdt; l.obj.rotation.y += l.spin.y * pdt; l.obj.rotation.z += l.spin.z * pdt;
         const floor = Math.hypot(l.obj.position.x, l.obj.position.z) < 3.1 ? 0.14 : -2.5;
         if (l.obj.position.y < floor && l.v.y < 0) {
           l.obj.position.y = floor;
@@ -306,15 +320,19 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     for (let k = sparks.length - 1; k >= 0; k--) {
       const s = sparks[k], age = (stamp - s.born) / s.life;
       if (age >= 1) { scene.remove(s.obj); sparks.splice(k, 1); continue; }
-      s.v.y -= 6 * dt;
-      s.obj.position.addScaledVector(s.v, dt);
+      s.v.y -= 6 * pdt;
+      s.obj.position.addScaledVector(s.v, pdt);
       s.obj.rotation.x += dt * 9; s.obj.rotation.y += dt * 7;
       s.obj.scale.setScalar(1 - age * 0.6);
       ((s.obj as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 1 - age * age;
     }
     shake = Math.max(0, shake - dt * 1.4);
     camera.position.set(CAM.x + Math.sin(t * 0.35) * 0.18 + (Math.random() - 0.5) * shake * 0.35, CAM.y + (Math.random() - 0.5) * shake * 0.35, CAM.z);
-    camera.lookAt(LOOK);
+    // the camera goes part of the way with the flying head, then comes back to the ring
+    const want = slow && flyingHead ? LOOK.clone().lerp(flyingHead.position, 0.55) : LOOK;
+    look.lerp(want, Math.min(1, dt * (slow ? 5 : 2.5)));
+    if (!slow) flyingHead = null;
+    camera.lookAt(look);
     renderer.render(scene, camera);
   }
 
