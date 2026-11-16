@@ -62,6 +62,6 @@
 .pg .pg-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .pg .pg-bar .nm { width: 110px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pg .pg-bar .track { flex: 1; height: 18px; border-radius: 9px; background: var(--bg, #eef1f6); overflow: hidden; }
-.pg .pg-bar .fill { height: 100%; background: var(--accent, #ff3b5c); transition: width .3s; }
+.pg .pg-bar .fill { display: block; height: 100%; background: var(--accent, #ff3b5c); transition: width .3s; }
 .pg .pg-bar .v { width: 36px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
   

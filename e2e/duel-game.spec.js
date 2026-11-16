@@ -120,6 +120,12 @@ test('an in-app duel game settles it: everyone plays Whack-an-Elf, the better-pl
     await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'playing' ? g : false), { label: 'playing' });
     // the defender (opener) out-whacks the challenger
     await H.dbPatch(roomCode, { [`minigame/scores/${p[opener].id}`]: { score: 9, final: true }, [`minigame/scores/${p[bidder].id}`]: { score: 3, final: true } });
+    // the console's live leaderboard: the leader's bar is full, the other a third of it (the bars once never filled at all)
+    const bar = (name) => host.locator('.pg-bar', { hasText: name }).locator('.fill');
+    await expect.poll(async () => (await bar(opener).boundingBox())?.width || 0).toBeGreaterThan(100);
+    const [full, part] = [(await bar(opener).boundingBox()).width, (await bar(bidder).boundingBox()).width];
+    expect(part).toBeGreaterThan(full * 0.25);
+    expect(part).toBeLessThan(full * 0.45);
     await skip(); // → results
     const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'results' ? g.minigame : false), { label: 'results' });
     expect(mg.results.winners).toEqual([p[opener].id]);
