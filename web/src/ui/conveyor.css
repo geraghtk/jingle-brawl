@@ -1,4 +1,53 @@
-/* The Great Gift Conveyor: the phone's workstation and the TV's two factories. */
+/* The Great Gift Conveyor: the TV's two belts, and the phone's close-up of one station. */
+
+/* --- the belt (ui/conveyorBelt.tsx): shared by the TV and the phones --- */
+.cv-belt { position: relative; height: var(--belt-h, 150px); border-radius: 14px; overflow: hidden; container-type: inline-size;
+  background: linear-gradient(#dfe7f2 0 62%, #2b3a4f 62% 100%); box-shadow: inset 0 0 0 3px #1d2a3a; }
+/* the moving tread: its marks scroll by how far the belt has run */
+.cv-tread { position: absolute; left: 0; right: 0; top: 62%; bottom: 0;
+  background-image: repeating-linear-gradient(90deg, #3d5270 0 5cqw, #2b3a4f 5cqw 10cqw); background-size: 10cqw 100%; opacity: .95; }
+.cv-zone { position: absolute; top: 0; bottom: 0; box-sizing: border-box; border-left: 3px dashed rgba(29, 42, 58, .45); border-right: 3px dashed rgba(29, 42, 58, .45);
+  background: color-mix(in srgb, var(--team, #ff3366) 12%, transparent); display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; padding-bottom: 5px; pointer-events: none; }
+.cv-zone.mine { background: color-mix(in srgb, var(--team, #ff3366) 26%, transparent); border-color: var(--team, #ff3366); border-style: solid; }
+.cv-zone-name { font: 900 13px/1.1 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .05em; color: #1d2a3a; background: rgba(255, 255, 255, .85); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.cv-crew { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.cv-worker { font-weight: 800; font-size: 12px; color: #fff; text-shadow: 0 1px 2px #000; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* a toy rides with its wheels on the tread, centred on where it is */
+.cv-rider { position: absolute; bottom: 30%; width: var(--toy-w, 12cqw); transform: translateX(-50%); will-change: left; }
+.cv-toy { display: block; width: 100%; height: auto; overflow: visible; }
+.cv-toy.stowaway { animation: cv-wobble .45s ease-in-out infinite alternate; transform-origin: 50% 90%; }
+@keyframes cv-wobble { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+.cv-swatch { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2.5px solid #1d2a3a; vertical-align: middle; box-sizing: border-box; }
+.cv-swatch.big { width: 40px; height: 40px; }
+.cv-mark { font-size: 11px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.cv-swatch.big .cv-mark { font-size: 18px; }
+
+/* --- the TV --- */
+.cv-stage { text-align: center; display: grid; gap: 14px; }
+.cv-stage > .rt-banner { justify-self: center; }
+.cv-lane { border-radius: 18px; padding: 12px; background: var(--surface, #fff); border-left: 10px solid var(--team); text-align: left; }
+.cv-lane.won { box-shadow: 0 0 0 4px var(--team); }
+.cv-lane-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.cv-lane-name { font: 900 22px/1 var(--f6-disp, system-ui); color: var(--team); }
+.cv-captain { font-weight: 800; }
+.cv-speed { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font: 800 14px/1 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .05em; }
+.cv-speed i { width: 9px; height: 16px; border-radius: 3px; background: #dfe3ea; transform: skewX(-14deg); }
+.cv-speed i.on { background: var(--team); }
+.cv-floor { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: stretch; --belt-h: clamp(120px, 19vh, 230px); --toy-w: 9cqw; }
+.cv-chute { display: grid; place-items: center; width: 44px; border-radius: 12px; background: #1d2a3a; color: #fff; font: 900 13px/1 var(--f6-disp, system-ui); writing-mode: vertical-rl; letter-spacing: .1em; }
+.cv-end { display: grid; grid-template-rows: 1fr auto; gap: 6px; width: 104px; }
+.cv-sleigh { display: grid; place-items: center; align-content: center; border-radius: 14px; background: color-mix(in srgb, var(--team) 16%, #fff); border: 3px solid var(--team); }
+.cv-sleigh-count { font: 900 44px/1 var(--f6-disp, system-ui); }
+.cv-sleigh-of { font-weight: 800; font-size: 13px; color: var(--muted, #6a7180); }
+.cv-bin { text-align: center; border-radius: 10px; padding: 4px; background: #eceef2; font-weight: 800; font-size: 13px; color: #d7263d; }
+/* full screen: the clock is in the top bar (Ring Toss's rule), so the two lanes share the whole height */
+.arena-full .cv-stage { height: 100%; display: flex; flex-direction: column; }
+.arena-full .cv-lane { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }
+.arena-full .cv-floor { flex: 1; min-height: 0; --belt-h: 100%; --toy-w: 12cqw; }
+.arena-full .cv-zone-name { font-size: 17px; }
+.arena-full .cv-worker { font-size: 16px; }
+
+/* --- the phone --- */
 .cv-card { text-align: center; border-top: 6px solid var(--team, #ff3366); }
 .cv-top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; }
 .cv-team { color: var(--team); }
@@ -6,45 +55,20 @@
 .cv-race { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding: 8px 12px; border-radius: 14px; background: var(--bg, #eceef2); font-weight: 700; }
 .cv-race b { font: 900 24px/1 var(--f6-disp, system-ui); }
 .cv-quota { color: var(--muted, #6a7180); font-size: 13px; }
-.cv-station { font-size: 13px; font-weight: 700; color: var(--muted, #6a7180); margin-bottom: 8px; }
-.cv-order, .cv-gift { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 10px; border-radius: 14px; border: 2px dashed #c7ccd6; margin: 6px 0 10px; font-weight: 800; }
-.cv-gift { border-style: solid; border-color: var(--team); }
-.cv-k { text-transform: uppercase; font-size: 11px; letter-spacing: .08em; color: var(--muted, #6a7180); }
-.cv-toy { font-size: 34px; line-height: 1; }
-.cv-paper { padding: 4px 10px; border-radius: 8px; color: #fff; text-transform: capitalize; }
-.cv-ask { font: 800 20px/1.2 var(--f6-disp, system-ui); margin: 6px 0; }
-.cv-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cv-choice { min-height: 64px; border: 0; border-radius: 16px; background: var(--bg, #eceef2); font: 800 18px/1.1 var(--f6-body, system-ui); text-transform: capitalize; cursor: pointer; touch-action: manipulation; }
-.cv-choice.big { font-size: 40px; }
-.cv-choice:active { transform: scale(.97); }
-.cv-check { display: grid; gap: 10px; }
-.cv-load, .cv-back, .cv-shoo { min-height: 64px; border: 0; border-radius: 16px; font: 800 18px/1.2 var(--f6-body, system-ui); cursor: pointer; }
-.cv-load { background: #18b88a; color: #fff; }
-.cv-back { background: var(--bg, #eceef2); }
-.cv-shoo { width: 100%; background: #ffb000; color: #1b1b1b; }
-.cv-stow-icon { display: inline-block; animation: cvWobble .5s ease-in-out infinite; }   /* the critter wobbles, not the button (a still target) */
 .cv-wait { font-weight: 700; color: var(--muted, #6a7180); }
-@keyframes cvWobble { 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
-
-.cv-stage { text-align: center; display: grid; gap: 14px; }
-.cv-lane { border-radius: 18px; padding: 12px; background: var(--surface, #fff); border-left: 10px solid var(--team); text-align: left; }
-.cv-lane.won { box-shadow: 0 0 0 4px var(--team); }
-.cv-lane-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.cv-lane-name { font: 900 22px/1 var(--f6-disp, system-ui); color: var(--team); }
-.cv-captain { font-weight: 800; }
-.cv-members { color: var(--muted, #6a7180); font-size: 14px; }
-.cv-belt { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; align-items: stretch; }
-.cv-st { border-radius: 14px; background: var(--bg, #eceef2); padding: 8px; display: grid; gap: 4px; align-content: start; }
-.cv-st-name { font-weight: 900; }
-.cv-st-who { font-size: 13px; color: var(--muted, #6a7180); }
-.cv-table { min-height: 52px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.cv-box { position: relative; font-size: 34px; line-height: 1; }
-.cv-box.working { animation: cvPop .35s ease-out; }
-@keyframes cvPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.cv-box.waiting { opacity: .45; font-size: 24px; }
-.cv-stow { position: absolute; right: -10px; top: -10px; font-size: 22px; font-style: normal; animation: cvWobble .5s ease-in-out infinite; }
-.cv-sleigh { display: grid; place-items: center; align-content: center; border-radius: 14px; background: color-mix(in srgb, var(--team) 14%, #fff); font-weight: 800; }
-.cv-sleigh-icon { font-size: 40px; }
-.cv-sleigh b { font: 900 34px/1 var(--f6-disp, system-ui); }
-.cv-wrong { color: #d7263d; }
-.cv-stage > .rt-banner { justify-self: center; }
+.cv-station { margin-top: 12px; padding: 10px; border-radius: 16px; background: var(--bg, #eceef2); border: 3px solid transparent; --belt-h: 128px; --toy-w: 30cqw; }
+.cv-station.live { border-color: var(--team); }
+.cv-card.many .cv-station { --belt-h: 96px; --toy-w: 24cqw; }
+.cv-station-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.cv-station-name { font: 900 16px/1.1 var(--f6-disp, system-ui); }
+.cv-said { font-weight: 800; font-size: 14px; color: #d7263d; min-height: 18px; }
+.cv-said.good { color: #1a8f63; }
+.cv-ask { font: 800 18px/1.3 var(--f6-disp, system-ui); margin: 8px 0; min-height: 26px; }
+.cv-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cv-choice { min-height: 76px; border: 0; border-radius: 16px; background: var(--surface, #fff); font: 800 15px/1.1 var(--f6-body, system-ui); display: grid; place-items: center; gap: 4px; padding: 8px 4px;
+  cursor: pointer; touch-action: manipulation; box-shadow: 0 4px 0 rgba(13, 16, 24, .16); }
+.cv-choice:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(13, 16, 24, .16); }
+.cv-choice:disabled { opacity: .45; }
+.cv-card.many .cv-choice { min-height: 60px; }
+.cv-shoo { width: 100%; min-height: 76px; border: 0; border-radius: 16px; background: #ffb000; color: #1b1b1b; font: 900 24px/1 var(--f6-disp, system-ui); cursor: pointer; touch-action: manipulation; }
+.cv-shoo:disabled { opacity: .45; }

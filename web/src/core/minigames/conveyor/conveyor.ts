@@ -1,113 +1,121 @@
-// The Great Gift Conveyor (spec, game #3): the two duelists captain opposing teams (the experience
-// deals everyone else out: engines/teams.ts) and race to load correct gifts onto the sleigh. Each
-// gift goes down the team's line (engines/workflow.ts): pick the toy, wrap it, label it, then check
-// and load it, one phone after another; the TV shows both factories. Sometimes a raccoon or a penguin
-// sneaks into a box: the checker shoos it out. A wrong gift sent to the sleigh doesn't count.
-//   Fair: both teams get the same orders in the same order, and the same number of stations (the
-//   smaller team's size, up to four), each working one gift at a time.
-//   Won: first to the quota; at the bell, more gifts; level, a short overtime; still level, fewer
-//   wrong gifts; still level, the host decides. The winning captain wins the duel, whoever did most.
-//   Rewards: a recommendation only (the experience applies it): the winning team shares a base plus
-//   a bonus by contribution (each step of a delivered gift counts the same, whatever the station);
-//   the losing team gets none.
+// The Great Gift Conveyor (game #3; rebuilt 2026-11-16 as a real belt, Kevin's design). The two
+// duelists captain opposing teams (the experience deals everyone else out: engines/teams.ts). Each
+// team has a conveyor on the TV (engines/belt.ts): unfinished toys roll along it past a row of
+// stations, one for each part (PARTS). Every player works a station from their phone: as a toy
+// passes, fit the piece its order asks for (one of VARIANTS) before it has gone by. A toy that
+// reaches the end with every piece right goes on the sleigh; anything else falls in the reject bin.
+// Now and then a raccoon rides the belt: shoo it off at any station, or it makes off with a toy.
+//   Speed: each belt runs faster the more its own team has delivered (so the team in front has the
+//   harder belt), and both creep up as the round goes on.
+//   Fair: both teams get the same orders in the same order, and the same stations.
+//   Won: first to the quota; at the bell, more toys; level, overtime (the first to get ahead); still
+//   level, fewer rejects; still level, the host decides. The winning captain wins the duel.
+//   Rewards: a recommendation only (the experience applies it): a flat point to the winning team.
 import type { Rng } from '../../rng';
 import type { PlayerId } from '../../types';
 import type { GameDefinition, GameResult, MatchCtx, Transition } from '../contracts';
+import { atSpeed, BELT_VERSION, evenZones, newBelt, next, nextAt, wholeBelt, zoneOf } from '../engines/belt';
+import type { Belt, BeltItem, Zone } from '../engines/belt';
 import { assignTeams, checkAssignment } from '../engines/teams';
 import type { TeamAssignment } from '../engines/teams';
-import { add, complete, dispatch, holding, layout, release, remove, stationOf, WORKFLOW_VERSION } from '../engines/workflow';
-import type { Floor, Line } from '../engines/workflow';
 import type { ConveyorView } from './view';
 
-export const TOYS = ['🧸', '🚂', '🎸', '🛹', '🪁', '🦖'];
-export const PAPERS = ['red', 'green', 'gold', 'blue', 'purple'];
-export const TAGS = ['Grandma', 'Uncle Bob', 'Little Sam', 'Aunt Jo', 'Cousin Lee', 'Mrs Claus'];
-export const STOWAWAYS = ['🦝', '🐧'];
-export const STEPS = ['pick', 'wrap', 'label', 'check'] as const;
-export type StepKind = (typeof STEPS)[number];
+/** The stations along the belt, in the order a toy passes them: one piece each. */
+export const PARTS = ['wheels', 'lights', 'paint', 'bow'] as const;
+export type PartKind = (typeof PARTS)[number];
+/** How many kinds of each piece there are to choose from. */
+export const VARIANTS = 3;
+const NONE = -1;                 // a piece not fitted yet (a null would vanish from stored state)
 
-export interface Order { toy: number; paper: number; tag: number; stowaway: number | null; options: { toy: number[]; paper: number[]; tag: number[] } }
-export interface Gift { n: number; toy: number | null; paper: number | null; tag: number | null; stowaway: number | null }
+export interface Order { want: number[]; stowaway: boolean }
+/** A toy on the belt: what its order wants at each station, what has been fitted (NONE: nothing yet),
+ *  and who fitted it. A stowaway is no toy at all. */
+export interface Toy { n: number; want: number[]; fitted: number[]; by: PlayerId[]; stowaway: boolean }
 
 export interface ConveyorConfig {
-  quota: number; roundMs: number; overtimeMs: number; maxStations: number;
-  stowawayChance: number; rewardBase: number; rewardBonus: number;
+  quota: number; roundMs: number; overtimeMs: number;
+  /** Belt lengths a second at level 0, and how much faster each level is (a share of that). */
+  baseSpeed: number; speedStep: number; maxLevel: number;
+  /** A belt goes up a level for every so many toys ITS team has delivered, and both go up one every so long. */
+  perLevel: number; timeLevelMs: number;
+  /** How far apart toys enter (belt lengths), and how wide a station's reach is. */
+  gap: number; zone: number;
+  stowawayChance: number; rewardBase: number;
   teams?: TeamAssignment;                      // the experience's deal (else the game deals, balanced)
 }
-export const DEFAULTS: ConveyorConfig = { quota: 5, roundMs: 90_000, overtimeMs: 20_000, maxStations: 4, stowawayChance: 0.25, rewardBase: 1, rewardBonus: 0 };   // a flat point each: team duels come up in most duels, and 2 + up to 3 swamped the Party Score
+export const DEFAULTS: ConveyorConfig = {
+  quota: 8, roundMs: 90_000, overtimeMs: 20_000, baseSpeed: 0.1, speedStep: 0.14, maxLevel: 7, perLevel: 2, timeLevelMs: 25_000,
+  gap: 0.36, zone: 0.17, stowawayChance: 0.14, rewardBase: 1,
+};
 
 export interface TeamState {
   teamId: 'A' | 'B'; captainId: PlayerId; members: PlayerId[];
-  line: Line; floor: Floor<Gift>;
-  next: number;                                // the next order to start
-  delivered: number; wrong: number;
-  credit: Record<PlayerId, number>;            // contribution: shares of delivered gifts + fixes
-  fixes: Record<PlayerId, number>;
+  /** Who works each station (by PARTS): a small team's players take several, a big team shares. */
+  crew: PlayerId[][];
+  belt: Belt<Toy>;
+  delivered: number; rejected: number; stolen: number;
+  credit: Record<PlayerId, number>;            // contribution: a share of each delivered toy, and raccoons shooed
 }
 export interface ConveyorState {
   cfg: ConveyorConfig;
   stage: 'running' | 'overtime' | 'done';
+  startedAt: number;
   endsAt: number;
   orders: Order[];
   teams: [TeamState, TeamState];
   winner?: 'A' | 'B' | null;
 }
 
-export type ConveyorAction =
-  | { kind: 'pick' | 'wrap' | 'label'; item: string; choice: number }
-  | { kind: 'shoo' | 'load' | 'back'; item: string };
-
-const TICK_MS = 3000;          // a dropped phone's gift goes back to its station this often
+export type ConveyorAction = { kind: 'fit'; toy: string; variant: number } | { kind: 'shoo'; toy: string };
 
 const int = (rng: Rng, n: number) => Math.floor(rng() * n);
-function options(rng: Rng, right: number, of: number, k = 4): number[] {
-  const pool = Array.from({ length: of }, (_, i) => i).filter((i) => i !== right);
-  const pick: number[] = [right];
-  while (pick.length < Math.min(k, of)) pick.push(pool.splice(int(rng, pool.length), 1)[0]);
-  for (let i = pick.length - 1; i > 0; i--) { const j = int(rng, i + 1); [pick[i], pick[j]] = [pick[j], pick[i]]; }
-  return pick;
-}
 
 /** The orders, drawn once: both teams work the same ones in the same order. */
 export function makeOrders(rng: Rng, count: number, stowawayChance: number): Order[] {
-  return Array.from({ length: count }, () => {
-    const toy = int(rng, TOYS.length), paper = int(rng, PAPERS.length), tag = int(rng, TAGS.length);
-    const stowaway = rng() < stowawayChance ? int(rng, STOWAWAYS.length) : null;
-    return { toy, paper, tag, stowaway, options: { toy: options(rng, toy, TOYS.length), paper: options(rng, paper, PAPERS.length), tag: options(rng, tag, TAGS.length) } };
-  });
+  return Array.from({ length: count }, (_, i) => ({
+    want: PARTS.map(() => int(rng, VARIANTS)),
+    stowaway: i > 1 && rng() < stowawayChance,        // never the first two: the table is still finding its stations
+  }));
 }
 
 /** Stored state drops empty objects and lists: put them back. */
 function whole(s: ConveyorState): ConveyorState {
   return {
     ...s, orders: s.orders || [],
-    teams: s.teams.map((t) => ({
-      ...t, credit: t.credit || {}, fixes: t.fixes || {},
-      floor: { rr: t.floor?.rr || [], items: Object.fromEntries(Object.entries(t.floor?.items || {}).map(([k, it]) => [k, {
-        ...it, holder: it.holder ?? null, touched: it.touched || [],
-        // a null field can come back missing: "no toy yet", "no stowaway" is null again
-        data: { ...it.data, toy: it.data.toy ?? null, paper: it.data.paper ?? null, tag: it.data.tag ?? null, stowaway: it.data.stowaway ?? null },
-      }])) },
-    })) as [TeamState, TeamState],
+    teams: s.teams.map((t) => {
+      const belt = wholeBelt(t.belt);
+      return {
+        ...t, credit: t.credit || {}, crew: PARTS.map((_, k) => t.crew?.[k] || []),
+        belt: { ...belt, items: belt.items.map((it) => ({ ...it, data: { ...it.data, want: it.data.want || [], fitted: it.data.fitted || PARTS.map(() => NONE), by: it.data.by || PARTS.map(() => ''), stowaway: !!it.data.stowaway } })) },
+      };
+    }) as [TeamState, TeamState],
   };
 }
 
+export const zones = (c: ConveyorConfig): Zone[] => evenZones(PARTS.length, c.zone);
 const teamOf = (s: ConveyorState, pid: PlayerId) => s.teams.findIndex((t) => t.members.includes(pid));
-const orderOf = (s: ConveyorState, g: Gift) => s.orders[g.n % s.orders.length];
-const isRight = (o: Order, g: Gift) => g.toy === o.toy && g.paper === o.paper && g.tag === o.tag && g.stowaway === null;
+const isRight = (toy: Toy) => !toy.stowaway && toy.want.every((v, k) => toy.fitted[k] === v);
 
-/** Keep the line fed: a new gift when the first station is free and the line has room (at most one
- *  gift per station on the floor: a stuck station holds the line up, it doesn't pile gifts behind it). */
-function feed(s: ConveyorState, t: TeamState, available: (p: PlayerId) => boolean): TeamState {
-  let floor = t.floor, next = t.next;
-  const onFloor = Object.values(floor.items);
-  const firstBusy = onFloor.some((it) => stationOf(t.line, it.step) === 0);
-  if (!firstBusy && onFloor.length < t.line.stations.length) {
-    const o = s.orders[next % s.orders.length];
-    floor = add(floor, `${t.teamId}-${next}`, { n: next, toy: null, paper: null, tag: null, stowaway: o.stowaway });
-    next++;
-  }
-  return { ...t, floor: dispatch(t.line, floor, available), next };
+/** A belt's level at `at`: its team's own deliveries, plus the round's age. */
+export function levelAt(s: ConveyorState, t: TeamState, at: number): number {
+  const c = s.cfg;
+  return Math.max(0, Math.min(c.maxLevel, Math.floor(t.delivered / c.perLevel) + Math.floor(Math.max(0, at - s.startedAt) / c.timeLevelMs)));
+}
+export const speedAt = (c: ConveyorConfig, level: number) => c.baseSpeed * (1 + c.speedStep * level);
+/** When the round's age next pushes the belts up a level. */
+const nextTimeLevel = (s: ConveyorState, at: number) => s.startedAt + (Math.floor(Math.max(0, at - s.startedAt) / s.cfg.timeLevelMs) + 1) * s.cfg.timeLevelMs;
+
+/** Who works each station: the members in turn; a station nobody drew goes to a member who already has one. */
+export function crewFor(members: PlayerId[]): PlayerId[][] {
+  return PARTS.map((_, k) => {
+    const drawn = members.filter((_m, i) => i % PARTS.length === k);
+    return drawn.length ? drawn : [members[k % members.length]];
+  });
+}
+/** May `who` work station `k`: it is theirs, or its whole crew has dropped out and they are on the team. */
+function mayWork(ctx: { connected: (p: PlayerId) => boolean }, t: TeamState, who: PlayerId, k: number): boolean {
+  if (t.crew[k].includes(who)) return true;
+  return t.members.includes(who) && t.crew[k].every((p) => !ctx.connected(p));
 }
 
 function teamsFrom(ctx: MatchCtx, c: ConveyorConfig): TeamAssignment {
@@ -116,180 +124,221 @@ function teamsFrom(ctx: MatchCtx, c: ConveyorConfig): TeamAssignment {
   return assignTeams(ctx.duelists!, ctx.participants, ctx.rng);
 }
 
-function finish(ctx: MatchCtx, s: ConveyorState, winner: 'A' | 'B' | null, reason: string): Transition<ConveyorState> {
-  const done: ConveyorState = { ...s, stage: 'done', winner, teams: s.teams.map((t) => ({ ...t, floor: { items: {}, rr: t.floor.rr } })) as [TeamState, TeamState] };
+/** One team's belt brought up to `now`: toys enter, ride, and fall off the end onto the sleigh or into
+ *  the bin; the speed follows the level. Stops the moment the team reaches the quota (`wonAt`). */
+function runTeam(s: ConveyorState, t0: TeamState, now: number): { team: TeamState; wonAt: number | null; events: string[] } {
+  let t = t0, belt = t0.belt;
+  const events: string[] = [];
+  const make = (n: number) => {
+    const o = s.orders[n % s.orders.length];
+    return { id: `${t0.teamId}-${n}`, data: { n, want: o.want, fitted: PARTS.map(() => NONE), by: PARTS.map(() => ''), stowaway: o.stowaway } };
+  };
+  for (let turns = 0; turns < 2000; turns++) {
+    belt = atSpeed(belt, speedAt(s.cfg, levelAt(s, t, belt.asOf)));
+    const until = Math.min(now, nextTimeLevel(s, belt.asOf));
+    const r = next(belt, until, s.cfg.gap, make);
+    belt = r.belt;
+    if (!r.event) { if (until >= now) break; continue; }             // the round's age moved the level: set the speed again
+    if (r.event.kind !== 'off') continue;
+    const toy = r.event.item.data;
+    if (toy.stowaway) {
+      const took = t.delivered > 0 ? 1 : 0;
+      t = { ...t, delivered: t.delivered - took, stolen: t.stolen + 1 };
+      events.push(took ? `🎁 A raccoon made off with one of team ${t.teamId}'s toys!` : `🎁 A raccoon rode team ${t.teamId}'s belt to the end and found nothing to take`);
+    } else if (isRight(toy)) {
+      const credit = { ...t.credit };
+      for (const p of toy.by) if (p) credit[p] = (credit[p] || 0) + 1 / PARTS.length;
+      t = { ...t, delivered: t.delivered + 1, credit };
+      if (t.delivered >= s.cfg.quota) return { team: { ...t, belt }, wonAt: r.event.at, events };
+    } else t = { ...t, rejected: t.rejected + 1 };
+  }
+  return { team: { ...t, belt }, wonAt: null, events };
+}
+
+function finish(ctx: MatchCtx, s: ConveyorState, winner: 'A' | 'B' | null, reason: string, events: string[] = []): Transition<ConveyorState> {
+  const done: ConveyorState = { ...s, stage: 'done', winner, teams: s.teams.map((t): TeamState => ({ ...t, belt: { ...t.belt, speed: 0, items: [] } })) as [TeamState, TeamState] };
   const [a, b] = s.teams;
-  const metrics = { delivered: { A: a.delivered, B: b.delivered }, wrong: { A: a.wrong, B: b.wrong }, teams: s.teams.map((t) => ({ teamId: t.teamId, captainId: t.captainId, members: t.members })), workflow: WORKFLOW_VERSION };
+  const metrics = {
+    delivered: { A: a.delivered, B: b.delivered }, rejected: { A: a.rejected, B: b.rejected }, stolen: { A: a.stolen, B: b.stolen },
+    teams: s.teams.map((t) => ({ teamId: t.teamId, captainId: t.captainId, members: t.members })), belt: BELT_VERSION,
+  };
   const performance = s.teams.flatMap((t) => t.members.map((playerId) => ({ playerId, contribution: Math.round((t.credit[playerId] || 0) * 100) / 100 })));
-  const base = { gameId: conveyor.id, instanceId: ctx.instanceId, mode: ctx.mode, performance, metrics, scoringPolicyVersion: 'captain_team@1', reason };
+  const base = { gameId: conveyor.id, instanceId: ctx.instanceId, mode: ctx.mode, performance, metrics, scoringPolicyVersion: 'captain_team@2', reason };
   const duelists = ctx.duelists!;
   if (!winner) {
-    return { state: done, result: { ...base, status: 'requires_tiebreaker', winners: [], losers: [], duel: { duelists, resolutionReason: reason } }, events: [`🎁 Gift Conveyor: ${reason}`] };
+    return { state: done, result: { ...base, status: 'requires_tiebreaker', winners: [], losers: [], duel: { duelists, resolutionReason: reason } }, events: [...events, `🎁 Gift Conveyor: ${reason}`] };
   }
   const win = s.teams.find((t) => t.teamId === winner)!, lose = s.teams.find((t) => t.teamId !== winner)!;
-  const top = Math.max(0, ...win.members.map((p) => win.credit[p] || 0));
-  const rewards = win.members.map((playerId) => ({
-    playerId, points: s.cfg.rewardBase + (top > 0 ? Math.round((s.cfg.rewardBonus * (win.credit[playerId] || 0)) / top) : 0), reason: 'the winning team',
-  }));
+  const rewards = win.members.map((playerId) => ({ playerId, points: s.cfg.rewardBase, reason: 'the winning team' }));
   const result: GameResult = {
     ...base, status: 'resolved', winners: win.members, losers: lose.members, rewards,
     duel: { duelists, winningDuelistId: win.captainId, losingDuelistId: lose.captainId, resolutionReason: reason },
   };
-  return { state: done, result, events: [`🎁 Gift Conveyor: team ${win.teamId} (${reason})`] };
+  return { state: done, result, events: [...events, `🎁 Gift Conveyor: team ${win.teamId} (${reason})`] };
 }
 
-/** The bell: more gifts wins; level → overtime once; then fewer wrong gifts; then the host. */
-function bell(ctx: MatchCtx, s: ConveyorState): Transition<ConveyorState> {
-  const [a, b] = s.teams;
-  if (a.delivered !== b.delivered) return finish(ctx, s, a.delivered > b.delivered ? 'A' : 'B', 'more gifts on the sleigh at the bell');
-  if (s.stage === 'running') {
-    const state = { ...s, stage: 'overtime' as const, endsAt: ctx.now + s.cfg.overtimeMs };
-    return { state, deadlines: [{ id: 'end', at: state.endsAt }, { id: 'tick', at: ctx.now + TICK_MS }], events: ['🎁 Level! Overtime'] };
+/** What is due next by itself: a toy entering or leaving either belt, the level going up, the bell. */
+function deadlines(s: ConveyorState) {
+  const soonest = Math.min(...s.teams.map((t) => nextAt(atSpeed(t.belt, speedAt(s.cfg, levelAt(s, t, t.belt.asOf))))), nextTimeLevel(s, Math.max(...s.teams.map((t) => t.belt.asOf))));
+  return [{ id: 'end', at: s.endsAt }, ...(soonest < s.endsAt ? [{ id: 'tick', at: soonest }] : [])];
+}
+
+/** Both belts brought up to `now` (never past the bell), and everything that follows from it: a team
+ *  reaching the quota, the bell, overtime. `over`: the game ended (its result). */
+function settle(ctx: MatchCtx, s: ConveyorState): { state: ConveyorState; over?: Transition<ConveyorState>; events: string[] } {
+  const now = Math.min(ctx.now, s.endsAt);
+  const ran = s.teams.map((t) => runTeam(s, t, now));
+  const events = ran.flatMap((r) => r.events);
+  const state: ConveyorState = { ...s, teams: ran.map((r) => r.team) as [TeamState, TeamState] };
+  const [a, b] = ran;
+  if (a.wonAt != null || b.wonAt != null) {
+    const first = b.wonAt == null || (a.wonAt != null && a.wonAt <= b.wonAt) ? 'A' : 'B';
+    return { state, events, over: finish(ctx, state, first, `first to ${s.cfg.quota} toys`, events) };
   }
-  if (a.wrong !== b.wrong) return finish(ctx, s, a.wrong < b.wrong ? 'A' : 'B', 'level after overtime: fewer wrong gifts');
-  return finish(ctx, s, null, 'level after overtime, with as many wrong gifts');
+  const [ta, tb] = state.teams;
+  // overtime is sudden: the moment one team is ahead, it has won
+  if (s.stage === 'overtime' && ta.delivered !== tb.delivered) return { state, events, over: finish(ctx, state, ta.delivered > tb.delivered ? 'A' : 'B', 'ahead in overtime', events) };
+  if (ctx.now < s.endsAt) return { state, events };
+  // the bell: more toys wins; level → overtime once; then fewer rejects; then the host
+  if (ta.delivered !== tb.delivered) return { state, events, over: finish(ctx, state, ta.delivered > tb.delivered ? 'A' : 'B', 'more toys on the sleigh at the bell', events) };
+  if (s.stage === 'running') {
+    const extra: ConveyorState = { ...state, stage: 'overtime', endsAt: ctx.now + s.cfg.overtimeMs };
+    return { state: extra, events: [...events, '🎁 Level! Overtime: the first team ahead wins'] };
+  }
+  if (ta.rejected !== tb.rejected) return { state, events, over: finish(ctx, state, ta.rejected < tb.rejected ? 'A' : 'B', 'level after overtime: fewer rejects', events) };
+  return { state, events, over: finish(ctx, state, null, 'level after overtime, with as many rejects', events) };
 }
 
 export const conveyor: GameDefinition<ConveyorConfig, ConveyorState, ConveyorAction> = {
-  id: 'gift_conveyor', version: '1', label: 'The Great Gift Conveyor', emoji: '🎁',
-  rules: 'The duellists captain two teams. Pick, wrap, label and check gifts, phone to phone, and load the right ones onto the sleigh first. Watch for stowaways!',
-  categories: ['team_based', 'cross_device', 'asymmetric_cooperative'],
+  id: 'gift_conveyor', version: '2', label: 'The Great Gift Conveyor', emoji: '🎁',
+  rules: 'The duellists captain two teams, each with a conveyor on the TV. Unfinished toys roll past your station: fit the piece each one asks for before it has gone by. Finished toys go on the sleigh; first team to fill it wins. The better you do, the faster your belt runs. Shoo off any raccoon!',
+  categories: ['team_based', 'cross_device', 'real_time_action'],
   supportedModes: ['captain_teams'],
   compatibility: {
-    version: 1, environments: ['in_person', 'remote', 'hybrid'], displayRole: 'required_shared_world', topology: ['phone_to_phone', 'phone_to_shared_display'],
+    version: 1, environments: ['in_person', 'remote', 'hybrid'], displayRole: 'required_shared_world', topology: ['phone_to_shared_display'],
     devices: [{ feature: 'touch', required: false, fallback: 'buttons work with a mouse or keyboard' }], players: { min: 2, max: 40 }, modes: ['captain_teams'],
   },
 
   validateConfig(raw) {
     const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<ConveyorConfig>;
     const c: ConveyorConfig = { ...DEFAULTS, ...r };
-    if (!(c.quota >= 1 && c.roundMs > 0 && c.overtimeMs > 0 && c.maxStations >= 1 && c.stowawayChance >= 0 && c.stowawayChance <= 1)) throw new Error('bad Gift Conveyor settings');
+    const ok = c.quota >= 1 && c.roundMs > 0 && c.overtimeMs > 0 && c.baseSpeed > 0 && c.baseSpeed <= 1 && c.speedStep >= 0 && c.maxLevel >= 0 && c.perLevel >= 1
+      && c.timeLevelMs > 0 && c.gap > 0.05 && c.zone > 0 && c.zone < 1 / (PARTS.length + 1) && c.zone < c.gap && c.stowawayChance >= 0 && c.stowawayChance <= 1;
+    if (!ok) throw new Error('bad Gift Conveyor settings');
     return c;
   },
 
-  // overtime, then fewer wrong gifts, settle nearly every tie; a dead level goes to the host
+  // overtime, then fewer rejects, settle nearly every tie; a dead level goes to the host
   canAlwaysResolve: (mode) => (mode === 'captain_teams' ? { ok: true } : { ok: false, reason: 'captains and teams only' }),
 
   createInitialState(ctx, c) {
     if (!ctx.duelists) throw new Error('the Gift Conveyor needs two captains');
     const deal = teamsFrom(ctx, c);
-    const stations = Math.max(1, Math.min(c.maxStations, ...deal.teams.map((t) => t.memberIds.length)));
-    const orders = makeOrders(ctx.rng, c.quota * 4, c.stowawayChance);
-    const s0: ConveyorState = { cfg: c, stage: 'running', endsAt: ctx.now + c.roundMs, orders, teams: [] as unknown as [TeamState, TeamState] };
-    s0.teams = deal.teams.map((t) => feed(s0, {
-      teamId: t.teamId, captainId: t.captainId, members: t.memberIds, line: layout([...STEPS], stations, t.memberIds),
-      floor: { items: {}, rr: [] }, next: 0, delivered: 0, wrong: 0, credit: {}, fixes: {},
-    }, ctx.connected)) as [TeamState, TeamState];
-    return { state: s0, deadlines: [{ id: 'end', at: s0.endsAt }, { id: 'tick', at: ctx.now + TICK_MS }], events: [`🎁 Team ${deal.teams[0].teamId} vs team ${deal.teams[1].teamId}: go!`] };
+    const orders = makeOrders(ctx.rng, Math.max(24, c.quota * 4), c.stowawayChance);
+    const state: ConveyorState = {
+      cfg: c, stage: 'running', startedAt: ctx.now, endsAt: ctx.now + c.roundMs, orders,
+      teams: deal.teams.map((t) => ({
+        teamId: t.teamId, captainId: t.captainId, members: t.memberIds, crew: crewFor(t.memberIds),
+        belt: newBelt<Toy>(ctx.now, speedAt(c, 0)), delivered: 0, rejected: 0, stolen: 0, credit: {},
+      })) as [TeamState, TeamState],
+    };
+    return { state, deadlines: deadlines(state), events: [`🎁 Team ${deal.teams[0].teamId} vs team ${deal.teams[1].teamId}: go!`] };
   },
 
-  validateAction(_ctx, raw, who, a0) {
-    const s = whole(raw);
-    const a = a0 as { kind?: unknown; item?: unknown; choice?: unknown } | null;
-    if (s.stage === 'done') return { ok: false, error: 'The sleigh has left' };
-    const ti = teamOf(s, who);
+  validateAction(ctx, raw, who, a0) {
+    const s0 = whole(raw);
+    const a = a0 as { kind?: unknown; toy?: unknown; variant?: unknown } | null;
+    if (s0.stage === 'done') return { ok: false, error: 'The sleigh has left' };
+    const ti = teamOf(s0, who);
     if (ti < 0) return { ok: false, error: "You're not on a team" };
-    const t = s.teams[ti];
-    const it = typeof a?.item === 'string' ? t.floor.items[a.item] : undefined;
-    if (!it) return { ok: false, error: 'That gift has moved on' };
-    if (it.holder !== who) return { ok: false, error: "That gift isn't on your table" };
-    const step = STEPS[it.step];
-    const o = orderOf(s, it.data);
-    if (a?.kind !== step && !(step === 'check' && (a?.kind === 'shoo' || a?.kind === 'load' || a?.kind === 'back'))) return { ok: false, error: `This gift needs ${step === 'check' ? 'checking' : step === 'pick' ? 'a toy' : step === 'wrap' ? 'wrapping' : 'a label'}` };
-    if (step === 'pick' || step === 'wrap' || step === 'label') {
-      const opts = o.options[step === 'pick' ? 'toy' : step === 'wrap' ? 'paper' : 'tag'];
-      if (typeof a.choice !== 'number' || !opts.includes(a.choice)) return { ok: false, error: 'Pick one of these' };
-      return { ok: true, action: { kind: step, item: it.id, choice: a.choice } };
-    }
-    if (a.kind === 'shoo' && it.data.stowaway === null) return { ok: false, error: 'Nothing to shoo' };
-    if (a.kind === 'load' && it.data.stowaway !== null) return { ok: false, error: `Shoo the ${STOWAWAYS[it.data.stowaway] === '🦝' ? 'raccoon' : 'penguin'} out first!` };
-    return { ok: true, action: { kind: a.kind as 'shoo' | 'load' | 'back', item: it.id } };
+    // as the belts stand right now
+    const now = settle(ctx, s0);
+    if (now.over) return { ok: false, error: 'The sleigh has left' };
+    const t = now.state.teams[ti];
+    const it = typeof a?.toy === 'string' ? t.belt.items.find((x) => x.id === a.toy) : undefined;
+    if (!it) return { ok: false, error: 'That one has gone by' };
+    const k = zoneOf(zones(s0.cfg), it.pos);
+    if (k < 0) return { ok: false, error: 'It is between stations' };
+    if (!mayWork(ctx, t, who, k)) return { ok: false, error: 'That is not your station' };
+    if (a?.kind === 'shoo') return it.data.stowaway ? { ok: true, action: { kind: 'shoo', toy: it.id } } : { ok: false, error: 'Nothing to shoo' };
+    if (a?.kind !== 'fit') return { ok: false, error: 'Fit a piece, or shoo' };
+    if (it.data.stowaway) return { ok: false, error: 'That is a raccoon: shoo it off!' };
+    if (!Number.isInteger(a.variant) || (a.variant as number) < 0 || (a.variant as number) >= VARIANTS) return { ok: false, error: 'Pick one of the pieces' };
+    if (it.data.fitted[k] !== NONE) return { ok: false, error: 'That piece is already on' };
+    return { ok: true, action: { kind: 'fit', toy: it.id, variant: a.variant as number } };
   },
 
   reduce(ctx, raw, who, a) {
-    const s = whole(raw);
+    const s0 = whole(raw);
+    const now = settle(ctx, s0);
+    if (now.over) return now.over;
+    const s = now.state;
     const ti = teamOf(s, who);
     let t = s.teams[ti];
-    const it = t.floor.items[a.item];
-    const o = orderOf(s, it.data);
-    let events: string[] | undefined;
-    if (a.kind === 'pick' || a.kind === 'wrap' || a.kind === 'label') {
-      const field = a.kind === 'pick' ? 'toy' : a.kind === 'wrap' ? 'paper' : 'tag';
-      const r = complete(t.line, t.floor, it.id, who, { ...it.data, [field]: a.choice }, undefined, ctx.connected);
-      if ('error' in r) return { state: s };
-      t = { ...t, floor: r.floor };
-    } else if (a.kind === 'shoo') {
-      t = { ...t, floor: { ...t.floor, items: { ...t.floor.items, [it.id]: { ...it, data: { ...it.data, stowaway: null } } } }, fixes: { ...t.fixes, [who]: (t.fixes[who] || 0) + 1 },
-        credit: { ...t.credit, [who]: (t.credit[who] || 0) + 0.25 } };
-    } else if (a.kind === 'back') {
-      // back to the start of the line, the same order, emptied (a fix if it was wrong)
-      const wasWrong = !isRight(o, it.data);
-      const r = complete(t.line, t.floor, it.id, who, { ...it.data, toy: null, paper: null, tag: null }, 0, ctx.connected);
-      if ('error' in r) return { state: s };
-      t = { ...t, floor: r.floor, ...(wasWrong ? { fixes: { ...t.fixes, [who]: (t.fixes[who] || 0) + 1 }, credit: { ...t.credit, [who]: (t.credit[who] || 0) + 0.25 } } : {}) };
+    const it = t.belt.items.find((x) => x.id === a.toy);
+    if (!it) return { state: s, deadlines: deadlines(s), events: now.events };
+    const k = zoneOf(zones(s.cfg), it.pos);
+    let items: BeltItem<Toy>[];
+    if (a.kind === 'shoo') {
+      items = t.belt.items.filter((x) => x !== it);
+      t = { ...t, credit: { ...t.credit, [who]: (t.credit[who] || 0) + 0.25 } };
     } else {
-      // load it on the sleigh: a right gift counts; each step's worker gets an equal share of it
-      const right = isRight(o, it.data);
-      const credit = { ...t.credit };
-      if (right) for (const tch of [...it.touched, { by: who, step: it.step }]) credit[tch.by] = (credit[tch.by] || 0) + 1 / STEPS.length;
-      t = { ...t, floor: dispatch(t.line, remove(t.floor, it.id), ctx.connected), delivered: t.delivered + (right ? 1 : 0), wrong: t.wrong + (right ? 0 : 1), credit };
-      events = right ? undefined : [`🎁 Team ${t.teamId} loaded a wrong gift!`];
+      const fitted = it.data.fitted.map((v, i) => (i === k ? a.variant : v)), by = it.data.by.map((p, i) => (i === k ? who : p));
+      items = t.belt.items.map((x) => (x === it ? { ...x, data: { ...x.data, fitted, by } } : x));
     }
-    t = feed(s, t, ctx.connected);
-    const teams = s.teams.map((x, i) => (i === ti ? t : x)) as [TeamState, TeamState];
-    const next: ConveyorState = { ...s, teams };
-    if (t.delivered >= s.cfg.quota) return finish(ctx, next, t.teamId, `first to ${s.cfg.quota} gifts`);
-    return { state: next, ...(events ? { events } : {}) };
+    t = { ...t, belt: { ...t.belt, items } };
+    const state: ConveyorState = { ...s, teams: s.teams.map((x, i) => (i === ti ? t : x)) as [TeamState, TeamState] };
+    return { state, deadlines: deadlines(state), ...(now.events.length ? { events: now.events } : {}) };
   },
 
-  onDeadline(ctx, raw, id) {
+  onDeadline(ctx, raw) {
     const s = whole(raw);
     if (s.stage === 'done') return { state: s };
-    if (id === 'end') return bell(ctx, s);
-    // tick: gifts held by phones that dropped out go back to their station's next person
-    const teams = s.teams.map((t) => feed(s, { ...t, floor: release(t.line, t.floor, (p) => !ctx.connected(p), ctx.connected) }, ctx.connected)) as [TeamState, TeamState];
-    return { state: { ...s, teams }, deadlines: [{ id: 'end', at: s.endsAt }, { id: 'tick', at: ctx.now + TICK_MS }] };
+    const now = settle(ctx, s);
+    if (now.over) return now.over;
+    return { state: now.state, deadlines: deadlines(now.state), ...(now.events.length ? { events: now.events } : {}) };
   },
 
-  offers(_ctx, raw, who) {
-    const s = whole(raw);
-    if (s.stage === 'done') return [];
-    const ti = teamOf(s, who);
+  offers(ctx, raw, who) {
+    const s0 = whole(raw);
+    if (s0.stage === 'done') return [];
+    const ti = teamOf(s0, who);
     if (ti < 0) return [];
-    const it = holding(s.teams[ti].floor, who);
-    if (!it) return [];
-    const o = orderOf(s, it.data);
-    const step = STEPS[it.step];
-    // a simulated hand gets it right (the simulator decides when it slips)
-    if (step === 'pick') return [{ kind: 'pick', item: it.id, choice: o.toy }];
-    if (step === 'wrap') return [{ kind: 'wrap', item: it.id, choice: o.paper }];
-    if (step === 'label') return [{ kind: 'label', item: it.id, choice: o.tag }];
-    if (it.data.stowaway !== null) return [{ kind: 'shoo', item: it.id }];
-    return [isRight(o, it.data) ? { kind: 'load', item: it.id } : { kind: 'back', item: it.id }];
+    const now = settle(ctx, s0);
+    if (now.over) return [];
+    const t = now.state.teams[ti], zs = zones(s0.cfg);
+    // a simulated hand fits the right piece on whatever is at one of its stations (the simulator decides when it slips)
+    for (const it of t.belt.items) {
+      const k = zoneOf(zs, it.pos);
+      if (k < 0 || !mayWork(ctx, t, who, k)) continue;
+      if (it.data.stowaway) return [{ kind: 'shoo', toy: it.id }];
+      if (it.data.fitted[k] === NONE) return [{ kind: 'fit', toy: it.id, variant: it.data.want[k] }];
+    }
+    return [];
   },
 
   projectForPlayer(raw, pid, now) {
     const s = whole(raw);
     const ti = teamOf(s, pid);
-    const mine = ti >= 0 ? holding(s.teams[ti].floor, pid) : null;
-    const job = mine && {
-      item: mine.id, step: STEPS[mine.step], order: (({ options: _o, ...rest }) => rest)(orderOf(s, mine.data)),
-      options: orderOf(s, mine.data).options, gift: mine.data,
-    };
-    return { ...publicView(s, now), myTeam: ti >= 0 ? s.teams[ti].teamId : null, myStation: ti >= 0 ? s.teams[ti].line.workers.findIndex((w) => w.includes(pid)) : -1, job };
+    const mine = ti >= 0 ? PARTS.map((_, k) => k).filter((k) => s.teams[ti].crew[k].includes(pid)) : [];
+    return { ...publicView(s, now), myTeam: ti >= 0 ? s.teams[ti].teamId : null, myStations: mine };
   },
   projectForTv: (raw, now) => publicView(whole(raw), now),
   projectForHost: (raw, now) => publicView(whole(raw), now),
 };
 
-/** Both factories as the TV draws them: the line, who works where, where each gift is. */
-function publicView(s: ConveyorState, _now: number): ConveyorView {
+/** Both belts as every screen draws them: where each toy was at `asOf` and how fast the belt runs (a
+ *  screen works out where it is now), what each toy wants and has, who works which station. */
+function publicView(s: ConveyorState, now: number): ConveyorView {
   return {
-    stage: s.stage, endsAt: s.endsAt, quota: s.cfg.quota, winner: s.winner ?? null, steps: STEPS,
-    teams: s.teams.map((t) => ({
-      teamId: t.teamId, captainId: t.captainId, members: t.members, delivered: t.delivered, wrong: t.wrong,
-      stations: t.line.stations.map((steps, i) => ({ steps: steps.map((k) => STEPS[k]), workers: t.line.workers[i] })),
-      gifts: Object.values(t.floor.items).map((it) => ({ id: it.id, step: it.step, station: stationOf(t.line, it.step), working: it.holder !== null, stowaway: it.data.stowaway })),
-    })),
+    stage: s.stage, endsAt: s.endsAt, quota: s.cfg.quota, winner: s.winner ?? null, parts: PARTS, variants: VARIANTS, zones: zones(s.cfg),
+    teams: s.teams.map((t) => {
+      const level = levelAt(s, t, Math.min(now, s.endsAt));
+      return {
+        teamId: t.teamId, captainId: t.captainId, members: t.members, crew: t.crew, delivered: t.delivered, rejected: t.rejected, stolen: t.stolen,
+        level, speed: s.stage === 'done' ? 0 : t.belt.speed, asOf: t.belt.asOf,
+        toys: t.belt.items.map((it) => ({ id: it.id, pos: it.pos, want: it.data.want, fitted: it.data.fitted, stowaway: it.data.stowaway })),
+      };
+    }),
   };
 }

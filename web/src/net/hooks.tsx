@@ -31,6 +31,20 @@ export function useServerOffset(): number {
   return useContext(OffsetCtx);
 }
 
+/** The room's time, re-rendered on every animation frame: for a small screen whose picture is drawn from
+ *  the time itself (a belt and the few things riding it). Anything bigger moves outside React instead. */
+export function useFrameNow(): number {
+  const offset = useServerOffset();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const loop = () => { tick((n) => (n + 1) % 1_000_000); raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return Date.now() + offset;
+}
+
 /** The room's time (this device's clock + the offset), re-rendered every `ms`: a screen's countdown.
  *  Read afresh on every render, so a render for any other reason has the time as it is then. */
 export function useServerNow(ms = 250): number {
