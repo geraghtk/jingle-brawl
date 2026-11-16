@@ -27,7 +27,7 @@ export function reprisalTargets(game: Game, excludedGiftId: GiftId | undefined, 
     id !== excludedGiftId && g.ownerId !== playerId && (g.ownerId === MISFIT || !!game.players?.[g.ownerId]));
 }
 
-/** Grinch's Gambit targets: another PLAYER's gift (the Misfit pile has no one to duel). */
+/** Grump's Gambit targets: another PLAYER's gift (the Misfit pile has no one to duel). */
 export function gambitTargets(game: Game, openedGiftId: GiftId | undefined, openerId: PlayerId): [GiftId, Gift][] {
   return entries(game.gifts).filter(([id, g]) =>
     id !== openedGiftId && g.ownerId !== openerId && g.ownerId !== MISFIT && !!game.players?.[g.ownerId]);

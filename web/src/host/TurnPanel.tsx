@@ -301,12 +301,12 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
             <button className="btn btn-gold" onClick={() => {
               const targets = gambitTargets(game, t.giftId, t.openerId!);
               if (!targets.length) return alert('No other gifts to challenge!');
-              setModal(<OptionList title="😈 Grinch's Gambit" intro={`${opener} can challenge anyone's gift!`} onCancel={close}
+              setModal(<OptionList title="😈 Grump's Gambit" intro={`${opener} can challenge anyone's gift!`} onCancel={close}
                 options={targets.map(([id, g]) => {
                   const cost = minCost(cfg, g.naughtyLevel);
                   return { key: id, title: g.name, desc: `Owner: ${nm(game, g.ownerId)} • Cost: ${cost} chip${cost > 1 ? 's' : ''}`, onPick: () => { close(); send({ type: 'gambit', giftId: id }); } };
                 })} />);
-            }}><Icon name="gambit" /> Grinch's Gambit</button>
+            }}><Icon name="gambit" /> Grump's Gambit</button>
           </>} />,
         };
       }

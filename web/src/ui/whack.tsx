@@ -1,11 +1,11 @@
 // Whack-an-Elf art (web/public/art/whack, rendered in Blender by tools/art/whack.py): a snowy hole in
-// two layers so a pop-up sinks behind the front lip, the elf / golden elf / Grinch and their bonked
+// two layers so a pop-up sinks behind the front lip, the elf / golden elf / Grump and their bonked
 // faces, and a candy-cane mallet that swings on a hit. Every picture shares the hole's camera.
 import type { WhackKind } from '../core/party';
 
 export type HoleState = 'down' | 'up' | 'hit';
-const KINDS: WhackKind[] = ['elf', 'gold', 'grinch'];
-const ALT: Record<WhackKind, string> = { elf: 'elf', gold: 'golden elf', grinch: 'Grinch' };
+const KINDS: WhackKind[] = ['elf', 'gold', 'grump'];
+const ALT: Record<WhackKind, string> = { elf: 'elf', gold: 'golden elf', grump: 'Grump' };
 export const WHACK_ART = ['hole-back', 'hole-front', 'mallet', ...KINDS, ...KINDS.map((k) => `${k}-bonk`)];
 export const whackArt = (name: string) => `art/whack/${name}.webp`;
 
@@ -31,7 +31,7 @@ export function WhackHole({ kind, state }: { kind?: WhackKind; state: HoleState 
 
 /** What each pop-up is worth, for the intro screens. */
 export function WhackLegend() {
-  const rows: [WhackKind, string][] = [['elf', '+1 to +3'], ['gold', 'Double!'], ['grinch', '-3']];
+  const rows: [WhackKind, string][] = [['elf', '+1 to +3'], ['gold', 'Double!'], ['grump', '-3']];
   return (
     <div className="wh-legend">
       {rows.map(([k, v]) => (

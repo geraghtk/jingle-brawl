@@ -427,7 +427,7 @@ class Arena {
             this.record(opener, 'keep-or-gambit', d);
             const page = this.agents[opener].page;
             if (d.action === 'gambit') {
-              if (await this.click(page, sel('gambit'), name(opener), 'Grinch\'s Gambit')) {
+              if (await this.click(page, sel('gambit'), name(opener), 'Grump\'s Gambit')) {
                 if (await this.click(page, sel(`gambit-target-${d.giftId}`), name(opener), 'Gambit target')) return;
                 await this.click(page, sel('cancel-gambit'), name(opener), 'Cancel Gambit'); // back to Keep
               }
@@ -664,17 +664,17 @@ class Arena {
       for (const key of Object.keys(seen)) if (!up.includes(key)) delete seen[key];
       for (const key of up) seen[key] ??= now + p.reflexMs * (0.6 + a.random() * 0.8);
       const ready = up.filter((key) => seen[key] <= now);
-      const good = ready.filter((key) => !key.endsWith('|grinch'));
-      const bad = ready.filter((key) => key.endsWith('|grinch'));
+      const good = ready.filter((key) => !key.endsWith('|grump'));
+      const bad = ready.filter((key) => key.endsWith('|grump'));
       const target = bad.length && a.random() < p.slip ? bad[0] : good[0];
       if (target) {
         delete seen[target];
         await a.page.locator(`#party-card .whack-cell[data-cell="${target.split('|')[0]}"]`).dispatchEvent('pointerdown').catch(() => {});
-        if (target.endsWith('|grinch')) slips++; else hits++;
+        if (target.endsWith('|grump')) slips++; else hits++;
       }
       await sleep(60);
     }
-    this.record(pid, 'whack', { hits, slips, thought: `whacked ${hits} el${hits === 1 ? 'f' : 'ves'}${slips ? `, hit the Grinch ${slips}×` : ''}` });
+    this.record(pid, 'whack', { hits, slips, thought: `whacked ${hits} el${hits === 1 ? 'f' : 'ves'}${slips ? `, hit the Grump ${slips}×` : ''}` });
   }
 
   /** One agent scribbles something and hands it in. */

@@ -92,7 +92,7 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test("cancelling Grinch's Gambit returns the opener to Keep/Gambit", async ({ browser }) => {
+  test("cancelling Grump's Gambit returns the opener to Keep/Gambit", async ({ browser }) => {
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
       await keepRound(host, roomCode, pages, 'First Gift');
@@ -103,7 +103,7 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.waitForTurnPhase(roomCode, 'reveal');
 
       const phone = pages[opener];
-      await phone.getByRole('button', { name: /Grinch's Gambit/ }).click();
+      await phone.getByRole('button', { name: /Grump's Gambit/ }).click();
       await expect(phone.locator('#status-card')).toContainText(/Choose a gift to challenge/);
       await phone.getByRole('button', { name: /Cancel/ }).click();
       await expect(phone.getByRole('button', { name: /Keep My Gift/ })).toBeVisible();
@@ -123,7 +123,7 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.allBid(pages, opener, {});
       await H.revealBids(host);
       await H.waitForTurnPhase(roomCode, 'reveal');
-      await pages[opener].getByRole('button', { name: /Grinch's Gambit/ }).click();
+      await pages[opener].getByRole('button', { name: /Grump's Gambit/ }).click();
       await pages[opener].locator('#status-card').getByText('Owned Gift').click();
       await H.waitForGame(roomCode, (g) => (g.currentTurn?.isGambit ? g : false), { label: 'gambit duel' });
 
@@ -140,7 +140,7 @@ test.describe('Regressions (2026-10 review)', () => {
     }
   });
 
-  test("Grinch's Gambit never offers a Misfit-pile gift (there is no owner to duel)", async ({ browser }) => {
+  test("Grump's Gambit never offers a Misfit-pile gift (there is no owner to duel)", async ({ browser }) => {
     const { host, roomCode, pages, cleanup, assertNoPageErrors } = await setup(browser);
     try {
       await keepRound(host, roomCode, pages, 'Owned Gift');
@@ -155,7 +155,7 @@ test.describe('Regressions (2026-10 review)', () => {
       await H.waitForTurnPhase(roomCode, 'reveal');
 
       const phone = pages[opener];
-      await phone.getByRole('button', { name: /Grinch's Gambit/ }).click();
+      await phone.getByRole('button', { name: /Grump's Gambit/ }).click();
       const card = phone.locator('#status-card');
       await expect(card).toContainText('Owned Gift');
       await expect(card).not.toContainText('Old Fruitcake');
@@ -498,7 +498,7 @@ test.describe('Regressions (2026-10 review)', () => {
       expect(turn.openerId).toBe(p.Alice.id);
       await H.allBid(pages, 'Alice', {});
       await H.revealBids(host);
-      await pages.Alice.getByRole('button', { name: /Grinch's Gambit/ }).click();
+      await pages.Alice.getByRole('button', { name: /Grump's Gambit/ }).click();
       const card = pages.Alice.locator('#status-card');
       await expect(card.locator('.action-option', { hasText: 'Naughty Two' })).toContainText('2 chips');
       await expect(card.locator('.action-option', { hasText: 'Plain One' })).toContainText('0 chip');
@@ -757,10 +757,10 @@ test.describe('Regressions (2026-10 review)', () => {
   const partyPhase = (roomCode, phase) =>
     H.waitForGame(roomCode, (g) => (g.minigame?.phase === phase ? g.minigame : false), { label: `party ${phase}`, timeout: 20000 });
 
-  async function whack(page, ms, { avoidGrinch = true } = {}) {
+  async function whack(page, ms, { avoidGrump = true } = {}) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
-      const sel = avoidGrinch ? '#party-card .whack-cell.up:not([data-kind="grinch"])' : '#party-card .whack-cell.up';
+      const sel = avoidGrump ? '#party-card .whack-cell.up:not([data-kind="grump"])' : '#party-card .whack-cell.up';
       const cell = page.locator(sel).first();
       if (await cell.count()) await cell.dispatchEvent('pointerdown').catch(() => {});
       await page.waitForTimeout(60);

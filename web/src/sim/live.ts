@@ -220,7 +220,7 @@ export class LiveTable {
     switch (o.type) {
       case 'bid': ok = await this.click(page, tid(`bid-${o.amount}`), `bid ${o.amount}`) && await this.click(page, tid('seal-bid'), 'Seal bid'); break;
       case 'keep': ok = await this.click(page, tid('keep-gift'), 'Keep My Gift'); break;
-      case 'gambit': ok = await this.click(page, tid('gambit'), "Grinch's Gambit") && await this.click(page, tid(`gambit-target-${o.giftId}`), 'Gambit target'); break;
+      case 'gambit': ok = await this.click(page, tid('gambit'), "Grump's Gambit") && await this.click(page, tid(`gambit-target-${o.giftId}`), 'Gambit target'); break;
       case 'fight': case 'yield': ok = await this.click(page, tid(o.type), o.type); break;
       case 'pick_duel': ok = await this.click(page, tid(`duel-game-${o.index}`), o.name); break;
       case 'spin': ok = await this.click(page, tid('duel-game-spin'), 'Let the wheel pick'); break;
@@ -285,7 +285,7 @@ export class LiveTable {
   }
 
   /** Whack-an-Elf on the real phone until time's up: an elf can be hit once it has been up for
-   *  this person's reaction time, and now and then they tap the Grinch by mistake. */
+   *  this person's reaction time, and now and then they tap the Grump by mistake. */
   private async whack(who: string, page: Page) {
     const mg = this.game.minigame as PartyGame;
     const seen: Record<string, number> = {};
@@ -295,8 +295,8 @@ export class LiveTable {
       for (const k of Object.keys(seen)) if (!up.includes(k)) delete seen[k];
       for (const k of up) seen[k] ??= now + this.physics.reaction(who);
       const ready = up.filter((k) => seen[k] <= now);
-      const good = ready.filter((k) => !k.endsWith('|grinch'));
-      const bad = ready.filter((k) => k.endsWith('|grinch'));
+      const good = ready.filter((k) => !k.endsWith('|grump'));
+      const bad = ready.filter((k) => k.endsWith('|grump'));
       const target = bad.length && this.physics.slips(who) ? bad[0] : good[0];
       if (target) {
         delete seen[target];

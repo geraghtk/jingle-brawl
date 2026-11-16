@@ -112,7 +112,7 @@ function Idle() {
         <div className="help-title"><Icon name="idea" /> What happens next?</div>
         <div className="help-content">
           When drawn, you'll open a gift. Others can <strong>bid chips</strong> to challenge you for it.<br />
-          No bids? Use <strong>Grinch's Gambit</strong> to steal someone else's gift!
+          No bids? Use <strong>Grump's Gambit</strong> to steal someone else's gift!
         </div>
       </div>
     </Card>
@@ -177,7 +177,7 @@ function OpenerWaiting({ t }: { t: Turn }) {
         <div className="help-content">
           Others are deciding if they want to <strong>challenge you</strong> for this gift.<br /><br />
           <strong>If someone bids:</strong> Highest bidder fights you in a duel.<br />
-          <strong>If no one bids:</strong> You keep it OR use <strong>Grinch's Gambit</strong> to steal someone else's gift!
+          <strong>If no one bids:</strong> You keep it OR use <strong>Grump's Gambit</strong> to steal someone else's gift!
         </div>
       </div>
     </Card>
@@ -215,18 +215,18 @@ function Reveal({ t }: { t: Turn }) {
       <Card tone="your-turn">
         <div className="status-icon"><Icon name="gift" /></div>
         <div className="status-title">No Challengers!</div>
-        <div className="status-desc">Nobody bid. You can keep your gift or use Grinch's Gambit!</div>
+        <div className="status-desc">Nobody bid. You can keep your gift or use Grump's Gambit!</div>
         <div className="help-box success">
           <div className="help-title">Your Options</div>
           <div className="help-content">
             <strong>Keep Gift:</strong> It's yours! Move on to next player.<br />
-            <strong>Grinch's Gambit:</strong> Pay the Minimum Cost to challenge anyone else's gift!
+            <strong>Grump's Gambit:</strong> Pay the Minimum Cost to challenge anyone else's gift!
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
           <button className="btn btn-primary" data-testid="keep-gift" onClick={() => send({ type: 'keep' })}><Icon name="gift" /> Keep My Gift</button>
           {canGambit
-            ? <button className="btn btn-gold" data-testid="gambit" onClick={() => setPicking(true)}><Icon name="gambit" /> Grinch's Gambit</button>
+            ? <button className="btn btn-gold" data-testid="gambit" onClick={() => setPicking(true)}><Icon name="gambit" /> Grump's Gambit</button>
             : <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No other gifts to challenge yet</div>}
         </div>
       </Card>
@@ -289,7 +289,7 @@ function GambitPicker({ t, onCancel }: { t: Turn; onCancel: () => void }) {
   return (
     <Card tone="your-turn">
       <div className="status-icon"><Icon name="naughty" /></div>
-      <div className="status-title">Grinch's Gambit!</div>
+      <div className="status-title">Grump's Gambit!</div>
       <div className="status-desc">Choose a gift to challenge:</div>
       <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0' }}>
         {gambitTargets(game, t.giftId, me).map(([id, gift]) => {

@@ -1,4 +1,4 @@
-"""Whack-an-Elf art: cel-shaded elf, golden elf, Grinch (and their bonked faces), the snowy hole
+"""Whack-an-Elf art: cel-shaded elf, golden elf, Grump (and their bonked faces), the snowy hole
 (back + front lip, so a pop-up sinks into it) and a candy-cane mallet. Built from primitives,
 rendered with Eevee to transparent WebP.
 
@@ -327,7 +327,7 @@ def dizzy(coll, z):
         star(coll, gold, (x, -0.9, z + 0.45 + dz), r=0.17, rot=0.3 * i, points=5, inner=0.45)
 
 
-def grinch(coll, bonk=False):
+def grump(coll, bonk=False):
     c = HEAD_C + Vector((0, 0, 0.02))
     rx, ry, rz = 0.68, 0.56, 0.6
     fur = toon('#7cc242', '#4b8a22', name='gfur')
@@ -384,7 +384,7 @@ GOLD = dict(name='gold', skin='#ffe08a', skin_sh='#e0a53a', coat='#ffc93c', coat
 chars = {}
 for key, build in [('elf', lambda c: elf(c, ELF)), ('elf-bonk', lambda c: elf(c, ELF, bonk=True)),
                    ('gold', lambda c: elf(c, GOLD)), ('gold-bonk', lambda c: elf(c, GOLD, bonk=True)),
-                   ('grinch', lambda c: grinch(c)), ('grinch-bonk', lambda c: grinch(c, bonk=True))]:
+                   ('grump', lambda c: grump(c)), ('grump-bonk', lambda c: grump(c, bonk=True))]:
     coll = new_coll(key)
     build(coll)
     chars[key] = coll

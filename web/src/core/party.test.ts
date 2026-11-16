@@ -12,13 +12,13 @@ test('Whack-an-Elf: the same seed gives every phone the same pop-ups; no cell do
     const inCell = a.filter((it) => it.cell === c);
     for (let i = 1; i < inCell.length; i++) assert.ok(inCell[i].at >= inCell[i - 1].at + inCell[i - 1].upMs, `cell ${c} overlaps`);
   }
-  assert.ok(a.some((it) => it.kind === 'grinch') && a.some((it) => it.kind === 'gold'));
+  assert.ok(a.some((it) => it.kind === 'grump') && a.some((it) => it.kind === 'gold'));
 });
 
-test('Whack-an-Elf points: faster taps score more, golden elves double, the Grinch costs 3', () => {
+test('Whack-an-Elf points: faster taps score more, golden elves double, the Grump costs 3', () => {
   assert.deepStrictEqual([0.1, 0.5, 0.9].map((f) => P.whackPoints('elf', f)), [3, 2, 1]);
   assert.deepStrictEqual([0.1, 0.9].map((f) => P.whackPoints('gold', f)), [6, 2]);
-  assert.strictEqual(P.whackPoints('grinch', 0.1), -3);
+  assert.strictEqual(P.whackPoints('grump', 0.1), -3);
 });
 
 test('Sketch-Off: votes count, self-votes and votes for non-drawings do not', () => {

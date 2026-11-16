@@ -31,11 +31,11 @@ This document explains why these equilibria exist, their implications for game d
 
 ### 2. Passive Equilibrium (~3 duels, 2+ voluntary)
 
-**Behavior**: All agents learn NOT to bid, relying on voluntary challenges (Grinch's Gambit).
+**Behavior**: All agents learn NOT to bid, relying on voluntary challenges (Grump's Gambit).
 
 **Why It's Stable**:
 - If nobody bids, opener gets gift **free**
-- Opener can then use Grinch's Gambit to upgrade strategically
+- Opener can then use Grump's Gambit to upgrade strategically
 - This is actually **more chip-efficient** than bidding wars
 - Any single agent who starts bidding just loses chips while others get free gifts
 
@@ -123,7 +123,7 @@ Mixed Self-Play consistently produces results similar to Monte Carlo (~13 duels,
 
 The existence of a passive equilibrium reveals a potential design issue:
 - **If** all players coordinated to not bid, the game would be less exciting
-- The Grinch's Gambit (voluntary challenge) mechanism enables this
+- The Grump's Gambit (voluntary challenge) mechanism enables this
 
 ### Why It's Not a Problem in Practice
 

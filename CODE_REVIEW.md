@@ -80,7 +80,7 @@ The Counterfeit Canvas (a near-copy of *A Fake Artist Goes to New York*; with 2 
 bidder; two after a yield) and pays 3/2/1 party points + an Elf Bonus chip to the best non-tied
 finisher (`setting-party-prize`). Old games saved with `tiebreakerMethod: 'minigame'` run a
 Sketch-Off. Agent tests showed the first Whack-an-Elf was too easy (everyone ~30 hits) → taps now
-score by speed (3/2/1, gold ×2, Grinch −3).
+score by speed (3/2/1, gold ×2, Grump −3).
 
 ### Party Score + spectator bets (2026-10-18, later)
 Duel-vote records (`votingWins/Losses`) were shown in the host's Betting leaderboard but never paid off
@@ -95,7 +95,7 @@ Kevin chose to keep the app's behaviour and update `Jingle Brawl V2.md`, `Jingle
 
 | Topic | Old V2 text | Now (= code) |
 |---|---|---|
-| Reprisal after Grinch's Gambit | allowed | none for either player (commit `7b13ca2`, "attacker's risk") |
+| Reprisal after Grump's Gambit | allowed | none for either player (commit `7b13ca2`, "attacker's risk") |
 | Reprisal after yield / tie-break / endgame duels | allowed after any sealed-bid duel | none — only after Challenger-vs-Opener sealed-bid duels |
 | Reprisal targets | any gift but the one lost | also never your own gift |
 | Reprisal chain (default) | 2 max | 1 / no chaining (setting) |

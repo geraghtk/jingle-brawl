@@ -189,9 +189,9 @@ const LINES = {
     'Rumour has it Santa wanted this one. You didn\'t hear it from me.',
   ],
   noBids: [ // jingles, nobody bid; (opener's name)
-    (n) => `Nobody?! ${n}, Grinch's Gambit is RIGHT there…`,
+    (n) => `Nobody?! ${n}, Grump's Gambit is RIGHT there…`,
     (n) => `Zero bids! ${n}, the Gambit is calling your name.`,
-    (n) => `Tumbleweeds. ${n}, maybe go full Grinch?`,
+    (n) => `Tumbleweeds. ${n}, maybe go full Grump?`,
     (n) => `No takers?! ${n}, either it's amazing or it's a candle.`,
     (n) => `Not one chip! ${n}, keep it, or steal something better?`,
     (n) => `Silence! ${n}, that's either respect or fear.`,
@@ -218,14 +218,14 @@ const LINES = {
     (n) => `${chips(n)}! Somebody's been very good. Or very bad.`,
     (n) => `${chips(n)} for this? I'm intrigued and a little worried.`,
   ],
-  gambit: [ // jingles, a Grinch's Gambit duel starts; (the challenger)
-    (n) => `${n} is going full Grinch!`,
-    (n) => `Grinch's Gambit! ${n} has chosen chaos.`,
-    (n) => `Ooh! ${n} just took a page from the Grinch's book.`,
-    (n) => `${n} goes Grinch! I'm telling everyone. Everyone.`,
+  gambit: [ // jingles, a Grump's Gambit duel starts; (the challenger)
+    (n) => `${n} is going full Grump!`,
+    (n) => `Grump's Gambit! ${n} has chosen chaos.`,
+    (n) => `Ooh! ${n} just took a page from the Grump's book.`,
+    (n) => `${n} goes Grump! I'm telling everyone. Everyone.`,
     (n) => `Gasp! ${n} is coming for someone's gift!`,
     (n) => `${n}, your heart just shrank three sizes. Respect.`,
-    (n) => `Grinch mode: ON. ${n}, bold move!`,
+    (n) => `Grump mode: ON. ${n}, bold move!`,
     (n) => `${n} pulls a Gambit! Somebody get me snacks.`,
   ],
   reprisal: [ // rudy, a Reindeer Reprisal; (who gets it)

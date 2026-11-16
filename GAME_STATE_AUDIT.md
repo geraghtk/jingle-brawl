@@ -27,7 +27,7 @@
 |----------|-----------------|--------|
 | Winner goes to real duel | No swap, no dividend, proceeds to Winner vs Opener | ✅ OK |
 
-### 4. Grinch's Gambit (Voluntary Challenge)
+### 4. Grump's Gambit (Voluntary Challenge)
 
 | Scenario | Expected Result | Status |
 |----------|-----------------|--------|

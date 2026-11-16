@@ -53,11 +53,11 @@ describe('Whack-an-Elf: a phone counts its own taps, the room holds the score to
     expect(scoreOf(apply(g, dispatch(g, 'p2', { type: 'whack', score: 1000, final: true }, end)), 'p2')).toBe(whole.max);
   });
 
-  it('the ceiling is every elf at its fastest and no Grinch; the floor is every Grinch', () => {
+  it('the ceiling is every elf at its fastest and no Grump; the floor is every Grump', () => {
     const seq = whackSequence(42);
     const b = whackBounds(42);
     expect(b.max).toBe(seq.filter((p) => p.kind === 'elf').length * 3 + seq.filter((p) => p.kind === 'gold').length * 6);
-    expect(b.min).toBe(seq.filter((p) => p.kind === 'grinch').length * -3);
+    expect(b.min).toBe(seq.filter((p) => p.kind === 'grump').length * -3);
   });
 });
 

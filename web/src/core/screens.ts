@@ -104,7 +104,7 @@ export function phoneScreen(full: Game, me: PlayerId, now: number): Screen {
     case 'reveal': case 'yield_choice': {
       const mine = t.openerId === me;
       const bids = rankedBids(t).filter(([, a]) => a > 0);
-      if (mine && !bids.length) return { title: 'No challengers', lines: [...lines, "Keep your gift, or play Grinch's Gambit on someone else's"] };
+      if (mine && !bids.length) return { title: 'No challengers', lines: [...lines, "Keep your gift, or play Grump's Gambit on someone else's"] };
       if (mine && bids.length >= 2) {
         const tied = topTiedBidders(t);
         return { title: 'Fight or yield?', lines: [...lines, tied.length >= 2 ? `${tied.length} tied at ${bids[0][1]}: fight and a party game picks who duels you; yield and they fight each other`

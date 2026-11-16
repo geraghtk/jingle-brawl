@@ -1,7 +1,7 @@
 ---
 name: trace-mechanic
 description: "Trace a game mechanic across host.html and player.html to understand how it works end-to-end. Use when investigating how a feature works, debugging cross-file issues, or before modifying a mechanic."
-argument-hint: "[mechanic name, e.g. 'bidding', 'grinch gambit', 'minigame', 'duel']"
+argument-hint: "[mechanic name, e.g. 'bidding', 'grump gambit', 'minigame', 'duel']"
 allowed-tools: Read Grep Glob
 model: sonnet
 context: fork

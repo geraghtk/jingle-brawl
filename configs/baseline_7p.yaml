@@ -12,10 +12,10 @@ SANTA_TAX_RULE: FLAT_1           # V2: "If pot ≥3, 1 chip tax"
 LOSER_DIVIDEND_RULE: ANY_LOSER   # V2: "Challenger OR Defender gets +1"
 ENDGAME_POT_RULE: WINNER_TAKES
 
-# Challenge rules (V2 calls Voluntary Challenge "Grinch's Gambit")
+# Challenge rules (V2 calls Voluntary Challenge "Grump's Gambit")
 YIELD_RULE: ALLOWED              # V2: "Yield duel - both pay half, rounded down"
-VOLUNTARY_CHALLENGE_RULE: ENABLED  # V2: "Grinch's Gambit" enabled
-REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS  # V2: "Grinch's Gambit or Duel → Loser gets reprisal"
+VOLUNTARY_CHALLENGE_RULE: ENABLED  # V2: "Grump's Gambit" enabled
+REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS  # V2: "Grump's Gambit or Duel → Loser gets reprisal"
 REPRISAL_TARGETS_MISFITS: true   # V2: "may challenge any gift, including Misfits"
 REPRISAL_MAX_DEPTH: 2            # V2: "at most one other Reprisal (2 max)"
 

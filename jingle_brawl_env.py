@@ -140,7 +140,7 @@ class GameConfig:
     - 10 starting chips (≤10 players), 12 chips (>10 players)
     - Santa Tax: 1 chip if pot >= 3
     - Loser Dividend: ANY loser (Challenger OR Defender) gets +1
-    - Reprisal: When Grinch's Gambit OR Duel concludes, loser gets reprisal (max depth 2)
+    - Reprisal: When Grump's Gambit OR Duel concludes, loser gets reprisal (max depth 2)
     - Dynamic bag: winners removed, giftless added back
     - Min cost: naughty_level + 1 (no cap)
     """

@@ -10,7 +10,7 @@
 - **Trigger**: No one bids on newly opened gift
 - **Options**: 
   - Keep gift → Turn ends
-  - Grinch's Gambit → Challenge someone else
+  - Grump's Gambit → Challenge someone else
 - **State Changes**: None if kept
 - **Status**: ✅ Implemented
 
@@ -80,7 +80,7 @@
 - **Chain**: Can trigger another reprisal (up to max depth)
 - **Status**: ⚠️ Issue found (see below)
 
-### Grinch's Gambit
+### Grump's Gambit
 - **Cost**: Min cost to bank
 - **Pot**: 0
 - **Winner**: Gets target gift, their old gift to loser

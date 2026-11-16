@@ -41,7 +41,7 @@ export const GAMES: Record<PartyType, { label: string; emoji: string; introMs: n
   },
   whack_elf: {
     label: 'Whack-an-Elf', emoji: '🔨', introMs: 7000, playMs: 20000,
-    rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grinch and lose 3!',
+    rules: 'Tap the elves as they pop up. The faster you tap, the more it scores (up to 3). Golden elves score double. Tap the Grump and lose 3!',
   },
 };
 export const METHODS = Object.keys(GAMES) as PartyType[];
@@ -50,7 +50,7 @@ const PLACE_POINTS = [3, 2, 1];
 
 export const SKETCH_PROMPTS = [
   'A reindeer on a skateboard', 'Santa stuck in a chimney', 'A snowman at the beach',
-  'An elf lifting weights', 'The Grinch doing yoga', 'A penguin opening a present',
+  'An elf lifting weights', 'The Grump doing yoga', 'A penguin opening a present',
   'A gingerbread house on fire', 'Rudolph with a cold', 'A Christmas tree in a tiny car',
   'Mrs Claus riding a motorbike', 'A polar bear ice skating', 'A sleigh with a flat tyre',
   'A cat attacking the wrapping paper', 'Santa on a treadmill', 'A reindeer at the dentist',
@@ -58,17 +58,17 @@ export const SKETCH_PROMPTS = [
   'A present that is obviously a bike', 'Grandma winning a snowball fight', 'A turkey hiding from the cook',
   'A gift wrapped by a toddler', 'A Christmas tree falling over', 'A penguin delivering presents',
   'A sleigh stuck in traffic', 'A dog wearing antlers and hating it', 'Mistletoe in an awkward place',
-  'A stocking that is far too full', 'The Grinch at a gift exchange', 'A reindeer singing karaoke',
+  'A stocking that is far too full', 'The Grump at a gift exchange', 'A reindeer singing karaoke',
   'A fruitcake used as a doorstop', 'A gingerbread man running late', 'Carolers nobody asked for',
   'A candle that smells like socks', 'An elf on a coffee break', 'Santa squeezing into his suit',
 ];
 
-export type WhackKind = 'elf' | 'gold' | 'grinch';
+export type WhackKind = 'elf' | 'gold' | 'grump';
 export interface WhackPop { at: number; cell: number; kind: WhackKind; upMs: number }
 
 /** Points for a tap `frac` of the way through a pop-up (0 = just appeared): speed pays. */
 export function whackPoints(kind: WhackKind, frac: number): number {
-  if (kind === 'grinch') return -3;
+  if (kind === 'grump') return -3;
   const speed = frac < 1 / 3 ? 3 : frac < 2 / 3 ? 2 : 1;
   return kind === 'gold' ? speed * 2 : speed;
 }
@@ -85,7 +85,7 @@ export function whackSequence(seed: number, playMs = GAMES.whack_elf.playMs): Wh
     if (!free.length) continue;
     const cell = free[Math.floor(r() * free.length)];
     const roll = r();
-    const kind: WhackKind = roll < 0.1 ? 'gold' : roll < 0.26 ? 'grinch' : 'elf';
+    const kind: WhackKind = roll < 0.1 ? 'gold' : roll < 0.26 ? 'grump' : 'elf';
     busyUntil[cell] = at + upMs + 120;
     items.push({ at: Math.round(at), cell, kind, upMs });
   }
@@ -96,13 +96,13 @@ export function whackSequence(seed: number, playMs = GAMES.whack_elf.playMs): Wh
 export const WHACK_CLOCK_SLACK_MS = 1500;
 
 /** The most (and least) anyone can have scored `elapsedMs` into a Whack-an-Elf game: every elf and
- *  golden elf up so far tapped at its fastest, no Grinch (the least: every Grinch, nothing else). The
+ *  golden elf up so far tapped at its fastest, no Grump (the least: every Grump, nothing else). The
  *  room holds a phone's reported score to this: it can't claim a thousand. */
 export function whackBounds(seed: number, elapsedMs = Infinity, playMs = GAMES.whack_elf.playMs): { min: number; max: number } {
   let min = 0, max = 0;
   for (const p of whackSequence(seed, playMs)) {
     if (p.at > elapsedMs + WHACK_CLOCK_SLACK_MS) break;
-    if (p.kind === 'grinch') min += whackPoints('grinch', 0);
+    if (p.kind === 'grump') min += whackPoints('grump', 0);
     else max += whackPoints(p.kind, 0);
   }
   return { min, max };

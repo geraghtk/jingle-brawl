@@ -9,8 +9,8 @@ describe('Whack-an-Elf art', () => {
     for (const name of WHACK_ART) expect(existsSync(resolve(__dirname, `../../public/art/whack/${name}.webp`)), name).toBe(true);
   });
   it('a hit shows the bonked face and the mallet; an empty hole shows no pop-up', () => {
-    const hit = renderToStaticMarkup(<WhackHole kind="grinch" state="hit" />);
-    expect(hit).toContain('art/whack/grinch-bonk.webp');
+    const hit = renderToStaticMarkup(<WhackHole kind="grump" state="hit" />);
+    expect(hit).toContain('art/whack/grump-bonk.webp');
     expect(hit).toContain('art/whack/mallet.webp');
     const up = renderToStaticMarkup(<WhackHole kind="gold" state="up" />);
     expect(up).toContain('src="art/whack/gold.webp" alt="golden elf"');

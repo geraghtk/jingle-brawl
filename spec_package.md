@@ -81,7 +81,7 @@ SANTA_TAX_RULE: FLAT_1        # 1 chip tax if pot >= 3
 LOSER_DIVIDEND_RULE: ANY_LOSER # Challenger OR Defender gets +1
 
 # Challenge Rules
-REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS  # "Grinch's Gambit or Duel"
+REPRISAL_TRIGGER_RULE: ANY_DEFENDER_LOSS  # "Grump's Gambit or Duel"
 REPRISAL_TARGETS_MISFITS: true            # "including Misfits"
 REPRISAL_MAX_DEPTH: 2                     # V2: "at most one other Reprisal (2 max)"
 

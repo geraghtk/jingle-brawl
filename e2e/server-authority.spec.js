@@ -27,11 +27,11 @@ function views(msgs) {
   return out;
 }
 
-/** Tap whatever elf is up for `ms` (never the Grinch). */
+/** Tap whatever elf is up for `ms` (never the Grump). */
 async function whack(page, ms) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
-    const cell = page.locator('#party-card .whack-cell.up:not([data-kind="grinch"])').first();
+    const cell = page.locator('#party-card .whack-cell.up:not([data-kind="grump"])').first();
     if (await cell.count()) await cell.dispatchEvent('pointerdown').catch(() => {});
     await page.waitForTimeout(60);
   }

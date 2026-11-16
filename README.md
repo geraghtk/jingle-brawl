@@ -1,7 +1,7 @@
 # Yuel Duel (Jingle Brawl)
 
 A real-time party game for gift exchanges: players bid Jingle Chips on opened gifts, duel
-for them, and strike back with Grinch's Gambits and Reindeer Reprisals. One screen runs
+for them, and strike back with Grump's Gambits and Reindeer Reprisals. One screen runs
 `host.html` (TV/laptop); everyone else plays on their phone via `player.html` (React + TypeScript app in `web/`).
 
 Rules: [`rules.html`](web/public/rules.html) · [`quick-reference.html`](web/public/quick-reference.html) · full text in `Jingle Brawl V2.md`.

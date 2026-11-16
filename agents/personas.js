@@ -38,7 +38,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 //   herd           0-1: pull my bid toward the room's recent winning bids (FOMO)
 //   attachment     extra value on the gift I'm holding (endowment effect)
 //   yieldBelow     as Opener facing 2+ bidders, yield when my gift is worth less than this
-//   gambitMin      Grinch's Gambit only if the (spite-adjusted) gain beats this
+//   gambitMin      Grump's Gambit only if the (spite-adjusted) gain beats this
 //   reprisalMin    Reindeer Reprisal only if the gain beats this
 //   costAversion   how much each chip of Minimum Cost reduces a target's appeal
 //   conflictAverse 0-1: chance of backing out of any attack it would otherwise make
@@ -48,7 +48,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 //   stealBias      endgame: preference for Path A (steal) over Path B (auction), 0-1
 //   voteRate       how often they vote on other people's duels
 //   reflexMs       Whack-an-Elf: typical time between taps (lower = faster)
-//   slip           Whack-an-Elf: chance of tapping a Grinch by mistake
+//   slip           Whack-an-Elf: chance of tapping a Grump by mistake
 //   random         ignore all of the above and do something random
 const DEFAULTS = {
   bidThreshold: 2, bidScale: 0.6, noise: 0.4, reserve: 0.3, endgameSaver: false, allIn: false,
@@ -81,7 +81,7 @@ const PERSONAS = {
     blurb: 'Three eggnogs in: random bids and choices, never read the rules.',
     random: true, voteRate: 0.7, reflexMs: 320, slip: 0.4,
   },
-  grinch: {
+  grump: {
     label: 'The Grudge Holder', emoji: '😈',
     blurb: 'Never forgets: medium bids, but goes after whoever beat them.',
     bidThreshold: 1.5, bidScale: 0.7, noise: 0.6, reserve: 0.2, yieldBelow: 2, gambitMin: 1, reprisalMin: -1, costAversion: 0.5, stealBias: 0.8, voteRate: 0.6, spite: 3,
@@ -219,7 +219,7 @@ function decide(personaKey) {
       return { amount, thought: amount ? `${why} → bid ${amount}` : `${why} → pass` };
     },
 
-    /** Opener, nobody bid: keep, or Grinch's Gambit on another player's gift. */
+    /** Opener, nobody bid: keep, or Grump's Gambit on another player's gift. */
     keepOrGambit(view, targets) {
       if (p.random) {
         const t = affordable(view, targets);

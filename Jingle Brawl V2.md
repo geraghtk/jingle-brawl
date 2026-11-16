@@ -29,7 +29,7 @@ Each gift has a Naughty Level (0, 1, 2, …).
    * The winner takes the pot, after Santa Tax.
 
 2. **Direct Challenges (no Pot)**  
-   Grinch’s Gambit, Reindeer Reprisals, and Endgame Steals are direct challenges:  
+   Grump’s Gambit, Reindeer Reprisals, and Endgame Steals are direct challenges:  
    * The challenger pays the required cost to the Bank.  
    * No pot is created.
 
@@ -105,7 +105,7 @@ The Under-16 Exception:
 
 If nobody bids:
 
-* The Opener is safe and may keep the gift or use a Grinch’s Gambit Challenge (see Special Actions).
+* The Opener is safe and may keep the gift or use a Grump’s Gambit Challenge (see Special Actions).
 
 If one or more players bid:
 
@@ -178,7 +178,7 @@ After the duel:
 
 ![][image6]
 
-## The Grinch's Gambit
+## The Grump's Gambit
 
 *Why settle when you can steal..*
 
@@ -195,7 +195,7 @@ If nobody bids on a newly opened gift:
 
 *Because reindeer kick back..*
 
-When a Sealed Bid Duel (Challenger vs Opener) concludes, the Loser can choose an immediate Reprisal Duel. There is no Reprisal after a Grinch’s Gambit (for either player; that’s the attacker’s risk), a Yield Duel, a Tie-break Duel or any Endgame duel.
+When a Sealed Bid Duel (Challenger vs Opener) concludes, the Loser can choose an immediate Reprisal Duel. There is no Reprisal after a Grump’s Gambit (for either player; that’s the attacker’s risk), a Yield Duel, a Tie-break Duel or any Endgame duel.
 
 Rules for the Reprisal:
 
@@ -263,7 +263,7 @@ All Misfit Lottery duels are misfit duels → no Loser’s Dividend.
 Some challenges don’t use sealed bidding. Instead, the challenger must pay a Minimum Cost to the North Pole Fund (Bank) based on the Naughty Level of the target gift.  
 This applies to:
 
-* Grinch’s Gambit  
+* Grump’s Gambit  
 * Reindeer Reprisals  
 * Endgame Steals (Path A)
 

@@ -117,7 +117,7 @@ export function keepGift(game: Game): Plan {
   return new Tx(game).set('currentTurn', null).event(`${name(game, t?.openerId)} keeps their gift!`, 'gift').plan();
 }
 
-/** Opener, nobody bid: Grinch's Gambit — pay the Minimum Cost and duel for another gift. */
+/** Opener, nobody bid: Grump's Gambit — pay the Minimum Cost and duel for another gift. */
 export function gambit(game: Game, targetGiftId: string): Plan {
   const t = game.currentTurn;
   if (!t?.openerId || t.phase !== 'reveal') return refuse('No Gambit now');
@@ -133,7 +133,7 @@ export function gambit(game: Game, targetGiftId: string): Plan {
       phase: 'duel', challengerId: t.openerId, defenderId: target.ownerId, giftId: targetGiftId,
       originalGiftId: t.giftId, pot: 0, isGambit: true,
     })
-    .event(`😈 ${opener.name} uses Grinch's Gambit on "${target.name}"!`, 'duel')
+    .event(`😈 ${opener.name} uses Grump's Gambit on "${target.name}"!`, 'duel')
     .plan();
 }
 

@@ -143,7 +143,7 @@ describe('sealed-bid duels', () => {
     expect(chipsOf(g)).toMatchObject({ p2: 9, p3: 11 }); // no dividend in yield duels
   });
 
-  it("Grinch's Gambit: costs 1 + Naughty, never targets the Misfit pile, no Reprisal after", () => {
+  it("Grump's Gambit: costs 1 + Naughty, never targets the Misfit pile, no Reprisal after", () => {
     let g = table(3);
     g.gifts = { gX: { name: 'X', ownerId: 'p2', naughtyLevel: 1 }, gM: { name: 'M', ownerId: 'misfit', naughtyLevel: 0 } };
     g.players!.p2.giftId = 'gX';

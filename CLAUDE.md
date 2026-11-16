@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grinch's Gambit and Reindeer Reprisals. A tied top bid is settled by a party mini-game the whole table plays ("Sketch-Off", "Whack-an-Elf", `web/src/core/party.ts`). Duels can be played in the room or in the app; one in-app duel game is "AI Draw Off" (`core/drawoff.ts`): the two duellists draw, an AI Art Critic picks the winner (`AI_ART_CRITIC.md`).
+**Jingle Brawl** (also called "Yuel Duel") is a real-time multiplayer party game for gift exchanges. Players bid Jingle Chips on gifts, duel to win them, and can challenge each other with special actions like Grump's Gambit and Reindeer Reprisals. A tied top bid is settled by a party mini-game the whole table plays ("Sketch-Off", "Whack-an-Elf", `web/src/core/party.ts`). Duels can be played in the room or in the app; one in-app duel game is "AI Draw Off" (`core/drawoff.ts`): the two duellists draw, an AI Art Critic picks the winner (`AI_ART_CRITIC.md`).
 
 ## Commands
 

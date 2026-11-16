@@ -93,7 +93,7 @@ export class Physics {
     return (850 - 550 * this.skill(id, 'whack')) * (0.6 + this.r() * 0.8);
   }
 
-  /** Taps the Grinch by mistake? (Better players hold back.) */
+  /** Taps the Grump by mistake? (Better players hold back.) */
   slips(id: string): boolean {
     return this.r() < 0.25 * (1 - this.skill(id, 'whack'));
   }
@@ -104,7 +104,7 @@ export class Physics {
     for (const pop of whackSequence(seed)) {
       const react = this.reaction(id);
       if (react >= pop.upMs) continue;                         // gone before they got to it
-      if (pop.kind === 'grinch' && !this.slips(id)) continue;  // they held back
+      if (pop.kind === 'grump' && !this.slips(id)) continue;  // they held back
       score += whackPoints(pop.kind, react / pop.upMs);
     }
     return Math.max(0, score);

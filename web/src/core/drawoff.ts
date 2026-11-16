@@ -42,7 +42,7 @@ export const DRAW_OFF_PROMPTS = [
   'A family photo where the dog is the only one smiling.',
   'A Christmas tree tiptoeing out of the front door.',
   'A gift box with legs sneaking away from the party.',
-  'The Grinch secretly enjoying a mug of hot cocoa.',
+  'The Grump secretly enjoying a mug of hot cocoa.',
   'Grandpa asleep in an armchair, wearing a paper crown.',
   'A gingerbread man running from a very hungry fox.',
   'A sleigh with a flat tyre and three annoyed reindeer.',

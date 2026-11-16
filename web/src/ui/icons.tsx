@@ -13,7 +13,7 @@ export const ICONS = {
   '🔥': 'fire', '🎪': 'tent', '🔄': 'swap',
 } as const;
 
-// Grinch's Gambit has its own picture (a hand taking a gift); 😈 in text is the naughty imp
+// Grump's Gambit has its own picture (a hand taking a gift); 😈 in text is the naughty imp
 const EXTRA = { gambit: '😈' } as const;
 
 export type IconName = (typeof ICONS)[keyof typeof ICONS] | keyof typeof EXTRA;

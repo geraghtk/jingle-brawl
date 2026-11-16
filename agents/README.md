@@ -53,7 +53,7 @@ and leader-hunting.
 | `brawler` | 🥊 The Alpha | bids big and often, never yields, always attacks |
 | `sniper` | 🎯 The Collector | ignores average gifts, all-in on great ones |
 | `wildcard` | 🎲 The Party Animal | random everything |
-| `grinch` | 😈 The Grudge Holder | goes after whoever beat them |
+| `grump` | 😈 The Grudge Holder | goes after whoever beat them |
 | `strategist` | ♟️ The Chess Player | modest early, saves for the endgame |
 | `peacekeeper` | 🕊️ The People-Pleaser | avoids conflict, yields readily |
 | `sibling` | 🤼 The Competitive Sibling | fixated on one nemesis |
@@ -82,7 +82,7 @@ took home.
 ## Limits
 
 - Party tiebreakers are agent-driven: in Whack-an-Elf each agent taps on its own phone with its
-  persona's reaction time (`reflexMs`) and Grinch slip rate; in Sketch-Off agents scribble and
+  persona's reaction time (`reflexMs`) and Grump slip rate; in Sketch-Off agents scribble and
   vote at random (drawing quality isn't modelled). Presets `party-whack` / `party-sketch`.
 - AI Draw Off isn't agent-driven (it needs the AI critic).
 - Duels are coin flips, so skill is not modelled.
