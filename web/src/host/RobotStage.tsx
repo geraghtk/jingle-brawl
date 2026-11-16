@@ -30,13 +30,14 @@ export function splashFor(v: RobotView, now: number, name: (id: string) => strin
 export function RobotStage() {
   const { game, tv } = useHost();
   const offset = useServerOffset();
-  const now = useServerNow(200);
+  const ticking = useServerNow(200);
   const av = game.arenaView!;
+  const now = av.pausedAt ?? ticking;                    // paused: the fight stands as it was
   const v = robotView(av.view);
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
   const canvas = useRef<HTMLCanvasElement>(null);
-  const live = useRef({ v, offset });
-  live.current = { v, offset };                 // the frame loop outlives renders: it reads this render's view
+  const live = useRef({ v, offset, pausedAt: av.pausedAt });
+  live.current = { v, offset, pausedAt: av.pausedAt };                 // the frame loop outlives renders: it reads this render's view
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -47,8 +48,8 @@ export function RobotStage() {
       scene = createRobotScene(canvas.current);
       window.addEventListener('resize', onResize);
       const loop = () => {
-        const { v: view, offset: off } = live.current;
-        scene!.frame(view, Date.now() + off, ROBOT_COLORS);
+        const { v: view, offset: off, pausedAt } = live.current;
+        scene!.frame(view, pausedAt ?? Date.now() + off, ROBOT_COLORS);
         raf = requestAnimationFrame(loop);
       };
       raf = requestAnimationFrame(loop);

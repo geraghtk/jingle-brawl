@@ -14,7 +14,8 @@ import '../ui/robots.css';
 export function RobotCard() {
   const { game, me, send } = usePlayer();
   const v = robotView(game.arenaView!.view);
-  const now = useServerNow(100);
+  const ticking = useServerNow(100);
+  const now = game.arenaView!.pausedAt ?? ticking;       // paused: the fight stands as it was
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
   const seat = v.mySeat ?? (v.order[0] === me ? 0 : v.order[1] === me ? 1 : null);
   const mine = seat != null ? v.fighters[seat] : null;

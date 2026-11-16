@@ -291,12 +291,19 @@ export const conveyor: GameDefinition<ConveyorConfig, ConveyorState, ConveyorAct
     return { state, deadlines: deadlines(state), ...(now.events.length ? { events: now.events } : {}) };
   },
 
-  onDeadline(ctx, raw) {
-    const s = whole(raw);
-    if (s.stage === 'done') return { state: s };
+  onDeadline(ctx, raw, id) {
+    const s0 = whole(raw);
+    if (s0.stage === 'done') return { state: s0 };
+    // the bell is its deadline coming due (the room's clock is the judge of that, not this state's note of it)
+    const s = id === 'end' ? { ...s0, endsAt: Math.min(s0.endsAt, ctx.now) } : s0;
     const now = settle(ctx, s);
     if (now.over) return now.over;
     return { state: now.state, deadlines: deadlines(now.state), ...(now.events.length ? { events: now.events } : {}) };
+  },
+
+  shiftTime(raw, ms) {
+    const s = whole(raw);
+    return { ...s, startedAt: s.startedAt + ms, endsAt: s.endsAt + ms, teams: s.teams.map((t): TeamState => ({ ...t, belt: { ...t.belt, asOf: t.belt.asOf + ms } })) as [TeamState, TeamState] };
   },
 
   offers(ctx, raw, who) {

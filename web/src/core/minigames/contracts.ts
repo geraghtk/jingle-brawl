@@ -82,6 +82,10 @@ export interface GameDefinition<C = unknown, S = unknown, A = unknown> {
   validateAction(ctx: MatchCtx, state: S, who: PlayerId, action: unknown): Check<A>;
   reduce(ctx: MatchCtx, state: S, who: PlayerId, action: A): Transition<S>;
   onDeadline(ctx: MatchCtx, state: S, deadlineId: string): Transition<S>;
+  /** The host paused the game for `ms` and has resumed it: every time the state holds, moved on by that
+   *  much. Only for a game whose state is settled by the clock (a belt, a punch in the air); the runtime
+   *  moves the deadlines itself. Without it a paused belt would jump ahead by the length of the pause. */
+  shiftTime?(state: S, ms: number): S;
   /** Example actions `who` could take now (the simulator and the table's offers press these). */
   offers(ctx: MatchCtx, state: S, who: PlayerId): A[];
   projectForPlayer(state: S, pid: PlayerId, now: number): unknown;

@@ -9,7 +9,7 @@
 // hit takes the head). Still level: most punches landed over the match, then the host decides.
 import type { PlayerId } from '../../types';
 import type { GameDefinition, GameResult, MatchCtx, Transition } from '../contracts';
-import { canDodge, canGuard, canPunch, DEFAULT_FIGHT, dodge, guard, newFight, nextAt, punch, settle, wholeFight } from '../engines/fight';
+import { canDodge, canGuard, canPunch, DEFAULT_FIGHT, dodge, guard, newFight, nextAt, punch, settle, shiftFight, wholeFight } from '../engines/fight';
 import type { Fight, FightParams, PunchKind } from '../engines/fight';
 import { headToHead } from '../scoring';
 import type { RobotView } from './view';
@@ -199,6 +199,11 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
     }
     if (s.stage === 'fighting') return tick(ctx, s);
     return { state: s };
+  },
+
+  shiftTime(raw, ms) {
+    const s = whole(raw);
+    return { ...s, stageEndsAt: s.stageEndsAt + ms, fight: shiftFight(s.fight, ms) };
   },
 
   offers(ctx, raw, who) {

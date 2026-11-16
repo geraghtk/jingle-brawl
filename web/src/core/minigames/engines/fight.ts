@@ -70,6 +70,19 @@ export function wholeFight(x: Fight): Fight {
   return { ...x, f: [{ ...x.f[0] }, { ...x.f[1] }] as [Fighter, Fighter], events: x.events || [], thrown: x.thrown || [0, 0], landed: x.landed || [0, 0], n: x.n || 0 };
 }
 
+/** Every time in the fight moved on by `ms` (the game was paused that long). */
+export function shiftFight(fight: Fight, ms: number): Fight {
+  const x = wholeFight(fight);
+  x.f = x.f.map((f): Fighter => ({
+    ...f, busyUntil: f.busyUntil ? f.busyUntil + ms : f.busyUntil,
+    ...(f.punch ? { punch: { ...f.punch, at: f.punch.at + ms, lands: f.punch.lands + ms } } : {}),
+    ...(f.guard ? { guard: { since: f.guard.since + ms } } : {}),
+    ...(f.dodge ? { dodge: { at: f.dodge.at + ms, until: f.dodge.until + ms } } : {}),
+  })) as [Fighter, Fighter];
+  x.events = x.events.map((e) => ({ ...e, at: e.at + ms }));
+  return x;
+}
+
 const other = (i: 0 | 1): 0 | 1 => (i === 0 ? 1 : 0);
 const down = (x: Fight): 0 | 1 | null => (x.f[0].health <= 0 ? 0 : x.f[1].health <= 0 ? 1 : null);
 export const windup = (kind: PunchKind, p: FightParams = DEFAULT_FIGHT) => (kind === 'heavy' ? p.heavyMs : p.jabMs);

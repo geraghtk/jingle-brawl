@@ -23,7 +23,8 @@ export function ConveyorCard() {
   const { game, send } = usePlayer();
   const v = conveyorView(game.arenaView!.view);
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
-  const now = useFrameNow();
+  const live = useFrameNow();
+  const now = game.arenaView!.pausedAt ?? live;          // paused: the belt stands where it was
   const mine = v.teams.find((t) => t.teamId === v.myTeam);
   const theirs = v.teams.find((t) => t.teamId !== v.myTeam);
   // my team's sleigh filled up one more, or lost one to a raccoon

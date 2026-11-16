@@ -19,7 +19,8 @@ export function ConveyorStage() {
   const { game, tv } = useHost();
   const v = conveyorView(game.arenaView!.view);
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
-  const now = useFrameNow();
+  const live = useFrameNow();
+  const now = game.arenaView!.pausedAt ?? live;          // paused: the belts stand where they were
   // out loud: a toy on the sleigh, one in the bin, a raccoon away with one, a belt speeding up
   const heard = useRef(v.teams.map((t) => ({ d: t.delivered, r: t.rejected, s: t.stolen, l: t.level })));
   const key = v.teams.map((t) => `${t.delivered}.${t.rejected}.${t.stolen}.${t.level}`).join('|');

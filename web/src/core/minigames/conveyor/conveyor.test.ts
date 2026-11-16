@@ -11,7 +11,7 @@ import { Tx } from '../../tx';
 import type { Game } from '../../types';
 import { posAt, zoneOf } from '../engines/belt';
 import { assignTeams } from '../engines/teams';
-import { arenaAct, arenaDeadline, arenaOf, handoff, startArena } from '../runtime';
+import { arenaAct, arenaDeadline, arenaOf, arenaPause, arenaResume, handoff, startArena } from '../runtime';
 import { conveyor, crewFor, DEFAULTS, PARTS, speedAt, VARIANTS, zones } from './conveyor';
 import type { ConveyorAction, ConveyorState } from './conveyor';
 import { conveyorView } from './view';
@@ -258,6 +258,43 @@ describe('The Great Gift Conveyor', () => {
     expect(act(g, first, { kind: 'fit', toy: 'A-0', variant: 0 }, leftZone).error).toBe('It is between stations');
     // and a press for a toy that fell off the end
     expect(act(g, first, { kind: 'fit', toy: 'A-0', variant: 0 }, NOW + 11_000).error).toBe('That one has gone by');
+  });
+
+  it('the host pauses: the belts stand still on every screen, and pick up where they were', () => {
+    let g = work(play(6, { quota: 99 }), [0], NOW, NOW + 6000);
+    const before = tv(g, NOW + 6000).teams[0];
+    const at = (t: typeof before, now: number) => t.toys.map((y) => Math.round(posAt(t, y.pos, now) * 1000));
+    const where = at(before, NOW + 6000);
+    const left = st(g).endsAt - (NOW + 6000);
+    g = apply(g, arenaPause(g, NOW + 6000));
+    // a minute into the pause every screen still gets the belts as they stood, and is told the clock stands
+    const held = projectGame(g, { kind: 'tv' }, NOW + 66_000).arenaView!;
+    expect(held.pausedAt).toBe(NOW + 6000);
+    const frozen = conveyorView(held.view).teams[0];
+    expect(at(frozen, held.pausedAt!)).toEqual(where);
+    expect(act(g, 'p1', { kind: 'fit', toy: 'A-0', variant: 0 }, NOW + 30_000).error).toMatch(/paused/);
+    // resumed two minutes later: nothing moved meanwhile, the round has as long left as it had
+    g = apply(g, arenaResume(g, NOW + 126_000));
+    const after = projectGame(g, { kind: 'tv' }, NOW + 126_000).arenaView!;
+    expect(after.pausedAt).toBeUndefined();
+    expect(at(conveyorView(after.view).teams[0], NOW + 126_000)).toEqual(where);
+    expect(st(g).endsAt - (NOW + 126_000)).toBe(left);
+    expect(arenaOf(g)!.result ?? null).toBeNull();
+    // and it carries on: a toy that was 3 s from the end reaches it 3 s after the resume, not at once
+    const on = work(g, [0], NOW + 126_000, NOW + 126_000 + 6000);
+    expect(st(on).teams[0].delivered).toBe(1);
+    expect(tv(on, NOW + 132_000).teams.map((t) => t.level)).toEqual([0, 0]);   // the round is 12 s old, not two minutes
+  });
+
+  it('the bell is its deadline coming due: the room\'s clock decides, whatever the state had noted', () => {
+    let g = work(play(6, { quota: 99 }), [0], NOW, NOW + 12_000);
+    expect(st(g).teams[0].delivered).toBe(1);
+    const end = arenaOf(g)!.deadlines.find((d) => d.id === 'end')!;
+    // the host's console (or a test) brings the bell forward
+    g = { ...g, arena: { ...arenaOf(g)!, deadlines: [{ id: 'end', at: NOW + 13_000 }] } } as Game;
+    expect(end.at).toBeGreaterThan(NOW + 13_000);
+    g = apply(g, arenaDeadline(g, 'end', ctx(NOW + 13_000)));
+    expect(arenaOf(g)!.result).toMatchObject({ status: 'resolved', reason: 'more toys on the sleigh at the bell' });
   });
 
   it('settling the belts in one go or step by step gives the same game', () => {

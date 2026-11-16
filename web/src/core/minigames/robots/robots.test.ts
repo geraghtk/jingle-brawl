@@ -9,7 +9,7 @@ import { apply, NOW, table } from '../../testkit';
 import { Tx } from '../../tx';
 import type { Game } from '../../types';
 import { DEFAULT_FIGHT as F } from '../engines/fight';
-import { arenaAct, arenaDeadline, arenaOf, arenaOffers, handoff, startArena } from '../runtime';
+import { arenaAct, arenaDeadline, arenaOf, arenaOffers, arenaPause, arenaResume, handoff, startArena } from '../runtime';
 import { DEFAULTS, HITS_PER_PART, loose, lost, PARTS, robots } from './robots';
 import type { RobotState } from './robots';
 import { robotView } from './view';
@@ -227,6 +227,31 @@ describe('Nutcracker Knockout', () => {
     expect(act(g, 'p2', JAB, now + F.jabMs + 5).error).toBe('Wait for the bell');
     g = due(g);
     expect(st(g)).toMatchObject({ stage: 'ko', last: { winner: 'p1' } });
+  });
+
+  it('the host pauses mid-punch: the fight stands still, and the punch lands as long after the resume as it had to go', () => {
+    let g = bell(fight());
+    const t0 = NOW + DEFAULTS.introMs + 100;
+    g = did(g, 'p1', HEAVY, t0);
+    const toGo = F.heavyMs - 200, left = st(g).stageEndsAt - (t0 + 200);
+    g = apply(g, arenaPause(g, t0 + 200));
+    // long after it would have landed, every screen still sees the punch in the air, and is told the clock stands
+    const held = projectGame(g, { kind: 'tv' }, t0 + 60_000).arenaView!;
+    expect(held.pausedAt).toBe(t0 + 200);
+    const frozen = robotView(held.view);
+    expect(frozen.fighters[0].punch).toMatchObject({ kind: 'heavy', lands: t0 + F.heavyMs });
+    expect(frozen.fighters[1].health).toBe(HEALTH);
+    expect(act(g, 'p2', { kind: 'dodge' }, t0 + 30_000).error).toMatch(/paused/);
+    // resumed a minute later: the punch has exactly as far to go as when the host paused
+    const back = t0 + 60_200;
+    g = apply(g, arenaResume(g, back));
+    expect(st(g).fight.f[0].punch).toMatchObject({ lands: back + toGo });
+    expect(st(g).stageEndsAt - back).toBe(left);
+    expect(arenaOf(g)!.deadlines).toEqual([{ id: 'tick', at: back + toGo }]);
+    expect(view(g, back + toGo - 10).fighters[1].health).toBe(HEALTH);        // not yet
+    g = due(g);
+    expect(st(g).fight.f[1].health).toBe(HEALTH - F.heavyDamage);             // and the dodge window was not lost to the pause
+    expect(st(g).stage).toBe('fighting');
   });
 
   it('the settings are held to what a robot is: so many blows for each of its parts', () => {

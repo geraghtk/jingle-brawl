@@ -34,6 +34,8 @@ export interface ArenaInstance {
 /** What each screen is sent instead of the instance (projection.ts). */
 export interface ArenaView {
   instanceId: string; gameId: string; mode: MatchMode; lifecycle: Lifecycle; stateVersion: number;
+  /** Paused: the game's clock stands at this moment (a screen that draws from the time uses it as "now"). */
+  pausedAt?: number;
   participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; result?: GameResult; view: unknown;
 }
 
@@ -138,7 +140,10 @@ export function arenaResume(game: Game, now: number): Plan {
   const deadlines = Object.entries(a.paused.left).map(([id, ms]) => ({ id, at: now + ms }));
   const { paused: _gone, ...rest } = a;
   void _gone;
-  return new Tx(game).set('arena', { ...rest, lifecycle: 'active', deadlines, stateVersion: a.stateVersion + 1,
+  // a game settled by the clock keeps times in its state: they move on by the length of the pause too
+  const def = getDef(a.gameId);
+  const state = def?.shiftTime ? def.shiftTime(a.state, Math.max(0, now - a.paused.at)) : a.state;
+  return new Tx(game).set('arena', { ...rest, state, lifecycle: 'active', deadlines, stateVersion: a.stateVersion + 1,
     overrides: [...a.overrides, { at: now, what: 'resumed' }] }).event('▶️ The host resumed the game', 'duel').plan();
 }
 
@@ -175,7 +180,11 @@ export function handoff(game: Game): Plan {
 /** The view a screen gets: the game's own projection for that viewer. */
 export function arenaView(a: ArenaInstance, viewer: { kind: 'host' } | { kind: 'tv' } | { kind: 'phone'; pid: PlayerId }, now: number): ArenaView {
   const def = getDef(a.gameId) as GameDefinition;
-  const view = !def ? null : viewer.kind === 'host' ? def.projectForHost(a.state, now) : viewer.kind === 'tv' ? def.projectForTv(a.state, now) : def.projectForPlayer(a.state, viewer.pid, now);
-  return { instanceId: a.instanceId, gameId: a.gameId, mode: a.mode, lifecycle: a.lifecycle, stateVersion: a.stateVersion,
+  // while paused the game's clock stands still at the moment of the pause: the view is as it was then,
+  // and says so (`pausedAt`), so a screen that draws from the time (a belt, a punch) holds still too
+  const pausedAt = a.lifecycle === 'paused' && a.paused ? a.paused.at : null;
+  const at = pausedAt ?? now;
+  const view = !def ? null : viewer.kind === 'host' ? def.projectForHost(a.state, at) : viewer.kind === 'tv' ? def.projectForTv(a.state, at) : def.projectForPlayer(a.state, viewer.pid, at);
+  return { instanceId: a.instanceId, gameId: a.gameId, mode: a.mode, lifecycle: a.lifecycle, stateVersion: a.stateVersion, ...(pausedAt != null ? { pausedAt } : {}),
     participants: a.participants, ...(a.duelists ? { duelists: a.duelists } : {}), ...(a.result ? { result: a.result } : {}), view };
 }

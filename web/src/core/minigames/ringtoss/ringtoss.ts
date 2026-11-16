@@ -227,6 +227,12 @@ export const ringToss: GameDefinition<RingConfig, RingState, RingAction> = {
     return advance(ctx, s);
   },
 
+  shiftTime(raw, ms) {
+    const s = whole(raw);
+    const on = (m: Record<PlayerId, number>) => Object.fromEntries(Object.entries(m).map(([k, t]) => [k, t + ms]));
+    return { ...s, stageEndsAt: s.stageEndsAt + ms, reloadAt: on(s.reloadAt), lastAt: on(s.lastAt), throws: s.throws.map((t) => ({ ...t, at: t.at + ms })) };
+  },
+
   offers(ctx, s, who) {
     s = whole(s);
     if (s.stage === 'done' || !s.pool.includes(who) || !(inHand(s, who, ctx.now) > 0) || ctx.now < (s.lastAt[who] || 0) + s.cfg.cooldownMs) return [];
