@@ -85,8 +85,8 @@ export function WhackStage({ mg }: { mg: PartyGame }) {
         <p className="wh-rules">{g.rules}</p>
         <WhackLegend />
         <p className="wh-who">
-          {mg.minigameGoal === 'duel' ? <>The duel: <b>{tied.map(name).join(' vs ')}</b>. </> : <>Tied: <b>{tied.map(name).join(', ')}</b>. </>}
-          Everyone plays, on your phones{cfg.partyPrize !== 'none' ? ': the rest for party points' : ''}{cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.
+          {mg.minigameGoal === 'lab' ? <>Practice: nothing is won or lost. </> : mg.minigameGoal === 'duel' ? <>The duel: <b>{tied.map(name).join(' vs ')}</b>. </> : <>Tied: <b>{tied.map(name).join(', ')}</b>. </>}
+          Everyone plays, on your phones{mg.minigameGoal === 'lab' ? '' : cfg.partyPrize !== 'none' ? ': the rest for party points' : ''}{mg.minigameGoal !== 'lab' && cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.
         </p>
         {secs <= 3 ? <div className="wh-count" key={secs} role="status" data-testid="whack-count">{Math.max(1, secs)}</div> : <div className="wh-getready">Get ready… {secs}</div>}
       </div>

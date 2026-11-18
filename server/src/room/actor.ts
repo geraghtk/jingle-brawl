@@ -7,6 +7,7 @@
 // so the same room runs in the Node server, in tests on a fake clock, or behind another runtime.
 import { randomInt } from 'node:crypto';
 import * as A from '../../../web/src/core/actions';
+import { BOT_TICK_MS, botIds, botMove, botsBusy } from '../../../web/src/core/bots';
 import { commitPlan } from '../../../web/src/core/commit';
 import { diff } from '../../../web/src/core/diff';
 import { isDrawOff, judged } from '../../../web/src/core/drawoff';
@@ -57,6 +58,7 @@ export class RoomActor {
   private fired = new Set<string>();
   private conns = new Set<Conn>();
   private cancelTimer: (() => void) | null = null;
+  private cancelBots: (() => void) | null = null;
   private sockets = new Map<string, number>();
   private away = new Map<string, () => void>();
   private closed = false;
@@ -194,7 +196,24 @@ export class RoomActor {
     return changed;
   }
 
+  /** Practice bots (core/bots.ts): while a game they are in is on, each looks at it every tick and may press something. */
+  private scheduleBots(): void {
+    if (this.cancelBots || this.closed || !botsBusy(this.game)) return;
+    this.cancelBots = this.deps.clock.at(this.now() + BOT_TICK_MS, () => {
+      this.cancelBots = null;
+      let changed = this.runDue();                       // a deadline that has passed comes first, as for a person's press
+      for (const id of botIds(this.game)) {
+        const seed = this.seed();
+        const plan = botMove(this.game, id, { now: this.now(), rng: rng(seed) });
+        if (plan && !plan.error && this.commit(plan, id, 'auto', { bot: true, seed })) changed = true;
+      }
+      if (changed) this.afterChange();
+      else this.scheduleBots();
+    });
+  }
+
   private schedule(): void {
+    this.scheduleBots();
     this.cancelTimer?.();
     this.cancelTimer = null;
     if (this.closed) return;
@@ -251,7 +270,7 @@ export class RoomActor {
   private markAllAway(): void {
     const tx = new Tx(this.game);
     let any = false;
-    for (const [id, p] of Object.entries(this.game.players || {})) if (p.connected) { tx.set(`players/${id}/connected`, false); any = true; }
+    for (const [id, p] of Object.entries(this.game.players || {})) if (p.connected && !p.isBot) { tx.set(`players/${id}/connected`, false); any = true; }
     if (any) this.commit(tx.plan(), HOST, 'system', { restart: true });
   }
 
@@ -416,6 +435,7 @@ export class RoomActor {
     for (const c of [...this.conns]) c.close?.();
     this.conns.clear();
     this.cancelTimer?.();
+    this.cancelBots?.();
     for (const cancel of this.away.values()) cancel();
     this.away.clear();
   }

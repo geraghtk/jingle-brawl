@@ -21,7 +21,7 @@ export interface PartyGame {
   seed: number;
   participants: PlayerId[];
   tiedBidders: PlayerId[];
-  minigameGoal: 'pick_one' | 'pick_two' | 'duel'; // duel = an in-app duel game (duelgame.ts)
+  minigameGoal: 'pick_one' | 'pick_two' | 'duel' | 'lab'; // duel = an in-app duel game (duelgame.ts); lab = Game Lab practice (nothing won)
   prize: PartyPrize;
   startedAt: number;
   phaseEndsAt: number;

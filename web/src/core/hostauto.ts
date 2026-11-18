@@ -33,7 +33,8 @@ export function hostAuto(game: Game): AutoStep[] {
   const mg = game.minigame as PartyGame | undefined;
 
   // party games: one timer per phase; move on early when everyone's done
-  if (mg && mg.type in GAMES) {
+  // (a Game Lab game keeps its results up until the host plays again or leaves)
+  if (mg && mg.type in GAMES && !(mg.minigameGoal === 'lab' && mg.phase === 'results')) {
     const from = mg.phase;
     const done = everyoneDone(mg);
     const grace = from === 'playing' && mg.type === 'whack_elf' ? WHACK_GRACE_MS : GRACE_MS;

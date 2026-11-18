@@ -1,24 +1,25 @@
 // The Great Gift Conveyor on the TV (and the host console): two factories racing. Each lane is a
-// team's belt with its stations (who works each one) and the toys rolling along it, built up piece by
-// piece; at the end the sleigh and its count, and the reject bin. The belt's speed is on show: it
-// goes up as the team delivers. Sounds on the TV only.
+// team's line (ui/conveyorFactory.tsx: the workshop, a machine per station with who works it, the toys
+// rolling along, built up piece by piece), its sleigh filling up and its reject bin. The belt's speed
+// is on show: it goes up as the team delivers. Sounds on the TV only.
 import { useEffect, useRef } from 'react';
 import { conveyorView } from '../core/minigames/conveyor/view';
 import { useFrameNow } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
 import { TEAM_COLORS } from '../ui/conveyor';
-import { Belt } from '../ui/conveyorBelt';
+import { Bin, FactoryLine, Sleigh, useEndFx } from '../ui/conveyorFactory';
+import type { ConveyorTeamView, ConveyorView } from '../core/minigames/conveyor/view';
 import { play } from '../ui/sound';
 import '../ui/arena.css';
 import '../ui/ringtoss.css';   // its clock is Ring Toss's .rt-banner (and the full-screen rules for it)
 import '../ui/conveyor.css';
+import '../ui/conveyorFactory.css';
 import { useHost } from './HostContext';
 
 export function ConveyorStage() {
   const { game, tv } = useHost();
   const v = conveyorView(game.arenaView!.view);
-  const name = (id: string) => game.players?.[id]?.name || 'Someone';
   const live = useFrameNow();
   const now = game.arenaView!.pausedAt ?? live;          // paused: the belts stand where they were
   // out loud: a toy on the sleigh, one in the bin, a raccoon away with one, a belt speeding up
@@ -43,30 +44,36 @@ export function ConveyorStage() {
       <div className={`rt-banner${v.stage !== 'done' && secs <= 10 ? ' hurry' : ''}`} data-testid="conveyor-clock">
         {v.stage === 'done' ? (v.winner ? `Team ${v.winner} wins!` : 'Level: the host decides') : `${v.stage === 'overtime' ? 'Overtime: first team ahead wins! ' : ''}${secs}s · first to ${v.quota} toys`}
       </div>
-      {v.teams.map((t) => (
-        <section key={t.teamId} className={`cv-lane${v.winner === t.teamId ? ' won' : ''}`} style={{ ['--team' as string]: TEAM_COLORS[t.teamId] }} data-testid={`conveyor-lane-${t.teamId}`}>
-          <header className="cv-lane-head">
-            <span className="cv-lane-name">Team {t.teamId}</span>
-            {game.players?.[t.captainId] && <Avatar name={name(t.captainId)} avatar={game.players[t.captainId].avatar} size={30} />}
-            <span className="cv-captain">captain {name(t.captainId)}</span>
-            <span className="cv-speed" aria-label={`Belt speed ${t.level + 1}`} data-testid={`conveyor-speed-${t.teamId}`}>
-              Speed {Array.from({ length: 8 }, (_, k) => <i key={k} className={k <= t.level ? 'on' : ''} />)}
-            </span>
-          </header>
-          <div className="cv-floor">
-            <div className="cv-chute" aria-hidden>IN</div>
-            <Belt v={v} team={t} now={now} booth={(k) => (
-              <span className="cv-crew">{t.crew[k].map((p) => <span key={p} className="cv-worker">{name(p)}</span>)}</span>
-            )} />
-            <div className="cv-end">
-              <div className="cv-sleigh" data-testid={`conveyor-sleigh-${t.teamId}`}>
-                <span className="cv-sleigh-count">{t.delivered}</span><span className="cv-sleigh-of">of {v.quota}</span>
-              </div>
-              <div className="cv-bin" aria-label={`${t.rejected} rejects`} data-testid={`conveyor-bin-${t.teamId}`}>bin {t.rejected}</div>
-            </div>
-          </div>
-        </section>
-      ))}
+      {v.teams.map((t) => <Lane key={t.teamId} v={v} t={t} now={now} />)}
     </div>
+  );
+}
+
+/** One team's factory: who is on it, how fast its belt runs, the line, the sleigh and the bin. */
+function Lane({ v, t, now }: { v: ConveyorView; t: ConveyorTeamView; now: number }) {
+  const { game } = useHost();
+  const who = (id: string) => ({ name: game.players?.[id]?.name || 'Someone', avatar: game.players?.[id]?.avatar });
+  const end = useEndFx(t);
+  const lost = v.stage === 'done' && !!v.winner && v.winner !== t.teamId;
+  return (
+    <section className={`cv-lane${v.winner === t.teamId ? ' won' : ''}${lost ? ' lost' : ''}`} style={{ ['--team' as string]: TEAM_COLORS[t.teamId] }} data-testid={`conveyor-lane-${t.teamId}`}>
+      <header className="cv-lane-head">
+        <span className="cv-lane-name">Team {t.teamId}</span>
+        <span className="cv-roster">
+          {t.members.map((id) => <span key={id} className={`cv-mate${id === t.captainId ? ' captain' : ''}`}><Avatar name={who(id).name} avatar={who(id).avatar} size={30} />{who(id).name}{id === t.captainId && <small>captain</small>}</span>)}
+        </span>
+        <span className={`cv-speed${t.level >= 5 ? ' hot' : ''}`} aria-label={`Belt speed ${t.level + 1}`} data-testid={`conveyor-speed-${t.teamId}`}>
+          Belt speed {Array.from({ length: 8 }, (_, k) => <i key={k} className={k <= t.level ? 'on' : ''} />)}
+        </span>
+      </header>
+      <div className="cv-floor">
+        <FactoryLine v={v} team={t} now={now} who={who} />
+        <div className="cv-end">
+          <Sleigh count={t.delivered} quota={v.quota} color={TEAM_COLORS[t.teamId]} teamId={t.teamId} bump={end.delivered} />
+          <Bin count={t.rejected + t.stolen} teamId={t.teamId} bump={end.rejected} />
+        </div>
+        {v.winner === t.teamId && <div className="cv-won-flag" role="status">Winners!</div>}
+      </div>
+    </section>
   );
 }

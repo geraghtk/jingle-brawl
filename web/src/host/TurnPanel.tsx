@@ -61,6 +61,7 @@ function LobbyHero() {
   const { game, room, send, cfg, tv } = useHost();
   const joinOrigin = useJoinOrigin();
   const players = Object.entries(game.players || {});
+  const real = players.filter(([, p]) => !p.isBot).length;   // practice bots don't count: they leave at Start
   const url = `${joinOrigin()}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
   const svg = useMemo(() => {
     const qr = qrcode(0, 'M');
@@ -82,11 +83,11 @@ function LobbyHero() {
             <div className="f6-cap">Room code</div>
             <div className="room-code" id="room-code-display">{room}</div>
           </div>
-          {!tv && <button className="btn btn-primary lobby-start-btn" id="btn-start-game" aria-label="Start Game" disabled={players.length < 2}
+          {!tv && <button className="btn btn-primary lobby-start-btn" id="btn-start-game" aria-label="Start Game" disabled={real < 2}
             onClick={() => send({ type: 'start' })}>Start →</button>}
         </div>
         <div className="join-url" id="join-url">{url}</div>
-        <p className="lobby-start-hint" id="lobby-start-hint">{players.length < 2 ? 'Need at least 2 players to start' : tv ? 'Everyone in? The host starts the game.' : 'Everyone in? Hit Start.'}</p>
+        <p className="lobby-start-hint" id="lobby-start-hint">{real < 2 ? 'Need at least 2 players to start' : tv ? 'Everyone in? The host starts the game.' : 'Everyone in? Hit Start.'}</p>
       </div>
       <div className="lobby-roster f6-card f6-rise">
         <div className="lobby-roster-head">
@@ -97,7 +98,7 @@ function LobbyHero() {
           {players.length === 0 ? <div className="roster-empty">Waiting for players to join…</div> : players.map(([id, p]) => (
             <div className="roster-row" key={id}>
               <Avatar name={p.name} avatar={p.avatar} size={32} />
-              <div className="who"><div className="nm">{p.name}</div><div className="sub">Player</div></div>
+              <div className="who"><div className="nm">{p.name}</div><div className="sub">{p.isBot ? 'Practice bot' : 'Player'}</div></div>
               {cfg.publicChips && <span className="roster-chips"><span className="f6-coin" /> {p.chips}</span>}
               <span className="roster-ready">✓</span>
             </div>
@@ -465,16 +466,31 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
     case 'minigame_party': {
       const mg = game.minigame as PartyGame | undefined;
       const g = (mg && GAMES[mg.type]) || { emoji: '🎉', label: 'Party game' };
+      const partyArea = !mg ? null : arenaFull.full && mg.type === 'whack_elf' ? <p className="arena-full-note">Showing full screen</p> : (
+        <>
+          <PartyPanel mg={mg} />
+          {mg.type === 'whack_elf' && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
+        </>
+      );
+      if (t.lab) {
+        // the Game Lab (lobby): practice; the results stay until the host plays again or leaves
+        const lab = t.lab, over = mg?.phase === 'results';
+        return {
+          badge: `🧪 GAME LAB: ${g.label.toUpperCase()}`, badgeClass: 'duel',
+          action: over ? 'Practice over' : `${lab.players.map((id) => nm(game, id)).join(', ')} ${lab.players.length === 1 ? 'is' : 'are'} practising: nothing is won or lost`,
+          areaTitle: 'Party game', area: partyArea,
+          buttons: <>
+            {over && <button className="btn btn-primary" data-testid="lab-again" onClick={() => send({ type: 'lab_start', gameId: lab.gameId, players: lab.players })}>🔁 Play again</button>}
+            {!over && mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => send({ type: 'skip_party' }, { quiet: true })}><Glyphs>⏭ Skip ahead</Glyphs></button>}
+            <button className="btn btn-secondary" data-testid="lab-end" onClick={() => send({ type: 'lab_end' })}>🚪 Back to the lobby</button>
+          </>,
+        };
+      }
       return {
         badge: `${g.emoji} ${g.label.toUpperCase()}`, badgeClass: 'reveal', action: `${g.emoji} ${g.label}: everyone plays!`,
         details: 'Tied bidders play for the tie; everyone else for party points.',
         // Whack-an-Elf is full screen by default (host/WhackStage.tsx): one copy of it at a time
-        areaTitle: 'Party game', area: !mg ? null : arenaFull.full && mg.type === 'whack_elf' ? <p className="arena-full-note">Showing full screen</p> : (
-          <>
-            <PartyPanel mg={mg} />
-            {mg.type === 'whack_elf' && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
-          </>
-        ),
+        areaTitle: 'Party game', area: partyArea,
         buttons: mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => send({ type: 'skip_party' }, { quiet: true })}>
           <Glyphs>{mg.phase === 'results' ? '⚔️ Continue to the duel' : '⏭ Skip ahead'}</Glyphs>
         </button>,

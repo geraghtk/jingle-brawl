@@ -41,7 +41,7 @@ const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   host_spin: {}, close_voting: {}, start_duel_app: {}, duel_winner: { id: 'id' }, skip_party: {}, endgame: {},
   reveal_auction: {}, skip_auction: {}, auction_duel: {}, complete_drawoff: {}, end: {},
   arena_pause: {}, arena_resume: {}, arena_cancel: {}, arena_no_contest: {},
-  lab_start: { gameId: 'id', players: 'ids', mode: 'mode?', duelists: 'ids?' }, lab_end: {},
+  lab_start: { gameId: 'id', players: 'ids', mode: 'mode?', duelists: 'ids?' }, lab_end: {}, lab_add_bot: {}, lab_remove_bots: {},
   admin_set_chips: { pid: 'id', chips: 'int' }, admin_add_gift: { name: 'text', ownerId: 'id' },
   admin_save_gift: { giftId: 'id', name: 'text?', naughtyLevel: 'int', ownerId: 'idOrNull' },
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },

@@ -11,17 +11,17 @@ import type { Game, Plan, PlayerId } from './types';
 const name = (game: Game, id: PlayerId) => game.players?.[id]?.name || 'Someone';
 
 /** Start a party game for a tie (called inside a tie action's Tx). */
-export function startPartyGame(tx: Tx, type: PartyType, goal: PartyGame['minigameGoal'], tied: PlayerId[], ctx: { now: number; rng: Rng }) {
+export function startPartyGame(tx: Tx, type: PartyType, goal: PartyGame['minigameGoal'], tied: PlayerId[], ctx: { now: number; rng: Rng }, players?: PlayerId[]) {
   const g = GAMES[type];
   const mg: PartyGame = {
     type, phase: 'intro', seed: Math.floor(ctx.rng() * 2147483646) + 1,
-    participants: Object.keys(tx.game.players || {}), tiedBidders: tied, minigameGoal: goal,
-    prize: config(tx.game.settings).partyPrize,
+    participants: players ?? Object.keys(tx.game.players || {}), tiedBidders: tied, minigameGoal: goal,
+    prize: goal === 'lab' ? 'none' : config(tx.game.settings).partyPrize,   // the Game Lab: practice, nothing is won
     startedAt: ctx.now, phaseEndsAt: ctx.now + g.introMs,
     ...(type === 'sketch_off' ? { prompt: pick(SKETCH_PROMPTS, ctx.rng) } : {}),
   };
   tx.set('minigame', mg).set('currentTurn/phase', 'minigame_party').set('currentTurn/minigameStatus', `${g.emoji} ${g.label}`)
-    .event(goal === 'duel'
+    .event(goal === 'lab' ? `${g.emoji} ${g.label}: practice` : goal === 'duel'
       ? `${g.emoji} ${g.label} decides ${tied.map((id) => name(tx.game, id)).join(' vs ')}. Everyone plays!`
       : `${g.emoji} ${g.label}! Everyone plays. Tied: ${tied.map((id) => name(tx.game, id)).join(', ')}`, 'bid');
 }
@@ -38,7 +38,7 @@ export function advanceParty(game: Game, fromPhase: PartyGame['phase'], now: num
   const tx = new Tx(game).claim(`minigame/claims/${fromPhase}`, true);
   if (fromPhase === 'intro') return tx.set('minigame/phase', 'playing').set('minigame/playStartAt', now).set('minigame/phaseEndsAt', now + g.playMs).plan();
   if (fromPhase === 'playing' && mg.type === 'sketch_off') return tx.set('minigame/phase', 'voting').set('minigame/phaseEndsAt', now + (g.voteMs || 30000)).plan();
-  if (fromPhase === 'results') return completeTx(tx, mg).plan();
+  if (fromPhase === 'results') return mg.minigameGoal === 'lab' ? refuse('Practice: play again or go back to the lobby') : completeTx(tx, mg).plan();
 
   // playing (Whack-an-Elf) or voting (Sketch-Off) → results + rewards
   const r = partyResults(mg);
@@ -47,6 +47,7 @@ export function advanceParty(game: Game, fromPhase: PartyGame['phase'], now: num
   if (r.bonus && tx.get(`players/${r.bonus}`)) {
     tx.add(`players/${r.bonus}/chips`, 1).event(`🧝 Elf Bonus: ${name(game, r.bonus)} +1 chip from the North Pole Fund`, 'bid');
   }
+  if (mg.minigameGoal === 'lab') return tx.event(`${g.emoji} Practice over: ${r.ranking[0] ? `${name(game, r.ranking[0])} came top` : 'nobody played'}`, 'bid').plan();
   return tx.event(`${g.emoji} ${r.winners.map((id) => name(game, id)).join(' & ')} win${r.winners.length > 1 ? '' : 's'} the ${mg.minigameGoal === 'duel' ? 'duel' : 'tie'}!`, 'bid').plan();
 }
 

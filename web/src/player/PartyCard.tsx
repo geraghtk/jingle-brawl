@@ -37,7 +37,7 @@ function Screen({ mg }: { mg: PartyGame }) {
         {mg.type === 'whack_elf' && <WhackLegend />}
         {mg.prompt && <div className="pg-prompt">“{mg.prompt}”</div>}
         <p className="pg-sub">
-          {tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
+          {mg.minigameGoal === 'lab' ? 'Practice: nothing is won or lost.' : tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
             : `Not in the tie? Play for party points${cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip!' : '!'}`}
         </p>
         {mg.type === 'whack_elf' && secs <= 3 ? <StartCount secs={secs} /> : <><div className="pg-timer">{secs}s</div><p className="pg-sub">Get ready…</p></>}

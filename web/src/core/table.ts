@@ -15,6 +15,7 @@ import type { DrawOff } from './drawoff';
 import { chooseDuelGame, duelAppWinner, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, startDuelApp } from './duelgame';
 import { arenaAct, arenaOf, arenaOffers, arenaPause, arenaResume, arenaStop, canAct } from './minigames/runtime';
 import { endLab, inLab, startLab } from './minigames/lab';
+import { addBot, humans, removeBots } from './bots';
 import type { MatchMode } from './minigames/contracts';
 import { GAMES } from './party';
 import type { PartyGame } from './party';
@@ -67,7 +68,7 @@ export type Offer =
   | { type: 'skip_auction' }
   | { type: 'complete_drawoff' }
   | { type: 'arena_pause' } | { type: 'arena_resume' } | { type: 'arena_cancel' } | { type: 'arena_no_contest' }
-  | { type: 'lab_start'; gameId: string; players: PlayerId[]; mode?: string; duelists?: PlayerId[] } | { type: 'lab_end' }   // the Game Lab (lobby)
+  | { type: 'lab_start'; gameId: string; players: PlayerId[]; mode?: string; duelists?: PlayerId[] } | { type: 'lab_end' } | { type: 'lab_add_bot' } | { type: 'lab_remove_bots' }   // the Game Lab (lobby)
   | { type: 'auction_duel' }
   | { type: 'end' };
 
@@ -173,9 +174,11 @@ function hostOffers(game: Game, now: number): Offer[] {
   if (game.phase === 'lobby') {
     if (inLab(game)) {   // a Game Lab game: pause / resume (starting again and leaving are the lab's own buttons)
       const a = arenaOf(game);
+      const mg = game.minigame as PartyGame | undefined;
+      if (mg && mg.type in GAMES) return mg.phase === 'results' ? [] : [{ type: 'skip_party' }];
       return a?.lifecycle === 'active' ? [{ type: 'arena_pause' }] : a?.lifecycle === 'paused' ? [{ type: 'arena_resume' }] : [];
     }
-    return Object.keys(game.players || {}).length >= 2 ? [{ type: 'start' }] : [];
+    return humans(game).length >= 2 ? [{ type: 'start' }] : [];
   }
   if (game.phase === 'ended') return [];
   if (!t) {
@@ -243,7 +246,7 @@ export const HAND_FILLED = ['score', 'final', 'drawing', 'giftName', 'seed', 'na
 /** Is this offer one of `who`'s right now? (Fields a player fills in aren't compared.) */
 export function isOffered(game: Game, who: Who, offer: Offer, now: number): boolean {
   if (offer.type === 'arena') return who !== HOST && canAct(game, who);   // the game itself checks the action
-  if (offer.type === 'lab_start' || offer.type === 'lab_end') return who === HOST && game.phase === 'lobby';   // the lab checks the rest (not in offers(): the simulated host never wanders in)
+  if (offer.type === 'lab_start' || offer.type === 'lab_end' || offer.type === 'lab_add_bot' || offer.type === 'lab_remove_bots') return who === HOST && game.phase === 'lobby';   // the lab checks the rest (not in offers(): the simulated host never wanders in)
   if (offer.type === 'bid' && who !== HOST && changesBid(game, who, offer.amount)) return true;
   const fixed = (o: Offer) => JSON.stringify(Object.entries(o).filter(([k]) => !HAND_FILLED.includes(k)).sort());
   return offers(game, who, now).some((o) => fixed(o) === fixed(offer));
@@ -317,6 +320,8 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'arena_no_contest': return arenaStop(game, 'no_contest', ctx.now);
     case 'lab_start': return startLab(game, { gameId: offer.gameId, players: offer.players, mode: offer.mode as MatchMode | undefined, duelists: offer.duelists }, ctx);
     case 'lab_end': return endLab(game);
+    case 'lab_add_bot': return addBot(game, ctx);
+    case 'lab_remove_bots': return removeBots(game);
     case 'auction_duel': return D.auctionDuel(game, rankedBids(t)[0][0]);
     case 'end': return A.endGame(game);
   }

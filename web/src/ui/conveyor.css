@@ -1,4 +1,4 @@
-/* The Great Gift Conveyor: the TV's two belts, and the phone's close-up of one station. */
+/* The Great Gift Conveyor: the belt as the phone draws it (a close-up of one station) and its card. */
 
 /* --- the belt (ui/conveyorBelt.tsx): shared by the TV and the phones --- */
 .cv-belt { position: relative; height: var(--belt-h, 150px); border-radius: 14px; overflow: hidden; container-type: inline-size;
@@ -22,30 +22,7 @@
 .cv-mark { font-size: 11px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
 .cv-swatch.big .cv-mark { font-size: 18px; }
 
-/* --- the TV --- */
-.cv-stage { text-align: center; display: grid; gap: 14px; }
-.cv-stage > .rt-banner { justify-self: center; }
-.cv-lane { border-radius: 18px; padding: 12px; background: var(--surface, #fff); border-left: 10px solid var(--team); text-align: left; }
-.cv-lane.won { box-shadow: 0 0 0 4px var(--team); }
-.cv-lane-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.cv-lane-name { font: 900 22px/1 var(--f6-disp, system-ui); color: var(--team); }
-.cv-captain { font-weight: 800; }
-.cv-speed { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font: 800 14px/1 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .05em; }
-.cv-speed i { width: 9px; height: 16px; border-radius: 3px; background: #dfe3ea; transform: skewX(-14deg); }
-.cv-speed i.on { background: var(--team); }
-.cv-floor { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: stretch; --belt-h: clamp(120px, 19vh, 230px); --toy-w: 9cqw; }
-.cv-chute { display: grid; place-items: center; width: 44px; border-radius: 12px; background: #1d2a3a; color: #fff; font: 900 13px/1 var(--f6-disp, system-ui); writing-mode: vertical-rl; letter-spacing: .1em; }
-.cv-end { display: grid; grid-template-rows: 1fr auto; gap: 6px; width: 104px; }
-.cv-sleigh { display: grid; place-items: center; align-content: center; border-radius: 14px; background: color-mix(in srgb, var(--team) 16%, #fff); border: 3px solid var(--team); }
-.cv-sleigh-count { font: 900 44px/1 var(--f6-disp, system-ui); }
-.cv-sleigh-of { font-weight: 800; font-size: 13px; color: var(--muted, #6a7180); }
-.cv-bin { text-align: center; border-radius: 10px; padding: 4px; background: #eceef2; font-weight: 800; font-size: 13px; color: #d7263d; }
-/* full screen: the clock is in the top bar (Ring Toss's rule), so the two lanes share the whole height */
-.arena-full .cv-stage { height: 100%; display: flex; flex-direction: column; }
-.arena-full .cv-lane { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }
-.arena-full .cv-floor { flex: 1; min-height: 0; --belt-h: 100%; --toy-w: 12cqw; }
-.arena-full .cv-zone-name { font-size: 17px; }
-.arena-full .cv-worker { font-size: 16px; }
+/* (the TV's factory lines: conveyorFactory.css) */
 
 /* --- the phone --- */
 .cv-card { text-align: center; border-top: 6px solid var(--team, #ff3366); }

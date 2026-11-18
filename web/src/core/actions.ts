@@ -59,10 +59,13 @@ export function joinPlayer(game: Game, p: { playerId: PlayerId; name: string; ui
 }
 
 export function startGame(game: Game): Plan {
-  const ids = Object.keys(game.players || {});
+  // practice bots (core/bots.ts) are for the Game Lab: they leave as the real game starts
+  const all = Object.entries(game.players || {});
+  const ids = all.filter(([, p]) => !p.isBot).map(([id]) => id);
   if (ids.length < 2) return refuse('Need at least 2 players to start!');
   if (game.currentTurn) return refuse('Finish the Game Lab game first');
   const tx = new Tx(game).set('phase', 'main');
+  for (const [id, p] of all) if (p.isBot) tx.set(`players/${id}`, null);
   // Rules: 10 chips for up to 10 players, 12 for larger groups — for EVERYONE (joiners
   // used to get 10 or 12 depending on how many had joined before them).
   const cfg = cfgOf(game);

@@ -13,10 +13,10 @@ export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?:
   return (
     <>
       <h3><Glyphs>{GAMES[mg.type].emoji}</Glyphs> Results</h3>
-      <p className="pg-sub">
+      {mg.minigameGoal === 'lab' ? <p className="pg-sub">Practice: nothing won, nothing lost.</p> : <p className="pg-sub">
         {r.winners.map(name).join(' & ')} {r.winners.length > 1 ? 'win' : 'wins'} the tie
         {mg.minigameGoal === 'pick_two' ? ' and duel for the gift' : ' and duel the Opener'}.
-      </p>
+      </p>}
       <ol className="pg-rank">
         {r.ranking.map((id, i) => {
           const s = r.scoreOf?.[id];

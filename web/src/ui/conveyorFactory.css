@@ -1,0 +1,124 @@
+/* The Great Gift Conveyor on the TV: two factory lines (host/ConveyorStage.tsx, ui/conveyorFactory.tsx). */
+.cv-stage { text-align: center; display: grid; gap: 12px; }
+.cv-stage > .rt-banner { justify-self: center; }
+.cv-lane { border-radius: 20px; padding: 10px 12px 12px; background: var(--surface, #fff); border-left: 10px solid var(--team); text-align: left; box-shadow: 0 6px 0 rgba(13, 16, 24, .08); transition: opacity .6s, filter .6s; }
+.cv-lane.won { box-shadow: 0 0 0 5px var(--team), 0 6px 0 rgba(13, 16, 24, .08); }
+.cv-lane.lost { opacity: .55; filter: saturate(.5); }
+.cv-lane-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.cv-lane-name { font: 900 26px/1 var(--f6-disp, system-ui); color: var(--team); }
+.cv-roster { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; }
+.cv-mate { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; }
+.cv-mate small { font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: var(--team); border-radius: 999px; padding: 2px 7px; }
+.cv-speed { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font: 800 14px/1 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .05em; padding: 6px 12px; border-radius: 999px; background: #eef2f7; }
+.cv-speed i { width: 10px; height: 18px; border-radius: 3px; background: #cfd6e0; transform: skewX(-14deg); }
+.cv-speed i:first-of-type { margin-left: 6px; }
+.cv-speed i.on { background: var(--team); }
+.cv-speed.hot { animation: cvf-hot .5s ease-in-out infinite alternate; }
+@keyframes cvf-hot { to { background: color-mix(in srgb, var(--team) 26%, #eef2f7); } }
+.cv-floor { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) clamp(96px, 11vw, 190px); grid-template-rows: minmax(0, 1fr); gap: 10px; align-items: stretch; height: var(--belt-h, clamp(150px, 24vh, 260px)); }
+.cv-end { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-height: 0; }
+.cv-won-flag { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-4deg); z-index: 9; padding: .15em .7em; border-radius: 18px; background: var(--team); color: #fff;
+  font: 900 clamp(34px, 9vh, 96px)/1.1 var(--f6-disp, system-ui); border: 5px solid #1d2a3a; box-shadow: 0 8px 0 rgba(13, 16, 24, .25); animation: cvf-flag .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes cvf-flag { from { transform: translate(-50%, -50%) rotate(-4deg) scale(.2); opacity: 0; } }
+/* full screen: the clock is in the top bar (Ring Toss's rule), so the two lanes share the whole height */
+.arena-full .cv-stage { height: 100%; display: flex; flex-direction: column; }
+.arena-full .cv-lane { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }
+.arena-full .cv-floor { flex: 1; min-height: 0; height: auto; }
+
+/* the line itself: everything inside is sized from its height (cqh), so it is the same picture at any size */
+.cvf { position: relative; container-type: size; min-height: 0; border-radius: 16px; overflow: hidden; box-shadow: inset 0 0 0 3px #1d2a3a; background: #eaf1f9; --ink: #1d2a3a; --toy: min(37cqh, 11cqw); }
+.cvf-wall { position: absolute; inset: 0 0 38% 0;
+  background:
+    linear-gradient(transparent 0 72%, color-mix(in srgb, var(--team) 20%, #c9d6e6) 72% 100%),
+    repeating-linear-gradient(90deg, transparent 0 13.6cqh, rgba(29, 42, 58, .06) 13.6cqh 14cqh),
+    color-mix(in srgb, var(--team) 9%, #eef4fb); }
+.cvf-wall::after { content: ''; position: absolute; left: 0; right: 0; top: 72%; height: 1cqh; background: var(--ink); opacity: .55; }
+.cvf-garland { position: absolute; left: 0; top: 0; height: 6.5cqh; display: flex; }
+.cvf-garland-bit { height: 100%; width: auto; aspect-ratio: 60 / 26; flex: none; overflow: visible; }
+.cvf-bulb { animation: cvf-twinkle 1.8s ease-in-out infinite; }
+.cvf-bulb.b1 { animation-delay: -.6s; }
+.cvf-bulb.b2 { animation-delay: -1.2s; }
+@keyframes cvf-twinkle { 50% { opacity: .45; } }
+.cvf-floor { position: absolute; inset: 80% 0 0 0; background: repeating-linear-gradient(90deg, #d3dce8 0 9cqh, #c6d1df 9cqh 18cqh); box-shadow: inset 0 .8cqh 0 rgba(29, 42, 58, .25); }
+
+/* a station: two posts, the head with its sign and crew, the tool on its arm */
+.cvf-station { position: absolute; top: 0; bottom: 38%; box-sizing: border-box; }
+.cvf-post { position: absolute; top: 26cqh; bottom: 0; width: 2.2cqh; background: #55657c; box-shadow: inset 0 0 0 .6cqh var(--ink); }
+.cvf-post.l { left: 4%; }
+.cvf-post.r { right: 4%; }
+.cvf-head { position: absolute; left: 0; right: 0; top: 7cqh; height: 26cqh; box-sizing: border-box; border-radius: 3cqh; background: var(--team); border: .8cqh solid var(--ink);
+  box-shadow: inset 0 -1.6cqh 0 rgba(13, 16, 24, .18); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2cqh; padding: 1cqh; overflow: hidden; }
+.cvf-sign { display: flex; align-items: center; gap: 1.4cqh; background: #fff; border: .6cqh solid var(--ink); border-radius: 99cqh; padding: .5cqh 2.4cqh .5cqh 1.4cqh; font: 900 5.6cqh/1 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .06em; color: var(--ink); white-space: nowrap; }
+.cvf-lamp { width: 3.6cqh; height: 3.6cqh; border-radius: 50%; background: #b9c2d0; box-shadow: inset 0 0 0 .6cqh var(--ink); flex: none; }
+.cvf-station.waiting .cvf-lamp { background: #ffb000; animation: cvf-blink .45s steps(2) infinite; }
+.cvf-station.alarm .cvf-lamp { background: #e0143c; }
+@keyframes cvf-blink { 50% { background: #fff3c4; } }
+.cvf-crew { display: flex; gap: 2.4cqh; align-items: center; justify-content: center; max-width: 100%; }
+.cvf-worker { display: inline-flex; align-items: center; gap: 1.2cqh; min-width: 0; color: #fff; font-size: 4.6cqh; line-height: 1; }
+.cvf-worker b { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 .3cqh 0 rgba(13, 16, 24, .35); }
+.cvf-worker .f6-avatar { width: 8.4cqh !important; height: 8.4cqh !important; flex: none; box-shadow: 0 0 0 .5cqh var(--ink); }
+.cvf-crew.crowd .cvf-worker b { display: none; }
+.cvf-worker.nobody { opacity: .8; font-style: italic; }
+.cvf-arm { position: absolute; left: 50%; top: 32cqh; width: 12cqh; margin-left: -6cqh; }
+.cvf-arm[data-stamped] { animation: cvf-stamp .42s cubic-bezier(.3, 0, .3, 1); }
+@keyframes cvf-stamp { 35% { transform: translateY(7cqh); } }
+.cvf-tool { display: block; width: 100%; height: auto; overflow: visible; }
+.cvf-burst { position: absolute; left: 50%; top: 50cqh; z-index: 6; }
+.cvf-burst.good i { position: absolute; left: -.5cqh; top: -3cqh; width: 1cqh; height: 6cqh; border-radius: 1cqh; background: #ffd84a; box-shadow: 0 0 0 .4cqh var(--ink); transform: rotate(var(--a)) translateY(-6cqh); animation: cvf-spark .55s ease-out forwards; }
+@keyframes cvf-spark { to { transform: rotate(var(--a)) translateY(-17cqh) scaleY(.3); opacity: 0; } }
+.cvf-burst.bad b { position: absolute; transform: translate(-50%, -50%); font: 900 16cqh/1 var(--f6-disp, system-ui); color: #e0143c; -webkit-text-stroke: .8cqh #fff; paint-order: stroke fill; animation: cvf-bad .8s ease-out forwards; }
+@keyframes cvf-bad { 0% { transform: translate(-50%, -50%) scale(.3); } 25% { transform: translate(-50%, -50%) scale(1.15); } 100% { transform: translate(-50%, -90%) scale(1); opacity: 0; } }
+
+/* the belt: the tread the toys ride on, a hazard rail, the rollers under it, the legs */
+.cvf-belt { position: absolute; left: 0; right: 0; top: 62%; height: 18%; }
+.cvf-tread { position: absolute; inset: 0 0 45% 0; background-color: #2b3a4f; background-image: repeating-linear-gradient(90deg, #3f5574 0 .5cqw, transparent .5cqw 4cqw); background-size: 4cqw 100%; box-shadow: inset 0 .8cqh 0 var(--ink), inset 0 -.6cqh 0 var(--ink); }
+.cvf-rail { position: absolute; inset: 55% 0 27% 0; background: repeating-linear-gradient(-45deg, #f2b705 0 2.4cqh, var(--ink) 2.4cqh 4.8cqh); box-shadow: inset 0 -.5cqh 0 var(--ink); }
+.cvf-rollers { position: absolute; inset: 73% 0 0 0; background-color: #1d2a3a; background-image: radial-gradient(circle at 50% 50%, #8fa0b6 0 1cqh, #55657c 1cqh 1.7cqh, transparent 1.8cqh); background-size: 4cqw 100%; }
+.cvf-legs { position: absolute; left: 0; right: 0; top: 80%; height: 13%; background: repeating-linear-gradient(90deg, transparent 0 12.2cqw, var(--ink) 12.2cqw 13.4cqw, transparent 13.4cqw 20cqw); }
+
+/* a toy rides with its wheels on the tread, centred on where it is */
+.cvf-rider { position: absolute; bottom: 31.5%; width: var(--toy); transform: translateX(-50%); will-change: left; z-index: 3; filter: drop-shadow(0 .8cqh 0 rgba(13, 16, 24, .28)); }
+.cvf-rider .cv-toy { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* the hopper the toys come out of, and the checker they go into */
+.cvf-hopper, .cvf-checker { position: absolute; top: 12cqh; bottom: 19%; width: 9.5%; z-index: 4; box-sizing: border-box; background: #3b4c66; border: .8cqh solid var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2cqh; padding-top: 3cqh;
+  box-shadow: inset 0 -2cqh 0 rgba(13, 16, 24, .25); }
+.cvf-hopper { left: -.8cqh; border-radius: 0 4cqh 0 0; }
+.cvf-checker { right: -.8cqh; border-radius: 4cqh 0 0 0; }
+.cvf-plate { font: 900 4.6cqh/1 var(--f6-disp, system-ui); letter-spacing: .1em; color: var(--ink); background: #ffd84a; border: .6cqh solid var(--ink); border-radius: 1.6cqh; padding: .8cqh 1.8cqh; }
+.cvf-dots { display: flex; gap: 1.4cqh; }
+.cvf-dots i { width: 2.8cqh; height: 2.8cqh; border-radius: 50%; background: #7cc242; box-shadow: inset 0 0 0 .5cqh var(--ink); animation: cvf-twinkle .9s steps(2) infinite; }
+.cvf-dots i:nth-child(2) { background: #ffb000; animation-delay: -.3s; }
+.cvf-dots i:nth-child(3) { background: #e23b3b; animation-delay: -.6s; }
+.cvf-eye { width: 8cqh; height: 8cqh; border-radius: 50%; background: #b9c2d0; border: .8cqh solid var(--ink); box-sizing: border-box; transition: background .15s; }
+.cvf-checker.ok .cvf-eye { background: #3ddc84; box-shadow: 0 0 0 1.6cqh rgba(61, 220, 132, .35); }
+.cvf-checker.no .cvf-eye { background: #e0143c; box-shadow: 0 0 0 1.6cqh rgba(224, 20, 60, .35); }
+/* the opening at belt height: dark, with rubber flaps */
+.cvf-mouth { position: absolute; left: 0; right: 0; bottom: 14%; height: 42%; background-color: #131c28; box-shadow: inset 0 .8cqh 0 var(--ink);
+  background-image: repeating-linear-gradient(90deg, #26354a 0 2.2cqh, #131c28 2.2cqh 2.8cqh); }
+.cvf-faster { position: absolute; left: 50%; top: 44%; z-index: 7; font: 900 15cqh/1 var(--f6-disp, system-ui); color: #fff; -webkit-text-stroke: 1.2cqh var(--ink); paint-order: stroke fill; text-transform: uppercase; animation: cvf-faster 1.05s ease-out forwards; pointer-events: none; }
+@keyframes cvf-faster {
+  0% { transform: translate(-120%, -50%) rotate(-3deg) skewX(-14deg); opacity: 0; }
+  25%, 70% { transform: translate(-50%, -50%) rotate(-3deg) skewX(-14deg); opacity: 1; }
+  100% { transform: translate(40%, -50%) rotate(-3deg) skewX(-14deg); opacity: 0; }
+}
+.cvf-note { position: absolute; left: 50%; top: 46%; z-index: 7; transform: translate(-50%, -50%); padding: 1.4cqh 3.4cqh; border-radius: 99cqh; background: #e0143c; color: #fff; font: 900 6.5cqh/1.1 var(--f6-disp, system-ui); border: .7cqh solid var(--ink); white-space: nowrap; }
+
+/* the end of the line: the sleigh (a gift for every toy delivered) and the bin */
+.cvf-sleigh { position: relative; min-height: 0; border-radius: 16px; background: color-mix(in srgb, var(--team) 13%, #fff); border: 3px solid var(--team); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 6px 8px; overflow: hidden; }
+.cvf-sleigh.full { background: color-mix(in srgb, var(--team) 30%, #fff); }
+.cvf-sleigh-art { width: 100%; height: auto; max-height: calc(100% - 60px); min-height: 0; flex: 0 1 auto; overflow: visible; }
+.cvf-sleigh.bump .cvf-sleigh-art { animation: cvf-bump .45s ease-out; }
+@keyframes cvf-bump { 30% { transform: translateY(6%) scale(1.04, .94); } 60% { transform: translateY(-3%); } }
+.cvf-gift.new { animation: cvf-drop .45s cubic-bezier(.3, 1.4, .5, 1) both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes cvf-drop { from { transform: translateY(-40px) rotate(-14deg); opacity: 0; } }
+.cvf-tally { display: flex; align-items: baseline; gap: 6px; font: 800 14px/1 var(--f6-disp, system-ui); color: var(--muted, #6a7180); white-space: nowrap; }
+.cvf-tally b { font: 900 clamp(30px, 6.4vh, 64px)/1 var(--f6-disp, system-ui); color: #1d2a3a; display: inline-block; animation: cvf-count .35s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes cvf-count { from { transform: scale(1.5); color: var(--team); } }
+.cvf-plus { position: absolute; right: 10px; top: 8px; font: 900 26px/1 var(--f6-disp, system-ui); color: var(--team); animation: cvf-plus 1s ease-out forwards; }
+@keyframes cvf-plus { from { transform: translateY(20px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-14px); opacity: 0; } }
+.cvf-bin { display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; padding: 5px 8px; background: #eceef2; font-weight: 800; font-size: 14px; color: #6a7180; }
+.cvf-bin svg { width: 22px; height: 22px; flex: none; }
+.cvf-bin b { color: #d7263d; font-size: 18px; }
+.cvf-bin.bump { animation: cvf-shake .4s; }
+@keyframes cvf-shake { 20% { transform: translateX(-4px) rotate(-3deg); } 50% { transform: translateX(4px) rotate(3deg); } 80% { transform: translateX(-2px); } }
