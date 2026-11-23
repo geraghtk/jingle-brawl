@@ -5,11 +5,12 @@ import { useEffect, useRef } from 'react';
 import { arcAt, arcFor } from '../../core/minigames/engines/projectile';
 import type { RingThrow } from '../../core/minigames/ringtoss/view';
 import { colorIndex, RING_COLORS } from './colors';
-import { DEER_Z, HIGH, ringR, toScreen, tumble, visMs } from './scene';
+import { DEER_Z, HIGH, ringR, shadowOpacity, toScreen, tumble, visMs } from './scene';
 
-/** A ring's trail: how faint each copy is, and how far apart in time. */
-const TRAIL = [0.34, 0.22, 0.13, 0.06];
-const TRAIL_GAP_MS = 34;
+/** A ring's trail: how faint each copy is, and how far apart in time. Kept slight (Kevin, 2026-11-18:
+ *  four strong copies per ring made a busy table's screen cluttered). */
+export const TRAIL = [0.18, 0.08];
+const TRAIL_GAP_MS = 30;
 
 export type FlightNodes = Map<number, { ring: SVGEllipseElement | null; shadow: SVGEllipseElement | null; back?: SVGEllipseElement | null }>;
 
@@ -66,7 +67,7 @@ export function Flights({ throws, startOf, offset, participants, ends, nodes }: 
     n.shadow.setAttribute('cx', String(g.sx)); n.shadow.setAttribute('cy', String(g.sy));
     const lift = Math.min(1, hh / HIGH);
     n.shadow.setAttribute('rx', String(ringR(g.k) * 0.9 * (1 - 0.6 * lift))); n.shadow.setAttribute('ry', String(ringR(g.k) * 0.3 * (1 - 0.6 * lift)));
-    n.shadow.setAttribute('opacity', String(0.28 * (1 - 0.8 * lift)));
+    n.shadow.setAttribute('opacity', String(shadowOpacity(z, hh)));
     (trails.current.get(t.n) || []).forEach((e, i) => {
       if (!e) return;
       const ago = since - (i + 1) * TRAIL_GAP_MS;

@@ -48,7 +48,7 @@ async function solve(page, { wrong = false } = {}) {
 }
 
 /** Three at the table, a duel whose game is Pass the Gremlin, started; the TV watching. */
-async function toArena(browser, settings = {}) {
+async function toArena(browser, settings = {}, NAMES = ['Alice', 'Bob', 'Charlie']) {
   const r = await H.createGame(browser, { 'vote-window': '0', 'duel-pick': 'wheel', 'duel-games': '', 'duel-app-pass_the_gremlin': 'on', ...settings });
   const { pages, contexts, errors: phoneErrors } = await H.joinPlayers(browser, r.roomCode, NAMES);
   const tvCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
@@ -100,6 +100,11 @@ test('Pass the Gremlin settles a duel: solve, pass, doom; the TV never shows the
     const holder = pages[holderName];
     await expect(holder.getByTestId('gremlin-holder')).toHaveText('You have the Gremlin!');
     await expect(tv.getByTestId('gremlin-tv-holder')).toContainText(holderName);
+    // the TV's table: a seat for everyone, the holder's lit, with how often each has held it
+    for (const n of NAMES) await expect(tv.getByTestId(`gremlin-seat-${p[n].id}`)).toContainText(n);
+    await expect(tv.getByTestId(`gremlin-seat-${a0.state.holder}`)).toHaveClass(/has/);
+    await expect(tv.getByTestId(`gremlin-seat-${a0.state.holder}`)).toContainText('×1');
+    await expect(tv.getByTestId('gremlin-tv-mood')).not.toBeEmpty();
     for (const n of NAMES.filter((x) => x !== holderName)) await expect(pages[n].getByTestId('gremlin-prompt')).toHaveCount(0);
     await solve(holder);
     await holder.getByTestId('gremlin-random').click();
@@ -180,4 +185,39 @@ test("the Gremlin's sound switch is remembered on the phone", async ({ browser }
   } finally {
     await t.close();
   }
+});
+
+test('a caught bystander is out and the table plays on; lasting to the end earns Party points', async ({ browser }) => {
+  test.setTimeout(150000);
+  const t = await toArena(browser, {}, ['Alice', 'Bob', 'Charlie', 'Dana']);
+  try {
+    const { roomCode, tv, pages, p, opener, bidder } = t;
+    const [first, last] = ['Alice', 'Bob', 'Charlie', 'Dana'].filter((n) => n !== opener && n !== bidder);
+    const before = (await H.dbGet(roomCode, `players/${p[last].id}/partyPoints`)) || 0;
+    /** Put the Gremlin in someone's hands and make it go berserk now. */
+    const catchOut = async (name) => {
+      await H.dbPut(roomCode, 'arena/state/holder', p[name].id);
+      await H.dbPut(roomCode, 'arena/deadlines', [{ id: 'doom', at: Date.now() }]);
+    };
+    // it catches a bystander: out, with a stamp on their seat; their phone says so; no duel winner yet
+    await catchOut(first);
+    await expect(tv.getByTestId('gremlin-tv-caught')).toContainText(first);
+    await expect(tv.getByTestId(`gremlin-out-${p[first].id}`)).toContainText('Out');
+    await expect(pages[first].getByTestId('gremlin-out-line')).toContainText("You're out: no points this time");
+    // the rest play on: round 2, without them
+    const g2 = await H.waitForGame(roomCode, (g) => (g.arena?.state.roundNo === 2 && g.arena.state.stage === 'holding' ? g : false), { label: 'round 2', timeout: 15000 });
+    expect(g2.arena.state.pool).not.toContain(p[first].id);
+    expect(g2.arena.state.pool).toHaveLength(3);
+    expect(g2.lastDuel || null).toBeNull();
+    await expect(tv.getByTestId('gremlin-tv-round')).toContainText('Round 2');
+    await expect(pages[first].getByTestId('gremlin-watch')).toContainText("You're out");
+    await expect(pages[last].getByTestId('gremlin-stake')).toContainText('1 Party point');
+    // it catches a duellist: the duel is settled, and the bystander who was never caught is paid
+    await catchOut(opener);
+    const g = await H.waitForGame(roomCode, (x) => (x.lastDuel ? x : false), { label: 'duel settled', timeout: 30000 });
+    expect(g.lastDuel.winnerId).toBe(p[bidder].id);
+    expect(g.players[p[last].id].partyPoints || 0).toBe(before + 1);
+    expect(g.players[p[first].id].partyPoints || 0).toBe(0);
+    expect([...t.errors, ...t.phoneErrors]).toEqual([]);
+  } finally { await t.close(); }
 });

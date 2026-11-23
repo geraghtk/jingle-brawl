@@ -10,10 +10,16 @@ import { GremlinCard } from './GremlinCard';
 import { RingTossCard } from './RingTossCard';
 import { ConveyorCard } from './ConveyorCard';
 import { RobotCard } from './RobotCard';
+import { MechaCard } from './MechaCard';
+import { TowerCard } from './TowerCard';
 import { PartyCard } from './PartyCard';
 import { usePlayer } from './PlayerContext';
 import { ReprisalCard } from './ReprisalCard';
 import { StatusCard } from './StatusCard';
+import { getDef } from '../core/minigames/registry';
+import { useServerNow } from '../net/hooks';
+import { Briefing } from '../ui/Briefing';
+import { buzz } from '../ui/sound';
 import { VerdictModal } from './VerdictModal';
 
 /** The phone's card for each runtime mini-game (its stage on the TV: host/ArenaStage.tsx STAGES). */
@@ -22,7 +28,19 @@ const ARENA_CARDS: Record<string, ComponentType> = {
   reindeer_ring_toss: RingTossCard,
   gift_conveyor: ConveyorCard,
   nutcracker_knockout: RobotCard,
+  mecha_santa: MechaCard,
+  elf_tower_wars: TowerCard,
 };
+
+/** Before a mini-game starts: how to play it and this phone's Ready button. */
+function ArenaBriefing() {
+  const { game, me, send } = usePlayer();
+  const now = useServerNow(200);
+  const av = game.arenaView!;
+  const def = getDef(av.gameId);
+  if (!def) return null;
+  return <Briefing game={game} av={av} label={def.label} emoji={def.emoji} rules={def.rules} now={now} me={me} where="phone" onReady={() => { buzz(20); void send({ type: 'arena_ready' }, { quiet: true }); }} />;
+}
 
 export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const { game, me, player, cfg } = usePlayer();
@@ -40,6 +58,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const arenaGame = t?.phase === 'minigame_arena' ? game.arenaView?.gameId : undefined;
   const arena = !!arenaGame;
   const ArenaCard = arenaGame ? ARENA_CARDS[arenaGame] : undefined;
+  const briefing = arena && game.arenaView?.lifecycle === 'briefing' && !!ArenaCard;   // the instructions, before the game's own card
   const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
@@ -60,7 +79,8 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       {myReprisal && <ReprisalCard />}
       {party && <PartyCard />}
       {drawOff && <DrawOffCard />}
-      {arena && (ArenaCard ? <ArenaCard />
+      {arena && briefing ? <ArenaBriefing />
+        : arena && (ArenaCard ? <ArenaCard />
         // a game this page doesn't know (the room is newer than the page)
         : <div className="card" role="status" data-testid="arena-unknown"><p>This game needs a newer app. Reload this page to play.</p></div>)}
 

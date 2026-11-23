@@ -11,10 +11,10 @@ import { MemoryStore } from '../store/store';
 import { FakeClock } from '../testing/fakeClock';
 import { RoomActor } from './actor';
 
-function room(bots: number, people = 0) {
+function room(bots: number, people = 0, seed = 1) {
   const store = new MemoryStore();
   const clock = new FakeClock();
-  let s = 1, id = 0;
+  let s = seed, id = 0;
   const deps = { store, clock, seed: () => s++ };
   const r = RoomActor.create('BOTS', {}, deps)!;
   const press = (who: string, intent: unknown) => r.handle(who, `a${++id}`, intent);
@@ -49,7 +49,7 @@ describe('practice bots', () => {
     expect(t.press(HOST, { type: 'lab_add_bot' })).toMatchObject({ ok: false });           // the lobby only
   });
 
-  for (const [gameId, n] of [['nutcracker_knockout', 2], ['gift_conveyor', 4], ['reindeer_ring_toss', 3], ['pass_the_gremlin', 3]] as const) {
+  for (const [gameId, n] of [['nutcracker_knockout', 2], ['gift_conveyor', 4], ['mecha_santa', 4], ['elf_tower_wars', 4], ['reindeer_ring_toss', 3], ['pass_the_gremlin', 3]] as const) {
     it(`bots alone play ${gameId} to a result`, () => {
       const t = room(n);
       expect(t.press(HOST, { type: 'lab_start', gameId, players: t.bots() })).toEqual({ ok: true });
@@ -65,6 +65,29 @@ describe('practice bots', () => {
       expect(t.game().currentTurn ?? null).toBeNull();
     });
   }
+
+  it('Pass the Gremlin in the lab: when it catches a bystander the bots play on into round 2, to a duel winner', () => {
+    let played = 0;
+    for (let seed = 1; seed < 40 && played < 3; seed++) {
+      const t = room(5, 0, seed * 7);
+      expect(t.press(HOST, { type: 'lab_start', gameId: 'pass_the_gremlin', players: t.bots() })).toEqual({ ok: true });
+      expect(arenaOf(t.game())!.mode).toBe('party_with_duelists');
+      const state = () => arenaOf(t.game())!.state as { out?: string[]; roundNo?: number; stage: string; pool: string[] };
+      for (let i = 0; i < 110 && !arenaOf(t.game())!.result && !(state().out || []).length; i++) t.clock.advance(1000);
+      if (!(state().out || []).length) continue;                    // a duelist was caught first: over in one round
+      const [gone] = state().out!;
+      expect(arenaOf(t.game())!.result).toBeUndefined();
+      t.clock.advance(6000);                                        // the beat, then the next round starts by itself
+      expect(state().roundNo).toBe(2);
+      expect(state().pool).not.toContain(gone);
+      t.clock.advance(6 * 60_000);
+      const a = arenaOf(t.game())!;
+      expect(a.lifecycle).toBe('completed');
+      expect(t.bots().slice(0, 2)).toContain(a.result!.duel!.winningDuelistId);
+      played++;
+    }
+    expect(played).toBeGreaterThan(0);
+  });
 
   it('the Conveyor: bots deliver toys (they do the work, not just wait for the bell)', () => {
     const t = room(4);

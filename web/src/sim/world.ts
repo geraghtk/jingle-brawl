@@ -165,6 +165,10 @@ export class PatientHost {
     // a guest's own move that isn't coming (stepped out, phone dead): the host covers for them
     const cover = offered.find((o) => ['keep', 'fight', 'skip_reprisal', 'path', 'nobids_defender'].includes(o.type));
     if (cover) return { at: since + this.o.patienceMs, offer: cover };
+    // a mini-game's instructions are up and somebody never presses Ready: start without them
+    if (has('arena_start_now')) return { at: since + this.o.patienceMs, offer: { type: 'arena_start_now' } };
+    const waitingIntro = (game.minigame as { phase?: string; awaiting?: boolean } | undefined);
+    if (has('skip_party') && waitingIntro?.phase === 'intro' && waitingIntro.awaiting) return { at: since + this.o.patienceMs, offer: { type: 'skip_party' } };
     if (has('close_voting')) return { at: since + this.o.patienceMs, offer: { type: 'close_voting' } };
     if (has('host_spin')) return { at: since + this.o.patienceMs, offer: { type: 'host_spin' } };
     if (offered.length === 1 && has('end')) return { at: calm, offer: { type: 'end' } };

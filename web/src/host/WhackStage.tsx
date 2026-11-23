@@ -8,6 +8,7 @@ import type { PartyGame } from '../core/party';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { Glyphs } from '../ui/icons';
+import { PartyReady } from '../ui/PartyReady';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import { play } from '../ui/sound';
 import { WhackHole, WhackLegend, preloadWhackArt } from '../ui/whack';
@@ -16,12 +17,14 @@ import '../ui/arena.css';
 import '../ui/party.css';
 import { FullCtx } from './ArenaFull';
 import { useHost } from './HostContext';
+import { SketchStage } from './SketchStage';
 import { PanelButtons } from './TurnPanel';
 import { useContext } from 'react';
 
-/** Is Whack-an-Elf on right now (any of its phases)? */
-export function whackOn(game: { currentTurn?: { phase?: string } | null; minigame?: unknown }): boolean {
-  return game.currentTurn?.phase === 'minigame_party' && (game.minigame as PartyGame | undefined)?.type === 'whack_elf';
+/** Is a party game on right now (Whack-an-Elf or Sketch-Off, any of its phases)? Both fill the screen. */
+export function partyGameOn(game: { currentTurn?: { phase?: string } | null; minigame?: unknown }): boolean {
+  const type = (game.minigame as PartyGame | undefined)?.type;
+  return game.currentTurn?.phase === 'minigame_party' && !!type && type in GAMES;
 }
 
 /** The full-screen frame (the same as a runtime mini-game's: host/ArenaFull.tsx), around the stage. */
@@ -49,7 +52,7 @@ export function PartyFull() {
           {!tv && <button type="button" className="arena-full-btn" data-testid="arena-full-exit" onClick={() => setFull(false)}>✕ Console view</button>}
         </span>
       </header>
-      <div className="arena-full-body"><WhackStage mg={mg} /></div>
+      <div className="arena-full-body">{mg.type === 'sketch_off' ? <SketchStage mg={mg} /> : <WhackStage mg={mg} />}</div>
     </div>
   );
 }
@@ -88,7 +91,8 @@ export function WhackStage({ mg }: { mg: PartyGame }) {
           {mg.minigameGoal === 'lab' ? <>Practice: nothing is won or lost. </> : mg.minigameGoal === 'duel' ? <>The duel: <b>{tied.map(name).join(' vs ')}</b>. </> : <>Tied: <b>{tied.map(name).join(', ')}</b>. </>}
           Everyone plays, on your phones{mg.minigameGoal === 'lab' ? '' : cfg.partyPrize !== 'none' ? ': the rest for party points' : ''}{mg.minigameGoal !== 'lab' && cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip' : ''}.
         </p>
-        {secs <= 3 ? <div className="wh-count" key={secs} role="status" data-testid="whack-count">{Math.max(1, secs)}</div> : <div className="wh-getready">Get ready… {secs}</div>}
+        {mg.awaiting ? <PartyReady mg={mg} game={game} tv />
+          : secs <= 3 ? <div className="wh-count" key={secs} role="status" data-testid="whack-count">{Math.max(1, secs)}</div> : <div className="wh-getready">Get ready… {secs}</div>}
       </div>
     );
   }
@@ -103,13 +107,17 @@ export function WhackStage({ mg }: { mg: PartyGame }) {
   return (
     <div className="wh-stage pg playing" data-testid="whack-stage">
       <div className="wh-board">
-        <div className={`wh-clock${secs <= 5 ? ' hurry' : ''}`} data-testid="whack-clock">{secs}</div>
         <div className="whack-grid" aria-hidden>
           <BoardCells showing={showing} />
         </div>
         {t < 900 && <div className="wh-go" role="status">Go!</div>}
         {secs <= 5 && secs >= 1 && <div className="wh-final" key={secs} aria-hidden>{secs}</div>}
       </div>
+      <div className="wh-side">
+        <div className="wh-side-head">
+          <div className={`wh-clock${secs <= 5 ? ' hurry' : ''}`} data-testid="whack-clock">{secs}</div>
+          <p className="wh-side-word">Tap the elves,<br />not the Grump!</p>
+        </div>
       <ol className="wh-race pg-bars" aria-label="Scores so far">
         {order.map((id, i) => {
           const p = game.players?.[id];
@@ -125,6 +133,7 @@ export function WhackStage({ mg }: { mg: PartyGame }) {
           );
         })}
       </ol>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { DEFAULT_DUEL_GAMES } from '../core/settings';
-import { tableGames } from '../core/duelgame';
+import { tableGames, TEAM_TABLE } from '../core/duelgame';
 import type { DuelApp } from '../core/duelgame';
 import { registered } from '../core/minigames/registry';
 import type { DuelTableGames, Settings } from '../core/types';
@@ -28,11 +28,19 @@ function Select({ id, label, hint, value, onChange, options }: {
   );
 }
 
+/** What a game needs from the room, said before it is picked (not found out mid-duel). */
+function needs(d: { supportedModes: string[]; compatibility: { displayRole: string } }): string {
+  const out: string[] = [];
+  if (d.compatibility.displayRole === 'required_shared_world') out.push('the TV');
+  if (d.supportedModes.length === 1 && d.supportedModes[0] === 'captain_teams') out.push(`${TEAM_TABLE} or more players (two teams)`);
+  return out.length ? `Needs ${out.join(' and ')}.` : '';
+}
+
 export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: string) => void }) {
   const [s, setS] = useState({
     'reprisal-depth': '1', 'max-bid': '4', 'max-payout': '2', 'starting-chips': '', 'loser-dividend': 'defenders',
     'spectator-bets': '0', 'vote-window': '30', 'duel-pick': 'defender', 'tax-threshold': '2', 'base-cost': '1', 'tiebreaker-method': 'party_mix', 'party-prize': 'points_chips',
-    'gremlin-challenges': 'mixed', 'duel-table-games': 'teams',
+    'gremlin-challenges': 'mixed', 'duel-table-games': 'teams', 'ready-check': 'on',
   });
   const [publicChips, setPublicChips] = useState(false);
   const [duelGames, setDuelGames] = useState(DEFAULT_DUEL_GAMES.join(NL));
@@ -57,6 +65,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
       loserDividendRule: s['loser-dividend'] as Settings['loserDividendRule'],
       spectatorBets: parseInt(s['spectator-bets']),
       voteWindow: parseInt(s['vote-window']),
+      readyCheck: s['ready-check'] !== 'off',
       duelPick: s['duel-pick'] as Settings['duelPick'],
       duelGames: duelGames.split(NL).map((x) => x.trim()).filter(Boolean).join(NL), // text: an empty list must stay empty
       duelTableGames: s['duel-table-games'] as DuelTableGames,
@@ -118,7 +127,7 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
               {registered().map((d) => (
                 <label key={d.id} className="duel-app-game">
                   <input type="checkbox" id={`setting-duel-app-${d.id}`} checked={duelApps.includes(d.id)} onChange={() => toggleApp(d.id)} />
-                  <span><Glyphs>{`${d.emoji} ${d.label}`}</Glyphs> <small>{d.rules}</small></span>
+                  <span><Glyphs>{`${d.emoji} ${d.label}`}</Glyphs> <small>{d.rules}</small>{needs(d) && <small className="duel-app-needs" data-testid={`duel-app-needs-${d.id}`}> {needs(d)}</small>}</span>
                 </label>
               ))}
               {duelApps.includes('pass_the_gremlin') && (
@@ -148,6 +157,8 @@ export function Setup({ onCreate }: { onCreate: (settings: Settings, criticKey: 
         )}
         <Select id="vote-window" label="🗳️ Duel Voting" hint="The winner buttons wait until every spectator has voted, or this runs out" value={s['vote-window']} onChange={set('vote-window')}
           options={[['30', 'Wait for votes (up to 30s)'], ['60', 'Wait for votes (up to 60s)'], ['0', 'Don\'t wait (host can call it any time)']]} />
+        <Select id="ready-check" label="Before a mini-game" hint="The instructions come up first, and nobody starts until every player has pressed Ready" value={s['ready-check']} onChange={set('ready-check')}
+          options={[['on', 'Instructions, then wait until everyone is ready'], ['off', 'Start straight away']]} />
         <Select id="tax-threshold" label="💰 Santa Tax Threshold" hint="Lower = more chips go to the bank" value={s['tax-threshold']} onChange={set('tax-threshold')}
           options={[['2', '2+ chips (tight)'], ['3', '3+ chips (original V2 rule)'], ['4', '4+ chips (loose)'], ['99', 'Never (no tax)']]} />
         <Select id="base-cost" label="⚔️ Base Challenge Cost" hint="Cost for Gambits, Reprisals & Endgame steals" value={s['base-cost']} onChange={set('base-cost')}

@@ -153,6 +153,20 @@ describe('Reindeer Ring Toss', () => {
     expect(r.placements!.find((p) => p.playerId === 'p3')!.rank).toBe(1);   // the table's ranking is there, for show
   });
 
+  it('the table playing along earns Party points by its own score: 3 / 2 / 1, level scores share, no score no points, duelists none', () => {
+    let g = play('party_with_duelists', 7, { practiceThrows: 0, batch: 2 });
+    const rings: Record<string, string[]> = { p1: ['golden'], p2: ['miss'], p3: ['golden', 'left-outer'], p4: ['golden'], p5: ['left-inner'], p6: ['miss'], p7: ['miss'] };
+    for (const [who, pegs] of Object.entries(rings)) pegs.forEach((peg, i) => { g = thrown(g, who, peg, NOW + 100 + i * 700); });
+    g = due(g);
+    const r = arenaOf(g)!.result!;
+    expect(r.duel).toMatchObject({ winningDuelistId: 'p1' });
+    expect(Object.fromEntries(r.rewards!.map((x) => [x.playerId, x.points]))).toEqual({ p3: 3, p4: 2, p5: 2 });
+    // just the two duelists: nobody to reward
+    let duel = play('direct_duel', 2, { practiceThrows: 0, batch: 1 });
+    duel = due(thrown(duel, 'p1', 'golden', NOW + 100));
+    expect(arenaOf(duel)!.result!.rewards).toBeUndefined();
+  });
+
   it('level: one more ring each for the duelists only; still level: the ring closest to the golden peg', () => {
     let g = play('party_with_duelists', 3, { practiceThrows: 0, batch: 1, tiebreakRounds: 1 });
     g = thrown(g, 'p1', 'left-inner', NOW + 100);   // 1 each: level

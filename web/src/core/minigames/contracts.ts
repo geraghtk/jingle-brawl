@@ -12,7 +12,8 @@ export type GameCategory =
   | 'real_time_action' | 'strategy_bluffing' | 'creative_funny' | 'team_based' | 'party_social'
   | 'puzzle_brain' | 'physical_coordination' | 'cross_device' | 'asymmetric_cooperative';
 export type MatchMode = 'direct_duel' | 'free_for_all' | 'party_with_duelists' | 'captain_teams' | 'cooperative';
-export type Lifecycle = 'active' | 'paused' | 'completed' | 'cancelled';
+/** `briefing`: the instructions are up and the game holds still until everyone has said they are ready (runtime.ts). */
+export type Lifecycle = 'briefing' | 'active' | 'paused' | 'completed' | 'cancelled';
 export type ResultStatus = 'resolved' | 'requires_tiebreaker' | 'no_contest' | 'cancelled';
 
 export interface DuelResolution {

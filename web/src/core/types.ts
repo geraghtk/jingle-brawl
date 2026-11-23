@@ -38,6 +38,7 @@ export interface Settings {
   duelTableGames?: DuelTableGames;
   /** Pass the Gremlin's challenges: all three in turn, or just one kind. */
   gremlinChallenges?: GremlinChallenges;
+  readyCheck?: boolean;
   aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
   aiCriticUrl?: string;
   /** AI Draw Off's critic: the host's own OpenAI / Gemini key (given to the room server, never stored), or the local critic. */

@@ -17,7 +17,7 @@ function setup(names = ['Ada', 'Bo']) {
   const clock = new FakeClock();
   let s = 1;
   const deps = { store, clock, seed: () => s++ };
-  const room = RoomActor.create('GREM', { duelPick: 'wheel', duelGames: [], duelAppGames: ['pass_the_gremlin'], voteWindow: 0 }, deps)!;
+  const room = RoomActor.create('GREM', { duelPick: 'wheel', duelGames: [], duelAppGames: ['pass_the_gremlin'], voteWindow: 0, readyCheck: false }, deps)!;
   const pids = names.map((name) => { const r = room.join({ name }); if ('error' in r) throw new Error(r.error); return r.pid; });
   const phones: Record<string, ServerMsg[]> = {};
   for (const p of pids) { phones[p] = []; room.attach({ viewer: { kind: 'phone', pid: p }, send: (m) => phones[p].push(JSON.parse(JSON.stringify(m))) }); }
@@ -40,7 +40,7 @@ describe('Pass the Gremlin in a room', () => {
     t.clock.jump(t.st().doomAt - t.clock.now() + 10);                // the deadline passes; no timer got to run
     const late = t.press(holder, { type: 'arena', action: { kind: 'pass_random' } });
     expect(late.ok).toBe(false);                                     // the deadline ran first: the holder is doomed
-    t.clock.advance(1000);                                           // the hand-off and the duel resolve
+    t.clock.advance(8000);                                           // the ending shows for a few seconds, then the hand-off and the duel resolve
     const g = t.room.state.game;
     expect(g.lastDuel).toMatchObject({ loserId: holder, winnerId: t.pids.find((p) => p !== holder) });
     const paid = Object.values(g.players!).reduce((sum, p) => sum + p.chips, 0);

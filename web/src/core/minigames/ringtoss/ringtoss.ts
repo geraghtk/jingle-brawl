@@ -17,7 +17,7 @@ import { DEFAULT_FLIGHT, landing } from '../engines/projectile';
 import type { FlightParams } from '../engines/projectile';
 import { score, zoneDistance } from '../engines/targets';
 import type { Peg } from '../engines/targets';
-import { headToHead } from '../scoring';
+import { headToHead, placeRewards } from '../scoring';
 import type { RingView } from './view';
 
 /** The reindeer: two antlers (a far prong and a tall prong each) and its party hat between them; each worth 1
@@ -45,11 +45,13 @@ export interface RingConfig {
   setBonus: number;
   tiebreakRounds: number; tiebreakMs: number;
   cooldownMs: number;                     // between one player's throws
+  /** With duelists and a table playing along: Party points for everyone else, by their own score (best first). */
+  spectatorRewards: number[];
   flight: FlightParams;
 }
 export const DEFAULTS: RingConfig = {
   practiceThrows: 3, practiceMs: 20_000, batch: 5, reloadMs: 3000, roundMs: 40_000, setBonus: 5,
-  tiebreakRounds: 3, tiebreakMs: 15_000, cooldownMs: 600, flight: DEFAULT_FLIGHT,
+  tiebreakRounds: 3, tiebreakMs: 15_000, cooldownMs: 600, spectatorRewards: [3, 2, 1], flight: DEFAULT_FLIGHT,
 };
 
 export type Stage = 'practice' | 'throwing' | 'tiebreak' | 'done';
@@ -134,6 +136,10 @@ function finish(ctx: MatchCtx, s: RingState, reason: string): Transition<RingSta
     result = { gameId: ringToss.id, instanceId: ctx.instanceId, status: 'resolved', mode: ctx.mode, reason,
       winners: pl.filter((p) => p.rank === 1).map((p) => p.playerId), losers: [], placements: pl, scoringPolicyVersion: 'ring_points@2' };
   }
+  // the table playing along with a duel: the duelists play for the gift, everyone else for Party points
+  const rewards = ctx.duelists && ctx.mode === 'party_with_duelists'
+    ? placeRewards(s.scores, ctx.participants.filter((p) => !ctx.duelists!.includes(p)), s.cfg.spectatorRewards || [], 'ring toss, by score') : [];
+  if (rewards.length) result = { ...result, rewards };
   return { state: done, result: { ...result, performance, placements: placements(s, ctx.participants), metrics: { ...result.metrics, ...metrics } }, events: [`🦌 Ring Toss: ${reason}`] };
 }
 

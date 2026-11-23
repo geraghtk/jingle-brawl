@@ -5,10 +5,13 @@
 //   - sealed bids: until the reveal, others' bids are { amount: 0, sealed: true } (the host too:
 //     the host often plays; after the console's Peek, logged for the table, the host sees them)
 //   - chips: with publicChips off, phones and the TV see only their own until the game ends
-//   - Sketch-Off and AI Draw Off drawings: nobody sees another's while drawing, the TV included
-//     (the duellists can see the TV; who's done still shows)
+//   - AI Draw Off drawings: nobody sees the other's while drawing, the TV included (the duellists
+//     can see the TV; who's done still shows). Sketch-Off: no phone sees another's; the TV and the
+//     console show them growing on a wall, shuffled and nameless (`minigame.wall`)
 //   - accounts and Undo: ownerUid / hostUid never leave the server; Undo is the host's
 import { arenaView } from './minigames/runtime';
+import { wallOrder, wallSlot } from './party';
+import type { PartyGame } from './party';
 import { config } from './settings';
 import type { Game, PlayerId } from './types';
 
@@ -42,6 +45,20 @@ export function projectGame(game: Game, viewer: Viewer, now = Date.now()): Game 
   const mg = g.minigame;
   const drawing = mg && 'type' in mg && ((mg.type === 'sketch_off' && mg.phase === 'playing')
     || (mg.type === 'draw_off' && (mg.phase === 'prompt_reveal' || mg.phase === 'drawing')));
+  // Sketch-Off: the TV and the console get the drawings as they grow, shuffled and without names
+  // (Kevin, 2026-11-18: fun to watch); phones get nobody's but their own. AI Draw Off stays hidden.
+  if (mg && 'type' in mg && mg.type === 'sketch_off') {
+    const party = mg as PartyGame;
+    if (party.phase === 'playing' && viewer.kind !== 'phone') {
+      const wall: NonNullable<PartyGame['wall']> = {};
+      wallOrder(party).forEach((id, i) => {
+        const img = party.submissions?.[id] || party.live?.[id];
+        if (img) wall[wallSlot(i)] = { img, ...(party.submissions?.[id] ? { done: true } : {}) };
+      });
+      party.wall = wall;
+    }
+    delete party.live;
+  }
   if (drawing && mg.submissions) {
     for (const id of Object.keys(mg.submissions)) if (id !== me) mg.submissions[id] = HIDDEN_DRAWING;
   }

@@ -71,6 +71,32 @@ describe('projectGame', () => {
     expect(subs({ kind: 'phone', pid: 'p1' })).toEqual({ p1: 'data:image/jpeg;base64,MINE', p2: HIDDEN_DRAWING });
     expect(subs({ kind: 'tv' })).toEqual({ p1: HIDDEN_DRAWING, p2: HIDDEN_DRAWING });
   });
+  it('Sketch-Off: the TV and the console get the drawings as they grow, shuffled and with no names; phones get none', () => {
+    const g = table(4);
+    const sketch = (phase: string) => ({ type: 'sketch_off', phase, seed: 7, participants: ['p1', 'p2', 'p3', 'p4'], minigameGoal: 'pick_one', startedAt: NOW, phaseEndsAt: NOW + 1,
+      submissions: { p2: 'data:image/jpeg;base64,DONE2' }, live: { p1: 'data:image/jpeg;base64,LIVE1', p2: 'data:image/jpeg;base64,OLD2', p3: 'data:image/jpeg;base64,LIVE3' } }) as unknown as Game['minigame'];
+    g.minigame = sketch('playing');
+    type Mg = { wall?: Record<string, { img?: string; done?: boolean }>; live?: unknown };
+    for (const v of [{ kind: 'tv' }, { kind: 'host' }] as Viewer[]) {
+      const mg = projectGame(g, v).minigame as Mg;
+      expect(mg.live).toBeUndefined();
+      const wall = Object.values(mg.wall!);
+      // three easels have something on them (p4 has not started); a handed-in drawing shows as done
+      expect(wall.map((w) => w.img).sort()).toEqual(['data:image/jpeg;base64,DONE2', 'data:image/jpeg;base64,LIVE1', 'data:image/jpeg;base64,LIVE3']);
+      expect(wall.filter((w) => w.done).map((w) => w.img)).toEqual(['data:image/jpeg;base64,DONE2']);
+      // no name anywhere on the wall: the slots are numbers, not players
+      expect(Object.keys(mg.wall!).every((k) => /^s\d\d$/.test(k))).toBe(true);
+      expect(JSON.stringify(mg.wall)).not.toMatch(/p[1-4]"/);
+    }
+    for (const pid of ['p1', 'p4']) {
+      const mg = projectGame(g, { kind: 'phone', pid }).minigame as Mg;
+      expect(mg.wall).toBeUndefined();
+      expect(mg.live).toBeUndefined();
+    }
+    // once the drawing is over there is no wall (the gallery takes over)
+    g.minigame = sketch('voting');
+    expect((projectGame(g, { kind: 'tv' }).minigame as Mg).wall).toBeUndefined();
+  });
 });
 
 describe('no screen ever learns a secret (whole simulated parties, every step)', () => {

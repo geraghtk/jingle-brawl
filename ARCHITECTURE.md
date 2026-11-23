@@ -108,6 +108,11 @@ Done 2026-11-08, M5: the Great Gift Conveyor, game #3: captain-led teams (`engin
 phone-to-phone production line (`engines/workflow.ts`), the winning captain wins the duel, reward
 recommendations applied as Party points by the hand-off.
 
+Done 2026-11-18: games #5 and #6, both captain-led teams. Mecha Santa Mayhem (`engines/walker.ts`: one
+shared robot, several controllers, settled by the clock) and Elf Tower Wars (`engines/lanes.ts`: the first
+fixed-step simulation, advanced lazily with a wake-up a few times a second). Jobs on a team are
+`engines/roles.ts`. A finished game's ending is held on the screens for a few seconds before the hand-off.
+
 Done 2026-11-08: the Game Lab: from the lobby the host tries any registered mini-game on the real
 phones and TV (chosen players, mode, duelists), practice only, no gift engine involved
 (`minigames/lab.ts`).

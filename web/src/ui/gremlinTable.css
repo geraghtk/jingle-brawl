@@ -1,0 +1,79 @@
+/* Pass the Gremlin on the TV and the console (host/GremlinStage.tsx): a table seen from above, everyone
+   round it, the Gremlin on whoever has it. One picture at any size: everything is sized in cqh / cqw of
+   the scene. The table's colour is the Gremlin's mood. */
+.grem-table {
+  position: relative; container-type: size; width: 100%; aspect-ratio: 16 / 9; max-height: 78vh; margin: 0 auto;
+  border-radius: 18px; overflow: hidden; box-shadow: inset 0 0 0 3px #1d2a3a;
+  background: radial-gradient(120% 90% at 50% 45%, #33407a 0%, #232b57 55%, #171c3c 100%);
+  --ink: #1d2a3a; --felt: #1fa98a; --felt-2: #17806a; --glow: #5ff0cc; color: #fff;
+  transition: --felt .8s;
+}
+.arena-full .grem-table { height: 100%; aspect-ratio: auto; max-height: none; }
+.grem-table.danger-uneasy { --felt: #e59a16; --felt-2: #b97406; --glow: #ffd36b; }
+.grem-table.danger-unstable { --felt: #e2364f; --felt-2: #ac1c35; --glow: #ff8597; }
+.grem-table.doomed { --felt: #5a2a3a; --felt-2: #41202c; --glow: #ff8597; }
+
+/* the table top */
+.gt-felt {
+  position: absolute; left: 50%; top: 51%; width: 66cqw; height: 54cqh; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(closest-side, var(--felt) 0%, var(--felt) 62%, var(--felt-2) 100%);
+  box-shadow: 0 0 0 .7cqh var(--ink), 0 0 0 2.2cqh #7a4a26, 0 0 0 2.9cqh var(--ink), 0 3cqh 6cqh rgba(0, 0, 0, .45);
+  transition: background .8s;
+}
+.grem-table.danger-unstable .gt-felt { animation: gtThrob .5s ease-in-out infinite; }
+@keyframes gtThrob { 50% { filter: brightness(1.18); } }
+
+/* the passes */
+.gt-passes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.gt-pass { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 2 12; opacity: .1; }
+.gt-pass.age-1 { opacity: .2; }
+.gt-pass.age-0 { opacity: .5; stroke-dasharray: 3 11; animation: gtDash .6s linear infinite; }
+@keyframes gtDash { to { stroke-dashoffset: -14; } }
+
+/* a seat */
+.gt-seat { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: .6cqh; width: calc(var(--seat) * 1.9); transition: opacity .4s, filter .4s; z-index: 2; }
+.gt-pic { position: relative; width: var(--seat); height: var(--seat); border-radius: 26%; display: grid; place-items: center; box-shadow: 0 0 0 .6cqh var(--ink), 0 1cqh 2cqh rgba(0, 0, 0, .4); transition: transform .3s, box-shadow .3s; }
+.gt-pic img { width: 88%; height: 88%; object-fit: contain; display: block; }
+.gt-name { max-width: 100%; padding: .4cqh 1.4cqh; border-radius: 999px; background: #fff; color: var(--ink); font: 800 calc(var(--seat) * .2)/1.15 var(--f6-disp, system-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 0 0 .4cqh var(--ink); transition: transform .3s; }
+.gt-held { position: absolute; top: calc(var(--seat) * -.1); left: calc(50% - var(--seat) * .62); min-width: calc(var(--seat) * .34); padding: 0 .6cqh; height: calc(var(--seat) * .34); box-sizing: border-box; border-radius: 999px; display: grid; place-items: center; background: #ffc21a; color: var(--ink); font: 900 calc(var(--seat) * .2)/1 var(--f6-disp, system-ui); box-shadow: 0 0 0 .4cqh var(--ink); }
+.gt-duel { position: absolute; right: calc(var(--seat) * -.12); bottom: calc(var(--seat) * -.1); width: calc(var(--seat) * .36); height: calc(var(--seat) * .36); border-radius: 50%; display: grid; place-items: center; background: var(--accent, #ff3366); color: #fff; font: normal 900 calc(var(--seat) * .2)/1 system-ui; box-shadow: 0 0 0 .4cqh var(--ink); }
+.gt-seat.has { z-index: 3; }
+.gt-seat.has .gt-pic { transform: scale(1.14); box-shadow: 0 0 0 .6cqh var(--ink), 0 0 0 1.5cqh var(--glow), 0 0 5cqh 2cqh var(--glow); animation: gtHas 1s ease-in-out infinite; }
+.grem-table.danger-unstable .gt-seat.has .gt-pic { animation-duration: .4s; }
+@keyframes gtHas { 50% { box-shadow: 0 0 0 .6cqh var(--ink), 0 0 0 1.1cqh var(--glow), 0 0 2.5cqh .6cqh var(--glow); } }
+.gt-seat.has .gt-name { background: var(--glow); position: relative; z-index: 1; transform: translateY(calc(var(--seat) * .1)); }
+.gt-seat.out { opacity: .38; filter: grayscale(1); }
+.gt-seat.boom .gt-pic { animation: gtShake .35s ease-in-out 4; box-shadow: 0 0 0 .6cqh var(--ink), 0 0 0 1.5cqh #ff3b5c; }
+.gt-seat.boom .gt-name { background: #ff3b5c; color: #fff; }
+@keyframes gtShake { 25% { transform: translateX(-1.2cqh) rotate(-6deg); } 75% { transform: translateX(1.2cqh) rotate(6deg); } }
+
+/* the Gremlin: glides to its new seat (left / top), hopping as it goes */
+.gt-gremlin { position: absolute; z-index: 4; width: 0; height: 0; transition: left .5s cubic-bezier(.3, .1, .3, 1), top .5s cubic-bezier(.3, .1, .3, 1); pointer-events: none; }
+.gt-hop { position: absolute; left: calc(var(--seat) * .18); bottom: calc(var(--seat) * .12); animation: gtHop .5s ease-out; }
+.grem.tv.grem-table .grem-face { font-size: calc(var(--seat) * .95); filter: drop-shadow(0 .6cqh .8cqh rgba(0, 0, 0, .45)); }
+.gt-bang { display: block; font-size: calc(var(--seat) * 1.3); line-height: 1; transform: translate(-45%, 30%); }
+@keyframes gtHop { 0% { transform: translateY(0) scale(1); } 45% { transform: translateY(calc(var(--seat) * -.9)) scale(1.18) rotate(-14deg); } 100% { transform: translateY(0) scale(1); } }
+
+/* the middle of the table: who has it and what they are doing */
+.gt-mid { position: absolute; left: 50%; top: 51%; transform: translate(-50%, -50%); width: 50cqw; display: grid; justify-items: center; gap: 1.2cqh; text-align: center; z-index: 1; }
+.grem.tv.grem-table .grem-holder { font: 900 min(8.2cqh, 4.6cqw)/1.05 var(--f6-disp, system-ui); margin: 0; color: #fff; text-shadow: 0 .4cqh 0 rgba(13, 16, 24, .35); overflow-wrap: anywhere; }
+.grem.tv.grem-table .grem-kind { font: 800 min(3.6cqh, 2.2cqw)/1.2 var(--f6-disp, system-ui); color: rgba(255, 255, 255, .92); margin: 0; min-height: 4.4cqh; }
+.gt-secs { font-variant-numeric: tabular-nums; opacity: .8; }
+.gt-wrong { display: inline-block; padding: .3cqh 1.6cqh; border-radius: 999px; background: #fff; color: #d7263d; animation: gremPop .35s ease-out; }
+.gt-mood { display: grid; justify-items: center; gap: .8cqh; width: 100%; }
+.grem-table .grem-meter { width: 34cqw; max-width: none; height: 2.2cqh; margin: 0; border-radius: 999px; background: rgba(13, 16, 24, .35); box-shadow: 0 0 0 .4cqh var(--ink); }
+.grem-table .grem-meter span { border-radius: 999px; }
+.grem-table .grem-meter.calm span { background: #b8ffe9; }
+.grem-table .grem-meter.uneasy span { background: #fff1b8; }
+.grem-table .grem-meter.unstable span { background: #fff; }
+.gt-mood-word { font: 900 min(3cqh, 1.9cqw)/1 var(--f6-disp, system-ui); letter-spacing: .08em; text-transform: uppercase; }
+.gt-rule { margin: 0; font: 700 min(2.5cqh, 1.6cqw)/1.2 var(--f6-disp, system-ui); opacity: .75; }
+.grem-table .grem-banner { font-size: min(2.6cqh, 1.7cqw); }
+.grem.tv.grem-table.jumped .grem-holder { animation: gremPop .45s ease-out; }
+
+/* caught and out: a stamp across the seat (with the Party points they had earned by then) */
+.gt-outtag { position: absolute; top: calc(var(--seat) * .34); left: 50%; transform: translate(-50%, -50%) rotate(-9deg); padding: .3cqh 1.2cqh; border-radius: .8cqh; background: #ff3b5c; color: #fff;
+  box-shadow: 0 0 0 .4cqh var(--ink); font: 900 calc(var(--seat) * .2)/1.1 var(--f6-disp, system-ui); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.gt-seat.out { opacity: 1; filter: none; }
+.gt-seat.out .gt-pic, .gt-seat.out .gt-name { opacity: .4; filter: grayscale(1); }
+.gt-lasted { display: block; margin-top: .6cqh; font-size: .8em; opacity: .9; }

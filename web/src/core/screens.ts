@@ -72,9 +72,10 @@ export function tvScreen(full: Game, now: number): Screen {
       return { title: `${g.label} (${mg.phase})`, lines: lines.filter(Boolean) };
     }
     case 'minigame_arena': {
-      const v = game.arenaView?.view as { holder?: string; danger?: string; round?: string; doomed?: string | null } | undefined;
+      const v = game.arenaView?.view as { holder?: string; danger?: string; round?: string; doomed?: string | null; out?: string[] } | undefined;
       if (!v) return { title: 'Mini-game', lines };
       lines.push(v.doomed ? `The Gremlin went berserk on ${nm(game, v.doomed)}` : `${nm(game, v.holder)} has the Gremlin (it looks ${v.danger})`);
+      if (v.out?.length) lines.push(`Out: ${v.out.map((id) => nm(game, id)).join(', ')}`);
       if (v.round === 'sudden_death') lines.push('Sudden death: just the duellists');
       return { title: 'Pass the Gremlin', lines };
     }

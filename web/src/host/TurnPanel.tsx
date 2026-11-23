@@ -466,10 +466,10 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
     case 'minigame_party': {
       const mg = game.minigame as PartyGame | undefined;
       const g = (mg && GAMES[mg.type]) || { emoji: '🎉', label: 'Party game' };
-      const partyArea = !mg ? null : arenaFull.full && mg.type === 'whack_elf' ? <p className="arena-full-note">Showing full screen</p> : (
+      const partyArea = !mg ? null : arenaFull.full ? <p className="arena-full-note">Showing full screen</p> : (
         <>
           <PartyPanel mg={mg} />
-          {mg.type === 'whack_elf' && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
+          {<button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
         </>
       );
       if (t.lab) {
@@ -489,7 +489,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return {
         badge: `${g.emoji} ${g.label.toUpperCase()}`, badgeClass: 'reveal', action: `${g.emoji} ${g.label}: everyone plays!`,
         details: 'Tied bidders play for the tie; everyone else for party points.',
-        // Whack-an-Elf is full screen by default (host/WhackStage.tsx): one copy of it at a time
+        // a party game is full screen by default (host/WhackStage.tsx PartyFull): one copy of it at a time
         areaTitle: 'Party game', area: partyArea,
         buttons: mg && <button className="btn btn-secondary" data-testid="skip-party-phase" onClick={() => send({ type: 'skip_party' }, { quiet: true })}>
           <Glyphs>{mg.phase === 'results' ? '⚔️ Continue to the duel' : '⏭ Skip ahead'}</Glyphs>
@@ -501,6 +501,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       const av = game.arenaView;
       const info = duelAppInfo(av?.gameId);
       const paused = av?.lifecycle === 'paused';
+      const briefing = av?.lifecycle === 'briefing';   // the instructions are up: Start without waiting is on the panel itself
       const over = av?.lifecycle === 'completed' || av?.lifecycle === 'cancelled';
       if (t.lab) {
         // the Game Lab (lobby): practice; the result stays until the host plays again or leaves
@@ -512,7 +513,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
           buttons: <>
             {!arenaFull.full && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
             {over && <button className="btn btn-primary" data-testid="lab-again" onClick={() => send({ type: 'lab_start', gameId: lab.gameId, players: lab.players, mode: lab.mode, ...(lab.duelists ? { duelists: lab.duelists } : {}) })}>🔁 Play again</button>}
-            {!over && (paused
+            {!over && !briefing && (paused
               ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
               : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>)}
             <button className="btn btn-secondary" data-testid="lab-end" onClick={() => send({ type: 'lab_end' })}>🚪 Back to the lobby</button>
@@ -523,12 +524,12 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: `${info?.emoji ?? '🎮'} ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
         action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}: ${info?.label ?? 'a mini-game'} decides it`,
         details: arenaFull.full ? <p className="arena-full-note">Showing full screen</p> : <ArenaStage />,
-        buttons: over ? null : <>
+        buttons: over ? <button className="btn btn-primary" data-testid="arena-continue" onClick={() => send({ type: 'arena_continue' })}>▶️ On to the duel</button> : <>
           {!arenaFull.full && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
-          {paused
+          {briefing ? null : paused
             ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
             : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>}
-          <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => { if (confirm('Call it a no contest? Nobody wins the game; you pick the duel winner.')) send({ type: 'arena_no_contest' }); }}>⚖️ No contest</button>
+          {!briefing && <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => { if (confirm('Call it a no contest? Nobody wins the game; you pick the duel winner.')) send({ type: 'arena_no_contest' }); }}>⚖️ No contest</button>}
           <button className="btn btn-secondary" data-testid="arena-cancel" onClick={() => { if (confirm('Cancel the game? Nobody wins it; you pick the duel winner.')) send({ type: 'arena_cancel' }); }}>⏹️ Cancel</button>
         </>,
       };

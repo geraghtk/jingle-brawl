@@ -14,7 +14,7 @@ export interface PlayerCtx {
   cfg: Config;
   player: Player;
   /** A button: ask for something (refused unless it's on my screen now); refusals show as a toast. */
-  send: (intent: Intent) => Promise<boolean>;
+  send: (intent: Intent, opts?: { quiet?: boolean }) => Promise<boolean>;
   toast: (msg: string) => void;
 }
 
@@ -27,9 +27,9 @@ export function usePlayer(): PlayerCtx {
 }
 
 export function PlayerProvider({ room, me, game, toast, client, children }: { room: string; me: string; game: Game; toast: (m: string) => void; client: RoomClient; children: ReactNode }) {
-  const send = useCallback(async (intent: Intent) => {
+  const send = useCallback(async (intent: Intent, opts?: { quiet?: boolean }) => {
     const ack = await client.send(intent);                 // the room decides
-    if (!ack.ok) toast(ack.error || 'Not now');
+    if (!ack.ok && !opts?.quiet) toast(ack.error || 'Not now');
     return ack.ok;
   }, [toast, client]);
   const player = game.players?.[me];

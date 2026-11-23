@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SYMBOLS, markerAt } from '../core/minigames/gremlin/challenges';
 import type { TimingParams } from '../core/minigames/gremlin/challenges';
+import { outPoints } from '../core/minigames/gremlin/view';
 import type { GremlinView } from '../core/minigames/gremlin/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { GremlinFace } from '../ui/gremlin';
@@ -34,6 +35,7 @@ export function GremlinCard() {
     if (mine && v?.stage === 'pass_ready' && prev.stage === 'holding') { buzz(40); play('right'); }
     if (mine && v?.cooldownUntil && v.cooldownUntil !== prev.cooldown) { buzz([60, 40, 60]); play('wrong'); }
     if (v?.stage === 'doomed' && prev.stage !== 'doomed') { buzz(v.doomed === me ? [300, 100, 300] : 80); play('doom'); }
+    if (v && (v.stage === 'out_intro' || v.stage === 'sudden_death_intro') && prev.stage !== v.stage) { buzz(v.bystanderDoomed === me ? [300, 100, 300] : 80); play('doom'); }
     was.current = { holder: v?.holder, stage: v?.stage, cooldown: v?.cooldownUntil };
     setError('');
   }, [v?.holder, v?.stage, v?.issuedAt, v?.cooldownUntil]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -46,6 +48,18 @@ export function GremlinCard() {
     return !!ok;
   };
   const inPool = v.pool.includes(me);
+  // the table playing along with a duel: a caught bystander is out; lasting earns Party points (not in practice)
+  const duelists: string[] = av.duelists || [];
+  const out = v.out || [];
+  const party = av.mode === 'party_with_duelists' && duelists.length === 2;
+  const watching = party && !duelists.includes(me);
+  const pays = watching && !game.currentTurn?.lab;
+  const survive = v.survive ?? 0;
+  const points = (n: number) => `${n} Party point${n === 1 ? '' : 's'}`;
+  const winner = v.doomed && duelists.includes(v.doomed) ? duelists.find((d) => d !== v.doomed) : null;
+  const myOut = out.indexOf(me);
+  const mineSoFar = myOut >= 0 ? outPoints(myOut, survive) : 0;
+  const outLine = !pays ? "You're out. Watch the TV!" : mineSoFar ? `You're out, with ${points(mineSoFar)} for lasting. Watch the TV!` : "You're out: no points this time. Watch the TV!";
   const cls = `card grem${mine ? ' mine' : ''} danger-${v.danger}`;
   const mute = (
     <button type="button" className="grem-mute" aria-pressed={quiet} aria-label={quiet ? 'Sound off' : 'Sound on'} data-testid="gremlin-mute"
@@ -58,6 +72,21 @@ export function GremlinCard() {
         {mute}
         <div className="grem-face grem-boom" aria-hidden>💥</div>
         <div className="grem-title">{v.doomed === me ? 'The Gremlin went berserk on you!' : `It went berserk on ${name(v.doomed)}!`}</div>
+        {winner && <p className={`grem-sub game-over ${winner === me ? 'win' : 'lose'}`} data-testid="gremlin-verdict">{winner === me ? 'You win the duel!' : `${name(winner)} wins the duel.`}</p>}
+        {pays && myOut < 0 && survive > 0 && <p className="grem-sub grem-ok" data-testid="gremlin-earned">Never caught: {points(survive)} for you!</p>}
+        {pays && myOut >= 0 && mineSoFar > 0 && <p className="grem-sub" data-testid="gremlin-earned">You lasted a while: {points(mineSoFar)}.</p>}
+      </div>
+    );
+  }
+  if (v.stage === 'out_intro') {
+    const meOut = v.bystanderDoomed === me;
+    return (
+      <div className={`${cls}${meOut ? ' doomed' : ''}`} data-testid="gremlin-card" role="status">
+        {mute}
+        <span className="grem-banner">Round {(v.roundNo ?? 1) + 1} next</span>
+        <div className="grem-face grem-boom" aria-hidden>💥</div>
+        <div className="grem-title">{meOut ? 'It got you!' : `It got ${name(v.bystanderDoomed)}!`}</div>
+        <p className="grem-sub" data-testid="gremlin-out-line">{meOut ? outLine : "They're out. Everyone else plays on, and the fuse is shorter this time!"}</p>
       </div>
     );
   }
@@ -76,7 +105,8 @@ export function GremlinCard() {
   return (
     <div className={cls} data-testid="gremlin-card">
       {mute}
-      {v.round === 'sudden_death' && <span className="grem-banner">Sudden death</span>}
+      {v.round === 'sudden_death' ? <span className="grem-banner">Sudden death</span>
+        : party && (v.roundNo ?? 1) > 1 ? <span className="grem-banner">Round {v.roundNo} · shorter fuse</span> : null}
       <div className="grem-face" aria-hidden><GremlinFace danger={v.danger} /></div>
       <div className="grem-title" data-testid="gremlin-holder" aria-live="assertive">{mine ? 'You have the Gremlin!' : `${name(v.holder)} has the Gremlin`}</div>
       <div className={`grem-meter ${v.danger}`} role="img" aria-label={`The Gremlin is ${v.danger}`}><span /></div>
@@ -100,7 +130,11 @@ export function GremlinCard() {
           <div className="grem-error arena-error" role="alert">{error}</div>
         </>
       )}
-      {!mine && <p className="grem-sub">{inPool ? `Be ready: it could jump to you! (${name(v.holder)} is doing ${v.challengeLabel || 'a challenge'})` : "You're out of this round. Watch the TV!"}</p>}
+      {!mine && <p className="grem-sub" data-testid="gremlin-watch">{inPool ? `Be ready: it could jump to you! (${name(v.holder)} is doing ${v.challengeLabel || 'a challenge'})`
+        : myOut >= 0 ? outLine
+        : pays && survive ? `You were never caught: ${points(survive)}! Now it's just the duellists.`
+        : "Just the duellists now. Watch the TV!"}</p>}
+      {pays && inPool && survive > 0 && <p className="grem-sub grem-stake" data-testid="gremlin-stake">Caught and you're out. Last to the end for {points(survive)}.</p>}
       {!!v.trail.length && <div className="grem-trail">{v.trail.slice(-5).map((p, i) => <span key={i}>{name(p.from)} → {name(p.to)}{p.random ? ' 🎲' : ''}</span>)}</div>}
     </div>
   );

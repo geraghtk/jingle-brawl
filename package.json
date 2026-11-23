@@ -14,6 +14,8 @@
     "test:unit": "vitest run --config vite.config.mts",
     "analyze:economics": "vite-node web/src/sim/report.ts",
     "analyze:gremlin": "vite-node web/src/sim/gremlin-report.ts --",
+    "analyze:mecha": "vite-node web/src/sim/mecha-report.ts --",
+    "analyze:towers": "vite-node web/src/sim/towers-report.ts --",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

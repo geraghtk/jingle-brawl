@@ -105,3 +105,53 @@ test('bots alone run the Great Gift Conveyor on the TV: the factory shows who wo
     await r.hostCtx.close();
   }
 });
+
+test('Sketch-Off fills the screens: the phone is the pad, and the TV shows the drawings growing with no names, then the gallery', async ({ browser }) => {
+  test.setTimeout(150000);
+  const r = await H.createGame(browser, {});
+  const { pages, contexts } = await H.joinPlayers(browser, r.roomCode, ['Alice']);
+  const { ctx: tvCtx, tv } = await openTv(browser, r.roomCode);
+  try {
+    await r.host.getByTestId('lab-open').click();
+    for (let i = 0; i < 2; i++) { await r.host.getByTestId('lab-add-bot').click(); await expect(r.host.locator('[data-testid^="lab-player-Bot "]')).toHaveCount(i + 1); }
+    await r.host.getByTestId('lab-game').selectOption('sketch_off');
+    await r.host.getByTestId('lab-start').click();
+    // full screen on the TV like the other games: the prompt first
+    await expect(tv.getByTestId('party-full')).toBeVisible();
+    await expect(tv.getByTestId('sketch-stage')).toContainText('Everyone draws');
+    await H.dbPatch(r.roomCode, { 'minigame/phaseEndsAt': Date.now() });
+
+    // drawing: an easel each, nothing on them yet; the phone's pad takes the screen
+    await expect(tv.getByTestId('sketch-wall').locator('.sk-easel')).toHaveCount(3);
+    const pad = pages.Alice.getByTestId('sketch-pad');
+    await expect(pad).toBeVisible();
+    const view = pages.Alice.viewportSize(), box = await pad.boundingBox();
+    expect(box.width).toBeGreaterThan(view.width * 0.9);                  // as wide as the phone
+    expect(Math.abs(box.width - box.height)).toBeLessThan(2);             // and square
+
+    // Alice draws a line: within a couple of seconds it is on the TV's wall, on an easel with no name
+    await pages.Alice.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+    await pages.Alice.mouse.down();
+    await pages.Alice.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.7, { steps: 8 });
+    await pages.Alice.mouse.up();
+    await expect.poll(async () => !!(await H.dbGet(r.roomCode, 'minigame/live'))?.[Object.keys(await H.dbGet(r.roomCode, 'players')).find((id) => !id.startsWith('bot_'))], { timeout: 8000 }).toBe(true);
+    await expect(tv.getByTestId('sketch-wall').locator('.sk-easel:not(.done) .sk-paper > img')).toHaveCount(1, { timeout: 8000 });
+    await expect(tv.getByTestId('sketch-wall')).not.toContainText('Alice');
+    await expect(tv.getByTestId('sketch-wall')).not.toContainText('Bot ');
+    // another phone never gets it: Alice's own view carries no wall and no snapshots
+    const mine = await pages.Alice.evaluate(() => document.body.innerHTML.includes('sk-wall'));
+    expect(mine).toBe(false);
+
+    // she hands in; the bots too (they draw a scribble); then the gallery fills the TV, numbered
+    await pages.Alice.getByTestId('sketch-done').click();
+    await expect(tv.getByTestId('sketch-gallery').locator('.sk-paper > img')).toHaveCount(3, { timeout: 60000 });
+    expect(await H.dbGet(r.roomCode, 'minigame/live')).toBeFalsy();                       // the snapshots are thrown away
+    const tile = await tv.getByTestId('sketch-gallery').locator('.sk-paper').first().boundingBox();
+    expect(tile.height).toBeGreaterThan(900 * 0.5);                                       // three drawings: one big row
+    await expect(pages.Alice.locator('.pg-gallery figure')).toHaveCount(3);
+  } finally {
+    await tvCtx.close();
+    for (const c of contexts) await c.close();
+    await r.hostCtx.close();
+  }
+});

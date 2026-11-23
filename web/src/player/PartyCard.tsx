@@ -3,8 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAMES, rank, WHACK_ROLL, whackScores, whackSequence, whackTap } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { useServerOffset } from '../net/hooks';
+import { PartyReady } from '../ui/PartyReady';
 import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
+import '../ui/sketch.css';
 import { usePlayer } from './PlayerContext';
 import { Glyphs, Icon } from '../ui/icons';
 import { buzz, play } from '../ui/sound';
@@ -17,14 +19,14 @@ export function PartyCard() {
   const mg = game.minigame as PartyGame | undefined;
   if (!mg || !GAMES[mg.type] || !(mg.participants || []).includes(me)) return null;
   return (
-    <div className={`card pg${mg.type === 'whack_elf' && mg.phase === 'playing' ? ' whack-full' : ''}`} id="party-card" data-testid="party-card">
+    <div className={`card pg${mg.phase !== 'playing' ? (mg.type === 'sketch_off' && mg.phase === 'voting' ? ' sketch-vote' : '') : mg.type === 'whack_elf' ? ' whack-full' : ' sketch-full'}`} id="party-card" data-testid="party-card">
       <Screen key={`${mg.seed}|${mg.phase}`} mg={mg} />
     </div>
   );
 }
 
 function Screen({ mg }: { mg: PartyGame }) {
-  const { game, me, cfg } = usePlayer();
+  const { game, me, cfg, send } = usePlayer();
   const offset = useServerOffset();
   const secs = useSecondsLeft(mg.phaseEndsAt, offset);
   const g = GAMES[mg.type];
@@ -40,7 +42,8 @@ function Screen({ mg }: { mg: PartyGame }) {
           {mg.minigameGoal === 'lab' ? 'Practice: nothing is won or lost.' : tied ? <><b>You're in the tie!</b> Beat the other tied bidders to win it.</>
             : `Not in the tie? Play for party points${cfg.partyPrize === 'points_chips' ? ' and the Elf Bonus chip!' : '!'}`}
         </p>
-        {mg.type === 'whack_elf' && secs <= 3 ? <StartCount secs={secs} /> : <><div className="pg-timer">{secs}s</div><p className="pg-sub">Get ready…</p></>}
+        {mg.awaiting ? <PartyReady mg={mg} game={game} me={me} onReady={() => { buzz(20); void send({ type: 'party_ready' }, { quiet: true }); }} />
+          : mg.type === 'whack_elf' && secs <= 3 ? <StartCount secs={secs} /> : <><div className="pg-timer">{secs}s</div><p className="pg-sub">Get ready…</p></>}
       </>
     );
   }
@@ -53,6 +56,8 @@ function Screen({ mg }: { mg: PartyGame }) {
 
 const COLORS = ['#111', '#d7263d', '#1f9d55', '#1e6fd9', '#f2a900', '#8b5a2b'];
 type Stroke = { color: string; pts: [number, number][] };
+/** The snapshot a phone sends for the big screen's wall: how big, how often. */
+const LIVE_PX = 200, LIVE_MS = 1200;
 
 function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: number }) {
   const { me, send } = usePlayer();
@@ -64,7 +69,7 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
   const submittedRef = useRef(submitted);
   submittedRef.current = submitted;
 
-  const paint = () => {
+  const draw = () => {
     const c2d = canvas.current?.getContext('2d');
     if (!c2d) return;
     c2d.fillStyle = '#fff'; c2d.fillRect(0, 0, 640, 640);
@@ -87,21 +92,35 @@ function SketchPad({ mg, secs, offset }: { mg: PartyGame; secs: number; offset: 
     out.getContext('2d')!.drawImage(canvas.current, 0, 0, 320, 320);
     send({ type: 'sketch', drawing: out.toDataURL('image/jpeg', 0.7) });
   };
+  // the big screen watches the drawings grow (with no names): a small snapshot whenever the pad changed
+  const dirty = useRef(false);
+  const paint = () => { dirty.current = true; draw(); };
   useEffect(() => {
-    paint();
+    draw();
     // Time's up: hand in whatever is on the canvas
     const t = setTimeout(submit, Math.max(0, (mg.phaseEndsAt || 0) - (Date.now() + offset) - 400));
-    return () => clearTimeout(t);
+    const live = setInterval(() => {
+      if (!dirty.current || submittedRef.current || !canvas.current) return;
+      dirty.current = false;
+      const out = document.createElement('canvas'); out.width = out.height = LIVE_PX;
+      out.getContext('2d')!.drawImage(canvas.current, 0, 0, LIVE_PX, LIVE_PX);
+      send({ type: 'sketch_live', drawing: out.toDataURL('image/jpeg', 0.5) }, { quiet: true });
+    }, LIVE_MS);
+    return () => { clearTimeout(t); clearInterval(live); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <h3><Icon name="pencil" /> Draw: “{mg.prompt}”</h3>
-      <div className="pg-timer">{secs}s</div>
-      <canvas ref={canvas} className="pg-pad" width={640} height={640}
+      <div className="sk-top">
+        <span className={`whack-clock${secs <= 5 ? ' hurry' : ''}`} aria-label={`${secs} seconds left`}>{secs}s</span>
+        <h3><Icon name="pencil" /> Draw: “{mg.prompt}”</h3>
+      </div>
+      <div className="sk-padwrap">
+      <canvas ref={canvas} className={`pg-pad${submitted ? ' locked' : ''}`} data-testid="sketch-pad" width={640} height={640}
         onPointerDown={(e) => { if (submitted) return; canvas.current!.setPointerCapture?.(e.pointerId); current.current = { color, pts: [at(e)] }; strokes.current.push(current.current); paint(); }}
         onPointerMove={(e) => { if (current.current) { current.current.pts.push(at(e)); paint(); } }}
         onPointerUp={() => { current.current = null; }} onPointerCancel={() => { current.current = null; }} />
+      </div>
       <div className="pg-colors">
         {COLORS.map((c) => <button key={c} style={{ background: c }} className={c === color ? 'on' : ''} aria-label="colour" onClick={() => setColor(c)} />)}
       </div>

@@ -19,3 +19,65 @@
 
 /* a game card's error line ("Not now", "Too late"): its room is kept, so the card doesn't jump */
 .arena-error { color: #d7263d; font-weight: 700; min-height: 20px; }
+
+/* how a mini-game ended, on a phone: the same banner in every game (gold: you won; grey: you did not; blue: level) */
+.game-over.game-over { display: block; margin: 10px auto; padding: 14px 18px; border-radius: 18px; max-width: 420px; box-sizing: border-box; text-align: center; font: 900 24px/1.15 var(--f6-disp, system-ui); color: #1d2a3a; opacity: 1;
+  box-shadow: 0 0 0 3px #1d2a3a, 0 6px 0 rgba(29, 42, 58, .22); animation: gameOver .5s cubic-bezier(.2, 1.5, .4, 1) both; }
+.game-over.win { background: #ffc21a; }
+.game-over.lose { background: #e6ecf4; }
+.game-over.level { background: #bfe0f5; }
+@keyframes gameOver { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* before a mini-game starts (ui/Briefing.tsx): how to play, who is ready, the 3, 2, 1. On the TV it lies
+   over the whole screen (the game stands still behind it); on the console it is a card above the stage;
+   on a phone it is the whole screen */
+.brief { color: #1d2a3a; }
+.brief-tv { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 4vh 4vw; background: rgba(13, 16, 24, .55); backdrop-filter: blur(6px); }
+.brief-console { margin: 0 0 12px; }
+.brief-phone { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 14px; box-sizing: border-box; overflow-y: auto; background: linear-gradient(#e4f1fb, #f4f8fc); }
+#seat-panel-game .brief-phone { top: 64px; }
+.brief-card { display: grid; gap: 14px; justify-items: center; width: 100%; max-width: 560px; box-sizing: border-box; padding: 20px 18px; border-radius: 24px; background: #fff; text-align: center;
+  box-shadow: 0 0 0 3px #1d2a3a, 0 8px 0 rgba(29, 42, 58, .2); animation: gameOver .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.brief-title { margin: 0; font: 900 30px/1.1 var(--f6-disp, system-ui); }
+.brief-how { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; width: 100%; text-align: left; }
+.brief-how li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 14px; background: #eef4fb; font: 700 16px/1.3 var(--f6-body, system-ui); }
+.brief-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #ff3366; color: #fff; font: 900 15px/1 var(--f6-disp, system-ui); }
+.brief-roster { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.brief-roster li { position: relative; display: grid; justify-items: center; gap: 2px; padding: 6px 8px 4px; border-radius: 14px; min-width: 62px; background: #f1f4f8; box-shadow: inset 0 0 0 2px #d5dde8; opacity: .75; transition: opacity .2s, box-shadow .2s, background .2s; }
+.brief-roster li.ready { opacity: 1; background: #e3f8ef; box-shadow: inset 0 0 0 3px #18b88a; }
+.brief-roster li.away { opacity: .4; }
+.brief-name { font: 800 12px/1.1 var(--f6-disp, system-ui); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brief-mark { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #c5cfdc; color: #fff; font: 900 13px/1 var(--f6-disp, system-ui); }
+.brief-roster li.ready .brief-mark { background: #18b88a; }
+.brief-ready { width: 100%; min-height: 76px; border: 0; border-radius: 20px; background: #18b88a; color: #fff; font: 900 28px/1 var(--f6-disp, system-ui); box-shadow: 0 6px 0 #0f8a66; -webkit-tap-highlight-color: transparent; animation: briefPulse 1.2s ease-in-out infinite; }
+.brief-ready:active { transform: translateY(4px); box-shadow: 0 2px 0 #0f8a66; }
+@keyframes briefPulse { 50% { filter: brightness(1.12); } }
+.brief-wait { margin: 0; font: 800 17px/1.3 var(--f6-disp, system-ui); }
+.brief-count { font: 900 96px/1 var(--f6-disp, system-ui); color: #ff3366; animation: briefCount .9s ease-out both; }
+@keyframes briefCount { 0% { opacity: 0; transform: scale(1.8); } 20% { opacity: 1; transform: scale(1); } 100% { opacity: .5; transform: scale(.85); } }
+.brief-start { justify-self: center; }
+/* the TV: the same card, sized for the room */
+.brief-tv .brief-card { max-width: min(1100px, 86vw); gap: 2.4vh; padding: 4vh 3vw; border-radius: 4vh; box-shadow: 0 0 0 .5vh #1d2a3a, 0 2vh 6vh rgba(13, 16, 24, .5); }
+.brief-tv .brief-title { font-size: clamp(34px, 7vh, 84px); }
+.brief-tv .brief-how { gap: 1.2vh; }
+.brief-tv .brief-how li { font-size: clamp(18px, 3.2vh, 36px); padding: 1.3vh 1.4vw; gap: 1.2vw; border-radius: 2vh; }
+.brief-tv .brief-n { width: 4.4vh; height: 4.4vh; font-size: 2.6vh; }
+.brief-tv .brief-roster { gap: 1vw; }
+.brief-tv .brief-roster li { padding: 1vh 1vw .8vh; min-width: 9vh; border-radius: 2vh; }
+.brief-tv .brief-roster .f6-avatar { width: 7.5vh !important; height: 7.5vh !important; }
+.brief-tv .brief-name { font-size: clamp(13px, 2.2vh, 24px); max-width: 16vh; }
+.brief-tv .brief-mark { width: 3.4vh; height: 3.4vh; font-size: 2vh; top: -1vh; right: -1vh; }
+.brief-tv .brief-wait { font-size: clamp(18px, 3.2vh, 36px); }
+.brief-tv .brief-count { font-size: clamp(110px, 22vh, 260px); }
+/* the console in full-screen view: the instructions lie over the stage (the bar above stays usable) */
+.arena-full .brief-console { position: fixed; inset: 60px 0 0 0; z-index: 50; margin: 0; display: grid; place-items: center; padding: 16px; background: rgba(13, 16, 24, .45); backdrop-filter: blur(4px); overflow-y: auto; }
+/* a party game's intro waiting for the table (ui/PartyReady.tsx) */
+.party-ready { display: grid; gap: 12px; justify-items: center; width: 100%; margin-top: 8px; }
+.party-ready.brief-tv-inline { gap: 2vh; }
+.party-ready.brief-tv-inline .brief-roster { gap: 1vw; }
+.party-ready.brief-tv-inline .brief-roster li { padding: 1vh 1vw .8vh; min-width: 9vh; border-radius: 2vh; background: rgba(255, 255, 255, .85); }
+.party-ready.brief-tv-inline .brief-roster li.ready { background: #e3f8ef; }
+.party-ready.brief-tv-inline .brief-roster .f6-avatar { width: 7.5vh !important; height: 7.5vh !important; }
+.party-ready.brief-tv-inline .brief-name { font-size: clamp(13px, 2.2vh, 24px); max-width: 16vh; }
+.party-ready.brief-tv-inline .brief-mark { width: 3.4vh; height: 3.4vh; font-size: 2vh; top: -1vh; right: -1vh; }
+.party-ready.brief-tv-inline .brief-wait { font-size: clamp(18px, 3.4vh, 38px); }

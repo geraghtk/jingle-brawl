@@ -1,7 +1,7 @@
 // The TV screen: top strip, turn panel, players / gifts / records, and the sidebar.
 import { useEffect, useState } from 'react';
 import { ArenaFull, FullCtx } from './ArenaFull';
-import { PartyFull, whackOn } from './WhackStage';
+import { PartyFull, partyGameOn } from './WhackStage';
 import type { ReactNode } from 'react';
 import { giftless, wrappedGifts } from '../core/rules';
 import { partyStandings } from '../core/scoring';
@@ -29,7 +29,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   useHostAutomation();
   const [consoleFull, setFull] = useState(false);
   const arenaOn = game.currentTurn?.phase === 'minigame_arena' && !!game.arenaView;
-  const partyOn = whackOn(game);                                  // Whack-an-Elf fills the screen like a runtime game
+  const partyOn = partyGameOn(game);                              // Whack-an-Elf and Sketch-Off fill the screen like a runtime game
   const gameOn = arenaOn || partyOn;
   const full = gameOn && (tv || consoleFull);                     // the TV: always, while a mini-game is on
   useEffect(() => { setFull(gameOn); }, [gameOn]);               // the console too, by default (✕ goes back)

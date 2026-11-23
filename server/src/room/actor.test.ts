@@ -24,7 +24,7 @@ function setup(n = 4, settings = {}) {
   const clock = new FakeClock();
   let s = 1;
   const deps = { store, clock, seed: () => s++ };
-  const room = RoomActor.create('ABCD', { duelPick: 'off', ...settings }, deps)!;
+  const room = RoomActor.create('ABCD', { duelPick: 'off', readyCheck: false, ...settings }, deps)!;   // (the Ready stage has its own test below)
   const host = screen({ kind: 'host' });
   room.attach(host.conn);
   const pids: string[] = [];
@@ -372,3 +372,46 @@ describe('tokens', () => {
   });
 });
 
+describe('before a mini-game: the instructions, then everyone says Ready, then 3, 2, 1', () => {
+  it('a runtime game holds still until both players have pressed Ready; the count is the room\'s own timer', () => {
+    const t = setup(2, { readyCheck: true });
+    const [a, b] = t.pids;
+    expect(t.press(HOST, { type: 'lab_start', gameId: 'reindeer_ring_toss', players: [a, b] })).toEqual({ ok: true });
+    const arena = () => t.game().arena as { lifecycle: string; briefing?: { goAt?: number } };
+    expect(arena().lifecycle).toBe('briefing');
+    t.clock.advance(120_000);                                                  // two minutes of reading: nothing starts by itself
+    expect(arena().lifecycle).toBe('briefing');
+    expect(t.press(a, { type: 'arena', action: { kind: 'throw', path: [[0.5, 0.9, 0], [0.5, 0.5, 120]] } })).not.toEqual({ ok: true });
+    expect(t.press(a, { type: 'arena_ready' })).toEqual({ ok: true });
+    expect(t.press(a, { type: 'arena_ready' })).not.toEqual({ ok: true });     // once
+    expect(arena().briefing?.goAt).toBeUndefined();
+    expect(t.phones[b].last()!.arenaView).toMatchObject({ lifecycle: 'briefing', briefing: { ready: [a] } });   // every screen sees who is ready
+    expect(t.press(b, { type: 'arena_ready' })).toEqual({ ok: true });
+    expect(arena().briefing?.goAt).toBe(t.clock.now() + 3000);
+    t.clock.advance(2900);
+    expect(arena().lifecycle).toBe('briefing');
+    t.clock.advance(200);
+    expect(arena().lifecycle).toBe('active');                                  // started by the room, with its whole clock ahead of it
+  });
+
+  it('a party game\'s intro waits the same way; the host can still skip ahead', () => {
+    const t = setup(3, { readyCheck: true });
+    expect(t.press(HOST, { type: 'lab_start', gameId: 'whack_elf', players: t.pids })).toEqual({ ok: true });
+    const mg = () => t.game().minigame as { phase: string; awaiting?: boolean; phaseEndsAt: number; ready?: Record<string, true> };
+    expect(mg()).toMatchObject({ phase: 'intro', awaiting: true });
+    t.clock.advance(60_000);
+    expect(mg().phase).toBe('intro');
+    for (const p of t.pids.slice(0, 2)) expect(t.press(p, { type: 'party_ready' })).toEqual({ ok: true });
+    expect(mg().awaiting).toBe(true);
+    expect(t.press(t.pids[2], { type: 'party_ready' })).toEqual({ ok: true });
+    expect(mg().awaiting ?? false).toBe(false);
+    expect(mg().phaseEndsAt).toBe(t.clock.now() + 3000);
+    t.clock.advance(3400);
+    expect(mg().phase).toBe('playing');
+
+    const u = setup(3, { readyCheck: true });
+    expect(u.press(HOST, { type: 'lab_start', gameId: 'whack_elf', players: u.pids })).toEqual({ ok: true });
+    expect(u.press(HOST, { type: 'skip_party' })).toEqual({ ok: true });       // somebody will not press: the host moves on
+    expect((u.game().minigame as { phase: string }).phase).toBe('playing');
+  });
+});

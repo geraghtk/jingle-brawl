@@ -3,14 +3,14 @@
 // the same steps on its virtual clock, so both wait for the table by the same rules.
 // A step's key changes when the state it waits on changes, so a timer is re-armed rather
 // than fired twice; every plan is claimed, so a step racing a button can't apply twice.
-import { arenaDeadline, arenaOf, handoff } from './minigames/runtime';
+import { arenaBegin, arenaCountdown, arenaDeadline, arenaOf, awaited, handoff, RESULT_HOLD_MS } from './minigames/runtime';
 import { completeDrawOff, DRAW_GRACE_MS, everyoneDrew, isDrawOff, startDrawing, startJudging } from './drawoff';
 import * as A from './actions';
 import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from './duelgame';
 import { checkEndgameContinue, resolveDuel } from './duel';
 import { everyoneDone, GAMES } from './party';
 import type { PartyGame } from './party';
-import { advanceParty } from './partyflow';
+import { advanceParty, partyAllReady, partyAwaited } from './partyflow';
 import type { Rng } from './rng';
 import { giftless, misfitPile } from './rules';
 import type { Game, Plan } from './types';
@@ -38,7 +38,10 @@ export function hostAuto(game: Game): AutoStep[] {
     const from = mg.phase;
     const done = everyoneDone(mg);
     const grace = from === 'playing' && mg.type === 'whack_elf' ? WHACK_GRACE_MS : GRACE_MS;
-    out.push({ key: `party|${mg.seed}|${from}|${done}`, at: done ? 0 : mg.phaseEndsAt + grace, quiet: true,
+    // (an intro that waits for the table has no clock: the last Ready sets it; if the last one waited for drops, the room does)
+    if (mg.phase === 'intro' && mg.awaiting) {
+      if (!partyAwaited(game, mg).length) out.push({ key: `party|${mg.seed}|allready`, at: 0, quiet: true, run: (g, ctx) => partyAllReady(g, ctx.now) });
+    } else out.push({ key: `party|${mg.seed}|${from}|${done}|${mg.phaseEndsAt}`, at: done ? 0 : mg.phaseEndsAt + grace, quiet: true,
       run: (g, ctx) => advanceParty(g, from, ctx.now) });
   }
 
@@ -80,9 +83,17 @@ export function hostAuto(game: Game): AutoStep[] {
   if (arena?.lifecycle === 'active') {
     for (const d of arena.deadlines) out.push({ key: `arena|${arena.instanceId}|${d.id}|${d.at}`, at: d.at, quiet: true, run: (g, ctx) => arenaDeadline(g, d.id, ctx) });
   }
+  // before it starts: the countdown once nobody is left to wait for (the last one ready starts it themselves;
+  // this is for a phone that dropped), then the start
+  if (arena?.lifecycle === 'briefing') {
+    const goAt = arena.briefing?.goAt;
+    if (goAt) out.push({ key: `arena|${arena.instanceId}|begin|${goAt}`, at: goAt, quiet: true, run: (g, ctx) => arenaBegin(g, ctx.now) });
+    else if (!awaited(game, arena).length) out.push({ key: `arena|${arena.instanceId}|allready`, at: 0, quiet: true, run: (g, ctx) => arenaCountdown(g, ctx.now) });
+  }
   // (a Game Lab game keeps its result on the screens until the host plays again or leaves)
   if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled') && !t?.lab) {
-    out.push({ key: `arena|${arena.instanceId}|handoff`, at: 0, quiet: true, run: (g) => handoff(g) });
+    // its ending stays on the screens for a few seconds first (a game the host stopped has no ending to show)
+    out.push({ key: `arena|${arena.instanceId}|handoff`, at: arena.endedAt ? arena.endedAt + RESULT_HOLD_MS : 0, quiet: true, run: (g) => handoff(g) });
   }
 
   // ties start their party game themselves (once per turn)

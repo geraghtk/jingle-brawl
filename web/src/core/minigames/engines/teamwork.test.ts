@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { rng } from '../../rng';
 import { assignTeams, checkAssignment, pairKey, recordPairs, repeats } from './teams';
 import { add, complete, dispatch, holding, layout, release } from './workflow';
+import { crewFor, jobsOf, mayWork } from './roles';
 
 const people = (n: number) => Array.from({ length: n }, (_, i) => `p${i + 1}`);
 
@@ -84,5 +85,23 @@ describe('the production line', () => {
     // nobody left at the station: it waits
     floor = release(line, floor, (p) => p === 'p3', () => false);
     expect(floor.items['x-0'].holder).toBeNull();
+  });
+});
+
+describe('jobs on a team', () => {
+  it('everyone gets a job in turn; a small team doubles up, a big one shares', () => {
+    expect(crewFor(['a', 'b'], 4)).toEqual([['a'], ['b'], ['a'], ['b']]);
+    expect(crewFor(['a', 'b', 'c'], 4)).toEqual([['a'], ['b'], ['c'], ['a']]);
+    expect(crewFor(['a', 'b', 'c', 'd', 'e', 'f'], 4)).toEqual([['a', 'e'], ['b', 'f'], ['c'], ['d']]);
+    expect(crewFor(['a', 'b', 'c', 'd'], 3)).toEqual([['a', 'd'], ['b'], ['c']]);
+  });
+  it("a job is its crew's; when the whole crew has dropped out it is open to the team, and to nobody else", () => {
+    const crew = crewFor(['a', 'b', 'c'], 3), team = ['a', 'b', 'c'];
+    const here = (gone: string[]) => (p: string) => !gone.includes(p);
+    expect(mayWork(here([]), crew, team, 'a', 0)).toBe(true);
+    expect(mayWork(here([]), crew, team, 'a', 1)).toBe(false);
+    expect(mayWork(here(['b']), crew, team, 'a', 1)).toBe(true);
+    expect(mayWork(here(['b']), crew, team, 'x', 1)).toBe(false);
+    expect(jobsOf(here(['b']), crew, team, 'c')).toEqual([1, 2]);
   });
 });

@@ -206,7 +206,9 @@ test('team games come up for a regular duel by default: the picker says who play
     await expect(def.getByTestId('duel-game-0')).toHaveText('Thumb War');
     await expect(def.getByTestId('duel-game-1')).toContainText('Gift Conveyor');
     await expect(def.getByTestId('duel-game-who-1')).toHaveText('played on phones · in teams: everyone plays');
-    await expect(def.getByTestId('duel-game-2')).toHaveCount(0);            // not every whole-table game: only teams by default
+    await expect(def.getByTestId('duel-game-2')).toContainText('Mecha Santa');
+    await expect(def.getByTestId('duel-game-3')).toContainText('Elf Tower Wars');
+    await expect(def.getByTestId('duel-game-4')).toHaveCount(0);            // not every whole-table game: only teams by default
     await expect(host.getByTestId('duel-game-stage')).toContainText('teams');
 
     await def.getByTestId('duel-game-1').click();

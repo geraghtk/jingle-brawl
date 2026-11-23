@@ -389,3 +389,103 @@ after Step 1, after Step 2, and before the landing page design.
 - 2026-11-16: betting follow-ups done: the phone only says a call stakes a chip when bets really are open on that duel; browser tests for the pool (six players) and for a small table (free vote). Still open in Step 2c: live odds on the phone and TV, the rule docs' betting text, undo restoring `betPool`.
 - 2026-11-16: paused mini-games really stand still (`shiftTime`, `arenaView.pausedAt`). **Whack-an-Elf polished** after a review Kevin asked for: the TV's live bars never filled (fixed); full screen on the TV and console with the board and a live race (`host/WhackStage.tsx`); the phone's board fills the screen with sound, vibration, score, place and a 3-2-1; a roll (three in a row: +1 a hit, `whackTap`); new flat 2D pop-ups from Flux (`tools/art/whack2d.py`, `whack2d_place.py`) replacing the Blender ones. **The Grinch is the Grump everywhere** (Kevin's choice; 115 places, incl. "Grump's Gambit"). Open: the holes and mallet are still the Blender renders; the `gambit` icon was drawn for the old name; `JingleBrawlV2.html` (the old export) now says Grump too but is otherwise stale; Sketch-Off has had no such pass.
 - 2026-11-18: Kevin tested and came back with three things. (1) He could not find Whack-an-Elf to try: **the Game Lab now lists Whack-an-Elf and Sketch-Off** (practice: no prize, results stay up). (2) "Is there a way to test the games with AI NPC players?": **practice bots** (`core/bots.ts`): the host adds them in the lab's picker, the room server plays them through each game's own `offers()`; any game runs with one person or none. Lab only: they are not in the real game (a whole-game demo room against simulated guests is still Step 5). (3) "The conveyor host screen is pretty rudimentary. This is supposed to be a polished, professional looking product": **the Conveyor's TV screen redrawn as a factory floor** (`ui/conveyorFactory.tsx`): a machine per station with its sign, its workers' avatars, a waiting lamp and a tool that stamps; a belt with a hazard rail and rollers; hopper and checker; a sleigh that fills with gifts; sparks, crosses, "Faster!", a winners flag. Open: his verdict on it; the phone card has not had the same pass; bots are a little too tidy to be a real table (pace and slip are constants in `bots.ts`); the same eye should go over the Gremlin and Sketch-Off screens (his bar: "polished, professional").
+- 2026-11-18 (later, Kevin testing with bots): (1) Ring Toss: the grey smudge below the reindeer was the flight shadow of a ring on its way to an antler falling on the snowdrift: a ring now has a shadow only near the ground (`scene.ts shadowOpacity`); "a ring shows up below the antler" was `stack` counting every earlier ringer of the game: only rings still showing count (`stackOn`); the trail is two faint copies, not four ("too busy"). (2) **Pass the Gremlin's TV screen is a table**: everyone seated round it, the Gremlin hopping to the holder, the last passes drawn, hold time, wrong answers, how often each has held it. (3) **Sketch-Off fills the screens**: the phone's pad is full screen, the TV is a wall of easels where the drawings grow live with no names (`sketch_live`, `minigame.wall`), a big numbered gallery for the vote, then whose was whose. (4) **Sounds** rebuilt as synthesized instruments with reverb (he found them "too 8 bit"); not heard by me: his ears decide, and recorded samples are the next step if it is still not right. Asked and answered: an everyone-plays game has no score of its own for bystanders (Gremlin: one loser, a doomed bystander starts a duelists-only sudden death; Ring Toss: the better duelist wins; only the Conveyor pays Party points to the winning team); whether bystanders should earn something is open.
+
+**2026-11-18 (third entry): rewards for the table playing along (Kevin's design).** Pass the Gremlin with
+the whole table: a caught bystander is out and the rest play on with a shorter fuse (35 to 55 s); after
+two are out (or the only one) the duelists finish in sudden death. Bystanders earn Party points for
+lasting: 0 for the first out, 1 for the second, 2 if never caught. Ring Toss: everyone but the duelists
+earns 3 / 2 / 1 by their own score. `handoff()` logs who was paid. `npm run analyze:gremlin` (6 players):
+no bystander caught in 68% of games, one in 22%, two in 10%; median game 89 s, longest 189 s; a
+bystander averages 1.6 to 1.9 points a game; every bystander passing to one duelist moves that duelist's
+losses only from 52% to 54%. At first that was 0 / 1 / 2, and a bystander nearly always earned 2, twice the 1 point a duelist gets
+for fighting; Kevin had it fixed the same day: 1 Party point for never being caught, nothing otherwise. The end-of-game result is on screen only for a moment before the duel verdict
+takes over (true of every arena game): a short results hold would fix that.
+
+**2026-11-18 (fourth entry): two new team games, built back to back at Kevin's request (he had not
+played either when this was written).** From the spec he copied into `agents/`
+(`yule_duel_priority_games_4_to_9_spec.md`: Mecha Santa is its #6, Elf Tower Wars its #9; Pie Face,
+Sleigh Kart, QR Lineup and Claim the Chimneys are not built).
+- **Platform first:** a finished mini-game's ending stays up 6 s before the duel takes over (host can
+  skip); jobs on a team are a shared engine (`engines/roles.ts`); Setup says what a game needs (the TV,
+  four players).
+- **Mecha Santa Mayhem** (`mecha_santa`): 3D toon robots like Knockout (his choice). Simulation: an
+  average team of four finishes in about 55 s, a slow one is still out at the 90 s bell; teams of 2, 3,
+  4 and 5 win about evenly after two fixes (shared jobs take turns; small teams stride further).
+- **Elf Tower Wars** (`elf_tower_wars`): the armies march past each other (his choice). Each job has
+  its own energy (not one shared pool: so nobody can spend a teammate's share). Simulation: a team that
+  never builds, never attacks or never defends loses every time, and team sizes come out even. **Its
+  balance is not finished:** with towers upgradable (a cannon over a snowball tower) defence is strong,
+  so between even teams no workshop falls and the bell decides (about 5 of 20 health lost each); and a
+  team that saves its energy for tanks and cannons beats one that spends as fast as it can (94% in the
+  simulation), which may be good strategy or may be a dominant habit: to settle after he plays. Its
+  pictures are drawn SVG, not Flux sticker art (the plan said Flux): to redo if he wants it richer.
+- **Not done:** real-phone feel for both; tilt control (needs HTTPS); bots-only browser cases for the two
+  (the room test covers bots finishing both); the spec's contribution bonus (flat reward kept).
+
+**2026-11-22: graphics pass (Kevin: "improve the graphics, especially Tower Wars", "the mecha santas
+too", and the goal: consistent across games and fit to release).** Tower Wars redrawn with Flux art
+(toys, towers, workshops, scenery, snowy field; `tools/art/towers.py`), lobbed snowballs, puffs, bangs,
+smoke from a hurt workshop. Mecha Santa rebuilt as a riveted clockwork robot (piston legs, shoulder
+plates, dials, chimney, lamp eyes); the camera no longer shrinks both robots to specks when one is far
+behind. All eight games photographed side by side: the family is sticker avatars + flat Flux cartoon +
+toon 3D on one palette. Still uneven: Knockout's nutcrackers are blockier than the new Mecha Santas;
+Whack-an-Elf's TV leaves a lot of empty space; awaiting his verdict.
+
+**2026-11-22 (second entry): instructions and a Ready button before every mini-game (Kevin: "some
+games have instructions, but others don't. It might also be good for everyone to hit a button when
+they're ready as opposed to a countdown", then "have a countdown after everyone has confirmed").**
+Every runtime game now opens with how to play it (TV, console, phones), waits for each player's Ready,
+then counts 3, 2, 1. Whack-an-Elf and Sketch-Off wait the same way. Bots are always ready; a dropped
+phone is not waited for; the host can start without waiting; a setting switches it off. Also that day:
+Knockout's nutcrackers rounded to match the Mecha Santas, with new faces (he asked for better
+moustaches and thinner eyebrows). Open: Sketch-Off shows its prompt while people are still pressing
+Ready (thinking time is uneven); the games' own short intros (Ring Toss practice, Knockout's "Round 1")
+still run after the count.
+
+**2026-11-22 (third entry): Kevin played Tower Wars and Mecha Santa.** Tower Wars ("I was the builder
+and didn't really know what to do. It wasn't that fun just waiting... perhaps instead of everyone doing
+a different role, we have the same role(s)"): the three jobs are gone. Every player has the same hand
+of cards and their own energy; the phone is a map plus the cards (pick a card, tap where). Free
+spending made an all-out rush win every time in simulation, so each workshop now throws its own
+snowballs at toys that get close and toys toughen faster; even teams of all-rounders are close and
+last about 100 s. Open: the simulated hands that press less often (so save for dearer things) beat the
+quick ones, and uneven team sizes can only be checked roughly with them; needs real players. Mecha
+Santa ("boring to play as you tell me when I need to press a button... each player can activate their
+part whenever, so the fun is in having to communicate"): the phone is now plain buttons that never
+light up or say when; every press does something (wrong timing trips, bonks or lurches the robot);
+shared jobs no longer take turns. Also that day: the Conveyor's toy cars redrawn without dashed
+outlines, and the Tower Wars workshop recut (its roof had holes where the snow was cut out with the
+background).
+
+**2026-11-22 (fourth entry): polish plan from a look at similar games (Kevin: "research against other
+types of similar games... come up with a plan... see what we can do to polish things further
+(animations etc)"). Proposed, not approved.** Sources were thin on Gartic Phone, Kahoot and AirConsole
+specifics; those items are from general knowledge of them.
+- Phase 1, one look for every game: a shared motion kit (`ui/motion.css`: enter, exit, pop, count-up,
+  shake); one opening sequence (title card, how to play, 3, 2, 1 with sound) and one results ceremony
+  (winners in, confetti, points counting up) used by all eight games; keep phones awake during a game
+  (Screen Wake Lock: nothing does this today).
+- Phase 2, per-game animation: Tower Wars (toys bob as they walk, towers recoil, a workshop shakes and
+  crumbles, a card flies to where it was played); Conveyor (a fitted piece snaps on, the sleigh
+  bounces); Mecha Santa (dust at each footfall, a camera punch on a smash); Gremlin, Whack-an-Elf and
+  Sketch-Off entrances; then the main game's own moments (bid reveal, gift opening, duel verdict,
+  chips moving).
+- Phase 3, what similar games ship that this does not: an end-of-night recap (podium, a few awards, a
+  picture to share, the Sketch-Off drawings to keep); "play again with the same people"; a relaxed
+  pace setting (longer or no timers); an error boundary.
+- Phase 4, bigger: music under the lobby and the games; an unscored practice round the first time a
+  game comes up in a night; a bot holding a dropped player's seat in a team game.
+- Deliberately not copying: accounts or sign-up (the commonest complaint about gift-exchange apps),
+  motion or camera controls (they shut out older phones).
+Also that day: the workshop and snowball tower art recut again (tolerance 4): the right eave's snow and
+the tower's loaded snowball were still see-through.
+
+**2026-11-22 (fifth entry): Tower Wars after a look at the genre (Kevin: "take this research... and make
+the changes").** Built: a third toy (a pack of three wind-up mice, Flux art) and real counters (the
+cannon hits a crowd, the snowball tower one toy; mice swamp a snow tower, a cannon stops them, a teddy
+tank shrugs off a cannon); towers level up by building the same one again (stars, bigger, reach shown
+when built); an avalanche that needs two teammates on the same path within a moment (shown waiting on
+the TV only); double energy for the last half minute; each card's hint says what it is for and what
+answers it. Not built: sending raising income (only if real players turtle). Open after simulation:
+hands that save for dear things still beat quick cheap spending; needs real players.

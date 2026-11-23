@@ -4,9 +4,11 @@
 // deadline, kept by the server and never shown, makes it go berserk: whoever holds it then loses.
 //   direct_duel          the two duelists pass it; the doomed one loses, the other wins
 //   free_for_all         one loser, everyone else survives; no winner is invented
-//   party_with_duelists  everyone passes it; a doomed duelist loses the duel. A doomed bystander
-//                        starts a duelist-only sudden death with a fresh secret deadline, which
-//                        always ends on one of the two.
+//   party_with_duelists  everyone passes it; a doomed duelist loses the duel. A doomed bystander is
+//                        out and the rest play on with a shorter fuse; after `maxOut` of them (or
+//                        when no bystander is left) the two duelists finish alone in sudden death,
+//                        which always ends on one of the two. Bystanders earn Party points for
+//                        how long they lasted (`rewards`: the game only recommends them).
 // The TV and the phones see only a coarse danger level, from public settings and elapsed time.
 import type { Rng } from '../../rng';
 import type { PlayerId } from '../../types';
@@ -14,6 +16,7 @@ import type { GameDefinition, MatchCtx, Transition } from '../contracts';
 import { singleLoser } from '../scoring';
 import { ALL_CHALLENGES, CHALLENGES, nextChallenge } from './challenges';
 import type { Challenge } from './challenges';
+import { outPoints } from './view';
 import type { GremlinView } from './view';
 
 export interface GremlinConfig {
@@ -21,13 +24,17 @@ export interface GremlinConfig {
   tiebreakMinMs: number; tiebreakMaxMs: number;    // the sudden death's
   minHoldMs: number;                               // the holder keeps it at least this long
   wrongCooldownMs: number;                         // a wrong answer: a new problem after this
-  introMs: number;                                 // before the sudden death starts
+  introMs: number;                                 // before the sudden death (or the next round) starts
+  laterMinMs: number; laterMaxMs: number;          // a round after a bystander went out: a shorter fuse
+  maxOut: number;                                  // this many bystanders out, then sudden death
+  surviveReward: number;                           // Party points for a bystander still in at the end
   challenges: string[];                            // the kinds a holder may be given (each new one: another kind)
   challenge?: string;                              // (before M3: one kind)
 }
 export const DEFAULTS: GremlinConfig = {
   doomMinMs: 60_000, doomMaxMs: 100_000, tiebreakMinMs: 20_000, tiebreakMaxMs: 35_000,
-  minHoldMs: 1000, wrongCooldownMs: 700, introMs: 4000, challenges: ALL_CHALLENGES,
+  minHoldMs: 1000, wrongCooldownMs: 700, introMs: 4000, laterMinMs: 35_000, laterMaxMs: 55_000, maxOut: 2, surviveReward: 1,
+  challenges: ALL_CHALLENGES,
 };
 
 /** The kinds this game uses (a game saved before M3 has one `challenge`). */
@@ -39,8 +46,10 @@ export interface Stats { holds: number; passes: number; ok: number; fail: number
 
 export interface GremlinState {
   cfg: GremlinConfig;                   // this game's settings (public)
-  stage: 'holding' | 'pass_ready' | 'sudden_death_intro' | 'doomed';
+  stage: 'holding' | 'pass_ready' | 'out_intro' | 'sudden_death_intro' | 'doomed';
   round: 'main' | 'sudden_death';
+  roundNo?: number;                     // 1, 2, ... (a game saved before elimination has none: 1)
+  out?: PlayerId[];                     // bystanders it caught, first out first
   pool: PlayerId[];                     // who can hold it this round
   holder: PlayerId;
   prevHolder?: PlayerId | null;
@@ -52,7 +61,7 @@ export interface GremlinState {
   window: [number, number];             // this round's public window (for the danger level)
   passes?: Pass[];
   stats?: Record<PlayerId, Stats>;
-  bystanderDoomed?: PlayerId | null;    // the main round's loser when it wasn't a duelist
+  bystanderDoomed?: PlayerId | null;    // the bystander it caught last
   doomed?: PlayerId | null;
 }
 
@@ -66,6 +75,22 @@ export function danger(s: Pick<GremlinState, 'roundStartedAt' | 'window'>, now: 
   return t < s.window[0] * 0.5 ? 'calm' : t < s.window[0] ? 'uneasy' : 'unstable';
 }
 
+const between = (s: GremlinState) => s.stage === 'doomed' || s.stage === 'sudden_death_intro' || s.stage === 'out_intro';
+
+/** A bystander's Party points for lasting: `surviveReward` for whoever is still in (and at the table)
+ *  when a duelist is caught; less for one who was caught (`outPoints`: by default nothing). Kept small
+ *  on purpose: most bystanders are never caught, and a duelist earns 1 for fighting. */
+export function survivalRewards(c: GremlinConfig, participants: PlayerId[], duelists: PlayerId[], out: PlayerId[], here: (p: PlayerId) => boolean) {
+  const rewards: { playerId: PlayerId; points: number; reason: string }[] = [];
+  for (const p of participants) {
+    if (duelists.includes(p)) continue;
+    const i = out.indexOf(p);
+    const points = i >= 0 ? outPoints(i, c.surviveReward) : here(p) ? c.surviveReward : 0;
+    if (points > 0) rewards.push({ playerId: p, points, reason: i >= 0 ? 'lasting a while' : 'never caught' });
+  }
+  return rewards;
+}
+
 /** Who the holder may pass to: the pool but themselves, not straight back if anyone else can take it, and connected ones if any are. */
 export function eligible(ctx: Pick<MatchCtx, 'connected'>, s: GremlinState): PlayerId[] {
   let out = s.pool.filter((p) => p !== s.holder);
@@ -76,7 +101,7 @@ export function eligible(ctx: Pick<MatchCtx, 'connected'>, s: GremlinState): Pla
 }
 
 function newRound(ctx: MatchCtx, c: GremlinConfig, round: GremlinState['round'], pool: PlayerId[], extra: Partial<GremlinState> = {}): Transition<GremlinState> {
-  const window: [number, number] = round === 'main' ? [c.doomMinMs, c.doomMaxMs] : [c.tiebreakMinMs, c.tiebreakMaxMs];
+  const window: [number, number] = round === 'sudden_death' ? [c.tiebreakMinMs, c.tiebreakMaxMs] : (extra.roundNo || 1) > 1 ? [c.laterMinMs, c.laterMaxMs] : [c.doomMinMs, c.doomMaxMs];
   const holder = pool[Math.floor(ctx.rng() * pool.length)];
   const doomAt = ctx.now + sample(ctx.rng, window);
   const state: GremlinState = {
@@ -102,7 +127,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
     const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<GremlinConfig>;
     const c: GremlinConfig = { ...DEFAULTS, ...r, challenges: r.challenges || r.challenge ? kindsOf(r) : DEFAULTS.challenges };
     delete c.challenge;
-    if (!(c.doomMinMs > 0 && c.doomMaxMs >= c.doomMinMs && c.tiebreakMinMs > 0 && c.tiebreakMaxMs >= c.tiebreakMinMs)) throw new Error('bad Gremlin deadline windows');
+    if (!(c.doomMinMs > 0 && c.doomMaxMs >= c.doomMinMs && c.tiebreakMinMs > 0 && c.tiebreakMaxMs >= c.tiebreakMinMs && c.laterMinMs > 0 && c.laterMaxMs >= c.laterMinMs)) throw new Error('bad Gremlin deadline windows');
     for (const k of c.challenges) if (!CHALLENGES[k]) throw new Error(`no challenge ${k}`);
     return c;
   },
@@ -117,7 +142,7 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
 
   validateAction(ctx, s, who, raw) {
     const a = raw as Partial<GremlinAction> & { value?: unknown; to?: unknown };
-    if (s.stage === 'doomed' || s.stage === 'sudden_death_intro') return { ok: false, error: 'Wait for it…' };
+    if (between(s)) return { ok: false, error: 'Wait for it…' };
     if (who !== s.holder) return { ok: false, error: "You're not holding the Gremlin" };
     if (a?.kind === 'answer') {
       if (s.stage !== 'holding') return { ok: false, error: 'Already solved: pass it on!' };
@@ -165,29 +190,36 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
   },
 
   onDeadline(ctx, s, id) {
-    if (id === 'sudden_death') {
-      // the duelists only, a fresh secret deadline
-      return newRound(ctx, s.cfg, 'sudden_death', [...ctx.duelists!], { stats: s.stats, passes: s.passes, bystanderDoomed: s.bystanderDoomed });
-    }
+    const carry = { stats: s.stats, passes: s.passes, bystanderDoomed: s.bystanderDoomed, out: s.out, roundNo: (s.roundNo || 1) + 1 };
+    // the duelists only, a fresh secret deadline
+    if (id === 'sudden_death') return newRound(ctx, s.cfg, 'sudden_death', [...ctx.duelists!], carry);
+    // a bystander is out: everyone else plays on, on a shorter fuse
+    if (id === 'next_round') return newRound(ctx, s.cfg, 'main', s.pool.filter((p) => !(s.out || []).includes(p)), carry);
     // the doom: whoever holds it now loses
     const loser = s.holder;
     const doomed: GremlinState = { ...s, stage: 'doomed', doomed: loser };
-    const metrics = { passes: s.passes?.length || 0, stats: s.stats || {}, bystanderDoomed: s.bystanderDoomed ?? null };
     if (ctx.mode === 'party_with_duelists' && ctx.duelists && !ctx.duelists.includes(loser)) {
+      const out = [...(s.out || []), loser];
+      const left = s.pool.filter((p) => !ctx.duelists!.includes(p) && !out.includes(p));
+      const on = out.length < s.cfg.maxOut && left.length > 0;
       return {
-        state: { ...doomed, stage: 'sudden_death_intro', bystanderDoomed: loser },
-        deadlines: [{ id: 'sudden_death', at: ctx.now + s.cfg.introMs }],
-        events: ['👹 The Gremlin went berserk on a bystander! Sudden death: just the duellists now.'],
+        state: { ...doomed, stage: on ? 'out_intro' : 'sudden_death_intro', bystanderDoomed: loser, out },
+        deadlines: [{ id: on ? 'next_round' : 'sudden_death', at: ctx.now + s.cfg.introMs }],
+        events: [on ? '👹 The Gremlin went berserk on a bystander! They are out; everyone else plays on.'
+          : '👹 The Gremlin went berserk on a bystander! Sudden death: just the duellists now.'],
       };
     }
+    const out = s.out || [];
+    const metrics = { passes: s.passes?.length || 0, stats: s.stats || {}, bystanderDoomed: s.bystanderDoomed ?? null, out, rounds: s.roundNo || 1 };
+    const rewards = ctx.mode === 'party_with_duelists' && ctx.duelists ? survivalRewards(s.cfg, ctx.participants, ctx.duelists, out, ctx.connected) : [];
     const result = singleLoser.result(gremlin.id, ctx.instanceId, ctx.mode,
       { loser, participants: ctx.participants, reason: s.round === 'sudden_death' ? 'holding the Gremlin at sudden death' : 'holding the Gremlin when it went berserk' },
       ctx.mode === 'free_for_all' ? undefined : ctx.duelists);
-    return { state: doomed, result: { ...result, metrics: { ...result.metrics, ...metrics } }, events: ['👹 The Gremlin went berserk!'] };
+    return { state: doomed, result: { ...result, ...(rewards.length ? { rewards } : {}), metrics: { ...result.metrics, ...metrics } }, events: ['👹 The Gremlin went berserk!'] };
   },
 
   offers(ctx, s, who) {
-    if (who !== s.holder || s.stage === 'doomed' || s.stage === 'sudden_death_intro') return [];
+    if (who !== s.holder || between(s)) return [];
     if (s.stage === 'holding') {   // simulated hands; never sent to a screen
       const value = ctx.now < (s.cooldownUntil || 0) ? null : CHALLENGES[s.challenge.kind].solve(s.challenge, ctx.now);
       return value === null ? [] : [{ kind: 'answer', value }];
@@ -214,5 +246,10 @@ function publicView(s: GremlinState, now: number): GremlinView {
     stage: s.stage, round: s.round, pool: s.pool, holder: s.holder, prevHolder: s.prevHolder ?? null,
     challengeKind: s.challenge.kind, challengeLabel: CHALLENGES[s.challenge.kind].label, solved: s.stage === 'pass_ready', danger: danger(s, now),
     trail: (s.passes || []).slice(-8), bystanderDoomed: s.bystanderDoomed ?? null, doomed: s.doomed ?? null,
+    roundNo: s.roundNo || 1, out: s.out || [], maxOut: s.cfg.maxOut, survive: s.cfg.surviveReward,
+    // for the big screen's table: since when the holder has had it, their wrong answers so far, and how
+    // often each player has held it (nothing here helps anyone guess the deadline)
+    holdSince: s.holdSince, misses: stat(s, s.holder).fail,
+    held: Object.fromEntries(Object.entries(s.stats || {}).map(([p, st]) => [p, st.holds || 0]).filter(([, n]) => n)),
   };
 }

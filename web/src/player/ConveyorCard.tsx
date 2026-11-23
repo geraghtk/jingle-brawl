@@ -50,7 +50,7 @@ export function ConveyorCard() {
         <span>Them <b>{theirs.delivered}</b></span>
       </div>
       {v.stage === 'done' ? (
-        <p className="cv-wait" role="status">{v.winner ? (v.winner === mine.teamId ? 'Your team won!' : 'The other team won.') : 'Level: the host decides.'}</p>
+        <p className={`cv-wait game-over ${v.winner ? (v.winner === mine.teamId ? 'win' : 'lose') : 'level'}`} role="status">{v.winner ? (v.winner === mine.teamId ? 'Your team won!' : 'The other team won.') : 'Level: the host decides.'}</p>
       ) : stations.map((k) => <Station key={k} v={v} team={mine} k={k} now={now} send={send} />)}
     </div>
   );

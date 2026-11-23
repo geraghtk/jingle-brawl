@@ -94,7 +94,7 @@ export function startLab(game: Game, setup: LabSetup, ctx: { now: number; rng: R
   const tx = new Tx(game).set('arena', null).set('minigame', null)
     .set('currentTurn', { phase: 'minigame_arena', lab: { gameId: def.id, players, mode, ...(duelists ? { duelists } : {}) } });
   let started: { error?: string };
-  try { started = startArena(tx, def.id, { mode, participants, duelists, config: cfg }, ctx); }
+  try { started = startArena(tx, def.id, { mode, participants, duelists, config: cfg, briefing: config(game.settings).readyCheck }, ctx); }
   catch (e) { started = { error: `${def.label} couldn't start: ${(e as Error).message}` }; }
   if (started.error) return refuse(started.error);
   return tx.event(`🧪 Game Lab: practice, nothing is won or lost`, 'duel').plan();

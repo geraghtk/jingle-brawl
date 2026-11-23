@@ -29,14 +29,28 @@ export interface ArenaInstance {
   result?: GameResult;
   overrides: { at: number; what: string }[];
   startedAt: number;
+  /** When the game itself ended (not when the host stopped it): its ending stays on the screens for RESULT_HOLD_MS. */
+  endedAt?: number;
+  /** Before it starts (lifecycle `briefing`): who has said they are ready, and when the 3, 2, 1 ends. */
+  briefing?: { ready: Record<PlayerId, true>; goAt?: number };
 }
+
+/** Once everyone is ready: 3, 2, 1 and the game starts. */
+export const READY_COUNT_MS = 3000;
+
+/** A finished game's ending stays up this long before the duel takes over (the host can move on sooner). */
+export const RESULT_HOLD_MS = 6000;
 
 /** What each screen is sent instead of the instance (projection.ts). */
 export interface ArenaView {
   instanceId: string; gameId: string; mode: MatchMode; lifecycle: Lifecycle; stateVersion: number;
   /** Paused: the game's clock stands at this moment (a screen that draws from the time uses it as "now"). */
   pausedAt?: number;
+  /** The game ended by itself at this moment: its ending is on screen until the duel takes over. */
+  endedAt?: number;
   participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; result?: GameResult; view: unknown;
+  /** The instructions are up: who is ready so far, and (once everyone is) when the countdown ends. */
+  briefing?: { ready: PlayerId[]; goAt?: number };
 }
 
 const RECENT = 64;
@@ -48,18 +62,18 @@ function ctxFor(game: Game, a: Pick<ArenaInstance, 'instanceId' | 'mode' | 'part
 }
 
 /** Apply a transition: the new state, deadlines, result, events, one version up. */
-function commit(tx: Tx, a: ArenaInstance, tr: Transition<unknown>, extra: Partial<ArenaInstance> = {}) {
+function commit(tx: Tx, a: ArenaInstance, tr: Transition<unknown>, now: number, extra: Partial<ArenaInstance> = {}) {
   const next: ArenaInstance = {
     ...a, ...extra, state: tr.state, stateVersion: a.stateVersion + 1,
     deadlines: tr.result ? [] : tr.deadlines ?? a.deadlines,
-    ...(tr.result ? { result: tr.result, lifecycle: tr.result.status === 'cancelled' ? 'cancelled' : 'completed' } : {}),
+    ...(tr.result ? { result: tr.result, lifecycle: tr.result.status === 'cancelled' ? 'cancelled' : 'completed', endedAt: now } : {}),
   };
   tx.set('arena', next);
   for (const e of tr.events || []) tx.event(e, 'duel');
 }
 
 /** Start a game inside the caller's transaction. With duelists (gift stakes) the mode must always resolve them. */
-export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; config?: unknown },
+export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; config?: unknown; briefing?: boolean },
   ctx: { now: number; rng: Rng }): { error?: string } {
   const def = getDef(gameId);
   if (!def) return { error: `no game ${gameId}` };
@@ -76,9 +90,57 @@ export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; partici
     ...base, gameId, defVersion: def.version, config, lifecycle: 'active', stateVersion: 0, state: tr.state,
     deadlines: tr.deadlines || [], recent: [], overrides: [], startedAt: ctx.now,
   };
-  commit(tx, a, tr);
+  commit(tx, a, tr, ctx.now);
+  // the instructions first: the game is made but holds still (like a pause) until everyone is ready
+  const made = tx.get('arena') as ArenaInstance;
+  if (o.briefing && made.lifecycle === 'active') {
+    const left = Object.fromEntries(made.deadlines.map((d) => [d.id, Math.max(0, d.at - ctx.now)]));
+    const ready = Object.fromEntries(o.participants.filter((id) => tx.game.players?.[id]?.isBot).map((id) => [id, true as const]));
+    const waiting: ArenaInstance = { ...made, lifecycle: 'briefing', paused: { at: ctx.now, left }, deadlines: [], briefing: { ready } };
+    tx.set('arena', awaited(tx.game, waiting).length ? waiting : { ...waiting, briefing: { ready, goAt: ctx.now + READY_COUNT_MS } });
+  }
   tx.set('currentTurn/phase', 'minigame_arena').event(`${def.emoji} ${def.label}!`, 'duel');
   return {};
+}
+
+/** Who the room is still waiting for before the game starts (a bot is always ready; a dropped phone is not waited for). */
+export function awaited(game: Game, a: ArenaInstance): PlayerId[] {
+  if (a.lifecycle !== 'briefing') return [];
+  return a.participants.filter((id) => { const p = game.players?.[id]; return !!p && !p.isBot && p.connected !== false && !a.briefing?.ready?.[id]; });
+}
+
+/** A participant says they are ready; the last one starts the countdown. */
+export function arenaReady(game: Game, who: PlayerId, now: number): Plan {
+  const a = arenaOf(game);
+  if (a?.lifecycle !== 'briefing') return refuse('The game has started');
+  if (!a.participants.includes(who)) return refuse("You're not in this game");
+  if (a.briefing?.ready?.[who]) return refuse('Already ready');
+  const next: ArenaInstance = { ...a, stateVersion: a.stateVersion + 1, briefing: { ...a.briefing, ready: { ...(a.briefing?.ready || {}), [who]: true } } };
+  if (!next.briefing!.goAt && !awaited(game, next).length) next.briefing!.goAt = now + READY_COUNT_MS;
+  return new Tx(game).set('arena', next).plan();
+}
+
+/** Start the countdown without waiting any longer: the host's button, and the room's own step when nobody is left to wait for. */
+export function arenaCountdown(game: Game, now: number, byHost = false): Plan {
+  const a = arenaOf(game);
+  if (a?.lifecycle !== 'briefing') return refuse('The game has started');
+  if (a.briefing?.goAt) return refuse('Already counting down');
+  if (!byHost && awaited(game, a).length) return refuse('Still waiting for someone');
+  return new Tx(game).set('arena', { ...a, stateVersion: a.stateVersion + 1, briefing: { ready: a.briefing?.ready || {}, goAt: now + READY_COUNT_MS },
+    ...(byHost ? { overrides: [...a.overrides, { at: now, what: 'started without waiting' }] } : {}) }).plan();
+}
+
+/** The countdown is over: the game's clock starts now (its times move on by however long the instructions were up). */
+export function arenaBegin(game: Game, now: number): Plan {
+  const a = arenaOf(game);
+  if (a?.lifecycle !== 'briefing' || !a.paused) return refuse('The game has started');
+  if (!a.briefing?.goAt || a.briefing.goAt > now) return refuse('Not yet');
+  const { paused, briefing: _b, ...rest } = a;
+  void _b;
+  const def = getDef(a.gameId);
+  const state = def?.shiftTime ? def.shiftTime(a.state, Math.max(0, now - paused.at)) : a.state;
+  const deadlines = Object.entries(paused.left || {}).map(([id, ms]) => ({ id, at: now + ms }));   // (stored state drops an empty map)
+  return new Tx(game).set('arena', { ...rest, state, lifecycle: 'active', deadlines, stateVersion: a.stateVersion + 1, startedAt: now }).plan();
 }
 
 /** A participant's action: actor, lifecycle, version and id checked; the game validates the rest. */
@@ -94,7 +156,7 @@ export function arenaAct(game: Game, who: PlayerId, msg: { action: unknown; aid?
   const check = def.validateAction(mctx, a.state, who, msg.action);
   if (!check.ok) return refuse(check.error);
   const tx = new Tx(game);
-  commit(tx, a, def.reduce(mctx, a.state, who, check.action), msg.aid ? { recent: [...a.recent, msg.aid].slice(-RECENT) } : {});
+  commit(tx, a, def.reduce(mctx, a.state, who, check.action), ctx.now, msg.aid ? { recent: [...a.recent, msg.aid].slice(-RECENT) } : {});
   return tx.plan();
 }
 
@@ -120,7 +182,7 @@ export function arenaDeadline(game: Game, deadlineId: string, ctx: { now: number
   const d = a.deadlines.find((x) => x.id === deadlineId);
   if (!d || d.at > ctx.now) return refuse('Not due');
   const tx = new Tx(game);
-  commit(tx, a, def.onDeadline(ctxFor(game, a, ctx.now, ctx.rng), a.state, deadlineId));
+  commit(tx, a, def.onDeadline(ctxFor(game, a, ctx.now, ctx.rng), a.state, deadlineId), ctx.now);
   return tx.plan();
 }
 
@@ -165,10 +227,15 @@ export function handoff(game: Game): Plan {
   if (!a?.result || !t) return refuse('The game is not over');
   const tx = new Tx(game).claim('currentTurn/arenaHandedOff', a.instanceId).set('arena', null);
   // the game's reward recommendation, as Party points (once: the claim above guards a second hand-off)
+  const paid: string[] = [];
   for (const r of a.result.rewards || []) {
     const p = game.players?.[r.playerId];
-    if (p && Number.isFinite(r.points) && r.points > 0) tx.set(`players/${r.playerId}/partyPoints`, (p.partyPoints || 0) + Math.round(r.points));
+    if (p && Number.isFinite(r.points) && r.points > 0) {
+      tx.set(`players/${r.playerId}/partyPoints`, (p.partyPoints || 0) + Math.round(r.points));
+      paid.push(`${p.name || 'Someone'} +${Math.round(r.points)}`);
+    }
   }
+  if (paid.length) tx.event(`⭐ Party points: ${paid.join(', ')}`, 'duel');
   if (t.phase !== 'minigame_arena') return tx.plan();                       // a standalone round: nothing to settle
   tx.set('currentTurn/phase', 'duel');
   const w = a.result.duel?.winningDuelistId;
@@ -182,9 +249,11 @@ export function arenaView(a: ArenaInstance, viewer: { kind: 'host' } | { kind: '
   const def = getDef(a.gameId) as GameDefinition;
   // while paused the game's clock stands still at the moment of the pause: the view is as it was then,
   // and says so (`pausedAt`), so a screen that draws from the time (a belt, a punch) holds still too
-  const pausedAt = a.lifecycle === 'paused' && a.paused ? a.paused.at : null;
+  const pausedAt = (a.lifecycle === 'paused' || a.lifecycle === 'briefing') && a.paused ? a.paused.at : null;
   const at = pausedAt ?? now;
   const view = !def ? null : viewer.kind === 'host' ? def.projectForHost(a.state, at) : viewer.kind === 'tv' ? def.projectForTv(a.state, at) : def.projectForPlayer(a.state, viewer.pid, at);
   return { instanceId: a.instanceId, gameId: a.gameId, mode: a.mode, lifecycle: a.lifecycle, stateVersion: a.stateVersion, ...(pausedAt != null ? { pausedAt } : {}),
+    ...(a.endedAt != null ? { endedAt: a.endedAt } : {}),
+    ...(a.lifecycle === 'briefing' ? { briefing: { ready: Object.keys(a.briefing?.ready || {}), ...(a.briefing?.goAt ? { goAt: a.briefing.goAt } : {}) } } : {}),
     participants: a.participants, ...(a.duelists ? { duelists: a.duelists } : {}), ...(a.result ? { result: a.result } : {}), view };
 }

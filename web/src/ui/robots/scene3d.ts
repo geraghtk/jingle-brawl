@@ -7,28 +7,7 @@ import * as THREE from 'three';
 import type { Part } from '../../core/minigames/robots/robots';
 import type { RobotFighterView, RobotView } from '../../core/minigames/robots/view';
 
-const INK = 0x1d2a3a;
-const GOLD = 0xffc21a;
-const STEEL = 0xc9d2de;
-const GLOVE = 0xe63946;
-const SNOW = 0xf4f8fc;
-
-/** A shape in the house look: flat toon colour and an ink outline (the same shape, a little bigger, seen from inside). */
-function piece(geo: THREE.BufferGeometry, color: number, outline = 0.035): THREE.Group {
-  const g = new THREE.Group();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ color }));
-  mesh.castShadow = true;
-  const line = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: INK, side: THREE.BackSide }));
-  geo.computeBoundingSphere();
-  const r = geo.boundingSphere?.radius || 1;
-  line.scale.setScalar(1 + outline / r);
-  g.add(line, mesh);
-  return g;
-}
-const box = (w: number, h: number, d: number, c: number) => piece(new THREE.BoxGeometry(w, h, d, 1, 1, 1), c);
-const cyl = (rt: number, rb: number, h: number, c: number, seg = 20) => piece(new THREE.CylinderGeometry(rt, rb, h, seg), c);
-const ball = (r: number, c: number) => piece(new THREE.SphereGeometry(r, 20, 14), c);
-const at = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number): T => { o.position.set(x, y, z); return o; };
+import { at, ball, box, cyl, ease, GLOVE, GOLD, INK, piece, SNOW, STEEL, barrel } from '../toon3d';
 
 interface Arm { shoulder: THREE.Group; elbow: THREE.Group }
 interface Robot {
@@ -50,13 +29,19 @@ interface Robot {
 function buildRobot(color: number): Robot {
   const root = new THREE.Group();
   // legs and hips stay put; the rest leans from the hips
-  root.add(at(box(0.22, 0.5, 0.26, INK), 0, 0.25, -0.17), at(box(0.22, 0.5, 0.26, INK), 0, 0.25, 0.17));
-  root.add(at(box(0.3, 0.1, 0.3, STEEL), 0.04, 0.05, -0.17), at(box(0.3, 0.1, 0.3, STEEL), 0.04, 0.05, 0.17));
+  // (rounded like the Mecha Santas: turned wooden legs, a drum of a chest, a round head; the same clockwork joints)
+  for (const z of [-0.17, 0.17]) {
+    root.add(at(barrel(0.13, 0.44, INK, 0.3, 14), 0, 0.3, z));
+    root.add(at(ball(0.085, GOLD), 0, 0.5, z));                                           // hip pin
+    root.add(at(box(0.34, 0.12, 0.28, INK), 0.05, 0.06, z), at(box(0.12, 0.1, 0.3, STEEL), 0.2, 0.055, z));   // boot, steel toe
+  }
   const body = at(new THREE.Group(), 0, 0.52, 0);
   root.add(body);
-  body.add(at(box(0.46, 0.2, 0.62, STEEL), 0, 0.08, 0));                                  // hips
-  body.add(at(box(0.5, 0.62, 0.7, color), 0, 0.5, 0));                                    // chest
-  body.add(at(box(0.52, 0.09, 0.72, GOLD), 0, 0.2, 0));                                   // belt
+  const round = (o: THREE.Object3D) => { o.scale.set(0.78, 1, 1); return o; };            // (a barrel, deeper across the shoulders than front to back)
+  body.add(at(round(cyl(0.3, 0.34, 0.2, STEEL, 22)), 0, 0.08, 0));                        // hips
+  body.add(at(round(barrel(0.4, 0.64, color, 0.24)), 0, 0.5, 0));                         // chest
+  body.add(at(round(cyl(0.385, 0.385, 0.09, GOLD, 24)), 0, 0.2, 0));                      // belt
+  body.add(at(round(cyl(0.345, 0.345, 0.06, GOLD, 24)), 0, 0.8, 0));                      // collar
   const chestDoor = at(box(0.06, 0.34, 0.4, GOLD), 0.27, 0.52, 0);
   chestDoor.add(at(ball(0.035, INK), 0.04, 0, 0.13));
   body.add(chestDoor);
@@ -70,14 +55,30 @@ function buildRobot(color: number): Robot {
   // neck spring, head, hat
   body.add(at(cyl(0.09, 0.11, 0.12, STEEL, 12), 0, 0.87, 0));
   const head = at(new THREE.Group(), 0, 0.93, 0);
-  head.add(at(box(0.44, 0.4, 0.46, 0xffe3c2), 0, 0.2, 0));
-  head.add(at(box(0.1, 0.16, 0.36, 0xffffff), 0.2, 0.1, 0));                              // the nutcracker's teeth
-  for (const z of [-0.11, 0.11]) {
-    head.add(at(ball(0.06, 0xffffff), 0.21, 0.27, z));
-    head.add(at(ball(0.032, INK), 0.26, 0.27, z));
-    head.add(at(box(0.04, 0.035, 0.15, INK), 0.23, 0.36, z).rotateX(z < 0 ? 0.45 : -0.45));   // furrowed brows
+  head.add(at(barrel(0.25, 0.42, 0xffe3c2, 0.26), 0, 0.2, 0));
+  for (const z of [-0.235, 0.235]) head.add(at(cyl(0.06, 0.06, 0.05, GOLD, 12), 0, 0.2, z).rotateX(Math.PI / 2));   // a bolt in each ear
+  // the face of a painted nutcracker: big eyes under heavy brows, rosy cheeks, a round nose, a handlebar
+  // moustache over a row of teeth, a white beard, white hair at the back
+  const blob = (r: number, c: number, sx: number, sy: number, sz: number) => { const o = piece(new THREE.SphereGeometry(r, 18, 12), c, 0.02); o.scale.set(sx, sy, sz); return o; };
+  const lamp = (r: number, c: number) => new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), new THREE.MeshBasicMaterial({ color: c }));
+  head.add(at(blob(0.13, 0xffffff, 0.75, 1, 1.25), 0.15, -0.02, 0));                      // beard
+  head.add(at(box(0.07, 0.085, 0.24, 0xffffff), 0.215, 0.075, 0));                        // teeth
+  for (const z of [-0.06, 0, 0.06]) head.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.075, 0.012), new THREE.MeshBasicMaterial({ color: INK })), 0.252, 0.075, z));   // (thin lines: no outline)
+  head.add(at(blob(0.055, 0xf2a98c, 1, 1, 1), 0.27, 0.2, 0));                             // nose
+  for (const z of [-1, 1]) {
+    head.add(at(blob(0.075, 0xffffff, 0.55, 1.1, 0.95), 0.205, 0.285, z * 0.1));          // eye
+    head.add(at(lamp(0.04, INK), 0.24, 0.28, z * 0.095));
+    head.add(at(lamp(0.014, 0xffffff), 0.27, 0.297, z * 0.085));                          // a glint
+    head.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.026, 0.13), new THREE.MeshBasicMaterial({ color: INK })), 0.232, 0.372, z * 0.1).rotateX(z < 0 ? 0.38 : -0.38));   // a fine furrowed brow
+    head.add(at(blob(0.045, 0xff9aa8, 0.35, 0.8, 1), 0.2, 0.225, z * 0.2));            // cheek
+    // a handlebar moustache: full under the nose, sweeping out round the cheek, thinning to a tip that curls up
+    for (let k = 0; k <= 7; k++) {
+      const t = k / 7;
+      const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.046 * (1 - 0.72 * t), 12, 8), new THREE.MeshBasicMaterial({ color: INK }));
+      head.add(at(tuft, 0.268 - 0.05 * t * t, 0.142 - 0.032 * Math.sin(Math.PI * t) + 0.085 * t * t * t, z * (0.028 + 0.2 * t)));
+    }
+    head.add(at(blob(0.1, 0xffffff, 1, 1.2, 0.7), -0.14, 0.12, z * 0.17));                // hair
   }
-  head.add(at(box(0.1, 0.07, 0.3, INK), 0.21, 0.19, 0));                                  // moustache
   const hat = at(new THREE.Group(), 0, 0.4, 0);
   hat.add(at(cyl(0.2, 0.22, 0.34, color), 0, 0.17, 0));
   hat.add(at(cyl(0.225, 0.225, 0.07, GOLD), 0, 0.05, 0));
@@ -115,8 +116,6 @@ export interface RobotScene {
   resize(): void;
   dispose(): void;
 }
-
-const ease = (cur: number, to: number, dt: number, rate: number) => cur + (to - cur) * Math.min(1, dt * rate);
 
 export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });

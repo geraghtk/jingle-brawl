@@ -1,6 +1,6 @@
 // Party mini-game flow: intro → playing → (voting) → results → the duel.
 import type { Rng } from './rng';
-import { GAMES, RESULTS_MS, SKETCH_PROMPTS, results as partyResults, whackBounds } from './party';
+import { GAMES, MAX_LIVE, RESULTS_MS, SKETCH_PROMPTS, results as partyResults, whackBounds } from './party';
 import type { PartyGame, PartyType } from './party';
 import { pick } from './rng';
 import { config } from './settings';
@@ -9,6 +9,37 @@ import { refuse, Tx } from './tx';
 import type { Game, Plan, PlayerId } from './types';
 
 const name = (game: Game, id: PlayerId) => game.players?.[id]?.name || 'Someone';
+
+/** Once everyone is ready: 3, 2, 1 and the party game starts. */
+export const PARTY_COUNT_MS = 3000;
+/** While the intro waits for the table, its clock is set this far off (the host's Skip ahead still works). */
+const WAIT_MS = 30 * 60_000;
+
+/** Who the intro is still waiting for (a bot is always ready; a dropped phone is not waited for). */
+export function partyAwaited(game: Game, mg: PartyGame): PlayerId[] {
+  if (mg.phase !== 'intro' || !mg.awaiting) return [];
+  return (mg.participants || []).filter((id) => { const p = game.players?.[id]; return !!p && !p.isBot && p.connected !== false && !mg.ready?.[id]; });
+}
+
+/** A player has read the rules: ready. The last one starts the 3, 2, 1. */
+export function partyReady(game: Game, who: PlayerId, now: number): Plan {
+  const mg = game.minigame as PartyGame | undefined;
+  if (!mg || !GAMES[mg.type] || mg.phase !== 'intro' || !mg.awaiting) return refuse('The game has started');
+  if (!mg.participants?.includes(who)) return refuse("You're not in this game");
+  if (mg.ready?.[who]) return refuse('Already ready');
+  const tx = new Tx(game).set(`minigame/ready/${who}`, true);
+  const left = partyAwaited(game, { ...mg, ready: { ...(mg.ready || {}), [who]: true } });
+  if (!left.length) tx.set('minigame/awaiting', null).set('minigame/phaseEndsAt', now + PARTY_COUNT_MS);
+  return tx.plan();
+}
+
+/** Nobody is left to wait for (the last one's phone dropped): the room starts the count itself. */
+export function partyAllReady(game: Game, now: number): Plan {
+  const mg = game.minigame as PartyGame | undefined;
+  if (!mg || !GAMES[mg.type] || mg.phase !== 'intro' || !mg.awaiting) return refuse('The game has started');
+  if (partyAwaited(game, mg).length) return refuse('Still waiting for someone');
+  return new Tx(game).set('minigame/awaiting', null).set('minigame/phaseEndsAt', now + PARTY_COUNT_MS).plan();
+}
 
 /** Start a party game for a tie (called inside a tie action's Tx). */
 export function startPartyGame(tx: Tx, type: PartyType, goal: PartyGame['minigameGoal'], tied: PlayerId[], ctx: { now: number; rng: Rng }, players?: PlayerId[]) {
@@ -20,6 +51,8 @@ export function startPartyGame(tx: Tx, type: PartyType, goal: PartyGame['minigam
     startedAt: ctx.now, phaseEndsAt: ctx.now + g.introMs,
     ...(type === 'sketch_off' ? { prompt: pick(SKETCH_PROMPTS, ctx.rng) } : {}),
   };
+  // the rules first, and nobody starts until every player has pressed Ready (then a short count)
+  if (config(tx.game.settings).readyCheck && partyAwaited(tx.game, { ...mg, awaiting: true }).length) { mg.awaiting = true; mg.phaseEndsAt = ctx.now + WAIT_MS; }
   tx.set('minigame', mg).set('currentTurn/phase', 'minigame_party').set('currentTurn/minigameStatus', `${g.emoji} ${g.label}`)
     .event(goal === 'lab' ? `${g.emoji} ${g.label}: practice` : goal === 'duel'
       ? `${g.emoji} ${g.label} decides ${tied.map((id) => name(tx.game, id)).join(' vs ')}. Everyone plays!`
@@ -37,7 +70,7 @@ export function advanceParty(game: Game, fromPhase: PartyGame['phase'], now: num
   const g = GAMES[mg.type];
   const tx = new Tx(game).claim(`minigame/claims/${fromPhase}`, true);
   if (fromPhase === 'intro') return tx.set('minigame/phase', 'playing').set('minigame/playStartAt', now).set('minigame/phaseEndsAt', now + g.playMs).plan();
-  if (fromPhase === 'playing' && mg.type === 'sketch_off') return tx.set('minigame/phase', 'voting').set('minigame/phaseEndsAt', now + (g.voteMs || 30000)).plan();
+  if (fromPhase === 'playing' && mg.type === 'sketch_off') return tx.set('minigame/live', null).set('minigame/phase', 'voting').set('minigame/phaseEndsAt', now + (g.voteMs || 30000)).plan();
   if (fromPhase === 'results') return mg.minigameGoal === 'lab' ? refuse('Practice: play again or go back to the lobby') : completeTx(tx, mg).plan();
 
   // playing (Whack-an-Elf) or voting (Sketch-Off) → results + rewards
@@ -81,6 +114,14 @@ function completeTx(tx: Tx, mg: PartyGame) {
 
 // --- what phones write ----------------------------------------------------------------------
 export const submitSketch = (game: Game, pid: PlayerId, dataUrl: string): Plan => new Tx(game).set(`minigame/submissions/${pid}`, dataUrl).plan();
+/** A phone's snapshot of its drawing so far, for the big screen's wall (shown there without a name). */
+export function sketchLive(game: Game, pid: PlayerId, dataUrl: string): Plan {
+  const mg = game.minigame as PartyGame | undefined;
+  if (!mg || mg.type !== 'sketch_off' || mg.phase !== 'playing' || !mg.participants?.includes(pid)) return refuse('Nobody is drawing now');
+  if (mg.submissions?.[pid]) return refuse('Already handed in');
+  if (dataUrl.length > MAX_LIVE) return refuse('That snapshot is too big');
+  return new Tx(game).set(`minigame/live/${pid}`, dataUrl).plan();
+}
 export function voteSketch(game: Game, voter: PlayerId, target: PlayerId): Plan {
   if (voter === target) return refuse("You can't vote for your own drawing");
   return new Tx(game).set(`minigame/votes/${voter}`, target).plan();

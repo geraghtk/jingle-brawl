@@ -11,6 +11,7 @@
 //   Won: first to the quota; at the bell, more toys; level, overtime (the first to get ahead); still
 //   level, fewer rejects; still level, the host decides. The winning captain wins the duel.
 //   Rewards: a recommendation only (the experience applies it): a flat point to the winning team.
+import { crewFor as jobCrews, mayWork as jobOpen } from '../engines/roles';
 import type { Rng } from '../../rng';
 import type { PlayerId } from '../../types';
 import type { GameDefinition, GameResult, MatchCtx, Transition } from '../contracts';
@@ -105,18 +106,11 @@ export const speedAt = (c: ConveyorConfig, level: number) => c.baseSpeed * (1 + 
 /** When the round's age next pushes the belts up a level. */
 const nextTimeLevel = (s: ConveyorState, at: number) => s.startedAt + (Math.floor(Math.max(0, at - s.startedAt) / s.cfg.timeLevelMs) + 1) * s.cfg.timeLevelMs;
 
-/** Who works each station: the members in turn; a station nobody drew goes to a member who already has one. */
-export function crewFor(members: PlayerId[]): PlayerId[][] {
-  return PARTS.map((_, k) => {
-    const drawn = members.filter((_m, i) => i % PARTS.length === k);
-    return drawn.length ? drawn : [members[k % members.length]];
-  });
-}
+/** Who works each station (engines/roles.ts: the members in turn, a small team doubles up). */
+export const crewFor = (members: PlayerId[]): PlayerId[][] => jobCrews(members, PARTS.length);
 /** May `who` work station `k`: it is theirs, or its whole crew has dropped out and they are on the team. */
-function mayWork(ctx: { connected: (p: PlayerId) => boolean }, t: TeamState, who: PlayerId, k: number): boolean {
-  if (t.crew[k].includes(who)) return true;
-  return t.members.includes(who) && t.crew[k].every((p) => !ctx.connected(p));
-}
+const mayWork = (ctx: { connected: (p: PlayerId) => boolean }, t: TeamState, who: PlayerId, k: number): boolean =>
+  jobOpen(ctx.connected, t.crew, t.members, who, k);
 
 function teamsFrom(ctx: MatchCtx, c: ConveyorConfig): TeamAssignment {
   const given = checkAssignment(c.teams, ctx.duelists);
@@ -156,7 +150,8 @@ function runTeam(s: ConveyorState, t0: TeamState, now: number): { team: TeamStat
 }
 
 function finish(ctx: MatchCtx, s: ConveyorState, winner: 'A' | 'B' | null, reason: string, events: string[] = []): Transition<ConveyorState> {
-  const done: ConveyorState = { ...s, stage: 'done', winner, teams: s.teams.map((t): TeamState => ({ ...t, belt: { ...t.belt, speed: 0, items: [] } })) as [TeamState, TeamState] };
+  // (no `winner: null`: a stored state drops nulls, and the state must read the same before and after a save)
+  const done: ConveyorState = { ...s, stage: 'done', ...(winner ? { winner } : {}), teams: s.teams.map((t): TeamState => ({ ...t, belt: { ...t.belt, speed: 0, items: [] } })) as [TeamState, TeamState] };
   const [a, b] = s.teams;
   const metrics = {
     delivered: { A: a.delivered, B: b.delivered }, rejected: { A: a.rejected, B: b.rejected }, stolen: { A: a.stolen, B: b.stolen },

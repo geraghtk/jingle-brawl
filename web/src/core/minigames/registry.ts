@@ -4,6 +4,8 @@ import { gremlin } from './gremlin/gremlin';
 import { ringToss } from './ringtoss/ringtoss';
 import { conveyor } from './conveyor/conveyor';
 import { robots } from './robots/robots';
+import { mecha } from './mecha/mecha';
+import { towers } from './towers/towers';
 
 const defs = new Map<string, GameDefinition>();
 
@@ -17,6 +19,8 @@ register(gremlin);
 register(ringToss);
 register(conveyor);
 register(robots);
+register(mecha);   // game #5: Mecha Santa Mayhem
+register(towers);  // game #6: Elf Tower Wars
 
 export const getDef = (id: string | undefined | null): GameDefinition | undefined => (id ? defs.get(id) : undefined);
 export const registered = (): GameDefinition[] => [...defs.values()];

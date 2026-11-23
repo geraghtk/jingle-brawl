@@ -25,10 +25,18 @@ export interface PartyGame {
   prize: PartyPrize;
   startedAt: number;
   phaseEndsAt: number;
+  /** The intro waits for everyone to press Ready (settings.readyCheck): no clock until they have (`ready`: who has). */
+  awaiting?: boolean;
+  ready?: Record<PlayerId, true>;
   playStartAt?: number;
   prompt?: string;
   scores?: Record<PlayerId, { score: number; final?: boolean }>;
   submissions?: Record<PlayerId, string>;
+  /** Sketch-Off, while drawing: each phone's small snapshot of its pad so far (server only: see `wall`). */
+  live?: Record<PlayerId, string>;
+  /** Sketch-Off, while drawing, as the TV and the console receive it (core/projection.ts): the drawings
+   *  as they grow, in a shuffled order with no names (slot `s00`, `s01`, ...). */
+  wall?: Record<string, { img?: string; done?: boolean }>;
   votes?: Record<PlayerId, PlayerId>;
   claims?: Record<string, boolean>;
   results?: PartyResults;
@@ -120,6 +128,12 @@ export function whackBounds(seed: number, elapsedMs = Infinity, playMs = GAMES.w
   }
   return { min, max };
 }
+
+/** Sketch-Off's wall of drawings in progress: who is at which easel (a shuffle from the game's seed that
+ *  no screen can work back to a name), and a snapshot's size limit (a phone sends about 5 KB). */
+export const MAX_LIVE = 40_000;
+export const wallOrder = (mg: Pick<PartyGame, 'participants' | 'seed'>): PlayerId[] => rank(mg.participants || [], {}, (mg.seed ^ 0x5eed) >>> 0);
+export const wallSlot = (i: number) => `s${String(i).padStart(2, '0')}`;
 
 /** Sketch-Off score = votes received (no self-votes, only for real drawings). */
 export function sketchScores(votes: Record<PlayerId, PlayerId> | undefined, submissions: Record<PlayerId, unknown> | undefined) {

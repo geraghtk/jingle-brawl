@@ -22,6 +22,9 @@
 .grem .grem-meter.unstable span { width: 100%; background: #ff3b5c; animation: gremPulse .5s ease-in-out infinite; }
 .grem .grem-trail { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-size: 13px; color: var(--muted, #6b7280); margin-top: 8px; }
 .grem .grem-banner { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #ff3b5c; color: #fff; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; margin-bottom: 6px; }
+/* on a phone the banner has a line to itself, above the Gremlin */
+.card.grem .grem-banner { display: block; width: fit-content; margin: 0 auto 8px; }
+.card.grem .grem-stake { font-weight: 700; margin-top: -4px; }
 .grem.tv .grem-face { font-size: 140px; }
 .grem.tv .grem-holder { font: 900 48px/1.1 var(--f6-disp, system-ui); margin: 8px 0; }
 .grem .grem-error { color: #d7263d; font-weight: 700; min-height: 20px; }

@@ -6,6 +6,7 @@ import { dispatch, parseIntent } from './intents';
 import type { Intent } from './intents';
 import { pick, rng } from './rng';
 import { giftless, rankedBids, topTiedBidders } from './rules';
+import { advanceParty } from './partyflow';
 import { HOST, offers } from './table';
 import { apply, ctx, NOW, table } from './testkit';
 import type { Game } from './types';
@@ -38,6 +39,42 @@ describe('parseIntent: what may arrive over the network', () => {
       { type: 'draw', giftName: 'x'.repeat(81) }, { type: 'admin_set_chips', pid: 'p1', chips: 1e6 }, { type: 'admin_add_gift', name: '   ', ownerId: 'p1' },
     ];
     for (const b of bad) expect(parseIntent(b), JSON.stringify(b)?.slice(0, 80)).toHaveProperty('error');
+  });
+});
+
+describe('Sketch-Off: a snapshot of the pad for the big screen', () => {
+  const drawing = (phase = 'playing'): Game => {
+    const g = table(3);
+    g.phase = 'main';
+    g.currentTurn = { phase: 'minigame_party' } as Game['currentTurn'];
+    g.minigame = { type: 'sketch_off', phase, seed: 3, participants: ['p1', 'p2'], tiedBidders: ['p1', 'p2'], minigameGoal: 'pick_one', prize: 'none', startedAt: NOW, phaseEndsAt: NOW + 60000 } as unknown as Game['minigame'];
+    return g;
+  };
+  const live = (g: Game) => (g.minigame as { live?: Record<string, string> }).live;
+  const snap = 'data:image/jpeg;base64,AAAA';
+  it('someone drawing may send one; it is kept for the wall and replaced by the next', () => {
+    let g = drawing();
+    expect(parseIntent({ type: 'sketch_live', drawing: snap })).toBeTruthy();
+    g = apply(g, dispatch(g, 'p1', { type: 'sketch_live', drawing: snap }, ctx()));
+    expect(live(g)).toEqual({ p1: snap });
+    g = apply(g, dispatch(g, 'p1', { type: 'sketch_live', drawing: `${snap}BBBB` }, ctx()));
+    expect(live(g)).toEqual({ p1: `${snap}BBBB` });
+  });
+  it('not from someone who is not playing, has handed in, or once the drawing is over; never a big one', () => {
+    let g = drawing();
+    expect(dispatch(g, 'p3', { type: 'sketch_live', drawing: snap }, ctx()).error).toBeTruthy();
+    expect(dispatch(g, HOST, { type: 'sketch_live', drawing: snap }, ctx()).error).toBeTruthy();
+    expect(dispatch(g, 'p1', { type: 'sketch_live', drawing: `data:image/jpeg;base64,${'A'.repeat(60_000)}` }, ctx()).error).toMatch(/too big/);
+    g = apply(g, dispatch(g, 'p1', { type: 'sketch', drawing: snap }, ctx()));
+    expect(dispatch(g, 'p1', { type: 'sketch_live', drawing: snap }, ctx()).error).toMatch(/handed in/);
+    expect(dispatch(drawing('voting'), 'p2', { type: 'sketch_live', drawing: snap }, ctx()).error).toBeTruthy();
+  });
+  it('the snapshots are thrown away when the drawing ends; a simulated hand is never offered one', () => {
+    let g = drawing();
+    g = apply(g, dispatch(g, 'p1', { type: 'sketch_live', drawing: snap }, ctx()));
+    expect(offers(g, 'p1', NOW).some((o) => o.type === 'sketch_live')).toBe(false);
+    g = apply(g, advanceParty(g, 'playing', NOW + 60000));
+    expect(live(g)).toBeUndefined();
   });
 });
 

@@ -16,7 +16,7 @@ import { colorIndex, RING_COLORS, ringColor } from '../ui/ringtoss/colors';
 import { Burst, Confetti, Puff, Ring, shade, Snow } from '../ui/ringtoss/effects';
 import { Flights, FlightsBehind } from '../ui/ringtoss/Flights';
 import type { FlightNodes } from '../ui/ringtoss/Flights';
-import { BACKDROP, DEER, DEER_Z, H, MISS_FADE_MS, NOSE, restHeight, restOn, RINGER_MS, ringR, TIP_H, toScreen, visMs, W } from '../ui/ringtoss/scene';
+import { BACKDROP, DEER, DEER_Z, H, MISS_FADE_MS, NOSE, restHeight, restOn, RINGER_MS, ringR, stackOn, TIP_H, toScreen, visMs, W } from '../ui/ringtoss/scene';
 import { SetPips } from '../ui/ringtoss/SetPips';
 import { play } from '../ui/sound';
 import '../ui/ringtoss.css';
@@ -65,10 +65,11 @@ export function RingScene({ v, participants, offset, instance = '', onLand, name
   useEffect(() => { if (landedN > seenLanded.current && lastLanded) onLand?.(lastLanded); seenLanded.current = landedN; }, [landedN]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const peg = (id: string) => v.pegs.find((p) => p.id === id);
+  const landAt = (t: RingThrow) => startOf(t) + visMs(t);
   const misses = landed.filter((t) => !t.pegId && now - (startOf(t) + visMs(t)) < MISS_FADE_MS);   // a miss fades away
   const ringers = landed.filter((t) => t.pegId && peg(t.pegId) && now - (startOf(t) + visMs(t)) < RINGER_MS).map((t) => {
     const p = peg(t.pegId!)!;
-    const stack = landed.filter((u) => u.pegId === t.pegId && u.n < t.n).length;
+    const stack = stackOn(t, v.throws, landAt);
     const at = restOn(p, stack);
     return { t, at };
   });
@@ -82,7 +83,7 @@ export function RingScene({ v, participants, offset, instance = '', onLand, name
   const ringerEnds = new Map<number, { x: number; z: number; h: number }>();
   for (const t of flying) {
     const p = t.pegId ? peg(t.pegId) : undefined;
-    if (p) ringerEnds.set(t.n, { x: p.x, z: p.z, h: restHeight(p, v.throws.filter((u) => u.pegId === t.pegId && u.n < t.n).length) });
+    if (p) ringerEnds.set(t.n, { x: p.x, z: p.z, h: restHeight(p, stackOn(t, v.throws, landAt)) });
   }
   return (
     <svg className="rt-scene" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="The reindeer and the rings thrown so far" data-testid="ringtoss-scene">

@@ -7,7 +7,7 @@ import { apply, NOW, table } from '../../testkit';
 import { Tx } from '../../tx';
 import type { Game } from '../../types';
 import type { MatchMode } from '../contracts';
-import { arenaAct, arenaDeadline, arenaOf, startArena } from '../runtime';
+import { arenaAct, arenaDeadline, arenaOf, handoff, startArena } from '../runtime';
 import type { GremlinState } from './gremlin';
 import { eligible } from './gremlin';
 
@@ -28,6 +28,9 @@ function solveAndPass(g: Game, to?: string, now = NOW + 5000): Game {
   g = apply(g, act(g, s.holder, { kind: 'answer', value: s.challenge.answer }, now));
   return apply(g, act(g, s.holder, to ? { kind: 'pass', to } : { kind: 'pass_random' }, now));
 }
+/** Put the Gremlin in someone's hands (a test's shortcut for a run of passes). */
+const hold = (g: Game, pid: string): Game => { const c = structuredClone(g); (arenaOf(c)!.state as GremlinState).holder = pid; return c; };
+const next = (g: Game, id: string) => { const d = arenaOf(g)!.deadlines.find((x) => x.id === id)!; return apply(g, arenaDeadline(g, id, { now: d.at, rng: rng(5) })); };
 const doom = (g: Game) => { const d = arenaOf(g)!.deadlines.find((x) => x.id === 'doom')!; return apply(g, arenaDeadline(g, 'doom', { now: d.at, rng: rng(9) })); };
 
 describe('Pass the Gremlin: passing', () => {
@@ -97,6 +100,22 @@ describe('Pass the Gremlin: secrets', () => {
     expect(otherView.prompt).toBeUndefined();
   });
 
+  it('the big screen can show the table: how long the holder has had it, a wrong answer, who has held it how often', () => {
+    let g = play('free_for_all', 4);
+    const s = st(g), first = s.holder;
+    const tv = (x: Game, now = NOW + 5000) => projectGame(x, { kind: 'tv' }, now).arenaView!.view as { holdSince?: number; misses?: number; held?: Record<string, number> };
+    expect(tv(g).holdSince).toBe(NOW);
+    expect(tv(g).misses ?? 0).toBe(0);
+    expect(tv(g).held).toEqual({ [first]: 1 });
+    g = apply(g, act(g, first, { kind: 'answer', value: Number(s.challenge.answer) + 1 }));
+    expect(tv(g).misses).toBe(1);
+    g = solveAndPass(g, undefined, NOW + 8000);
+    const next = st(g).holder;
+    expect(tv(g, NOW + 9000).holdSince).toBe(NOW + 8000);
+    expect(tv(g, NOW + 9000).misses ?? 0).toBe(0);
+    expect(tv(g, NOW + 9000).held).toEqual({ [first]: 1, [next]: 1 });
+  });
+
   it('the danger level comes from elapsed time and the public window only', () => {
     const g = play('free_for_all', 3);
     const view = (now: number) => (projectGame(g, { kind: 'tv' }, now).arenaView!.view as { danger: string }).danger;
@@ -144,29 +163,80 @@ describe('Pass the Gremlin: results', () => {
     throw new Error('no seed started with a duelist holding it');
   });
 
-  it('party with duelists: a doomed bystander starts a duelist-only sudden death that always ends on one of them', () => {
-    let tested = 0;
-    for (let seed = 1; seed < 80 && tested < 5; seed++) {
-      let g = play('party_with_duelists', 5, seed);
-      if (['p1', 'p2'].includes(st(g).holder)) continue;
-      const bystander = st(g).holder;
-      g = doom(g);
-      expect(arenaOf(g)!.result).toBeUndefined();                       // not over: no duel winner from two survivors
-      expect(st(g)).toMatchObject({ stage: 'sudden_death_intro', bystanderDoomed: bystander });
-      const intro = arenaOf(g)!.deadlines.find((d) => d.id === 'sudden_death')!;
-      g = apply(g, arenaDeadline(g, 'sudden_death', { now: intro.at, rng: rng(seed) }));
-      expect(st(g)).toMatchObject({ round: 'sudden_death', stage: 'holding' });
-      expect(st(g).pool.sort()).toEqual(['p1', 'p2']);
-      expect(st(g).doomAt).not.toBe(intro.at);
-      expect(act(g, bystander, { kind: 'answer', value: 0 }, intro.at + 10).error).toBeTruthy();   // bystanders are out
-      g = doom(g);
-      const r = arenaOf(g)!.result!;
-      expect(r.status).toBe('resolved');
-      expect(['p1', 'p2']).toContain(r.duel!.winningDuelistId);
-      expect(r.duel!.losingDuelistId).toBe(st(g).doomed);
-      tested++;
-    }
-    expect(tested).toBeGreaterThan(0);
+  it('party with duelists: a caught bystander is out and the rest play on, on a shorter fuse', () => {
+    let g = hold(play('party_with_duelists', 5), 'p3');
+    g = doom(g);
+    expect(arenaOf(g)!.result).toBeUndefined();
+    expect(st(g)).toMatchObject({ stage: 'out_intro', bystanderDoomed: 'p3', out: ['p3'] });
+    expect(act(g, 'p3', { kind: 'answer', value: 0 }).error).toBeTruthy();   // nobody moves during the beat
+    g = next(g, 'next_round');
+    expect(st(g)).toMatchObject({ round: 'main', roundNo: 2, stage: 'holding' });
+    expect([...st(g).pool].sort()).toEqual(['p1', 'p2', 'p4', 'p5']);
+    expect(st(g).window).toEqual([35_000, 55_000]);
+    const fuse = st(g).doomAt - st(g).roundStartedAt;
+    expect(fuse).toBeGreaterThanOrEqual(35_000);
+    expect(fuse).toBeLessThanOrEqual(55_000);
+    // the one who is out can neither hold it nor be passed it
+    const s = st(g);
+    const solved = apply(g, act(g, s.holder, { kind: 'answer', value: s.challenge.answer }, s.roundStartedAt + 5000));
+    expect(act(solved, s.holder, { kind: 'pass', to: 'p3' }, s.roundStartedAt + 5000).error).toMatch(/can't pass/);
+    const tv = projectGame(g, { kind: 'tv' }, s.roundStartedAt + 100).arenaView!.view as { out?: string[]; roundNo?: number; maxOut?: number };
+    expect(tv).toMatchObject({ out: ['p3'], roundNo: 2, maxOut: 2 });
+  });
+
+  it('party with duelists: after two bystanders (or the last one) it is the duelists alone, and it always ends on one of them', () => {
+    let g = doom(hold(play('party_with_duelists', 6), 'p3'));
+    g = doom(hold(next(g, 'next_round'), 'p5'));
+    expect(st(g)).toMatchObject({ stage: 'sudden_death_intro', out: ['p3', 'p5'] });   // p4 and p6 are still in, but two is the cap
+    const intro = arenaOf(g)!.deadlines.find((d) => d.id === 'sudden_death')!;
+    g = next(g, 'sudden_death');
+    expect(st(g)).toMatchObject({ round: 'sudden_death', stage: 'holding' });
+    expect([...st(g).pool].sort()).toEqual(['p1', 'p2']);
+    expect(st(g).doomAt).not.toBe(intro.at);
+    expect(act(g, 'p4', { kind: 'answer', value: 0 }, intro.at + 10).error).toBeTruthy();   // bystanders are out
+    g = doom(g);
+    const r = arenaOf(g)!.result!;
+    expect(r.status).toBe('resolved');
+    expect(['p1', 'p2']).toContain(r.duel!.winningDuelistId);
+    expect(r.duel!.losingDuelistId).toBe(st(g).doomed);
+    // a table with one bystander: caught, and there is nobody left to play on with
+    const three = doom(hold(play('party_with_duelists', 3), 'p3'));
+    expect(st(three)).toMatchObject({ stage: 'sudden_death_intro', out: ['p3'] });
+  });
+
+  it('party with duelists: a duelist caught in a later round loses the duel there and then', () => {
+    let g = next(doom(hold(play('party_with_duelists', 5), 'p4')), 'next_round');
+    g = doom(hold(g, 'p2'));
+    expect(arenaOf(g)!.result).toMatchObject({ status: 'resolved', duel: { winningDuelistId: 'p1', losingDuelistId: 'p2' } });
+  });
+
+  it('bystanders earn a Party point for never being caught; a caught one and the duelists get none', () => {
+    let g = doom(hold(play('party_with_duelists', 6), 'p3'));
+    g = doom(hold(next(g, 'next_round'), 'p5'));
+    g = doom(hold(next(g, 'sudden_death'), 'p1'));
+    const points = (x: Game) => Object.fromEntries((arenaOf(x)!.result!.rewards || []).map((r) => [r.playerId, r.points]));
+    expect(points(g)).toEqual({ p4: 1, p6: 1 });
+    // nobody caught but a duelist: every bystander lasted; one whose phone has gone gets nothing for it
+    let quick = hold(play('party_with_duelists', 5), 'p2');
+    quick.players!.p5.connected = false;
+    quick = doom(quick);
+    expect(points(quick)).toEqual({ p3: 1, p4: 1 });
+    // a two-player duel and a free-for-all hand out nothing
+    expect(arenaOf(doom(play('direct_duel', 2)))!.result!.rewards).toBeUndefined();
+    expect(arenaOf(doom(play('free_for_all', 4)))!.result!.rewards).toBeUndefined();
+  });
+
+  it('the hand-off pays those points once, and says who got what', () => {
+    let g = hold(play('party_with_duelists', 4), 'p1');
+    g.currentTurn = { ...g.currentTurn!, phase: 'minigame_arena' };
+    g = doom(g);
+    const before = { ...g.players!.p3 };
+    const plan = handoff(g);
+    const after = apply(g, plan);
+    expect(after.players!.p3.partyPoints).toBe((before.partyPoints || 0) + 1);
+    expect(after.players!.p1.partyPoints || 0).toBe(g.players!.p1.partyPoints || 0);
+    expect(JSON.stringify(plan)).toContain('Party points: ');
+    expect(JSON.stringify(plan)).toContain(`${g.players!.p3.name} +1`);
   });
 
   it('the same seed gives the same game', () => {

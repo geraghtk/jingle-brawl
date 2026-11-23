@@ -13,13 +13,13 @@ import * as D from './duel';
 import * as DO from './drawoff';
 import type { DrawOff } from './drawoff';
 import { chooseDuelGame, duelAppWinner, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, startDuelApp } from './duelgame';
-import { arenaAct, arenaOf, arenaOffers, arenaPause, arenaResume, arenaStop, canAct } from './minigames/runtime';
+import { arenaAct, arenaCountdown, arenaOf, arenaOffers, arenaPause, arenaReady, arenaResume, arenaStop, canAct, handoff } from './minigames/runtime';
 import { endLab, inLab, startLab } from './minigames/lab';
 import { addBot, humans, removeBots } from './bots';
 import type { MatchMode } from './minigames/contracts';
 import { GAMES } from './party';
 import type { PartyGame } from './party';
-import { advanceParty, reportWhack, submitSketch, voteSketch } from './partyflow';
+import { advanceParty, reportWhack, sketchLive, submitSketch, voteSketch, partyReady } from './partyflow';
 import { rng as seeded } from './rng';
 import type { Rng } from './rng';
 import { gambitTargets, giftless, misfitPile, rankedBids, reprisalTargets, stealTargets, topTiedBidders, wrappedGifts } from './rules';
@@ -47,8 +47,10 @@ export type Offer =
   | { type: 'steal'; giftId: string }
   | { type: 'cancel_steal' }
   | { type: 'nobids_defender'; playerId: PlayerId }
+  | { type: 'party_ready' }   // a party game's rules are up: this player is ready
   | { type: 'whack'; score?: number; final?: boolean }
   | { type: 'sketch'; drawing?: string }
+  | { type: 'sketch_live'; drawing?: string }   // a snapshot of the pad so far, for the big screen (not in offers(): only a real pad sends it)
   | { type: 'vote_sketch'; pick: PlayerId }
   | { type: 'arena'; action: unknown; aid?: string; v?: number }   // a runtime mini-game's action (the game checks it)
   // the host's console
@@ -68,6 +70,9 @@ export type Offer =
   | { type: 'skip_auction' }
   | { type: 'complete_drawoff' }
   | { type: 'arena_pause' } | { type: 'arena_resume' } | { type: 'arena_cancel' } | { type: 'arena_no_contest' }
+  | { type: 'arena_ready' }      // a player has read the instructions: ready to start
+  | { type: 'arena_start_now' }  // the host: start the countdown without waiting for the rest
+  | { type: 'arena_continue' }   // a finished mini-game's ending is on screen: on to the duel now, without waiting it out
   | { type: 'lab_start'; gameId: string; players: PlayerId[]; mode?: string; duelists?: PlayerId[] } | { type: 'lab_end' } | { type: 'lab_add_bot' } | { type: 'lab_remove_bots' }   // the Game Lab (lobby)
   | { type: 'auction_duel' }
   | { type: 'end' };
@@ -151,6 +156,7 @@ function phoneOffers(game: Game, me: PlayerId, now: number): Offer[] {
     case 'minigame_party': {
       const mg = game.minigame as PartyGame | undefined;
       if (!mg || !(mg.type in GAMES) || !mg.participants?.includes(me)) return [];
+      if (mg.phase === 'intro') return mg.awaiting && !mg.ready?.[me] ? [{ type: 'party_ready' }] : [];
       if (mg.phase === 'playing' && mg.type === 'whack_elf' && !mg.scores?.[me]?.final && now < mg.phaseEndsAt) return [{ type: 'whack' }];
       if (mg.phase === 'playing' && mg.type === 'sketch_off' && !mg.submissions?.[me]) return [{ type: 'sketch' }];
       if (mg.phase === 'voting' && !mg.votes?.[me]) {
@@ -162,8 +168,11 @@ function phoneOffers(game: Game, me: PlayerId, now: number): Offer[] {
       const mg = game.minigame as DrawOff | undefined;
       return mg?.type === 'draw_off' && mg.phase === 'drawing' && mg.participants.includes(me) && !mg.submissions?.[me] ? [{ type: 'sketch' }] : [];
     }
-    case 'minigame_arena':
+    case 'minigame_arena': {
+      const a = arenaOf(game);
+      if (a?.lifecycle === 'briefing') return a.participants.includes(me) && !a.briefing?.ready?.[me] ? [{ type: 'arena_ready' }] : [];
       return arenaOffers(game, me, now, seeded(now)).map((action): Offer => ({ type: 'arena', action }));
+    }
     default:
       return [];
   }
@@ -176,6 +185,7 @@ function hostOffers(game: Game, now: number): Offer[] {
       const a = arenaOf(game);
       const mg = game.minigame as PartyGame | undefined;
       if (mg && mg.type in GAMES) return mg.phase === 'results' ? [] : [{ type: 'skip_party' }];
+      if (a?.lifecycle === 'briefing') return a.briefing?.goAt ? [] : [{ type: 'arena_start_now' }];
       return a?.lifecycle === 'active' ? [{ type: 'arena_pause' }] : a?.lifecycle === 'paused' ? [{ type: 'arena_resume' }] : [];
     }
     return humans(game).length >= 2 ? [{ type: 'start' }] : [];
@@ -231,8 +241,10 @@ function hostOffers(game: Game, now: number): Offer[] {
     case 'minigame_arena': {
       // the host's overrides: pause / resume, cancel, call it a no contest (all logged)
       const a = arenaOf(game);
+      if (a?.lifecycle === 'briefing') return [...(a.briefing?.goAt ? [] : [{ type: 'arena_start_now' } as Offer]), { type: 'arena_cancel' }];
       if (a?.lifecycle === 'active') return [{ type: 'arena_pause' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
       if (a?.lifecycle === 'paused') return [{ type: 'arena_resume' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
+      if (a?.result) return [{ type: 'arena_continue' }];
       return [];
     }
     case 'endgame_reveal': return rankedBids(t).length ? [{ type: 'auction_duel' }] : [];
@@ -247,6 +259,7 @@ export const HAND_FILLED = ['score', 'final', 'drawing', 'giftName', 'seed', 'na
 export function isOffered(game: Game, who: Who, offer: Offer, now: number): boolean {
   if (offer.type === 'arena') return who !== HOST && canAct(game, who);   // the game itself checks the action
   if (offer.type === 'lab_start' || offer.type === 'lab_end' || offer.type === 'lab_add_bot' || offer.type === 'lab_remove_bots') return who === HOST && game.phase === 'lobby';   // the lab checks the rest (not in offers(): the simulated host never wanders in)
+  if (offer.type === 'sketch_live') return who !== HOST && game.currentTurn?.phase === 'minigame_party';   // sketchLive checks the rest
   if (offer.type === 'bid' && who !== HOST && changesBid(game, who, offer.amount)) return true;
   const fixed = (o: Offer) => JSON.stringify(Object.entries(o).filter(([k]) => !HAND_FILLED.includes(k)).sort());
   return offers(game, who, now).some((o) => fixed(o) === fixed(offer));
@@ -287,8 +300,10 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'steal': return D.executeSteal(game, offer.giftId);
     case 'cancel_steal': return D.cancelSteal(game);
     case 'nobids_defender': return D.noBidsDuel(game, offer.playerId);
+    case 'party_ready': return partyReady(game, who as PlayerId, ctx.now);
     case 'whack': return reportWhack(game, who, Math.round(Number(offer.score) || 0), !!offer.final, ctx.now);
     case 'sketch': return submitSketch(game, who, offer.drawing || 'data:,');
+    case 'sketch_live': return sketchLive(game, who, offer.drawing || 'data:,');
     case 'vote_sketch': return voteSketch(game, who, offer.pick);
     case 'start': return A.startGame(game);
     case 'draw': return A.drawGift(game, offer.giftName || ctx.giftName || 'A gift', `gift_${ctx.now}`, offer.seed == null ? ctx : { ...ctx, rng: seeded(offer.seed) });
@@ -318,6 +333,9 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'arena_resume': return arenaResume(game, ctx.now);
     case 'arena_cancel': return arenaStop(game, 'cancelled', ctx.now);
     case 'arena_no_contest': return arenaStop(game, 'no_contest', ctx.now);
+    case 'arena_ready': return arenaReady(game, who as PlayerId, ctx.now);
+    case 'arena_start_now': return arenaCountdown(game, ctx.now, true);
+    case 'arena_continue': return handoff(game);
     case 'lab_start': return startLab(game, { gameId: offer.gameId, players: offer.players, mode: offer.mode as MatchMode | undefined, duelists: offer.duelists }, ctx);
     case 'lab_end': return endLab(game);
     case 'lab_add_bot': return addBot(game, ctx);

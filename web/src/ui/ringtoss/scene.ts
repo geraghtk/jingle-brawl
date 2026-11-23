@@ -34,6 +34,15 @@ const PRONG_DROP = 10;
 export const DEER_Z = 1.65;
 /** A ring this high is as far up as rings go (its shadow is faintest then). */
 export const HIGH = 1.55;
+/** How dark the shadow under a ring in the air is. Only a ring close to the ground has one (as it leaves
+ *  the hand, and as a miss comes down), and none at the reindeer's depth: a ring on its way to an antler
+ *  is high over the snowdrift, and its shadow showed there as a grey smudge below the reindeer. */
+const SHADOW_BELOW = 0.4, SHADOW_FADE_Z = 0.45;
+export function shadowOpacity(z: number, h: number): number {
+  const low = Math.min(1, Math.max(0, 1 - h / SHADOW_BELOW));
+  const room = Math.min(1, Math.max(0, (DEER_Z - z) / SHADOW_FADE_Z));
+  return 0.28 * low * room;
+}
 /** A ring's size: RING_R as it comes up from the bottom of the screen, about 22 at the reindeer (k^2.5: it
  *  shrinks quickly, so it reads as going away). */
 const RING_R = 70;
@@ -43,6 +52,14 @@ export const RINGER_MS = 1300;
 
 /** The reindeer's nose in the scene (the art's (543, 541)): it lights up for a ringer. */
 export const NOSE = { x: DEER.x + 543 * 0.58, y: DEER.y + 541 * 0.58, rx: 40, ry: 24 };
+
+/** How many rings are already on a ringer's peg when it lands (it rests below them). Only the ones still
+ *  showing count: a ringer is gone RINGER_MS after it lands, and counting every earlier ringer of the
+ *  game put a late one far down the antler, below it. Never more than a few deep. */
+export function stackOn<T extends { n: number; pegId?: string | null }>(t: T, throws: T[], landAt: (t: T) => number): number {
+  const at = landAt(t);
+  return Math.min(3, throws.filter((u) => u.pegId === t.pegId && u.n < t.n && landAt(u) <= at && landAt(u) > at - RINGER_MS).length);
+}
 
 /** Where a ringer rests: a little down its prong (stacking further down), or down the hat's cone to its
  *  brim (the ring is wider than the cone). */

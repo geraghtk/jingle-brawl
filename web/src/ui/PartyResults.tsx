@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { GAMES } from '../core/party';
 import type { PartyGame } from '../core/party';
 import type { Game } from '../core/types';
+import { Avatar } from './avatar';
 import { Glyphs } from './icons';
 
 export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?: string }) {
@@ -23,8 +24,9 @@ export function PartyResults({ mg, game, me }: { mg: PartyGame; game: Game; me?:
           return (
             <li key={id} className={`${tied.includes(id) ? 'tied' : ''} ${r.winners.includes(id) ? 'win' : ''}`}>
               <span className="pos">{i + 1}</span>
+              <Avatar name={name(id)} avatar={game.players?.[id]?.avatar} size={26} />
               <span className="nm">{name(id)}{id === me ? ' (you)' : ''}</span>
-              <span>{s == null ? "didn't play" : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>
+              <span className="sc">{s == null ? "didn't play" : `${s} ${unit}${Math.abs(s) === 1 ? '' : 's'}`}</span>
               {r.winners.includes(id) ? <span className="tag">wins the tie</span> : tied.includes(id) ? <span className="tag">tied</span> : null}
               {!!r.points?.[id] && <span className="tag">+{r.points[id]} party pts</span>}
               {r.bonus === id && <span className="tag">+1 chip Elf Bonus</span>}

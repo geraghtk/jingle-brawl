@@ -20,7 +20,7 @@ export const MAX_BOTS = 8;
 const NAMES = ['Tinsel', 'Pepper', 'Nutmeg', 'Cocoa', 'Mittens', 'Sprinkle', 'Figgy', 'Holly'];
 
 /** The chance a bot acts on a tick when it has something to press (its reaction time), per game. */
-const PACE: Record<string, number> = { nutcracker_knockout: 0.5, gift_conveyor: 0.3, reindeer_ring_toss: 0.12, pass_the_gremlin: 0.12 };
+const PACE: Record<string, number> = { nutcracker_knockout: 0.5, gift_conveyor: 0.3, mecha_santa: 0.4, elf_tower_wars: 0.25, reindeer_ring_toss: 0.12, pass_the_gremlin: 0.12 };
 /** The Conveyor: how often a bot fits the wrong piece. */
 const SLIP = 0.06;
 

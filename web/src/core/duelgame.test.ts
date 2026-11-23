@@ -153,14 +153,14 @@ describe('duel game: what gets played', () => {
 
     it('by default the team games come up, beside the room games, once the table is big enough for teams', () => {
       const g = duel({ duelTableGames: undefined, duelGames: ['Thumb War'] });
-      expect(G.duelOptions(g)).toEqual([{ name: 'Thumb War', kind: 'table' }, { name: 'The Great Gift Conveyor', kind: 'app', app: 'gift_conveyor' }]);
+      expect(G.duelOptions(g)).toEqual([{ name: 'Thumb War', kind: 'table' }, { name: 'The Great Gift Conveyor', kind: 'app', app: 'gift_conveyor' }, { name: 'Mecha Santa Mayhem', kind: 'app', app: 'mecha_santa' }, { name: 'Elf Tower Wars', kind: 'app', app: 'elf_tower_wars' }]);
       // three at the table: a captain would have no team
       delete g.players!.p4;
       expect(apps(g)).toEqual([]);
     });
 
     it("'all' opens it to every game the whole table plays; 'off' to none; AI Draw Off is never automatic", () => {
-      expect(apps(duel({ duelTableGames: 'all' })).sort()).toEqual(['gift_conveyor', 'pass_the_gremlin', 'reindeer_ring_toss', 'sketch_off', 'whack_elf']);
+      expect(apps(duel({ duelTableGames: 'all' })).sort()).toEqual(['elf_tower_wars', 'gift_conveyor', 'mecha_santa', 'pass_the_gremlin', 'reindeer_ring_toss', 'sketch_off', 'whack_elf']);
       expect(apps(duel({ duelTableGames: 'off' }))).toEqual([]);
       expect(apps(duel({ duelTableGames: 'all' }))).not.toContain('draw_off');
       // three at the table: everyone-plays games still work, team games wait for a fourth

@@ -24,6 +24,14 @@ export const singleLoser: ScoringPolicy<{ loser: PlayerId; participants: PlayerI
   },
 };
 
+/** Party points by place for the players who are not duelling (they play for the fun of it): the best
+ *  score gets `ladder[0]`, the next `ladder[1]`, ...; level scores share a place; no score, no points. */
+export function placeRewards(scores: Record<PlayerId, number>, ids: PlayerId[], ladder: number[], reason: string) {
+  const scored = ids.filter((p) => (scores[p] || 0) > 0);
+  return scored.map((playerId) => ({ playerId, points: ladder[scored.filter((q) => scores[q] > scores[playerId]).length] || 0, reason }))
+    .filter((r) => r.points > 0);
+}
+
 /** Two scores head to head: the higher wins; equal is a tie the caller must break. */
 export const headToHead: ScoringPolicy<{ scores: Record<PlayerId, number>; reason: string }> = {
   id: 'head_to_head', version: '1',

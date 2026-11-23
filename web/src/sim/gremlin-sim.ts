@@ -14,12 +14,14 @@ import { CHALLENGES } from '../core/minigames/gremlin/challenges';
 import { arenaAct, arenaDeadline, arenaOf, startArena } from '../core/minigames/runtime';
 
 export interface Hands { speed: number; accuracy: number }   // speed: 0 slow … 1 fast
-export interface RoundStats { loser: string; passes: number; solves: number; misses: number; suddenDeath: boolean; ms: number; stalled: boolean; winner?: string }
+export interface RoundStats { loser: string; passes: number; solves: number; misses: number; suddenDeath: boolean; ms: number; stalled: boolean; winner?: string; out: string[]; rewards: Record<string, number> }
+/** How the table passes: anyone (the default), or every bystander at one duelist when they can (`gangUpOn`). */
+export interface Table { gangUpOn?: string }
 
 const st = (g: Game) => arenaOf(g)!.state as GremlinState;
 
 /** One round on a virtual clock. Each holder thinks (by their speed), answers (right by their accuracy), then passes. */
-export function round(mode: MatchMode, hands: Hands[], seed: number): RoundStats {
+export function round(mode: MatchMode, hands: Hands[], seed: number, how: Table = {}): RoundStats {
   const r: Rng = makeRng(seed);
   let g = table(hands.length);
   g.currentTurn = { phase: 'duel', challengerId: 'p1', defenderId: 'p2', pot: 2 };
@@ -33,7 +35,9 @@ export function round(mode: MatchMode, hands: Hands[], seed: number): RoundStats
     const a = arenaOf(g)!;
     const doom = a.deadlines[0];
     const s = st(g);
-    if (s.stage === 'sudden_death_intro' || s.stage === 'doomed') { now = doom.at; g = apply(g, arenaDeadline(g, doom.id, { now, rng: r })); suddenDeath = true; continue; }
+    if (s.stage === 'sudden_death_intro' || s.stage === 'out_intro' || s.stage === 'doomed') {
+      now = doom.at; g = apply(g, arenaDeadline(g, doom.id, { now, rng: r })); suddenDeath ||= s.stage === 'sudden_death_intro'; continue;
+    }
     const h = who(s.holder);
     const think = 1200 + (1 - h.speed) * 4000 + r() * 1500;              // a few seconds to solve
     const next = Math.max(now + think, s.cooldownUntil || 0, s.stage === 'pass_ready' ? s.holdSince + s.cfg.minHoldMs : 0);
@@ -43,8 +47,11 @@ export function round(mode: MatchMode, hands: Hands[], seed: number): RoundStats
     const right = s.stage === 'holding' ? kind.solve(s.challenge, now) : null;
     if (s.stage === 'holding' && right === null) { now += 50; continue; }   // perfect_timing: wait for the marker to come round
     const hit = r() < h.accuracy;
+    const can = s.pool.filter((p) => p !== s.holder && p !== s.prevHolder);
+    const gang = how.gangUpOn && s.holder !== 'p1' && s.holder !== 'p2' && can.includes(how.gangUpOn) ? how.gangUpOn : null;
     const action = s.stage === 'holding'
       ? { kind: 'answer', value: hit ? right : kind.miss(s.challenge, now) }
+      : gang ? { kind: 'pass', to: gang }
       : r() < 0.5 ? { kind: 'pass_random' } : { kind: 'pass', to: s.pool.filter((p) => p !== s.holder && p !== s.prevHolder)[0] ?? s.pool.find((p) => p !== s.holder) };
     const plan = arenaAct(g, s.holder, { action }, { now, rng: r });
     if (plan.error) { idle++; now += 500; continue; }
@@ -53,7 +60,8 @@ export function round(mode: MatchMode, hands: Hands[], seed: number): RoundStats
     g = apply(g, plan);
   }
   const res = arenaOf(g)!.result;
-  return { loser: res?.losers[0] ?? '?', passes, solves, misses, suddenDeath, ms: now - NOW, stalled: !res || idle > 50, winner: res?.duel?.winningDuelistId };
+  return { loser: res?.losers[0] ?? '?', passes, solves, misses, suddenDeath, ms: now - NOW, stalled: !res || idle > 50, winner: res?.duel?.winningDuelistId,
+    out: st(g).out || [], rewards: Object.fromEntries((res?.rewards || []).map((x) => [x.playerId, x.points])) };
 }
 
 export function report(rounds = 3000, players = 6): string {
@@ -69,7 +77,18 @@ export function report(rounds = 3000, players = 6): string {
     lines.push('| player | speed | accuracy | doomed |', '|---|---|---|---|');
     for (let i = 1; i <= n; i++) lines.push(`| p${i} | ${hands[i - 1].speed.toFixed(2)} | ${hands[i - 1].accuracy.toFixed(2)} | ${(((doomed[`p${i}`] || 0) / rounds) * 100).toFixed(1)}% |`);
     lines.push('', `passes per round ${avg((o) => o.passes)} · problems solved first time ${((out.reduce((s, o) => s + o.solves, 0) / Math.max(1, out.reduce((s, o) => s + o.solves + o.misses, 0))) * 100).toFixed(0)}% · round ${avg((o) => o.ms / 1000)} s · stalls ${out.filter((o) => o.stalled).length}`);
-    if (mode === 'party_with_duelists') lines.push(`sudden death ${((out.filter((o) => o.suddenDeath).length / rounds) * 100).toFixed(0)}% · a duelist always won: ${out.every((o) => o.winner === 'p1' || o.winner === 'p2')}`);
+    if (mode === 'party_with_duelists') {
+      lines.push(`sudden death ${((out.filter((o) => o.suddenDeath).length / rounds) * 100).toFixed(0)}% · a duelist always won: ${out.every((o) => o.winner === 'p1' || o.winner === 'p2')}`);
+      const secs = out.map((o) => o.ms / 1000).sort((a, b) => a - b);
+      const share = (k: number) => `${((out.filter((o) => o.out.length === k).length / rounds) * 100).toFixed(0)}%`;
+      lines.push(`bystanders caught: none ${share(0)} · one ${share(1)} · two ${share(2)} · game length: median ${secs[Math.floor(rounds / 2)].toFixed(0)} s, 9 in 10 under ${secs[Math.floor(rounds * 0.9)].toFixed(0)} s, longest ${secs[rounds - 1].toFixed(0)} s`);
+      lines.push('', '| bystander | Party points a game |', '|---|---|');
+      for (let i = 3; i <= n; i++) lines.push(`| p${i} | ${(out.reduce((s, o) => s + (o.rewards[`p${i}`] || 0), 0) / rounds).toFixed(2)} |`);
+      // the same two duelists, equally able; then every bystander passes to p1 whenever they can
+      const even = hands.slice(0, n).map((h, i) => (i < 2 ? { speed: 0.5, accuracy: 0.85 } : h));
+      const lost = (how: Table) => (Array.from({ length: rounds }, (_, i) => round(mode, even, i + 1, how)).filter((o) => o.loser === 'p1').length / rounds * 100).toFixed(0);
+      lines.push('', `two equal duelists: p1 loses ${lost({})}% of duels · when every bystander passes to p1: ${lost({ gangUpOn: 'p1' })}%`);
+    }
     lines.push('');
   }
   return lines.join('\n');
