@@ -22,8 +22,9 @@ export interface RobotView {
   stageEndsAt: number;
   round: number;
   roundsToWin: number;
-  /** Fighter 0 (left of the TV) and fighter 1. */
+  /** Fighter 0 and fighter 1 (each keeps its colour), and which of them stands on the left of the TV this round. */
   order: [PlayerId, PlayerId];
+  left: 0 | 1;
   wins: Record<PlayerId, number>;
   sudden: boolean;
   maxHealth: number;
@@ -41,5 +42,5 @@ export interface RobotView {
 export function robotView(raw: unknown): RobotView {
   const v = (raw || {}) as RobotView;
   const fighter = (f: RobotFighterView | undefined): RobotFighterView => ({ ...(f || { health: 0, busyUntil: 0 }), lost: f?.lost || [], busyUntil: f?.busyUntil || 0 });
-  return { ...v, wins: v.wins || {}, events: v.events || [], order: v.order || ['', ''], fighters: [fighter(v.fighters?.[0]), fighter(v.fighters?.[1])] };
+  return { ...v, left: v.left === 1 ? 1 : 0, wins: v.wins || {}, events: v.events || [], order: v.order || ['', ''], fighters: [fighter(v.fighters?.[0]), fighter(v.fighters?.[1])] };
 }

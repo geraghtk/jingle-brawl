@@ -63,3 +63,15 @@
 /* a part that has been knocked loose rattles until the next blow takes it */
 .nk-part.loose, .nk-mine i.loose { animation: nk-loose .18s linear infinite alternate; opacity: .8; }
 @keyframes nk-loose { from { transform: rotate(-9deg) translateY(-1px); } to { transform: rotate(9deg) translateY(1px); } }
+
+/* the pads follow the robot's side of the ring (Kevin, 2026-11-23): jab over haymaker in the column facing the other
+   robot, block over dodge in the column behind; the columns swap when the robots change sides */
+.nk-pads .nk-pad.punch.jab { grid-row: 1; }
+.nk-pads .nk-pad.punch.heavy { grid-row: 2; }
+.nk-pads .nk-pad.block { grid-row: 1; }
+.nk-pads .nk-pad.dodge { grid-row: 2; }
+.nk-pads.on-left .nk-pad.punch { grid-column: 2; }
+.nk-pads.on-left .nk-pad.block, .nk-pads.on-left .nk-pad.dodge { grid-column: 1; }
+.nk-pads.on-right .nk-pad.punch { grid-column: 1; }
+.nk-pads.on-right .nk-pad.block, .nk-pads.on-right .nk-pad.dodge { grid-column: 2; }
+.nk-side { padding: 4px 10px; border-radius: 999px; background: var(--robot); color: #fff; font: 800 12px/1.3 var(--f6-disp, system-ui); white-space: nowrap; }

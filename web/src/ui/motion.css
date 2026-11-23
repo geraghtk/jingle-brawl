@@ -1,0 +1,53 @@
+/* The motion kit: one set of moves for every screen, so the eight games and the main game come in, go
+   out and celebrate the same way. Use the classes (or the keyframes and the easing variables in a
+   game's own rule). A list staggers its children with `--i` (0, 1, 2 ...) on each.
+   No reduced-motion variants: the game's animations are its feedback (CLAUDE.md). */
+:root {
+  --mo-spring: cubic-bezier(.2, 1.5, .4, 1);     /* overshoots a little: things that land */
+  --mo-out: cubic-bezier(.16, 1, .3, 1);         /* fast then gentle: things that arrive */
+  --mo-in: cubic-bezier(.6, 0, .85, .3);         /* gathers speed: things that leave */
+  --mo-quick: .18s; --mo-base: .36s; --mo-slow: .7s;
+  --mo-step: 70ms;                               /* the gap between one staggered child and the next */
+}
+
+/* arriving */
+.mo-pop { animation: moPop var(--mo-base) var(--mo-spring) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-up { animation: moUp var(--mo-base) var(--mo-out) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-down { animation: moDown var(--mo-base) var(--mo-out) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-left { animation: moLeft var(--mo-base) var(--mo-out) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-right { animation: moRight var(--mo-base) var(--mo-out) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-fade { animation: moFade var(--mo-base) ease-out both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+.mo-slam { animation: moSlam .5s var(--mo-spring) both; animation-delay: calc(var(--i, 0) * var(--mo-step)); }
+/* leaving */
+.mo-out { animation: moOut var(--mo-quick) var(--mo-in) both; }
+/* on the spot */
+.mo-shake { animation: moShake .4s ease-in-out both; }
+.mo-bump { animation: moBump .3s var(--mo-spring) both; }
+.mo-pulse { animation: moPulse 1.2s ease-in-out infinite; }
+.mo-bob { animation: moBob 1.6s ease-in-out infinite; }
+.mo-wiggle { animation: moWiggle .5s ease-in-out both; }
+
+@keyframes moPop { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes moUp { 0% { opacity: 0; transform: translateY(24px); } 100% { opacity: 1; transform: none; } }
+@keyframes moDown { 0% { opacity: 0; transform: translateY(-24px); } 100% { opacity: 1; transform: none; } }
+@keyframes moLeft { 0% { opacity: 0; transform: translateX(32px); } 100% { opacity: 1; transform: none; } }
+@keyframes moRight { 0% { opacity: 0; transform: translateX(-32px); } 100% { opacity: 1; transform: none; } }
+@keyframes moFade { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes moSlam { 0% { opacity: 0; transform: scale(2.2) rotate(-6deg); } 60% { opacity: 1; transform: scale(.94) rotate(1deg); } 100% { opacity: 1; transform: none; } }
+@keyframes moOut { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(.9); } }
+@keyframes moShake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px) rotate(-1deg); } 40% { transform: translateX(6px) rotate(1deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes moBump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes moPulse { 50% { filter: brightness(1.12); transform: scale(1.03); } }
+@keyframes moBob { 50% { transform: translateY(-6%); } }
+@keyframes moWiggle { 0%, 100% { transform: none; } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+
+/* confetti (ui/motion.tsx Confetti): paper falling over whatever it is in */
+.mo-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+.mo-confetti i { position: absolute; top: -6%; width: var(--w, 12px); height: calc(var(--w, 12px) * .45); border-radius: 2px; background: var(--c, #ffc21a); left: var(--x, 50%);
+  animation: moConfetti var(--t, 3s) linear var(--d, 0s) both; }
+.mo-confetti.forever i { animation-iteration-count: infinite; }
+@keyframes moConfetti {
+  0% { transform: translate3d(0, 0, 0) rotate(0) rotateX(0); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate3d(var(--sway, 40px), 115vh, 0) rotate(var(--spin, 540deg)) rotateX(900deg); opacity: 0; }
+}

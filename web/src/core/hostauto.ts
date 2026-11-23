@@ -3,7 +3,7 @@
 // the same steps on its virtual clock, so both wait for the table by the same rules.
 // A step's key changes when the state it waits on changes, so a timer is re-armed rather
 // than fired twice; every plan is claimed, so a step racing a button can't apply twice.
-import { arenaBegin, arenaCountdown, arenaDeadline, arenaOf, awaited, handoff, RESULT_HOLD_MS } from './minigames/runtime';
+import { arenaBegin, arenaCountdown, arenaDeadline, arenaForReal, arenaOf, awaited, handoff, PRACTICE_END_MS, RESULT_HOLD_MS } from './minigames/runtime';
 import { completeDrawOff, DRAW_GRACE_MS, everyoneDrew, isDrawOff, startDrawing, startJudging } from './drawoff';
 import * as A from './actions';
 import { duelAppWinner, duelGameStep, SPIN_MS, spinDuelGame } from './duelgame';
@@ -83,6 +83,12 @@ export function hostAuto(game: Game): AutoStep[] {
   if (arena?.lifecycle === 'active') {
     for (const d of arena.deadlines) out.push({ key: `arena|${arena.instanceId}|${d.id}|${d.at}`, at: d.at, quiet: true, run: (g, ctx) => arenaDeadline(g, d.id, ctx) });
   }
+  // a practice round gives way to the real game when its time is up, or a moment after it ended by itself
+  const practiceOver = !!arena?.practice && arena.lifecycle === 'completed' && arena.endedAt != null;
+  if (arena?.practice && ((arena.lifecycle === 'active' && arena.practice.endsAt != null) || practiceOver)) {
+    const at = practiceOver ? arena.endedAt! + PRACTICE_END_MS : arena.practice.endsAt!;
+    out.push({ key: `arena|${arena.instanceId}|real|${at}`, at, quiet: true, run: (g, ctx) => arenaForReal(g, ctx) });
+  }
   // before it starts: the countdown once nobody is left to wait for (the last one ready starts it themselves;
   // this is for a phone that dropped), then the start
   if (arena?.lifecycle === 'briefing') {
@@ -91,7 +97,7 @@ export function hostAuto(game: Game): AutoStep[] {
     else if (!awaited(game, arena).length) out.push({ key: `arena|${arena.instanceId}|allready`, at: 0, quiet: true, run: (g, ctx) => arenaCountdown(g, ctx.now) });
   }
   // (a Game Lab game keeps its result on the screens until the host plays again or leaves)
-  if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled') && !t?.lab) {
+  if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled') && !t?.lab && !practiceOver) {
     // its ending stays on the screens for a few seconds first (a game the host stopped has no ending to show)
     out.push({ key: `arena|${arena.instanceId}|handoff`, at: arena.endedAt ? arena.endedAt + RESULT_HOLD_MS : 0, quiet: true, run: (g) => handoff(g) });
   }

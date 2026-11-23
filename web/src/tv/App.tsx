@@ -6,6 +6,7 @@ import { HostProvider } from '../host/HostContext';
 import { GameScreen } from '../host/GameScreen';
 import { OffsetProvider, useRoom } from '../net/hooks';
 import { ConnectionBanner } from '../ui/ConnectionBanner';
+import { useWakeLock } from '../ui/wakeLock';
 
 const fromUrl = (new URLSearchParams(location.search).get('room') || '').trim().toUpperCase();
 
@@ -26,6 +27,7 @@ export function App() {
 
 function Screen({ room }: { room: string }) {
   const { client, game, offset, fatal, status } = useRoom(room);
+  useWakeLock(true);                                   // the room's big screen never dozes off
   if (fatal) return <div className="card" style={{ margin: '4rem auto', maxWidth: 420, textAlign: 'center' }}><p>{fatal}</p><a className="btn btn-primary" href="tv.html">Another room</a></div>;
   const banner = <ConnectionBanner status={status} loaded={!!game} />;
   if (!game) return banner;

@@ -13,7 +13,7 @@ import * as D from './duel';
 import * as DO from './drawoff';
 import type { DrawOff } from './drawoff';
 import { chooseDuelGame, duelAppWinner, duelGameStep, duelOptions, duelPicker, SPIN_MS, spinDuelGame, startDuelApp } from './duelgame';
-import { arenaAct, arenaCountdown, arenaOf, arenaOffers, arenaPause, arenaReady, arenaResume, arenaStop, canAct, handoff } from './minigames/runtime';
+import { arenaAct, arenaCountdown, arenaForReal, arenaOf, arenaOffers, arenaPause, arenaReady, arenaResume, arenaStop, canAct, handoff } from './minigames/runtime';
 import { endLab, inLab, startLab } from './minigames/lab';
 import { addBot, humans, removeBots } from './bots';
 import type { MatchMode } from './minigames/contracts';
@@ -73,6 +73,7 @@ export type Offer =
   | { type: 'arena_ready' }      // a player has read the instructions: ready to start
   | { type: 'arena_start_now' }  // the host: start the countdown without waiting for the rest
   | { type: 'arena_continue' }   // a finished mini-game's ending is on screen: on to the duel now, without waiting it out
+  | { type: 'arena_skip_practice' }   // the host: enough practice, start the real game now
   | { type: 'lab_start'; gameId: string; players: PlayerId[]; mode?: string; duelists?: PlayerId[] } | { type: 'lab_end' } | { type: 'lab_add_bot' } | { type: 'lab_remove_bots' }   // the Game Lab (lobby)
   | { type: 'auction_duel' }
   | { type: 'end' };
@@ -242,9 +243,9 @@ function hostOffers(game: Game, now: number): Offer[] {
       // the host's overrides: pause / resume, cancel, call it a no contest (all logged)
       const a = arenaOf(game);
       if (a?.lifecycle === 'briefing') return [...(a.briefing?.goAt ? [] : [{ type: 'arena_start_now' } as Offer]), { type: 'arena_cancel' }];
-      if (a?.lifecycle === 'active') return [{ type: 'arena_pause' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
+      if (a?.lifecycle === 'active') return [{ type: 'arena_pause' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }, ...(a.practice ? [{ type: 'arena_skip_practice' } as Offer] : [])];
       if (a?.lifecycle === 'paused') return [{ type: 'arena_resume' }, { type: 'arena_cancel' }, { type: 'arena_no_contest' }];
-      if (a?.result) return [{ type: 'arena_continue' }];
+      if (a?.result) return a.practice && a.endedAt != null ? [{ type: 'arena_skip_practice' }] : [{ type: 'arena_continue' }];
       return [];
     }
     case 'endgame_reveal': return rankedBids(t).length ? [{ type: 'auction_duel' }] : [];
@@ -336,6 +337,7 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'arena_ready': return arenaReady(game, who as PlayerId, ctx.now);
     case 'arena_start_now': return arenaCountdown(game, ctx.now, true);
     case 'arena_continue': return handoff(game);
+    case 'arena_skip_practice': return arenaForReal(game, ctx, true);
     case 'lab_start': return startLab(game, { gameId: offer.gameId, players: offer.players, mode: offer.mode as MatchMode | undefined, duelists: offer.duelists }, ctx);
     case 'lab_end': return endLab(game);
     case 'lab_add_bot': return addBot(game, ctx);

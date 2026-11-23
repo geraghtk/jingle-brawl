@@ -9,10 +9,11 @@ import type { MechaTeamView } from '../core/minigames/mecha/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
-import { EVENT_WORDS, JOB_SHORT, MECHA_COLORS } from '../ui/mecha/look';
+import { EVENT_WORDS, JOB_SHORT, MECHA_COLORS, OBSTACLE_NAMES, OBSTACLE_RECIPE } from '../ui/mecha/look';
 import type { MechaScene } from '../ui/mecha/scene3d';
 import { play } from '../ui/sound';
 import '../ui/arena.css';
+import '../ui/motion.css';
 import '../ui/mecha.css';
 import { useHost } from './HostContext';
 
@@ -26,6 +27,7 @@ export function MechaStage() {
   const now = av.pausedAt ?? ticking;                    // paused: the race stands as it was
   const v = mechaView(av.view);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const live = useRef({ v, offset, pausedAt: av.pausedAt });
   live.current = { v, offset, pausedAt: av.pausedAt };                 // the frame loop outlives renders: it reads this render's view
   const [failed, setFailed] = useState(false);
@@ -40,7 +42,9 @@ export function MechaStage() {
       const loop = () => {
         const { v: view, offset: off, pausedAt } = live.current;
         scene!.resize();
-        scene!.frame(view, pausedAt ?? Date.now() + off, MECHA_COLORS);
+        // (the scene says when it has split the picture in two: the strips get their labels, with no re-render per frame)
+        const { split } = scene!.frame(view, pausedAt ?? Date.now() + off, MECHA_COLORS);
+        stage.current?.classList.toggle('split', split);
         raf = requestAnimationFrame(loop);
       };
       raf = requestAnimationFrame(loop);
@@ -68,7 +72,10 @@ export function MechaStage() {
         else if (e.kind === 'smashed') { play('clank', 0.8 * pitch); play('pass', 0.7); }
         else if (e.kind === 'jump') play('jump', pitch);
         else if (e.kind === 'boost') play('whoosh', pitch);
-        else if (e.kind === 'saved') play('right', pitch);
+        else if (e.kind === 'saved' || e.kind === 'topped') play('right', pitch);
+        else if (e.kind === 'grabbed' || e.kind === 'rung') play('tick', 0.7 * pitch);
+        else if (e.kind === 'slip' || e.kind === 'dropped') play('wrong', pitch);
+        else if (e.kind === 'pump') play('whoosh', 0.8 * pitch);
       }
     });
     if (was.stage !== v.stage) { if (v.stage === 'done') play('fanfare'); else if (v.stage === 'overtime') play('bell'); }
@@ -77,7 +84,6 @@ export function MechaStage() {
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
   const secs = secsLeft(v.endsAt, now);
   const winner = v.stage === 'done' ? v.teams.find((t) => t.teamId === v.winner) : null;
-  const reason = av.result?.reason || '';
   const pct = (x: number) => `${Math.max(0, Math.min(100, (x / v.course.length) * 100))}%`;
 
   const panel = (t: MechaTeamView, i: number) => {
@@ -105,14 +111,20 @@ export function MechaStage() {
         <div className={`ms-lean${Math.abs(lean) > 0.6 ? ' danger' : ''}${down ? ' down' : ''}`} role="img" aria-label={down ? 'It has fallen over' : `Leaning ${Math.round(Math.abs(lean) * 100)}% ${lean < 0 ? 'back' : 'forward'}`} data-testid={`mecha-lean-${t.teamId}`}>
           <span className="ms-lean-mark" style={{ left: `${50 + lean * 50}%` }} />
         </div>
+        {/* what this robot is coming up to, and what it takes (never when) */}
+        {t.ahead && v.stage !== 'done' && <div key={t.ahead.id} className={`ms-next ${t.ahead.kind}`} data-testid={`mecha-next-${t.teamId}`}><b>{OBSTACLE_NAMES[t.ahead.kind]}</b><span>{OBSTACLE_RECIPE[t.ahead.kind]}</span></div>}
         {word && <div key={e!.n} className="ms-word" role="status" data-testid={`mecha-word-${t.teamId}`}>{word}</div>}
       </div>
     );
   };
 
   return (
-    <div className={`ms-stage${v.stage === 'done' ? ' over' : ''}`} data-testid="mecha-stage">
+    <div ref={stage} className={`ms-stage${v.stage === 'done' ? ' over' : ''}`} data-testid="mecha-stage">
       <canvas ref={canvas} className="ms-canvas" aria-label="Two giant wind-up Santas racing over the rooftops" />
+      {/* too far apart for one picture: a strip each (the scene draws them; these are their labels) */}
+      <div className="ms-split" aria-hidden data-testid="mecha-split">
+        {v.teams.slice(0, 2).map((t, i) => <span key={t.teamId} className={`ms-strip s${i}`} style={{ ['--team' as string]: MECHA_COLORS[i] }}><b>Team {t.teamId}</b></span>)}
+      </div>
       {failed && <p className="ms-nogl" role="status">This screen can't draw the rooftops in 3D: the race is in the bars.</p>}
       <div className="ms-hud">
         {v.teams[0] && panel(v.teams[0], 0)}
@@ -125,18 +137,11 @@ export function MechaStage() {
       {/* the course, start to finish: what is in the way, and where each robot is */}
       <div className="ms-course" data-testid="mecha-course">
         <div className="ms-course-line">
-          {v.course.obstacles.map((o) => <span key={o.id} className={`ms-ob ${o.kind}`} style={{ left: pct(o.at), ...(o.kind === 'gap' ? { width: pct(o.width || 0) } : {}) }} />)}
+          {v.course.obstacles.map((o) => <span key={o.id} className={`ms-ob ${o.kind}`} style={{ left: pct(o.at), ...(o.width ? { width: pct(o.width) } : {}) }} />)}
           <span className="ms-flag" aria-hidden />
           {v.teams.map((t, i) => <span key={t.teamId} className="ms-runner" style={{ left: pct(posAt(t.walker, now)), ['--team' as string]: MECHA_COLORS[i] }} data-testid={`mecha-runner-${t.teamId}`}>{t.teamId}</span>)}
         </div>
       </div>
-      {v.stage === 'done' && (
-        <div className="ms-end" role="status" data-testid="mecha-end" style={{ ['--team' as string]: winner ? MECHA_COLORS[v.teams.indexOf(winner)] : '#1d2a3a' }}>
-          <div className="ms-end-title">{winner ? `Team ${winner.teamId} wins!` : 'Dead level!'}</div>
-          <div className="ms-end-sub">{winner ? `${name(winner.captainId)}'s team: ${reason}` : 'The host decides'}</div>
-          {winner && <div className="ms-end-crew">{winner.members.map((id) => { const p = game.players?.[id]; return <span key={id}><Avatar name={p?.name || id} avatar={p?.avatar} size={54} /><b>{name(id)}</b></span>; })}</div>}
-        </div>
-      )}
     </div>
   );
 }

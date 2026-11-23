@@ -77,22 +77,36 @@ test('Mecha Santa: your job is your pad; legs in turn move the robot on the TV; 
     // a wall ahead: put the robot at it (the long walk is the unit tests' job); nothing on the phone changes: no pad lights up, no word says what to do
     const a1 = await arena(r.roomCode);
     const wall = a1.state.course.obstacles.find((o) => o.kind === 'wall');
-    await place(r.roomCode, wall.at);
+    const candles = a1.state.course.obstacles.filter((o) => o.kind === 'boost').map((o) => o.id);   // (taken: so the wall is what is next)
+    await place(r.roomCode, wall.at, { taken: candles });
     const armsPage = pages[nameOf(A.crew[3][0])];
     await armsPage.waitForTimeout(600);
     await expect(armsPage.getByTestId('mecha-smash')).not.toHaveClass(/\bgo\b/);
     await expect(armsPage.getByTestId('mecha-word')).not.toContainText(/wall/i);
+    // what the phone does say, to the player whose part it takes: what is coming and what it needs, never when
+    await expect(armsPage.getByTestId('mecha-next')).toContainText('Snow wall');
+    await expect(armsPage.getByTestId('mecha-next')).toContainText('Arms SMASH it down');
+    await expect(armsPage.getByTestId('mecha-next')).not.toContainText(/\bnow\b|\bpress\b|\d/i);
+    await expect(tv.getByTestId('mecha-next-A')).toContainText('Snow wall');
     await tap(armsPage, 'mecha-smash');
     await H.waitForGame(r.roomCode, (g) => ((g.arena.state.teams[0].walker.hits || {})[wall.id] === 1 ? g : false), { label: 'one hit on the wall' });
     await shot(tv, 'tv-wall'); await shot(armsPage, 'phone-wall');
 
     // one stride from the line: a step takes it over; team A wins, the result stays up (practice)
     await place(r.roomCode, a1.state.course.length - 1, { hits: { w1: 9, w2: 9, w3: 9 } });
+    // one robot is now far ahead of the other: the picture splits into a strip each, so neither is off the screen
+    await expect(tv.getByTestId('mecha-stage')).toHaveClass(/\bsplit\b/, { timeout: 5000 });
+    await shot(tv, 'tv-split');
+    await place(r.roomCode, 2);
+    await expect(tv.getByTestId('mecha-stage')).not.toHaveClass(/\bsplit\b/, { timeout: 5000 });   // and joins again
+    await place(r.roomCode, a1.state.course.length - 1, { hits: { w1: 9, w2: 9, w3: 9 } });
     await tap(left, 'mecha-leg-0');
     const done = await H.waitForGame(r.roomCode, (g) => (g.arena?.lifecycle === 'completed' ? g : false), { label: 'over the line', timeout: 15000 });
     expect(done.arena.result).toMatchObject({ status: 'resolved', reason: 'first over the line' });
     expect(done.arena.result.duel.winningDuelistId).toBe(A.captainId);
-    await expect(tv.getByTestId('mecha-end')).toContainText('Team A wins!');
+    // the one announcement every game ends with (the game's own winner card is gone: it sat under this one)
+    await expect(tv.getByTestId('ceremony-headline')).toHaveText(`${nameOf(A.captainId)}'s team wins!`, { timeout: 8000 });
+    await expect(tv.getByTestId('mecha-end')).toHaveCount(0);
     await expect(left.getByTestId('mecha-word')).toContainText('Your team won!');
     await expect(pages[nameOf(B.members[0])].getByTestId('mecha-word')).toContainText('The other team won');
     await shot(tv, 'tv-end');

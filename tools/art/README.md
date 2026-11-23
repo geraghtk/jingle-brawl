@@ -65,7 +65,7 @@ script prints `CLIP_LINE_PCT`, where a pop-up disappears into the hole; `.wh-pit
 
 `towers.py out --seeds 5` renders takes of every piece (toy soldier, teddy tank, the three towers, the
 workshop, the scenery, the snowy field) and `out/sheet.png` to pick from, each team piece shown in both
-colours; `towers.py out --place soldier=2,tank=2,mouse=2,snow=0,cannon=2,frost=2,workshop=0,pine=4,snowman=1,gifts=1,cane=1,field=2`
+colours; `towers.py out --place soldier=2,tank=2,mouse=2,snow=0,cannon=2,frost=2,workshop=0,snow2=1,snow3=3,cannon2=2,cannon3=1,frost2=1,frost3=0,pine=4,snowman=1,gifts=1,cane=1,field=2`
 (the takes in the game) trims them and writes `web/public/art/towers/`. Team pieces are drawn in red and
 saved twice: `-a` as team A's red, `-b` with the reds turned to team B's green (`recolor`), so both
 armies are the same toys. The toys walk to the right (the right-hand team's are mirrored on screen).

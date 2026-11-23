@@ -7,12 +7,13 @@
 // room decides what the robot did.
 import { useEffect, useRef } from 'react';
 import { posAt } from '../core/minigames/engines/walker';
-import { JOBS, JOB_NAMES, mechaView } from '../core/minigames/mecha/view';
+import { JOBS, JOB_NAMES, mechaView, NEEDS } from '../core/minigames/mecha/view';
 import { useServerNow } from '../net/hooks';
-import { BUSY_WORDS, MECHA_COLORS } from '../ui/mecha/look';
+import { BUSY_WORDS, MECHA_COLORS, OBSTACLE_NAMES, OBSTACLE_RECIPE } from '../ui/mecha/look';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/motion.css';
 import '../ui/mecha.css';
 
 export function MechaCard() {
@@ -56,6 +57,10 @@ export function MechaCard() {
   // what has just happened to the robot, never what to press next: that is for the team to call out
   const word = won === 'won' ? 'Your team won!' : won === 'lost' ? 'The other team won.' : won === 'level' ? 'Dead level: the host decides.' : busy ? BUSY_WORDS[busy] : '';
 
+  // what the robot is coming up to, on the phones whose parts it takes: what it is and what it needs, never when.
+  // No pad lights up or changes for it (the timing is for the team to call out).
+  const next = running && !busy && team.ahead && NEEDS[team.ahead.kind].some((k) => mine.includes(k)) ? team.ahead : null;
+
   const pad = (id: string, cls: string, big: string, label: string, action: Record<string, unknown>, job?: string) => (
     <button key={id} type="button" className={`ms-pad live ${cls}`} disabled={!running} aria-label={label} data-testid={id}
       onPointerDown={(e) => { e.preventDefault(); press(action); }}>
@@ -93,6 +98,7 @@ export function MechaCard() {
         <span className={`ms-gap${ahead >= 0 ? ' ahead' : ''}`} data-testid="mecha-ahead">{Math.abs(ahead) < 0.5 ? 'Neck and neck' : ahead > 0 ? 'Ahead' : 'Behind'}</span>
       </div>
       <div className={`ms-phone-word${won ? ` game-over ${won === 'won' ? 'win' : won === 'lost' ? 'lose' : 'level'}` : ''}`} aria-live="polite" data-testid="mecha-word">{word || 'Watch the TV and call it out!'}</div>
+      {next && <div key={next.id} className={`ms-phone-next ${next.kind}`} role="status" data-testid="mecha-next"><b>{OBSTACLE_NAMES[next.kind]}</b><span>{OBSTACLE_RECIPE[next.kind]}</span></div>}
       <div className="ms-pads">
         {mine.map((k) => (k <= 1 ? leg(k as 0 | 1) : k === 2 ? balance() : arms()))}
       </div>

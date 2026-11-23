@@ -12,7 +12,9 @@ import type { Game } from '../../types';
 import { posAt } from '../engines/walker';
 import { assignTeams } from '../engines/teams';
 import { arenaAct, arenaDeadline, arenaOf, arenaPause, arenaResume, handoff, startArena } from '../runtime';
-import { DEFAULTS, mecha } from './mecha';
+import { CLASSIC_COURSE, DEFAULTS, mecha } from './mecha';
+import { courseFaults } from './course';
+import { NEEDS } from './view';
 import type { MechaAction, MechaState } from './mecha';
 import { JOBS, mechaView } from './view';
 
@@ -104,7 +106,7 @@ describe('Mecha Santa Mayhem', () => {
     const p = phone(g, t.crew[2][0], NOW + 50);
     expect(p).toMatchObject({ myTeam: 'B', myJobs: [2] });
     expect(p.teams).toHaveLength(2);
-    expect(p.course.obstacles.length).toBe(DEFAULTS.obstacles.length);
+    expect(p.course.obstacles.length).toBeGreaterThan(5);                    // (a course of its own: below)
     expect(tv(g, NOW + 50).myTeam ?? null).toBeNull();
     const small = play(4);
     expect(phone(small, st(small).teams[0].members[0], NOW).myJobs).toEqual([0, 2]);
@@ -131,7 +133,7 @@ describe('Mecha Santa Mayhem', () => {
   });
 
   it('the whole course (walls, gaps, boosts) can be walked by a team doing its jobs', () => {
-    let g = play(8);
+    let g = play(8, { obstacles: CLASSIC_COURSE });
     g = work(g, [0], NOW + 100, NOW + DEFAULTS.roundMs + DEFAULTS.overtimeMs + 1000);
     const r = arenaOf(g)!.result!;
     expect(r).toMatchObject({ status: 'resolved', reason: 'first over the line', duel: { winningDuelistId: 'p1' } });
@@ -236,5 +238,51 @@ describe('Mecha Santa Mayhem', () => {
     expect(() => mecha.validateConfig({ length: 0 })).toThrow();
     expect(() => mecha.validateConfig({ obstacles: [{ id: 'g', kind: 'gap', at: 90, width: 10 }] })).toThrow();
     expect(mecha.validateConfig({}).walk.stride).toBe(DEFAULTS.walk.stride);
+  });
+});
+
+describe('Mecha Santa: a new course every race, with climbs, ropes and ice', () => {
+  it('every race gets a course of its own that keeps the rules; a course given by hand is used as it is', () => {
+    const a = st(play(8)).course;
+    expect(courseFaults(a.obstacles, a.length)).toEqual([]);
+    for (const kind of ['wall', 'gap', 'ice', 'climb', 'rope', 'boost']) expect(a.obstacles.some((o) => o.kind === kind), kind).toBe(true);
+    expect(tv(play(8), NOW).course.obstacles).toEqual(a.obstacles);            // the screens get it (one course: both robots are drawn on it)
+    expect(st(play(8, { obstacles: CLASSIC_COURSE })).course.obstacles).toEqual(CLASSIC_COURSE);
+    expect(st(play(8, OPEN)).course.obstacles).toEqual([]);
+  });
+
+  it('a team doing its jobs gets over generated courses: up the climbs, across the ropes, over the ice', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const g0 = table(8);
+      g0.currentTurn = { phase: 'duel', challengerId: 'p1', defenderId: 'p2', pot: 2 };
+      const tx = new Tx(g0);
+      startArena(tx, 'mecha_santa', { mode: 'captain_teams', participants: Object.keys(g0.players!), duelists: ['p1', 'p2'], config: { teams: assignTeams(['p1', 'p2'], Object.keys(g0.players!), rng(1)) } }, { now: NOW, rng: rng(seed * 31) });
+      let g = apply(g0, tx.plan());
+      g = work(g, [0], NOW + 100, NOW + DEFAULTS.roundMs + DEFAULTS.overtimeMs + 1000);
+      expect(arenaOf(g)!.result, `seed ${seed}`).toMatchObject({ status: 'resolved', reason: 'first over the line' });
+      const w = st(g).teams[0].walker;
+      for (const o of st(g).course.obstacles.filter((x) => x.kind === 'climb')) expect(w.taken, `seed ${seed}`).toContain(o.id);
+    }
+  });
+
+  it('the phones are told what is coming once it is close (what it is, never when), and only then', () => {
+    const course = [{ id: 'c1', kind: 'climb', at: 20 }, { id: 'r1', kind: 'rope', at: 40, width: 7 }];
+    let g = play(8, { obstacles: course, length: 60 });
+    expect(tv(g, NOW + 50).teams[0].ahead ?? null).toBeNull();                 // 20 away: nothing yet
+    g = work(g, [0], NOW + 100, NOW + 4000);
+    const at = NOW + 4100;
+    const v = phone(g, st(g).teams[0].crew[3][0], at);
+    expect(v.teams[0].ahead).toEqual({ id: 'c1', kind: 'climb' });
+    expect(v.teams[1].ahead ?? null).toBeNull();                               // the other robot has not moved
+    expect(NEEDS.climb).toEqual([3, 0, 1, 2]);                                 // arms first, then the legs; the balance too
+    expect(NEEDS.ice).toEqual([2]);
+    expect(Object.keys(v.teams[0].ahead!).sort()).toEqual(['id', 'kind']);     // nothing in it says when: no time, no "now"
+  });
+
+  it('a rope needs a width; the new walk numbers are checked; a course is generated unless one is given', () => {
+    expect(() => mecha.validateConfig({ obstacles: [{ id: 'r', kind: 'rope', at: 30 }] })).toThrow();
+    expect(() => mecha.validateConfig({ walk: { rungs: 0 } })).toThrow();
+    expect(mecha.validateConfig({}).generate).toBe(true);
+    expect(mecha.validateConfig({ obstacles: [] }).generate).toBe(false);
   });
 });

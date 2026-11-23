@@ -44,8 +44,11 @@ export const DEFAULTS: RobotConfig = { roundsToWin: 2, hitsPerPart: HITS_PER_PAR
 export type Stage = 'intro' | 'fighting' | 'ko' | 'done';
 export interface RobotState {
   cfg: RobotConfig;
-  /** The two duelists: fighter 0 (left of the TV) and fighter 1. */
+  /** The two duelists: fighter 0 and fighter 1 (each keeps its colour all match). */
   order: [PlayerId, PlayerId];
+  /** Which of them stands on the left of the TV this round. They change sides every round (Kevin, 2026-11-23), so
+   *  neither has the side their thumbs like all match; a deciding round (both one round from winning) is a coin toss. */
+  left: 0 | 1;
   stage: Stage;
   stageEndsAt: number;      // intro and ko: when it moves on; fighting: when the round's time is up
   round: number;
@@ -61,7 +64,14 @@ export interface RobotState {
 export type RobotAction = { kind: 'punch'; punch: PunchKind } | { kind: 'guard'; on: boolean } | { kind: 'dodge' };
 
 /** Stored state loses empty maps and lists: put them back before reading. */
-const whole = (s: RobotState): RobotState => ({ ...s, wins: s.wins || {}, landed: s.landed || {}, fight: wholeFight(s.fight) });
+const whole = (s: RobotState): RobotState => ({ ...s, left: s.left === 1 ? 1 : 0, wins: s.wins || {}, landed: s.landed || {}, fight: wholeFight(s.fight) });
+/** Who stands on the left in round `round`: fighter 0 first, then they swap each round; the decider is tossed for. */
+export function leftFor(s: Pick<RobotState, 'left' | 'wins' | 'order' | 'cfg'>, round: number, rng: () => number): 0 | 1 {
+  if (round <= 1) return 0;
+  const decider = s.cfg.roundsToWin > 1 && s.order.every((p) => (s.wins[p] || 0) === s.cfg.roundsToWin - 1);
+  if (decider) return rng() < 0.5 ? 0 : 1;
+  return s.left === 0 ? 1 : 0;
+}
 const seat = (s: RobotState, pid: PlayerId): 0 | 1 | null => (s.order[0] === pid ? 0 : s.order[1] === pid ? 1 : null);
 
 /** The deadlines of a fight in progress: the next thing that happens by itself, and the bell. */
@@ -71,7 +81,7 @@ function fightDeadlines(s: RobotState) {
 }
 
 function startRound(ctx: MatchCtx, s: RobotState, round: number): Transition<RobotState> {
-  const state: RobotState = { ...s, stage: 'intro', round, sudden: false, fight: newFight(s.cfg.fight), stageEndsAt: ctx.now + s.cfg.introMs };
+  const state: RobotState = { ...s, stage: 'intro', round, left: leftFor(s, round, ctx.rng), sudden: false, fight: newFight(s.cfg.fight), stageEndsAt: ctx.now + s.cfg.introMs };
   return { state, deadlines: [{ id: 'stage', at: state.stageEndsAt }] };
 }
 
@@ -145,7 +155,7 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
 
   createInitialState(ctx, c) {
     const order = (ctx.duelists || [ctx.participants[0], ctx.participants[1]]) as [PlayerId, PlayerId];
-    const base: RobotState = { cfg: c, order, stage: 'intro', stageEndsAt: 0, round: 1, wins: { [order[0]]: 0, [order[1]]: 0 }, fight: newFight(c.fight), sudden: false, landed: {} };
+    const base: RobotState = { cfg: c, order, left: 0, stage: 'intro', stageEndsAt: 0, round: 1, wins: { [order[0]]: 0, [order[1]]: 0 }, fight: newFight(c.fight), sudden: false, landed: {} };
     return startRound(ctx, base, 1);
   },
 
@@ -231,7 +241,7 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
 function publicView(s: RobotState, now: number): RobotView {
   const fight = s.stage === 'fighting' ? settle(s.fight, Math.min(now, s.stageEndsAt), s.cfg.fight).fight : s.fight;
   return {
-    stage: s.stage, stageEndsAt: s.stageEndsAt, round: s.round, roundsToWin: s.cfg.roundsToWin, order: s.order, wins: s.wins, sudden: s.sudden,
+    stage: s.stage, stageEndsAt: s.stageEndsAt, round: s.round, roundsToWin: s.cfg.roundsToWin, order: s.order, left: s.left, wins: s.wins, sudden: s.sudden,
     maxHealth: s.cfg.fight.health, parts: PARTS.length, guardMaxMs: s.cfg.fight.guardMaxMs,
     fighters: fight.f.map((f) => ({
       health: f.health, lost: lost(f.health, s.cfg.fight.health), busyUntil: f.busyUntil || 0,

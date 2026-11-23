@@ -4,7 +4,8 @@
 // Four jobs, dealt with engines/roles.ts (a small team doubles up, a big one shares, a dropped phone's
 // job is open to its team): the left leg, the right leg, the balance, the arms. The robot is
 // engines/walker.ts: legs in turn, a lean that grows by itself, walls to smash, gaps to jump with both
-// legs, boosts to grab. Settled by the clock: nothing is sent per frame, a screen draws each robot
+// legs, boosts to grab, climbs and ropes that take the arms and the legs together, ice that keeps the balance busy.
+// A new course is laid out for every race (course.ts). Settled by the clock: nothing is sent per frame, a screen draws each robot
 // where it is now from the times in the view. Both teams walk the same course with the same kicks.
 import type { PlayerId } from '../../types';
 import type { GameDefinition, GameResult, MatchCtx, Transition } from '../contracts';
@@ -12,9 +13,10 @@ import { crewFor, mayWork } from '../engines/roles';
 import { assignTeams, checkAssignment } from '../engines/teams';
 import type { TeamAssignment } from '../engines/teams';
 import {
-  blocker, boostNear, DEFAULT_WALK, free, gapAhead, grab, jump, leanAt, newWalker, nextAt, posAt, push, settle as settleWalk, shiftWalker, smash, step,
-  WALKER_VERSION, wallAhead, wholeWalker, NO_LEG,
+  blocker, boostNear, comingUp, DEFAULT_WALK, free, gapAhead, grab, gripAhead, jump, leanAt, newWalker, nextAt, posAt, push, settle as settleWalk, shiftWalker, smash, step,
+  swingAt, WALKER_VERSION, wallAhead, wholeWalker, NO_LEG,
 } from '../engines/walker';
+import { makeCourse } from './course';
 import type { Course, Did, Leg, Obstacle, WalkParams, Walker } from '../engines/walker';
 import { JOBS } from './view';
 import type { MechaView } from './view';
@@ -28,21 +30,26 @@ export interface MechaConfig {
   /** A team of two or three has fewer hands for the same four jobs: its robot strides this much further
    *  (a factor by team size; four or more: 1). Set from the simulation so team size does not decide a race. */
   lightFoot: Record<number, number>;
-  /** How long the course is and what is on it (the same for both teams). */
+  /** How long the course is (the same for both teams). */
   length: number;
+  /** A new course is laid out for each race (course.ts); false: `obstacles` is the course (given by hand: a test,
+   *  the simulator). Giving `obstacles` without saying switches it off. */
+  generate: boolean;
   obstacles: Obstacle[];
   /** The teams, when the experience dealt them (duelgame / the lab); else dealt here. */
   teams?: TeamAssignment;
 }
 export const DEFAULTS: MechaConfig = {
   // (npm run analyze:mecha: an average team of four is over the line in about 50 s, a slow one is still out at the bell)
-  roundMs: 90_000, overtimeMs: 15_000, rewardBase: 1, walk: DEFAULT_WALK, lightFoot: { 2: 1.08, 3: 1.02 }, length: 96,
-  obstacles: [
-    { id: 'b1', kind: 'boost', at: 8 }, { id: 'w1', kind: 'wall', at: 16 }, { id: 'g1', kind: 'gap', at: 28, width: 4 }, { id: 'b2', kind: 'boost', at: 38 },
-    { id: 'w2', kind: 'wall', at: 46 }, { id: 'g2', kind: 'gap', at: 58, width: 4 }, { id: 'b3', kind: 'boost', at: 66 }, { id: 'w3', kind: 'wall', at: 74 },
-    { id: 'g3', kind: 'gap', at: 84, width: 4 },
-  ],
+  roundMs: 90_000, overtimeMs: 15_000, rewardBase: 1, walk: DEFAULT_WALK, lightFoot: { 2: 1.13, 3: 1.02 }, length: 96,
+  generate: true, obstacles: [],
 };
+/** The course every race used to be run on (walls, gaps and candles only): for tests that need to know what is where. */
+export const CLASSIC_COURSE: Obstacle[] = [
+  { id: 'b1', kind: 'boost', at: 8 }, { id: 'w1', kind: 'wall', at: 16 }, { id: 'g1', kind: 'gap', at: 28, width: 4 }, { id: 'b2', kind: 'boost', at: 38 },
+  { id: 'w2', kind: 'wall', at: 46 }, { id: 'g2', kind: 'gap', at: 58, width: 4 }, { id: 'b3', kind: 'boost', at: 66 }, { id: 'w3', kind: 'wall', at: 74 },
+  { id: 'g3', kind: 'gap', at: 84, width: 4 },
+];
 
 export interface TeamState {
   teamId: 'A' | 'B'; captainId: PlayerId; members: PlayerId[];
@@ -152,7 +159,8 @@ function apply(w: Walker, a: MechaAction, now: number, course: Course, p: WalkPa
 function worth(before: Walker, after: Walker): number {
   if (after.n === before.n) return 0;
   const e = after.events[after.events.length - 1];
-  return ({ step: 1, stride: 1.5, jump: 2, crouch: 0.5, hit: 0.5, smashed: 1, boost: 2, saved: 2, stumble: -1, fell: -2, whiff: -0.5, bump: -1 } as Record<string, number>)[e.kind] ?? 0;
+  return ({ step: 1, stride: 1.5, jump: 2, crouch: 0.5, hit: 0.5, smashed: 1, boost: 2, saved: 2, stumble: -1, fell: -2, whiff: -0.5, bump: -1,
+    grabbed: 1, rung: 1, topped: 2, pump: 0.5, slip: -1, dropped: -1 } as Record<string, number>)[e.kind] ?? 0;
 }
 
 function parse(raw: unknown): MechaAction | null {
@@ -164,8 +172,8 @@ function parse(raw: unknown): MechaAction | null {
 }
 
 export const mecha: GameDefinition<MechaConfig, MechaState, MechaAction> = {
-  id: 'mecha_santa', version: '1', label: 'Mecha Santa Mayhem', emoji: '🤖',
-  rules: 'The duellists captain two teams, each driving one giant wind-up Santa on the TV. One of you is the left leg, one the right, one keeps it upright, one works the arms. Every part moves whenever its player presses, so call it out: step in turn, smash the walls, jump the gaps together. First robot over the line wins.',
+  id: 'mecha_santa', version: '2', label: 'Mecha Santa Mayhem', emoji: '🤖',
+  rules: 'The duellists captain two teams, each driving one giant wind-up Santa on the TV. One of you is the left leg, one the right, one keeps it upright, one works the arms. Every part moves whenever its player presses, so call it out: step in turn, smash the walls, jump the gaps together, climb the stacks and swing on the ropes. The course is new every race. First robot over the line wins.',
   categories: ['team_based', 'cross_device', 'real_time_action', 'asymmetric_cooperative'],
   supportedModes: ['captain_teams'],
   compatibility: {
@@ -175,11 +183,14 @@ export const mecha: GameDefinition<MechaConfig, MechaState, MechaAction> = {
 
   validateConfig(raw) {
     const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<MechaConfig>;
-    const c: MechaConfig = { ...DEFAULTS, ...r, walk: { ...DEFAULT_WALK, ...(r.walk || {}) } };
+    const c: MechaConfig = { ...DEFAULTS, ...r, walk: { ...DEFAULT_WALK, ...(r.walk || {}) }, obstacles: r.obstacles || [],
+      generate: typeof r.generate === 'boolean' ? r.generate : !Array.isArray(r.obstacles) };
     const w = c.walk;
     const ok = c.roundMs > 0 && c.overtimeMs > 0 && c.length > 0 && Array.isArray(c.obstacles) && w.stride > 0 && w.stepMs > 0 && w.leanRate > 0 && w.kick >= 0 && w.push > 0
       && w.wallHits >= 1 && w.jumpWindowMs > 0 && w.jumpMs > 0 && w.boost > 0 && Object.values(c.lightFoot || {}).every((f) => f >= 1 && f <= 2)
-      && c.obstacles.every((o) => typeof o.id === 'string' && ['wall', 'gap', 'boost'].includes(o.kind) && o.at > 0 && o.at < c.length && (o.kind !== 'gap' || ((o.width || 0) > 0 && o.at + (o.width || 0) < c.length)));
+      && w.rungs >= 1 && w.rungMs > 0 && w.swingMs > 0 && w.iceLean >= 1
+      && c.obstacles.every((o) => typeof o.id === 'string' && ['wall', 'gap', 'boost', 'climb', 'rope', 'ice'].includes(o.kind) && o.at > 0 && o.at < c.length
+        && (!['gap', 'rope', 'ice'].includes(o.kind) || ((o.width || 0) > 0 && o.at + (o.width || 0) < c.length)));
     if (!ok) throw new Error('bad Mecha Santa settings');
     return c;
   },
@@ -190,7 +201,9 @@ export const mecha: GameDefinition<MechaConfig, MechaState, MechaAction> = {
   createInitialState(ctx, c) {
     if (!ctx.duelists) throw new Error('Mecha Santa needs two captains');
     const deal = teamsFrom(ctx, c);
-    const course: Course = { length: c.length, seed: Math.floor(ctx.rng() * 0x7fffffff), obstacles: [...c.obstacles].sort((a, b) => a.at - b.at) };
+    const seed = Math.floor(ctx.rng() * 0x7fffffff);
+    // a course given by hand is used as it is; otherwise this race gets one of its own
+    const course: Course = { length: c.length, seed, obstacles: [...(c.generate ? makeCourse(ctx.rng, c.length) : c.obstacles)].sort((a, b) => a.at - b.at) };
     const state: MechaState = {
       cfg: c, stage: 'running', startedAt: ctx.now, endsAt: ctx.now + c.roundMs, course,
       teams: deal.teams.map((t): TeamState => ({
@@ -258,18 +271,25 @@ export const mecha: GameDefinition<MechaConfig, MechaState, MechaAction> = {
       if (t.crew[k].includes(who) && onDuty(t, k) !== who && ctx.connected(onDuty(t, k))) continue;   // two on a job: a simulated pair take it in turns
       if (k <= 1 && free(w, ctx.now)) {
         const leg = k as Leg;
+        if (w.grip?.kind === 'rope') {
+          // let go when the swing is well forward (the second leg follows the first at once)
+          if (w.crouch ? w.crouch.leg !== leg : swingAt(w.grip, ctx.now, p) >= (w.grip.pumped ? p.swingPumped : p.swingGood) + 0.15) out.push({ kind: 'jump', leg });
+          continue;
+        }
         if (gapAhead(w, course, p)) { if (w.crouch?.leg !== leg) out.push({ kind: 'jump', leg }); continue; }
         const b = blocker(w, course, p);
-        if (b && b.kind === 'wall' && b.at - w.pos <= 1e-6) continue;                    // up against a wall: the arms' turn
+        if (!w.grip && b && b.kind !== 'gap' && b.at - w.pos <= 1e-6) continue;          // up against a wall, a climb or a rope: the arms' turn
         if (w.last === NO_LEG ? leg === 0 : w.last !== leg) out.push({ kind: 'step', leg });
       }
       if (k === 2 && !(w.busy === 'topple') && ctx.now >= w.pushedAt + p.pushMs) {
+        if (w.grip?.kind === 'rope') { if (!w.grip.pumped) out.push({ kind: 'lean', dir: 1 }); continue; }   // a push for the swing
         const lean = leanAt(w, ctx.now, p);
         if (Math.abs(lean) > 0.3) out.push({ kind: 'lean', dir: lean > 0 ? -1 : 1 });
       }
       if (k === 3 && ctx.now >= w.busyUntil) {
         if (wallAhead(w, course, p) && ctx.now >= w.hitAt + p.hitMs) out.push({ kind: 'smash' });
         else if (boostNear(w, course, ctx.now, p)) out.push({ kind: 'grab' });
+        else if (free(w, ctx.now) && gripAhead(w, course, p)) out.push({ kind: 'grab' });
       }
     }
     return out;
@@ -285,6 +305,9 @@ export const mecha: GameDefinition<MechaConfig, MechaState, MechaAction> = {
   projectForHost: (raw, now) => publicView(whole(raw), now),
 };
 
+/** What a team is coming up to, for the hint on its phones (what it is, never when to press). */
+const ahead = (o: Obstacle | null) => (o ? { ahead: { id: o.id, kind: o.kind } } : {});
+
 /** Both robots as every screen draws them: each as it stands at `now`, with the times of what it is
  *  in the middle of (a screen works out where it is this instant), the course, who has which job. */
 function publicView(s: MechaState, now: number): MechaView {
@@ -294,6 +317,7 @@ function publicView(s: MechaState, now: number): MechaView {
     teams: s.teams.map((t) => ({
       teamId: t.teamId, captainId: t.captainId, members: t.members, crew: t.crew, walk: t.walk,
       walker: s.stage === 'done' ? t.walker : settleWalk(t.walker, at, s.course, t.walk),
+      ...ahead(s.stage === 'done' ? null : comingUp(settleWalk(t.walker, at, s.course, t.walk), at, s.course, t.walk)),
     })),
   };
 }

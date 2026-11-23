@@ -21,6 +21,7 @@ export type AdminIntent =
   | { type: 'admin_reset_turn' }
   | { type: 'admin_undo_duel' }
   | { type: 'admin_end_game' }
+  | { type: 'admin_play_again' }
   | { type: 'admin_peek_bids' };
 
 export type Intent = Offer | AdminIntent;
@@ -40,12 +41,12 @@ const SHAPES: Record<Intent['type'], Record<string, Field>> = {
   start: {}, draw: { giftName: 'text?', seed: 'int?' }, reveal: {}, skip_bidding: {}, start_duel: {}, start_yield_duel: {},
   host_spin: {}, close_voting: {}, start_duel_app: {}, duel_winner: { id: 'id' }, skip_party: {}, endgame: {},
   reveal_auction: {}, skip_auction: {}, auction_duel: {}, complete_drawoff: {}, end: {},
-  arena_pause: {}, arena_resume: {}, arena_cancel: {}, arena_no_contest: {}, arena_continue: {}, arena_ready: {}, arena_start_now: {},
+  arena_pause: {}, arena_resume: {}, arena_cancel: {}, arena_no_contest: {}, arena_continue: {}, arena_ready: {}, arena_start_now: {}, arena_skip_practice: {},
   lab_start: { gameId: 'id', players: 'ids', mode: 'mode?', duelists: 'ids?' }, lab_end: {}, lab_add_bot: {}, lab_remove_bots: {},
   admin_set_chips: { pid: 'id', chips: 'int' }, admin_add_gift: { name: 'text', ownerId: 'id' },
   admin_save_gift: { giftId: 'id', name: 'text?', naughtyLevel: 'int', ownerId: 'idOrNull' },
   admin_move_misfit: { giftId: 'id' }, admin_delete_gift: { giftId: 'id' }, admin_remove_player_gift: { pid: 'id' },
-  admin_reset_turn: {}, admin_undo_duel: {}, admin_end_game: {}, admin_peek_bids: {},
+  admin_reset_turn: {}, admin_undo_duel: {}, admin_end_game: {}, admin_play_again: {}, admin_peek_bids: {},
 };
 // an id is a key into players / gifts: never a name every object already has
 const ID = /^(?!(?:__proto__|constructor|prototype)$)[A-Za-z0-9_-]{1,64}$/;
@@ -103,6 +104,7 @@ export function dispatch(game: Game, who: Who, intent: Intent, ctx: { now: numbe
     case 'admin_reset_turn': return Admin.resetTurn(game);
     case 'admin_undo_duel': return Admin.undoDuel(game);
     case 'admin_end_game': return A.endGame(game);
+    case 'admin_play_again': return A.playAgain(game);
     case 'admin_peek_bids': return Admin.peekBids(game);
   }
 }

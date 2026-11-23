@@ -16,6 +16,7 @@ import { Avatar, avatarColor } from '../ui/avatar';
 import { useHost } from './HostContext';
 import { ArenaStage } from './ArenaStage';
 import { useArenaFull } from './ArenaFull';
+import '../ui/motion.css';
 import { duelAppInfo } from '../core/duelgame';
 import { OptionList, useModal } from './Modal';
 import { PartyPanel } from './PartyPanel';
@@ -35,8 +36,8 @@ export function TurnPanel() {
   const { full } = useArenaFull();                                    // full screen: its header has the buttons
   return (
     <div className="card turn-panel" id="turn-panel">
-      {!p.lobby && <span className={`phase-badge ${p.badgeClass ?? ''}`} id="phase-badge"><Glyphs>{p.badge}</Glyphs></span>}
-      {!p.lobby && <div className="current-action" id="current-action"><Glyphs>{p.action}</Glyphs></div>}
+      {!p.lobby && <span key={`b|${p.badge}`} className={`phase-badge mo-down ${p.badgeClass ?? ''}`} id="phase-badge"><Glyphs>{p.badge}</Glyphs></span>}
+      {!p.lobby && <div key={`a|${p.badge}`} className="current-action mo-up" id="current-action"><Glyphs>{p.action}</Glyphs></div>}
       {!p.lobby && <div className="action-details" id="action-details">{p.details}</div>}
       {p.lobby && <LobbyHero />}
       <div id="bids-container" className={p.area ? '' : 'hidden'}>
@@ -124,7 +125,7 @@ function SealedBids({ t }: { t: Turn }) {
       <div className="sealed-gift-card">
         <div className="fz-halftone sealed-halftone" />
         <span className="f6-chip tint sealed-chip">Contested</span>
-        <div className="sealed-gift-title f6-disp">{gift?.name || t.misfitName || 'Mystery gift'}</div>
+        <div key={t.giftId || t.misfitId} className="sealed-gift-title f6-disp mo-slam">{gift?.name || t.misfitName || 'Mystery gift'}</div>
         <div className="sealed-gift-wrap">
           <div className="f6-gift" style={{ ['--gift-color' as string]: avatarColor(gift?.name || 'gift') }}>
             <span className="ribbon-v" /><span className="ribbon-h" /><span className="bow" />
@@ -147,7 +148,7 @@ function SealedBids({ t }: { t: Turn }) {
                 <Avatar name={p.name} avatar={p.avatar} size={28} />
                 <div className="tile-who"><div className="tile-nm">{p.name}</div>{cfg.publicChips && <div className="tile-sub">{p.chips} chips</div>}</div>
                 {id === sitter ? <span className="st opener">Opener</span>
-                  : sealed ? <span className="st sealed" data-testid={`sealed-${id}`}>{t.hostPeeked && !tv ? `👀 ${t.bids![id].amount}` : '✓ Sealed'}</span>
+                  : sealed ? <span className="st sealed mo-pop" data-testid={`sealed-${id}`}>{t.hostPeeked && !tv ? `👀 ${t.bids![id].amount}` : '✓ Sealed'}</span>
                   : <span className="st bidding">…bidding</span>}
               </div>
             );
@@ -268,7 +269,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return { badge: 'READY', badgeClass: 'bidding', action: '✅ Everyone has a gift!', details: 'The game is complete, or you can continue with more rounds.' };
     }
     if (game.phase === 'endgame') return { badge: 'ENDGAME', badgeClass: 'duel', action: '🎰 Misfit Lottery', details: 'Giftless players compete for misfit gifts!' };
-    return finalTally(game);
+    return { ...finalTally(game), buttons: <button className="btn btn-primary" data-testid="play-again" onClick={() => { if (confirm('Start a new game with the same people? Gifts, chips and scores start again.')) send({ type: 'admin_play_again' }); }}>🔁 Play again with the same people</button> };
   }
 
   switch (t.phase) {
@@ -524,11 +525,13 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         badge: `${info?.emoji ?? '🎮'} ${(info?.label ?? 'Mini-game').toUpperCase()}`, badgeClass: 'duel',
         action: `${nm(game, t.challengerId)} vs ${nm(game, t.defenderId)}: ${info?.label ?? 'a mini-game'} decides it`,
         details: arenaFull.full ? <p className="arena-full-note">Showing full screen</p> : <ArenaStage />,
-        buttons: over ? <button className="btn btn-primary" data-testid="arena-continue" onClick={() => send({ type: 'arena_continue' })}>▶️ On to the duel</button> : <>
+        buttons: over && av?.practice ? <button className="btn btn-primary" data-testid="arena-skip-practice" onClick={() => send({ type: 'arena_skip_practice' })}>⏭️ Now for real</button>
+          : over ? <button className="btn btn-primary" data-testid="arena-continue" onClick={() => send({ type: 'arena_continue' })}>▶️ On to the duel</button> : <>
           {!arenaFull.full && <button className="btn btn-secondary" data-testid="arena-full-open" onClick={() => arenaFull.setFull(true)}>⛶ Full screen</button>}
           {briefing ? null : paused
             ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
             : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>}
+          {av?.practice && !briefing && <button className="btn btn-primary" data-testid="arena-skip-practice" onClick={() => send({ type: 'arena_skip_practice' })}>⏭️ Enough practice</button>}
           {!briefing && <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => { if (confirm('Call it a no contest? Nobody wins the game; you pick the duel winner.')) send({ type: 'arena_no_contest' }); }}>⚖️ No contest</button>}
           <button className="btn btn-secondary" data-testid="arena-cancel" onClick={() => { if (confirm('Cancel the game? Nobody wins it; you pick the duel winner.')) send({ type: 'arena_cancel' }); }}>⏹️ Cancel</button>
         </>,

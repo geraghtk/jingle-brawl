@@ -28,6 +28,17 @@ export const isBot = (game: Game, id: PlayerId) => !!game.players?.[id]?.isBot;
 export const botIds = (game: Game): PlayerId[] => Object.keys(game.players || {}).filter((id) => isBot(game, id));
 export const humans = (game: Game): PlayerId[] => Object.keys(game.players || {}).filter((id) => !isBot(game, id));
 
+/** Team games: a player whose phone has dropped out is played by the room until they are back, so their
+ *  team is not a pair of hands short (their job is still theirs: the stand-in presses what a simulated hand
+ *  would, exactly as a practice bot does). Only while a team game is running; never a duel, a bid or a vote. */
+export function standIns(game: Game): PlayerId[] {
+  const a = arenaOf(game);
+  if (a?.lifecycle !== 'active' || a.mode !== 'captain_teams') return [];
+  return a.participants.filter((id) => { const p = game.players?.[id]; return !!p && !p.isBot && p.connected === false; });
+}
+/** Everyone the room plays right now: the practice bots, and the stand-ins. */
+export const roomPlayed = (game: Game): PlayerId[] => [...botIds(game), ...standIns(game)];
+
 /** A new bot in the lobby. */
 export function addBot(game: Game, ctx: { now: number; rng: Rng }): Plan {
   if (game.phase !== 'lobby') return refuse('Practice bots are for the lobby only');
@@ -57,6 +68,7 @@ export function removeBots(game: Game): Plan {
 
 /** Is there anything on that a bot plays (the room server keeps its tick going while there is)? */
 export function botsBusy(game: Game): boolean {
+  if (standIns(game).length) return true;
   const bots = botIds(game);
   if (!bots.length) return false;
   const a = arenaOf(game);
@@ -74,7 +86,7 @@ function knack(id: PlayerId, seed: number): number {
 
 /** What one bot does on this tick, if anything. */
 export function botMove(game: Game, id: PlayerId, ctx: { now: number; rng: Rng }): Plan | null {
-  if (!isBot(game, id)) return null;
+  if (!isBot(game, id) && !standIns(game).includes(id)) return null;
   const a = arenaOf(game);
   if (a?.lifecycle === 'active' && a.participants.includes(id)) {
     if (ctx.rng() >= (PACE[a.gameId] ?? 0.2)) return null;

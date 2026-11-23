@@ -1,9 +1,9 @@
 // The phone's game screen: header, the card for the current moment, my gift, the table.
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { observe as mascotsObserve } from '../ui/mascots';
-import { MvpReveal } from '../ui/MvpReveal';
+import { Recap } from '../ui/Recap';
 import { BidPanel } from './BidPanel';
 import { DrawOffCard } from './DrawOffCard';
 import { GremlinCard } from './GremlinCard';
@@ -18,7 +18,9 @@ import { ReprisalCard } from './ReprisalCard';
 import { StatusCard } from './StatusCard';
 import { getDef } from '../core/minigames/registry';
 import { useServerNow } from '../net/hooks';
-import { Briefing } from '../ui/Briefing';
+import { Briefing, GoFlash, PracticeRibbon, useGo } from '../ui/Briefing';
+import { Ceremony } from '../ui/Ceremony';
+import { useWakeLock } from '../ui/wakeLock';
 import { buzz } from '../ui/sound';
 import { VerdictModal } from './VerdictModal';
 
@@ -31,6 +33,21 @@ const ARENA_CARDS: Record<string, ComponentType> = {
   mecha_santa: MechaCard,
   elf_tower_wars: TowerCard,
 };
+
+/** How the mini-game ended, over the game's own card (it comes up a moment after the ending). */
+function ArenaCeremony() {
+  const { game, me } = usePlayer();
+  const now = useServerNow(250);
+  return game.arenaView ? <Ceremony game={game} av={game.arenaView} now={now} where="phone" me={me} /> : null;
+}
+
+/** A practice round is on: the phone says so too. */
+function ArenaPractice() {
+  const { game } = usePlayer();
+  const now = useServerNow(500);
+  const av = game.arenaView;
+  return av?.practice && av.lifecycle !== 'briefing' ? <PracticeRibbon endsAt={av.lifecycle === 'active' ? av.practice.endsAt : undefined} now={now} /> : null;
+}
 
 /** Before a mini-game starts: how to play it and this phone's Ready button. */
 function ArenaBriefing() {
@@ -45,7 +62,6 @@ function ArenaBriefing() {
 export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const { game, me, player, cfg } = usePlayer();
   const t = game.currentTurn;
-  const [mvpSeen, setMvpSeen] = useState(false);
 
   // Santa / elf / reindeer: only my own moments
   useEffect(() => { mascotsObserve(game, { me }); }, [game, me]);
@@ -60,6 +76,9 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
   const ArenaCard = arenaGame ? ARENA_CARDS[arenaGame] : undefined;
   const briefing = arena && game.arenaView?.lifecycle === 'briefing' && !!ArenaCard;   // the instructions, before the game's own card
   const showStatus = !iBid && !myReprisal && !party && !drawOff && !arena;
+  const go = useGo(game.arenaView?.lifecycle, game.arenaView?.instanceId);
+  useEffect(() => { if (go) buzz(30); }, [go]);
+  useWakeLock(!!(party || drawOff || arena));          // a phone must not doze off in the middle of a mini-game
 
   const gift = player.giftId ? game.gifts?.[player.giftId] : undefined;
   const others = Object.entries(game.players || {}).filter(([id]) => id !== me);
@@ -83,6 +102,9 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
         : arena && (ArenaCard ? <ArenaCard />
         // a game this page doesn't know (the room is newer than the page)
         : <div className="card" role="status" data-testid="arena-unknown"><p>This game needs a newer app. Reload this page to play.</p></div>)}
+      {arena && go && <GoFlash />}
+      {arena && game.arenaView?.practice && <ArenaPractice />}
+      {arena && game.arenaView?.result && <ArenaCeremony />}
 
       {(gift || game.phase !== 'lobby') && (
         <div className="table-rows">
@@ -117,7 +139,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
 
       <button className="leave-link" onClick={onLeave}>Leave game</button>
       <VerdictModal />
-      {game.phase === 'ended' && !mvpSeen && <MvpReveal game={game} me={me} variant="phone" onClose={() => setMvpSeen(true)} />}
+      {game.phase === 'ended' && <Recap game={game} me={me} where="phone" />}
     </div>
   );
 }

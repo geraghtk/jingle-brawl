@@ -11,13 +11,19 @@
 //   a wall    stops the walk until the arms have hit it enough.
 //   a gap     needs a jump: both legs within a moment of each other. A step into it falls in.
 //   a boost   is there to be grabbed on the way past.
+//   a climb   a tall thing with rungs: the arms grab hold, then the legs go up it a rung each, in turn. The
+//             same leg twice slips down a rung; leaning right over drops it off.
+//   a rope    over a gap too wide to jump: the arms grab it, it swings by the clock, and both legs jump to
+//             let go. On the forward part of the swing it lands across; otherwise it drops into the gap.
+//             A push from the balance while it swings makes the swing bigger (the good moment longer).
+//   ice       a stretch where the lean grows faster.
 // Nothing is refused for being the wrong moment (Kevin, 2026-11-22: the fun is having to call it out): a
 // part moves whenever it is told to. A step while a foot is still in the air trips it; a step at a wall
 // bonks into it; the arms swung at nothing, or a jump where there is no gap, throw it off balance or
 // waste the time. Every mistake costs time and mends itself: there is no dead end.
 // Versioned: a result says which rules made it.
 
-export const WALKER_VERSION = '1';
+export const WALKER_VERSION = '2';
 export type Leg = 0 | 1;
 export const NO_LEG = -1;
 
@@ -44,19 +50,32 @@ export interface WalkParams {
   boostMs: number;
   graceMs: number;        // a step this close to the last foot landing is only early, not a trip (it is ignored)
   hop: number;            // how far a jump goes where there is no gap (strides): slower than walking
+  rungs: number;          // how many rungs a climb has (unless it says)
+  rungMs: number;         // one rung
+  slipMs: number;         // a slip on the rungs, or letting go of them
+  pullMs: number;         // the arms pulling it in to what they grabbed
+  vaultMs: number;        // over the top of a climb and down the far side
+  vault: number;          // how far beyond the climb it comes down
+  swingMs: number;        // a rope: there and back
+  swingGood: number;      // let go with the swing (-1 back to 1 forward) at least this far forward...
+  swingPumped: number;    // ...or this far, once the balance has given it a push
+  iceLean: number;        // on ice the lean grows this many times as fast
 }
 export const DEFAULT_WALK: WalkParams = {
   version: WALKER_VERSION, stride: 2, stepMs: 520, strideMs: 320, strideBonus: 1.3, stumbleMs: 1100, kick: 0.11, leanRate: 0.55, push: 0.3, pushMs: 220,
   toppleMs: 2500, wallHits: 4, hitMs: 260, reach: 2.4, jumpWindowMs: 900, jumpMs: 800, misjumpMs: 700, climbMs: 2600, boost: 7, boostMs: 900, graceMs: 130, hop: 0.5,
+  rungs: 4, rungMs: 380, slipMs: 700, pullMs: 300, vaultMs: 650, vault: 3, swingMs: 1800, swingGood: 0.5, swingPumped: 0.1, iceLean: 2,
 };
 
-export type ObstacleKind = 'wall' | 'gap' | 'boost';
-export interface Obstacle { id: string; kind: ObstacleKind; at: number; width?: number }
+export type ObstacleKind = 'wall' | 'gap' | 'boost' | 'climb' | 'rope' | 'ice';
+/** `width`: a gap's, a rope's gap's, a stretch of ice's. `rungs`: a climb's (else the params'). */
+export interface Obstacle { id: string; kind: ObstacleKind; at: number; width?: number; rungs?: number }
 export interface Course { length: number; seed: number; obstacles: Obstacle[] }
 
-export type MoveKind = 'step' | 'jump' | 'boost';
+export type MoveKind = 'step' | 'jump' | 'boost' | 'pull' | 'rung' | 'vault';
 export type Busy = 'stumble' | 'topple' | 'misjump' | 'climb';
-export type WalkEventKind = 'step' | 'stride' | 'stumble' | 'topple' | 'bump' | 'hit' | 'smashed' | 'crouch' | 'jump' | 'misjump' | 'fell' | 'boost' | 'saved' | 'finish' | 'whiff';
+export type WalkEventKind = 'step' | 'stride' | 'stumble' | 'topple' | 'bump' | 'hit' | 'smashed' | 'crouch' | 'jump' | 'misjump' | 'fell' | 'boost' | 'saved' | 'finish' | 'whiff'
+  | 'grabbed' | 'rung' | 'slip' | 'topped' | 'dropped' | 'pump';
 export interface WalkEvent { n: number; at: number; kind: WalkEventKind; leg?: number; id?: string }
 
 export interface Walker {
@@ -76,6 +95,10 @@ export interface Walker {
   fell: number;
   /** A jump begun by one leg, waiting for the other. */
   crouch?: { leg: number; at: number };
+  /** Holding on to a climb (which rung it is on) or a rope (swinging since `at`; `pumped`: the balance gave it a push). */
+  grip?: { id: string; kind: 'climb' | 'rope'; at: number; rung: number; pumped?: boolean };
+  /** Standing on ice: the lean grows faster (as of `leanAsOf`). */
+  slick?: boolean;
   /** Hits landed on each wall; the boosts taken. */
   hits: Record<string, number>;
   hitAt: number;
@@ -98,7 +121,8 @@ export const newWalker = (now: number): Walker => ({
 /** A stored walker loses its empty lists and maps: put them back. */
 export function wholeWalker(w: Walker): Walker {
   return { ...w, hits: { ...(w.hits || {}) }, taken: [...(w.taken || [])], events: w.events || [], n: w.n || 0, steps: w.steps || 0, slips: w.slips || 0,
-    finishedAt: w.finishedAt || 0, busyUntil: w.busyUntil || 0, landedAt: w.landedAt || 0, pushedAt: w.pushedAt || 0, hitAt: w.hitAt || 0, lean: w.lean || 0, pos: w.pos || 0, fell: w.fell || 0 };
+    finishedAt: w.finishedAt || 0, busyUntil: w.busyUntil || 0, landedAt: w.landedAt || 0, pushedAt: w.pushedAt || 0, hitAt: w.hitAt || 0, lean: w.lean || 0, pos: w.pos || 0, fell: w.fell || 0,
+    ...(w.grip ? { grip: { ...w.grip, rung: w.grip.rung || 0 } } : {}) };
 }
 
 /** Every time in the walk moved on by `ms` (the game was paused that long). */
@@ -109,6 +133,7 @@ export function shiftWalker(walker: Walker, ms: number): Walker {
     ...w, leanAsOf: w.leanAsOf + ms, landedAt: later(w.landedAt), pushedAt: later(w.pushedAt), busyUntil: later(w.busyUntil), hitAt: later(w.hitAt), finishedAt: later(w.finishedAt),
     ...(w.move ? { move: { ...w.move, at: w.move.at + ms, lands: w.move.lands + ms } } : {}),
     ...(w.crouch ? { crouch: { ...w.crouch, at: w.crouch.at + ms } } : {}),
+    ...(w.grip ? { grip: { ...w.grip, at: w.grip.at + ms } } : {}),
     events: w.events.map((e) => ({ ...e, at: e.at + ms })),
   };
 }
@@ -121,9 +146,12 @@ export function chance(seed: number, i: number): number {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
+/** How fast the lean grows where it stands (faster on ice). */
+const rateOf = (w: Pick<Walker, 'slick'>, p: Pick<WalkParams, 'leanRate'> & Partial<Pick<WalkParams, 'iceLean'>>) => p.leanRate * (w.slick ? p.iceLean ?? DEFAULT_WALK.iceLean : 1);
+
 /** How far it leans at `now` (it grows by itself; it stops at flat on its side). */
-export function leanAt(w: Pick<Walker, 'lean' | 'leanAsOf'>, now: number, p: Pick<WalkParams, 'leanRate'> = DEFAULT_WALK): number {
-  const v = (w.lean || 0) * Math.exp(p.leanRate * Math.max(0, now - w.leanAsOf) / 1000);
+export function leanAt(w: Pick<Walker, 'lean' | 'leanAsOf' | 'slick'>, now: number, p: Pick<WalkParams, 'leanRate'> & Partial<Pick<WalkParams, 'iceLean'>> = DEFAULT_WALK): number {
+  const v = (w.lean || 0) * Math.exp(rateOf(w, p) * Math.max(0, now - w.leanAsOf) / 1000);
   return Math.max(-1, Math.min(1, v));
 }
 /** When it will fall over if nobody pushes it back (null: it is standing straight). */
@@ -131,7 +159,7 @@ export function topplesAt(w: Walker, p: WalkParams = DEFAULT_WALK): number | nul
   const a = Math.abs(w.lean || 0);
   if (a < EPS || w.busy === 'topple') return null;
   if (a >= 1) return w.leanAsOf;
-  return w.leanAsOf + Math.ceil(Math.log(1 / a) / p.leanRate * 1000);
+  return w.leanAsOf + Math.ceil(Math.log(1 / a) / rateOf(w, p) * 1000);
 }
 
 /** Where it is at `now`: a move in the air is part way along. */
@@ -143,10 +171,19 @@ export function posAt(w: Pick<Walker, 'pos' | 'move'>, now: number): number {
   return m.from + (m.to - m.from) * f;
 }
 
-const cleared = (w: Walker, o: Obstacle, p: WalkParams) => (o.kind === 'wall' ? (w.hits[o.id] || 0) >= p.wallHits : o.kind === 'gap' ? w.pos >= o.at + (o.width || 0) - EPS : true);
-/** The wall or gap that is next in the way (not broken, not crossed), or null. */
+const cleared = (w: Walker, o: Obstacle, p: WalkParams) => (o.kind === 'wall' ? (w.hits[o.id] || 0) >= p.wallHits
+  : o.kind === 'gap' || o.kind === 'rope' ? w.pos >= o.at + (o.width || 0) - EPS : o.kind === 'climb' ? w.taken.includes(o.id) : true);
+/** What stops a walk until it is dealt with (a boost and ice do not). */
+const inTheWay = (o: Obstacle) => o.kind !== 'boost' && o.kind !== 'ice';
+/** Is `pos` on a stretch of ice? */
+export const onIce = (pos: number, course: Course) => course.obstacles.some((o) => o.kind === 'ice' && pos >= o.at - EPS && pos < o.at + (o.width || 0) - EPS);
+/** How many rungs this climb has. */
+export const rungsOf = (o: Pick<Obstacle, 'rungs'> | undefined, p: Pick<WalkParams, 'rungs'> = DEFAULT_WALK) => Math.max(1, Math.round(o?.rungs || p.rungs));
+/** Where a rope's swing is at `now`: -1 (right back) to 1 (right forward); it starts at the back. */
+export const swingAt = (grip: { at: number }, now: number, p: Pick<WalkParams, 'swingMs'> = DEFAULT_WALK) => -Math.cos((2 * Math.PI * Math.max(0, now - grip.at)) / p.swingMs);
+/** The wall, gap, climb or rope that is next in the way (not broken, not crossed), or null. */
 export function blocker(w: Walker, course: Course, p: WalkParams = DEFAULT_WALK): Obstacle | null {
-  return course.obstacles.filter((o) => o.kind !== 'boost' && !cleared(w, o, p) && o.at >= w.pos - EPS).sort((a, b) => a.at - b.at)[0] || null;
+  return course.obstacles.filter((o) => inTheWay(o) && !cleared(w, o, p) && o.at >= w.pos - EPS).sort((a, b) => a.at - b.at)[0] || null;
 }
 /** How far it can walk before something stops it. */
 const limit = (w: Walker, course: Course, p: WalkParams) => blocker(w, course, p)?.at ?? Infinity;
@@ -159,6 +196,26 @@ export function gapAhead(w: Walker, course: Course, p: WalkParams = DEFAULT_WALK
 export function wallAhead(w: Walker, course: Course, p: WalkParams = DEFAULT_WALK): Obstacle | null {
   const b = blocker(w, course, p);
   return b && b.kind === 'wall' && b.at - w.pos <= p.reach + EPS ? b : null;
+}
+/** The climb or rope the arms can reach (and are not yet holding), or null. */
+export function gripAhead(w: Walker, course: Course, p: WalkParams = DEFAULT_WALK): Obstacle | null {
+  const b = blocker(w, course, p);
+  return !w.grip && b && (b.kind === 'climb' || b.kind === 'rope') && b.at - w.pos <= p.reach + EPS ? b : null;
+}
+/** How far up a climb it is at `now`, 0 (the foot) to 1 (the top); 0 when it is not on one. */
+export function climbAt(w: Walker, now: number, course: Course, p: WalkParams = DEFAULT_WALK): number {
+  if (w.grip?.kind !== 'climb') return 0;
+  const n = rungsOf(course.obstacles.find((o) => o.id === w.grip!.id), p), m = w.move;
+  const part = m && m.kind === 'rung' ? Math.max(0, Math.min(1, (now - m.at) / Math.max(1, m.lands - m.at))) : 0;
+  return Math.min(1, (w.grip.rung + part) / n);
+}
+/** What is coming up within `range` (or is being dealt with now): the next thing not yet behind it, of any kind. */
+export function comingUp(w: Walker, now: number, course: Course, p: WalkParams = DEFAULT_WALK, range = 12): Obstacle | null {
+  if (w.finishedAt) return null;
+  if (w.grip) return course.obstacles.find((o) => o.id === w.grip!.id) || null;
+  const at = posAt(w, now);
+  return course.obstacles.filter((o) => (o.kind === 'boost' ? !w.taken.includes(o.id) && o.at >= at - 0.5 : o.kind === 'ice' ? at < o.at + (o.width || 0) : !cleared(w, o, p) && o.at >= w.pos - EPS) && o.at - at <= range)
+    .sort((a, b) => a.at - b.at)[0] || null;
 }
 /** A boost within reach that has not been taken, or null. */
 export function boostNear(w: Walker, course: Course, now: number, p: WalkParams = DEFAULT_WALK): Obstacle | null {
@@ -198,11 +255,35 @@ export function settle(walker: Walker, now: number, course: Course, p: WalkParam
       delete w.move;
       w.landedAt = t;
       if (m.kind === 'step') { w.last = m.leg; w.steps += 1; kickLean(w, t, (m.leg === 0 ? -1 : 1) * p.kick * (0.4 + 1.2 * chance(course.seed, w.steps)), p); }
+      else if (m.kind === 'pull') { w.last = NO_LEG; kickLean(w, t, 0, p); }
+      else if (m.kind === 'rung') {
+        // a rung higher; the last one and it is over the top
+        w.last = m.leg; w.steps += 1;
+        kickLean(w, t, (m.leg === 0 ? -1 : 1) * p.kick * (0.4 + 1.2 * chance(course.seed, w.steps)), p);
+        if (w.grip) {
+          w.grip.rung += 1;
+          if (w.grip.rung >= rungsOf(course.obstacles.find((o) => o.id === w.grip!.id), p)) {
+            w.taken = [...w.taken, w.grip.id];
+            say(w, { at: t, kind: 'topped', id: w.grip.id });
+            delete w.grip;
+            w.last = NO_LEG;
+            w.move = { kind: 'vault', leg: NO_LEG, at: t, lands: t + p.vaultMs, from: w.pos, to: Math.min(course.length, w.pos + p.vault, limit(w, course, p)) };
+          }
+        }
+      }
       else { w.last = NO_LEG; kickLean(w, t, (chance(course.seed, 7000 + w.n) < 0.5 ? -1 : 1) * p.kick * 1.5, p); }
+      w.slick = onIce(w.pos, course);
       if (w.pos >= course.length - EPS) { w.finishedAt = t; w.lean = 0; say(w, { at: t, kind: 'finish' }); break; }
       continue;
     }
     if (w.crouch && w.crouch.at + p.jumpWindowMs === t) {
+      if (w.grip?.kind === 'rope') {
+        // one leg let go of the rope alone: down it goes
+        say(w, { at: t, kind: 'fell', id: w.grip.id });
+        delete w.grip;
+        stall(w, t, 'climb', p.climbMs);
+        continue;
+      }
       say(w, { at: t, kind: 'misjump', leg: w.crouch.leg });
       stall(w, t, 'misjump', p.misjumpMs);
       continue;
@@ -213,6 +294,8 @@ export function settle(walker: Walker, now: number, course: Course, p: WalkParam
     delete w.move;
     w.pos = Math.max(w.pos, stop);
     w.fell = w.lean < 0 ? -1 : 1;
+    delete w.grip;                                    // (off whatever it was holding on to)
+    w.slick = onIce(w.pos, course);
     w.lean = 0; w.leanAsOf = t + p.toppleMs; w.last = NO_LEG;
     say(w, { at: t, kind: 'topple' });
     stall(w, t, 'topple', p.toppleMs);
@@ -228,11 +311,31 @@ export function step(walker: Walker, leg: Leg, now: number, course: Course, p: W
   const w = wholeWalker(walker);
   if (w.finishedAt) return { error: 'Over the line!' };
   if (now < w.busyUntil) return { error: 'Wait: getting up' };
+  if (w.grip) {
+    if (w.grip.kind === 'rope') return { error: 'Hanging on: jump to let go' };
+    // on the rungs: a rung each, in turn; the same leg twice (or a leg before the last is on its rung) slips down one
+    const early = moving(w, now);
+    if (early && (w.move!.kind !== 'rung' || now >= w.move!.lands - p.graceMs)) return { error: 'Too soon' };
+    if (early || w.last === leg) {
+      delete w.move;
+      w.grip.rung = Math.max(0, w.grip.rung - 1);
+      say(w, { at: now, kind: 'slip', leg, id: w.grip.id });
+      stall(w, now, 'stumble', p.slipMs);
+      w.last = NO_LEG;
+      kickLean(w, now, (leg === 0 ? -1 : 1) * p.kick, p);
+      return { walker: w };
+    }
+    w.move = { kind: 'rung', leg, at: now, lands: now + p.rungMs, from: w.pos, to: w.pos };
+    say(w, { at: now, kind: 'rung', leg, id: w.grip.id });
+    return { walker: w };
+  }
   if (moving(w, now)) {
     // a foot (or all of it) is still in the air: a hair early is let go, in a jump or a boost nothing happens,
     // otherwise it trips over its own feet where it is
     if (w.move!.kind !== 'step' || now >= w.move!.lands - p.graceMs) return { error: 'Too soon: wait for the foot to land' };
+    kickLean(w, now, 0, p);
     w.pos = Math.min(posAt(w, now), limit({ ...w, move: undefined }, course, p));
+    w.slick = onIce(w.pos, course);
     delete w.move;
     say(w, { at: now, kind: 'stumble', leg });
     stall(w, now, 'stumble', p.stumbleMs);
@@ -250,8 +353,8 @@ export function step(walker: Walker, leg: Leg, now: number, course: Course, p: W
   const b = blocker(w, course, p);
   const room = (b?.at ?? Infinity) - w.pos;
   if (b && room <= EPS) {
-    if (b.kind === 'wall') {
-      // straight into the wall: a bonk, and a moment to shake it off
+    if (b.kind === 'wall' || b.kind === 'climb') {
+      // straight into the wall (or the foot of a climb nobody has hold of): a bonk, and a moment to shake it off
       say(w, { at: now, kind: 'bump', id: b.id });
       stall(w, now, 'stumble', p.stumbleMs);
       w.last = NO_LEG;
@@ -276,6 +379,14 @@ export function step(walker: Walker, leg: Leg, now: number, course: Course, p: W
 export function jump(walker: Walker, leg: Leg, now: number, course: Course, p: WalkParams = DEFAULT_WALK): Did {
   const w = wholeWalker(walker);
   if (!free(w, now)) return { error: 'Not now' };
+  if (w.grip?.kind === 'climb') {
+    // a jump off the rungs: it lets go and is back at the bottom
+    say(w, { at: now, kind: 'dropped', id: w.grip.id });
+    delete w.grip;
+    stall(w, now, 'stumble', p.slipMs);
+    w.last = NO_LEG;
+    return { walker: w };
+  }
   const gap = gapAhead(w, course, p);
   if (!w.crouch) {
     w.crouch = { leg, at: now };
@@ -283,7 +394,24 @@ export function jump(walker: Walker, leg: Leg, now: number, course: Course, p: W
     return { walker: w };
   }
   if (w.crouch.leg === leg) return { error: 'Waiting for the other leg!' };
+  const called = w.crouch.at;
   delete w.crouch;
+  if (w.grip?.kind === 'rope') {
+    // both legs let go of the rope: forward enough in its swing and it lands across, else it drops into the gap.
+    // The moment that counts is the first leg's (when the jump was called): the second only has to follow in time.
+    const rope = course.obstacles.find((o) => o.id === w.grip!.id);
+    const good = !!rope && swingAt(w.grip, called, p) >= (w.grip.pumped ? p.swingPumped : p.swingGood);
+    delete w.grip;
+    if (!good || !rope) {
+      say(w, { at: now, kind: 'fell', ...(rope ? { id: rope.id } : {}) });
+      stall(w, now, 'climb', p.climbMs);
+      w.last = NO_LEG;
+      return { walker: w };
+    }
+    w.move = { kind: 'jump', leg: NO_LEG, at: now, lands: now + p.jumpMs, from: w.pos, to: Math.min(course.length, rope.at + (rope.width || 0) + 0.5) };
+    say(w, { at: now, kind: 'jump', id: rope.id });
+    return { walker: w };
+  }
   const to = gap ? gap.at + (gap.width || 0) + 0.5 : Math.min(w.pos + p.stride * p.hop, limit(w, course, p));
   w.move = { kind: 'jump', leg: NO_LEG, at: now, lands: now + p.jumpMs, from: w.pos, to: Math.min(course.length, to) };
   say(w, { at: now, kind: 'jump', ...(gap ? { id: gap.id } : {}) });
@@ -296,6 +424,12 @@ export function push(walker: Walker, dir: -1 | 1, now: number, p: WalkParams = D
   if (w.finishedAt) return { error: 'Over the line!' };
   if (w.busy === 'topple' && now < w.busyUntil) return { error: 'Wait: getting up' };
   if (now < w.pushedAt + p.pushMs) return { error: 'Easy!' };
+  if (w.grip?.kind === 'rope') {
+    // on the rope there is nothing to balance: a push swings it harder (once is enough)
+    w.pushedAt = now;
+    if (!w.grip.pumped) { w.grip.pumped = true; say(w, { at: now, kind: 'pump', id: w.grip.id }); }
+    return { walker: w };
+  }
   const before = leanAt(w, now, p);
   kickLean(w, now, dir * p.push, p);
   w.pushedAt = now;
@@ -328,7 +462,20 @@ export function smash(walker: Walker, now: number, course: Course, p: WalkParams
 export function grab(walker: Walker, now: number, course: Course, p: WalkParams = DEFAULT_WALK): Did {
   const w = wholeWalker(walker);
   if (w.finishedAt || now < w.busyUntil) return { error: 'Not now' };
+  if (w.grip) return { error: 'Holding on!' };
   const b = boostNear(w, course, now, p);
+  const hold = b ? null : gripAhead(w, course, p);
+  if (hold) {
+    // a climb or a rope in reach: the arms take hold and pull it in (not while a foot is in the air)
+    if (!free(w, now)) return { error: 'Not yet' };
+    delete w.crouch;
+    w.grip = { id: hold.id, kind: hold.kind as 'climb' | 'rope', at: now, rung: 0 };
+    if (hold.at - w.pos > EPS) w.move = { kind: 'pull', leg: NO_LEG, at: now, lands: now + p.pullMs, from: w.pos, to: hold.at };
+    if (hold.kind === 'rope') { w.lean = 0; w.leanAsOf = now; }       // hanging: there is nothing to balance
+    w.hitAt = now; w.last = NO_LEG;
+    say(w, { at: now, kind: 'grabbed', id: hold.id });
+    return { walker: w };
+  }
   if (!b) return now < w.hitAt + p.hitMs ? { error: 'Easy!' } : whiff(w, now, course, p);
   const from = posAt(w, now);
   w.taken = [...w.taken, b.id];

@@ -29,6 +29,8 @@ export const CARD_TIPS: Record<string, string> = {
 /** Every picture the game draws (a test checks each file is there). */
 export const TOWER_ART = [
   ...['soldier', 'tank', 'mouse', 'snow', 'cannon', 'frost', 'workshop'].flatMap((n) => [`${n}-a`, `${n}-b`]),
+  // a tower built again on its spot has a picture of its own for each level (Kevin, 2026-11-23: an upgrade should show)
+  ...['snow', 'cannon', 'frost'].flatMap((n) => [2, 3].flatMap((level) => [`${n}${level}-a`, `${n}${level}-b`])),
   'pine', 'snowman', 'gifts', 'cane', 'field',
 ];
 const KNOWN = new Set(TOWER_ART);
@@ -44,9 +46,12 @@ export function UnitArt({ kind, color, flip, style }: { kind: string; color: str
   return <img src={artSrc(kind, color)} alt="" draggable={false} style={{ ...fit, ...style, transform: `${style?.transform || ''}${flip ? ' scaleX(-1)' : ''}` }} />;
 }
 
-/** A tower on its spot (it aims to the right: flipped for the team on the right). */
-export function TowerArt({ kind, color, flip, style }: { kind: string; color: string; flip?: boolean; style?: CSSProperties }) {
-  return <img src={artSrc(kind, color)} alt="" draggable={false} style={{ ...fit, ...style, transform: flip ? 'scaleX(-1)' : undefined }} />;
+/** The picture of a tower at a level (level 1, or a level with no picture of its own: the plain one). */
+export const towerPiece = (kind: string, level = 1) => (level > 1 && KNOWN.has(`${kind}${Math.min(3, level)}-a`) ? `${kind}${Math.min(3, level)}` : kind);
+
+/** A tower on its spot (it aims to the right: flipped for the team on the right), as grand as its level. */
+export function TowerArt({ kind, color, flip, style, level }: { kind: string; color: string; flip?: boolean; style?: CSSProperties; level?: number }) {
+  return <img src={artSrc(towerPiece(kind, level), color)} alt="" draggable={false} style={{ ...fit, ...style, transform: flip ? 'scaleX(-1)' : undefined }} />;
 }
 
 /** A team's workshop: `health` 0 to 1 (it leans, darkens and smokes as it goes: the smoke is the stage's). */

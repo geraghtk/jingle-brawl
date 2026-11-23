@@ -32,11 +32,21 @@ export interface ArenaInstance {
   /** When the game itself ended (not when the host stopped it): its ending stays on the screens for RESULT_HOLD_MS. */
   endedAt?: number;
   /** Before it starts (lifecycle `briefing`): who has said they are ready, and when the 3, 2, 1 ends. */
-  briefing?: { ready: Record<PlayerId, true>; goAt?: number };
+  briefing?: { ready: Record<PlayerId, true>; goAt?: number; real?: true };
+  /** A practice round (the first time a game comes up in a night): nothing it decides counts, and when its
+   *  time is up (`endsAt`, set as it begins) or it ends by itself the same game starts again for real. */
+  practice?: { on: true; endsAt?: number };
 }
 
 /** Once everyone is ready: 3, 2, 1 and the game starts. */
 export const READY_COUNT_MS = 3000;
+
+/** A practice round lasts this long. */
+export const PRACTICE_MS = 25_000;
+/** After practice: "now for real", and a count this long. */
+export const REAL_COUNT_MS = 4000;
+/** A practice that ended by itself is on screen this long before the real game is set up. */
+export const PRACTICE_END_MS = 1500;
 
 /** A finished game's ending stays up this long before the duel takes over (the host can move on sooner). */
 export const RESULT_HOLD_MS = 6000;
@@ -50,7 +60,9 @@ export interface ArenaView {
   endedAt?: number;
   participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; result?: GameResult; view: unknown;
   /** The instructions are up: who is ready so far, and (once everyone is) when the countdown ends. */
-  briefing?: { ready: PlayerId[]; goAt?: number };
+  briefing?: { ready: PlayerId[]; goAt?: number; real?: true };
+  /** A practice round is on: nothing counts; it ends at `endsAt` and the game starts again for real. */
+  practice?: { on: true; endsAt?: number };
 }
 
 const RECENT = 64;
@@ -73,7 +85,7 @@ function commit(tx: Tx, a: ArenaInstance, tr: Transition<unknown>, now: number, 
 }
 
 /** Start a game inside the caller's transaction. With duelists (gift stakes) the mode must always resolve them. */
-export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; config?: unknown; briefing?: boolean },
+export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; participants: PlayerId[]; duelists?: [PlayerId, PlayerId]; config?: unknown; briefing?: boolean; practice?: boolean },
   ctx: { now: number; rng: Rng }): { error?: string } {
   const def = getDef(gameId);
   if (!def) return { error: `no game ${gameId}` };
@@ -89,6 +101,7 @@ export function startArena(tx: Tx, gameId: string, o: { mode: MatchMode; partici
   const a: ArenaInstance = {
     ...base, gameId, defVersion: def.version, config, lifecycle: 'active', stateVersion: 0, state: tr.state,
     deadlines: tr.deadlines || [], recent: [], overrides: [], startedAt: ctx.now,
+    ...(o.practice ? { practice: o.briefing ? { on: true as const } : { on: true as const, endsAt: ctx.now + PRACTICE_MS } } : {}),
   };
   commit(tx, a, tr, ctx.now);
   // the instructions first: the game is made but holds still (like a pause) until everyone is ready
@@ -140,7 +153,30 @@ export function arenaBegin(game: Game, now: number): Plan {
   const def = getDef(a.gameId);
   const state = def?.shiftTime ? def.shiftTime(a.state, Math.max(0, now - paused.at)) : a.state;
   const deadlines = Object.entries(paused.left || {}).map(([id, ms]) => ({ id, at: now + ms }));   // (stored state drops an empty map)
-  return new Tx(game).set('arena', { ...rest, state, lifecycle: 'active', deadlines, stateVersion: a.stateVersion + 1, startedAt: now }).plan();
+  return new Tx(game).set('arena', { ...rest, state, lifecycle: 'active', deadlines, stateVersion: a.stateVersion + 1, startedAt: now,
+    ...(a.practice ? { practice: { on: true as const, endsAt: now + PRACTICE_MS } } : {}) }).plan();
+}
+
+/** Practice is over (its time is up, it ended by itself, or the host has seen enough): the same game, the same
+ *  people and teams, set up afresh and for real after a short count. Nothing the practice decided is kept. */
+export function arenaForReal(game: Game, ctx: { now: number; rng: Rng }, byHost = false): Plan {
+  const a = arenaOf(game);
+  const def = getDef(a?.gameId);
+  if (!a?.practice || !def) return refuse('No practice round is on');
+  if (a.lifecycle === 'cancelled' || (a.lifecycle === 'completed' && a.endedAt == null)) return refuse('The host stopped the game');
+  const due = a.lifecycle === 'completed' ? ctx.now >= (a.endedAt || 0) + PRACTICE_END_MS : a.lifecycle === 'active' && a.practice.endsAt != null && ctx.now >= a.practice.endsAt;
+  if (!due && !byHost) return refuse('Still practising');
+  const instanceId = `${a.gameId}-${ctx.now.toString(36)}-${Math.floor(ctx.rng() * 1e6).toString(36)}`;
+  const base = { instanceId, mode: a.mode, participants: a.participants, duelists: a.duelists };
+  const tr = def.createInitialState(ctxFor(game, base, ctx.now, ctx.rng), a.config as never);
+  const left = Object.fromEntries((tr.deadlines || []).map((d) => [d.id, Math.max(0, d.at - ctx.now)]));
+  const ready = Object.fromEntries(a.participants.map((id) => [id, true as const]));
+  const next: ArenaInstance = {
+    ...base, gameId: a.gameId, defVersion: def.version, config: a.config, lifecycle: 'briefing', stateVersion: 0, state: tr.state, deadlines: [],
+    paused: { at: ctx.now, left }, briefing: { ready, goAt: ctx.now + REAL_COUNT_MS, real: true }, recent: [],
+    overrides: byHost && !due ? [{ at: ctx.now, what: 'practice cut short' }] : [], startedAt: ctx.now,
+  };
+  return new Tx(game).set('arena', next).event(`${def.emoji} That was practice. Now for real!`, 'duel').plan();
 }
 
 /** A participant's action: actor, lifecycle, version and id checked; the game validates the rest. */
@@ -202,6 +238,8 @@ export function arenaResume(game: Game, now: number): Plan {
   const deadlines = Object.entries(a.paused.left).map(([id, ms]) => ({ id, at: now + ms }));
   const { paused: _gone, ...rest } = a;
   void _gone;
+  const away = Math.max(0, now - a.paused.at);
+  if (rest.practice?.endsAt != null) rest.practice = { on: true, endsAt: rest.practice.endsAt + away };   // practice time stood still too
   // a game settled by the clock keeps times in its state: they move on by the length of the pause too
   const def = getDef(a.gameId);
   const state = def?.shiftTime ? def.shiftTime(a.state, Math.max(0, now - a.paused.at)) : a.state;
@@ -225,6 +263,7 @@ export function handoff(game: Game): Plan {
   const a = arenaOf(game);
   const t = game.currentTurn;
   if (!a?.result || !t) return refuse('The game is not over');
+  if (a.practice && a.endedAt != null) return refuse('That was only practice');           // (arenaForReal sets up the real one)
   const tx = new Tx(game).claim('currentTurn/arenaHandedOff', a.instanceId).set('arena', null);
   // the game's reward recommendation, as Party points (once: the claim above guards a second hand-off)
   const paid: string[] = [];
@@ -254,6 +293,7 @@ export function arenaView(a: ArenaInstance, viewer: { kind: 'host' } | { kind: '
   const view = !def ? null : viewer.kind === 'host' ? def.projectForHost(a.state, at) : viewer.kind === 'tv' ? def.projectForTv(a.state, at) : def.projectForPlayer(a.state, viewer.pid, at);
   return { instanceId: a.instanceId, gameId: a.gameId, mode: a.mode, lifecycle: a.lifecycle, stateVersion: a.stateVersion, ...(pausedAt != null ? { pausedAt } : {}),
     ...(a.endedAt != null ? { endedAt: a.endedAt } : {}),
-    ...(a.lifecycle === 'briefing' ? { briefing: { ready: Object.keys(a.briefing?.ready || {}), ...(a.briefing?.goAt ? { goAt: a.briefing.goAt } : {}) } } : {}),
+    ...(a.lifecycle === 'briefing' ? { briefing: { ready: Object.keys(a.briefing?.ready || {}), ...(a.briefing?.goAt ? { goAt: a.briefing.goAt } : {}), ...(a.briefing?.real ? { real: true as const } : {}) } } : {}),
+    ...(a.practice ? { practice: a.practice } : {}),
     participants: a.participants, ...(a.duelists ? { duelists: a.duelists } : {}), ...(a.result ? { result: a.result } : {}), view };
 }

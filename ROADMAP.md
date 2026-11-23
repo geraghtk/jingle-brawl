@@ -489,3 +489,47 @@ when built); an avalanche that needs two teammates on the same path within a mom
 the TV only); double energy for the last half minute; each card's hint says what it is for and what
 answers it. Not built: sending raising income (only if real players turtle). Open after simulation:
 hands that save for dear things still beat quick cheap spending; needs real players.
+
+**2026-11-23: the polish plan built (Kevin: "commit and push this and then implement the wider polish
+plan"; the fourth entry above was the plan).** Committed and pushed first (`76b4949`); everything below
+is uncommitted.
+- Phase 1: the motion kit (`ui/motion.css`, `ui/motion.tsx`); the opening (title lands, lines come up,
+  "GO!"; a long briefing now fits the TV: Mecha Santa's and Tower Wars's used to run off the bottom);
+  one results ceremony for all six runtime games on the TV, console and phones; phones kept awake in a
+  mini-game and the TV always (only works on https or localhost: on a plain Wi-Fi address browsers do
+  not offer it, so until hosting a phone can still dim).
+- Phase 2: Tower Wars (toys walk, towers recoil, a workshop is knocked and crumbles, a lost toy tips
+  over), Conveyor (a piece snaps on, the sleigh bounces, a binned toy tumbles, the raccoon is shooed),
+  Mecha Santa (snow at each footfall, a camera punch, a rocket trail); the main game's turn panel comes
+  in with the same moves. Not done: new entrances for Gremlin, Whack-an-Elf and Sketch-Off (they had
+  their own already), and nothing new for the bid reveal, verdict or chips (already animated).
+- Phase 3: the finale (MVP, podium, awards from what the night recorded, who got what, a picture to
+  save or share); Play again with the same people; a relaxed pace; an error boundary on every page.
+  Sketch-Off drawings to keep: not possible yet, a party game's drawings are thrown away when it ends
+  (keeping them is tied to open security item S4).
+- Phase 4: music (four original loops, TV on by default, console off); a practice round the first time
+  a game comes up in a night; the room plays a dropped teammate's part in a team game.
+- Nobody has heard the music or the new sound timings, and the animations were judged from stills: both
+  need Kevin's ears and eyes. Simulated tables and the persona agents now get the practice round too
+  (it is the default); `npm run analyze:economics` is unaffected (no chips or points move in practice).
+
+**2026-11-23 (second entry): Kevin played again and asked for more.**
+- Mecha Santa: a robot left behind walked off the TV (now: the picture splits in two, his choice); a new
+  course every race; chimney stacks to climb, rope swings, ice, with the TV and the phones saying what
+  is coming and what it takes (his choice: what, never when). He then found, in minutes, a robot
+  sinking through the stack it vaulted, a rope let-go snapping back to the edge, a climb that looked
+  like walking, and the old winner card under the new celebration card ("this is the sort of polish I
+  was expecting you to pick up on"): all fixed, the old cards removed, and motion is now judged from
+  burst captures (`tools/shots/burst.mjs`, `sheet.py`), not stills.
+- Tower Wars: towers no longer look as if they hover on the soldiers; levels 2 and 3 have their own
+  Flux pictures. Then ("the pacing is a bit too fast, like I'm always looking at my phone screen...
+  research some of the well rated tower defense games") it became rounds of plan, then watch (his
+  choice, after Clash Royale's card pace and Legion TD's build and battle phases), with six cards and
+  three reactions (his choice); the glue card went. Open after simulation: an all-toys rush beats the
+  simulated all-rounder about 7 in 10; uneven team sizes swing either way; between even teams few
+  battles end with a workshop falling (most are decided on health after five rounds).
+- Knockout: pads laid out by the robot's side of the ring (jab over haymaker facing the other robot,
+  block over dodge behind), and the robots change sides every round (a decider is tossed for).
+- A full polish sweep by three reviewers (every game and the main flow, in motion) was asked for; its
+  findings are recorded below when in.
+

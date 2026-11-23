@@ -41,6 +41,32 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     const nameOf = (id) => NAMES.find((n) => p[n].id === id);
     const A = pages[nameOf(first)], B = pages[nameOf(second)];
 
+    // the pads follow the robot's side of the ring: jab over haymaker in the column facing the other robot, block over
+    // dodge behind. Fighter 0 starts on the left of the TV (punches under the right thumb), fighter 1 on the right.
+    const box = async (page, id) => page.getByTestId(id).boundingBox();
+    const layout = async (page, side) => {
+      await expect(page.getByTestId('robot-pads')).toHaveAttribute('data-side', side);
+      const [jab, heavy, block, dodge] = [await box(page, 'robot-punch-jab'), await box(page, 'robot-punch-heavy'), await box(page, 'robot-block'), await box(page, 'robot-dodge')];
+      expect(Math.abs(jab.x - heavy.x)).toBeLessThan(2);                // jab and haymaker: one above the other
+      expect(Math.abs(block.x - dodge.x)).toBeLessThan(2);              // block and dodge: one above the other
+      expect(jab.y).toBeLessThan(heavy.y);                              // jab and block on top
+      expect(block.y).toBeLessThan(dodge.y);
+      expect(Math.abs(jab.y - block.y)).toBeLessThan(2);
+      if (side === 'left') expect(jab.x).toBeGreaterThan(block.x); else expect(jab.x).toBeLessThan(block.x);   // fists towards the other robot
+    };
+    await layout(A, 'left');
+    await layout(B, 'right');
+    await expect(A.getByTestId('robot-side')).toContainText('on the left');
+    // the next round they change sides: the TV's corners and both phones' pads follow
+    const sw = await H.dbGet(r.roomCode, 'arena');
+    await H.dbPut(r.roomCode, 'arena/state/left', 1);
+    await H.dbPut(r.roomCode, 'arena/stateVersion', sw.stateVersion + 20);
+    await layout(A, 'right');
+    await layout(B, 'left');
+    await expect(tv.locator('.nk-corner.left')).toHaveAttribute('data-testid', `robot-corner-${second}`);
+    await H.dbPut(r.roomCode, 'arena/state/left', 0);
+    await H.dbPut(r.roomCode, 'arena/stateVersion', sw.stateVersion + 40);
+    await layout(A, 'left');
     // before the bell the pads do nothing; a phone that isn't fighting is told to watch
     await expect(A.getByTestId('robot-punch-jab')).toBeDisabled();
     await expect(A.getByTestId('robot-dodge')).toBeDisabled();

@@ -67,6 +67,9 @@ export function RobotCard() {
   }
 
   const rival = v.order[seat === 0 ? 1 : 0];
+  // which side of the TV my robot is on this round: its fists are on the side of the phone that faces the other robot
+  // (on the left of the TV: punches under the right thumb), its block and dodge behind them. They swap with the robots.
+  const side = seat === v.left ? 'left' : 'right';
   const busy = mine.busy && mine.busyUntil > now ? mine.busy : undefined;
   const ready = fighting && !busy && !mine.punch;
   const guardLeft = mine.guard ? Math.max(0, 1 - (now - mine.guard.since) / v.guardMaxMs) : 1;
@@ -88,12 +91,13 @@ export function RobotCard() {
     <div className={`nk-controller${fighting ? '' : ' waiting'}`} style={{ ['--robot' as string]: ROBOT_COLORS[seat] }} data-testid="robot-card">
       <div className="nk-top">
         <span className="nk-me">You {v.wins[me] || 0} : {v.wins[rival] || 0} {name(rival)}</span>
+        <span className="nk-side" data-testid="robot-side">{side === 'left' ? '◀ You are on the left' : 'You are on the right ▶'}</span>
         <span className="nk-mine" aria-label={`Your robot has ${left} of ${v.parts} parts left`} data-testid="robot-my-parts">
           {Array.from({ length: v.parts }, (_, k) => <i key={k} className={k < mine.lost.length ? 'lost' : mine.loose && k === mine.lost.length ? 'loose' : ''} />)}
         </span>
       </div>
       <div className="nk-word" aria-live="polite" data-testid="robot-word">{word || 'Jab, haymaker, block or dodge'}</div>
-      <div className="nk-pads">
+      <div className={`nk-pads on-${side}`} data-testid="robot-pads" data-side={side}>
         {pad('jab')}
         {pad('heavy')}
         <button type="button" className={`nk-pad block${mine.guard ? ' held' : ''}`} disabled={!fighting || (!mine.guard && !ready)}

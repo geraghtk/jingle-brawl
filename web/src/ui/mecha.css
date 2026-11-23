@@ -50,14 +50,6 @@
 .ms-runner:nth-of-type(odd) { margin-top: -1cqh; }
 
 /* the ending */
-.ms-end { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 1.4cqh; padding: 3cqh 4cqw; border-radius: 3cqh; background: rgba(255, 255, 255, .96);
-  box-shadow: 0 0 0 .8cqh var(--team), 0 2cqh 6cqh rgba(13, 16, 24, .45); animation: msEnd .6s cubic-bezier(.2, 1.4, .4, 1) both; text-align: center; max-width: 80cqw; }
-@keyframes msEnd { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.ms-end-title { font: 900 11cqh/1 var(--f6-disp, system-ui); color: var(--team); }
-.ms-end-sub { font: 800 3.2cqh/1.2 var(--f6-disp, system-ui); }
-.ms-end-crew { display: flex; gap: 2cqw; flex-wrap: wrap; justify-content: center; margin-top: .6cqh; }
-.ms-end-crew span { display: grid; justify-items: center; gap: .6cqh; font: 800 2.4cqh/1 var(--f6-disp, system-ui); }
-.ms-end-crew .f6-avatar { width: 8cqh !important; height: 8cqh !important; }
 
 /* someone not on a team */
 .ms-watch { text-align: center; }
@@ -96,3 +88,20 @@
 .ms-pad.live.grab { background: #2f9bff; }
 .ms-pad.live.lean { background: #6c5ce7; }
 .ms-leg { display: grid; grid-template-columns: 1.7fr 1fr; gap: 10px; min-height: 0; }
+
+/* what a robot is coming up to, and what it takes (never when): under its team's panel on the TV, above the pads on a phone */
+.ms-next { display: flex; align-items: baseline; gap: .8cqh; margin-top: .8cqh; padding: .6cqh 1.2cqh; border-radius: 1.2cqh; background: #1d2a3a; color: #fff; font: 700 clamp(11px, 1.9cqh, 22px)/1.25 var(--f6-body, system-ui); animation: moPop .3s var(--mo-spring, ease-out) both; }
+.ms-next b { flex: none; padding: .2cqh 1cqh; border-radius: 999px; background: #ffc21a; color: #1d2a3a; font: 900 clamp(11px, 1.8cqh, 20px)/1.3 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .04em; }
+.ms-phone-next { display: grid; gap: 4px; justify-items: start; margin: 0 0 8px; padding: 8px 12px; border-radius: 14px; background: #1d2a3a; color: #fff; font: 700 14px/1.3 var(--f6-body, system-ui); text-align: left; animation: moPop .3s var(--mo-spring, ease-out) both; }
+.ms-phone-next b { padding: 2px 10px; border-radius: 999px; background: #ffc21a; color: #1d2a3a; font: 900 12px/1.4 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .05em; }
+/* the course bar: the new things on it */
+.ms-ob.climb { width: .9cqh; height: 2.6cqh; margin-top: -1.3cqh; border-radius: .3cqh; background: #9a4b3c; box-shadow: 0 0 0 .25cqh #fff; }
+.ms-ob.rope { transform: translate(0, -50%); height: 1.2cqh; background: repeating-linear-gradient(90deg, #d9b26a 0 .6cqh, #1d2a3a .6cqh 1.2cqh); border-radius: 0; }
+.ms-ob.ice { transform: translate(0, -50%); height: 1cqh; background: #9fdcff; border-radius: 999px; opacity: .9; }
+/* too far apart for one picture: the scene draws a strip each; these are the labels and the bar between them
+   (the strips' places are STRIPS in ui/mecha/fx.ts: move them together) */
+.ms-split { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; }
+.ms-stage.split .ms-split { opacity: 1; }
+.ms-strip { position: absolute; left: 0; right: 0; height: 32%; box-shadow: inset 0 .5cqh 0 var(--team), inset 0 -.5cqh 0 var(--team); }
+.ms-strip.s0 { top: 26.5%; } .ms-strip.s1 { top: 58.5%; }
+.ms-strip b { position: absolute; left: 1.2cqh; top: 1.2cqh; padding: .4cqh 1.4cqh; border-radius: 999px; background: var(--team); color: #fff; font: 900 clamp(12px, 2.4cqh, 28px)/1.2 var(--f6-disp, system-ui); box-shadow: 0 .4cqh 0 rgba(13, 16, 24, .3); }

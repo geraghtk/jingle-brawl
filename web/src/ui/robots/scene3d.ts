@@ -156,10 +156,9 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
   const LUNGE = 0.42;
   /** Each robot is turned a little to the camera, so the faces show (a pure side view hides them). */
   const TURN = 0.28;
-  robots[0].root.position.x = -GAP;
-  robots[1].root.position.x = GAP;
-  robots[0].root.rotation.y = -TURN;
-  robots[1].root.rotation.y = Math.PI + TURN;
+  /** Where each robot stands (along the ring) and which way it faces: eased, so a change of sides is a walk round. */
+  const stand = [{ x: -GAP, turn: -TURN }, { x: GAP, turn: Math.PI + TURN }];
+  robots.forEach((r, i) => { r.root.position.x = stand[i].x; r.root.rotation.y = stand[i].turn; });
   scene.add(robots[0].root, robots[1].root);
   let tinted: [string, string] = ['', ''];
 
@@ -222,7 +221,7 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     return u < hold ? -back * Math.sin((u / hold) * Math.PI / 2) : -back + (1 + back) * ((u - hold) / (1 - hold)) ** 2;
   }
 
-  function pose(r: Robot, f: RobotFighterView, i: 0 | 1, now: number, dt: number, t: number, stage: RobotView['stage'], won: boolean) {
+  function pose(r: Robot, f: RobotFighterView, i: 0 | 1, side: 0 | 1, now: number, dt: number, t: number, stage: RobotView['stage'], won: boolean) {
     const busy = f.busy && f.busyUntil > now ? f.busy : undefined;
     const down = f.health <= 0;
     const dodging = !!f.dodge && now < f.dodge.until;
@@ -233,7 +232,13 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     r.body.rotation.z = -r.lean;
     r.body.position.y = 0.52 + (down ? -0.02 : Math.sin(t * 3.2 + i * 1.7) * 0.018);
     const step = Math.max(0, r.reach.L, r.reach.R) * LUNGE - Math.max(0, -r.lean) * 0.3;        // in with a punch, back when hit
-    r.root.position.x = (i === 0 ? -GAP : GAP) + (i === 0 ? 1 : -1) * step;
+    // its side of the ring this round (they change over between rounds: it walks across, round the other one)
+    const st = stand[i];
+    st.x = ease(st.x, side === 0 ? -GAP : GAP, dt, 4);
+    st.turn = ease(st.turn, side === 0 ? -TURN : Math.PI + TURN, dt, 5);
+    r.root.position.x = st.x + (side === 0 ? 1 : -1) * step;
+    r.root.position.z = (i === 0 ? 0.75 : -0.75) * Math.max(0, 1 - (st.x / GAP) * (st.x / GAP));
+    r.root.rotation.y = st.turn;
     // a part that has been knocked loose rattles on the robot until the next blow takes it
     for (const [part, obj] of Object.entries(r.parts) as [Part, THREE.Object3D][]) {
       const base = r.rest.get(part)!;
@@ -279,22 +284,22 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
       for (const part of f.lost) {
         if (r.gone.has(part)) continue;
         r.gone.add(part);
-        if (primed) fling(r, part, i); else r.parts[part].visible = false;               // already gone when this screen opened: just not there
+        if (primed) fling(r, part, i === view.left ? 0 : 1); else r.parts[part].visible = false;               // already gone when this screen opened: just not there
       }
       const won = !!view.last && view.last.winner === view.order[i];
-      pose(r, f, i, now, dt, t, view.stage, won);
+      pose(r, f, i, i === view.left ? 0 : 1, now, dt, t, view.stage, won);
     });
     // what just happened: stars for a hit, a ring of sparks off a block
     const newest = view.events.length ? view.events[view.events.length - 1].n : seenEvent;
     if (primed) for (const e of view.events) {
       if (e.n <= seenEvent) continue;
-      const hitSide = e.by === 0 ? 1 : 0, x = (hitSide === 0 ? -1 : 1) * (GAP - 0.42);
+      const hitSeat = e.by === 0 ? 1 : 0, hitSide = hitSeat === view.left ? 0 : 1, x = (hitSide === 0 ? -1 : 1) * (GAP - 0.42);
       if (e.kind === 'hit') { burst(x, 1.75, 0xffe27a, 9, 3); shake = Math.max(shake, 0.12); }
       else if (e.kind === 'counter') { burst(x, 1.75, 0xff5a4a, 16, 4.2); shake = Math.max(shake, 0.25); }
       else if (e.kind === 'blocked') burst(x * 0.5, 1.6, 0xc9d2de, 6, 2);
       else if (e.kind === 'smash') { burst(x * 0.6, 1.6, 0xffffff, 14, 3.6); burst(x, 1.7, 0xffe27a, 6, 2.6); shake = Math.max(shake, 0.22); }
       else if (e.kind === 'dodged') burst(x * 1.5, 1.5, 0xdfe8f2, 5, 1.6);
-      else if (e.kind === 'guard_break') burst((e.by === 0 ? -1 : 1) * GAP * 0.8, 1.5, 0xffffff, 8, 2.4);
+      else if (e.kind === 'guard_break') burst((e.by === view.left ? -1 : 1) * GAP * 0.8, 1.5, 0xffffff, 8, 2.4);
     }
     seenEvent = Math.max(seenEvent, newest);
     primed = true;

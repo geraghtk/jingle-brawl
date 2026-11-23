@@ -17,7 +17,7 @@ function setup(names = ['Ada', 'Bo']) {
   const clock = new FakeClock();
   let s = 1;
   const deps = { store, clock, seed: () => s++ };
-  const room = RoomActor.create('GREM', { duelPick: 'wheel', duelGames: [], duelAppGames: ['pass_the_gremlin'], voteWindow: 0, readyCheck: false }, deps)!;
+  const room = RoomActor.create('GREM', { duelPick: 'wheel', duelGames: [], duelAppGames: ['pass_the_gremlin'], voteWindow: 0, readyCheck: false, practiceRound: false }, deps)!;
   const pids = names.map((name) => { const r = room.join({ name }); if ('error' in r) throw new Error(r.error); return r.pid; });
   const phones: Record<string, ServerMsg[]> = {};
   for (const p of pids) { phones[p] = []; room.attach({ viewer: { kind: 'phone', pid: p }, send: (m) => phones[p].push(JSON.parse(JSON.stringify(m))) }); }

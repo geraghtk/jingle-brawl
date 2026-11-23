@@ -7,7 +7,7 @@
 // so the same room runs in the Node server, in tests on a fake clock, or behind another runtime.
 import { randomInt } from 'node:crypto';
 import * as A from '../../../web/src/core/actions';
-import { BOT_TICK_MS, botIds, botMove, botsBusy } from '../../../web/src/core/bots';
+import { BOT_TICK_MS, botMove, botsBusy, roomPlayed } from '../../../web/src/core/bots';
 import { commitPlan } from '../../../web/src/core/commit';
 import { diff } from '../../../web/src/core/diff';
 import { isDrawOff, judged } from '../../../web/src/core/drawoff';
@@ -202,7 +202,7 @@ export class RoomActor {
     this.cancelBots = this.deps.clock.at(this.now() + BOT_TICK_MS, () => {
       this.cancelBots = null;
       let changed = this.runDue();                       // a deadline that has passed comes first, as for a person's press
-      for (const id of botIds(this.game)) {
+      for (const id of roomPlayed(this.game)) {
         const seed = this.seed();
         const plan = botMove(this.game, id, { now: this.now(), rng: rng(seed) });
         if (plan && !plan.error && this.commit(plan, id, 'auto', { bot: true, seed })) changed = true;

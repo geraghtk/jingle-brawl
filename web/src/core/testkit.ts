@@ -17,8 +17,8 @@ export function table(n: number, settings: Settings = {}, chips = 10): Game {
   const players: Game['players'] = {};
   for (let i = 1; i <= n; i++) players[`p${i}`] = { name: `P${i}`, chips };
   // duelPick off: tests call duels directly unless they test picking the duel game
-  // readyCheck off: a mini-game starts at once unless a test is about the instructions and the Ready button
-  return { phase: 'main', settings: { duelPick: 'off', readyCheck: false, ...settings }, players, gifts: {} };
+  // readyCheck and practiceRound off: a mini-game starts at once, for real, unless a test is about those stages
+  return { phase: 'main', settings: { duelPick: 'off', readyCheck: false, practiceRound: false, ...settings }, players, gifts: {} };
 }
 
 export const chipsOf = (g: Game) => Object.fromEntries(Object.entries(g.players || {}).map(([id, p]) => [id, p.chips]));

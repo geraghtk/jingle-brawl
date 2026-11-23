@@ -24,6 +24,10 @@ export interface Config {
   gremlinChallenges: GremlinChallenges;
   /** Before a mini-game: its instructions, and nobody starts until every player has pressed Ready. */
   readyCheck: boolean;
+  /** More time in the mini-games (minigames/pace.ts). */
+  pace: 'normal' | 'relaxed';
+  /** A short practice the first time a mini-game comes up in a night. */
+  practiceRound: boolean;
 }
 
 export const DEFAULT_DUEL_GAMES = ['Rock, Paper, Scissors', 'Thumb War', 'Staring Contest', 'Odds & Evens', 'Arm Wrestle', 'Rhyme Battle'];
@@ -49,6 +53,8 @@ export const DEFAULTS: Config = {
   duelPick: 'defender',
   gremlinChallenges: 'mixed',
   readyCheck: true,
+  pace: 'normal',
+  practiceRound: true,
 };
 
 /** How far each number may go (the setup screen offers far less; 99 is its "unlimited" / "never"). A
@@ -90,6 +96,9 @@ export function sanitizeSettings(raw: unknown): Settings {
   const grem = oneOf(r.gremlinChallenges, ['mixed', 'quick_math', 'memory_flash', 'perfect_timing'] as const);
   if (grem) out.gremlinChallenges = grem;
   if (typeof r.readyCheck === 'boolean') out.readyCheck = r.readyCheck;
+  if (typeof r.practiceRound === 'boolean') out.practiceRound = r.practiceRound;
+  const pace = oneOf(r.pace, ['normal', 'relaxed'] as const);
+  if (pace) out.pace = pace;
   const critic = oneOf(r.aiCriticBackend, ['openai', 'gemini', 'local', 'ollama'] as const);
   if (critic) out.aiCriticBackend = critic;
   // the host's own duels: text, one per line ("" = none)
@@ -136,6 +145,8 @@ export function config(settings: Settings | undefined): Config {
     duelPick: s.duelPick ?? DEFAULTS.duelPick,
     gremlinChallenges: (['mixed', 'quick_math', 'memory_flash', 'perfect_timing'] as const).find((x) => x === s.gremlinChallenges) ?? DEFAULTS.gremlinChallenges,
     readyCheck: s.readyCheck ?? DEFAULTS.readyCheck,
+    pace: s.pace === 'relaxed' ? 'relaxed' : DEFAULTS.pace,
+    practiceRound: s.practiceRound ?? DEFAULTS.practiceRound,
   };
 }
 

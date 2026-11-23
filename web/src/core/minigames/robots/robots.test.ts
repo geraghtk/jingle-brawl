@@ -10,7 +10,7 @@ import { Tx } from '../../tx';
 import type { Game } from '../../types';
 import { DEFAULT_FIGHT as F } from '../engines/fight';
 import { arenaAct, arenaDeadline, arenaOf, arenaOffers, arenaPause, arenaResume, handoff, startArena } from '../runtime';
-import { DEFAULTS, HITS_PER_PART, loose, lost, PARTS, robots } from './robots';
+import { DEFAULTS, leftFor, HITS_PER_PART, loose, lost, PARTS, robots } from './robots';
 import type { RobotState } from './robots';
 import { robotView } from './view';
 
@@ -169,6 +169,26 @@ describe('Nutcracker Knockout', () => {
     // even unanswered, that is several seconds of punching; a real exchange is much longer
     expect(12 * (F.jabMs + F.recoverMs)).toBeGreaterThan(7000);
     expect(DEFAULTS.roundMs).toBe(60_000);
+  });
+
+  it('the fighters change sides every round; the deciding round is a coin toss; every screen is told who is on the left', () => {
+    let g = bell(fight());
+    expect(st(g).left).toBe(0);                                     // round 1: fighter 0 on the left
+    expect(view(g, NOW + 10).left).toBe(0);
+    let now = NOW + DEFAULTS.introMs + 100;
+    [g, now] = batter(g, 'p2', HEALTH, now);                        // p2 takes round 1
+    g = bell(g);
+    expect(st(g)).toMatchObject({ stage: 'intro', round: 2, left: 1 });   // changed over
+    expect(view(g, st(g).stageEndsAt - 10, 'p1')).toMatchObject({ left: 1, mySeat: 0 });
+    // by the rule itself: a plain next round swaps; the decider (one round each, two to win) is tossed for, both ways
+    const s = st(g);
+    expect(leftFor({ ...s, left: 0, wins: { p1: 0, p2: 1 } }, 2, () => 0.9)).toBe(1);
+    expect(leftFor({ ...s, left: 1, wins: { p1: 0, p2: 1 } }, 2, () => 0.1)).toBe(0);
+    expect(leftFor({ ...s, left: 1, wins: { p1: 1, p2: 1 } }, 3, () => 0.1)).toBe(0);
+    expect(leftFor({ ...s, left: 1, wins: { p1: 1, p2: 1 } }, 3, () => 0.9)).toBe(1);
+    expect(leftFor({ ...s, left: 1, wins: {} }, 1, () => 0.9)).toBe(0);
+    // a state saved before sides were kept reads as fighter 0 on the left
+    expect(robotView({ ...view(g, now), left: undefined }).left).toBe(0);
   });
 
   it('best of three: two rounds win the match and the duel', () => {

@@ -1090,6 +1090,12 @@
         }
         .host-strip .room-cell { margin-left: auto; border-right: none; border-left: 1px solid var(--line); }
         .host-strip .room-cell .v { color: var(--accent); letter-spacing: 0.06em; }
+        /* the music's on/off (host/Music.tsx): a cell of the strip that is a button */
+        .host-strip .music-toggle { appearance: none; background: none; border: 0; border-left: 1px solid var(--line); margin-left: auto; font: inherit; color: inherit; text-align: left; align-items: flex-start; cursor: pointer; }
+        .host-strip .music-toggle:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+        .host-strip .music-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .host-strip .music-toggle[aria-pressed="false"] .v { color: var(--muted); }
+        @media (min-width: 641px) { .host-strip .music-toggle + .room-cell { margin-left: 0; } }
 
         /* ===== Frost v6 lobby hero ===== */
         .lobby-hero {

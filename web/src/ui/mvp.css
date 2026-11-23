@@ -24,11 +24,15 @@
 .mvp-score strong { color: #fff; }
 .mvp-total { font: 700 30px var(--f6-disp, system-ui); color: #ffc53d; }
 .mvp-hint { margin-top: 30px; font-size: 14px; color: rgba(255, 255, 255, 0.55); animation: f6RiseMvp 0.4s 1s ease-out both; }
+.mvp-hint.mvp-next { margin-top: 10px; animation-delay: 1.6s; }
 @keyframes f6RiseMvp { from { opacity: 0; transform: translateY(8px); } }
 
 /* sizes */
-.mvp-stage.tv .mvp-sticker { font-size: 15px; padding: 7px 15px; }
-.mvp-stage.tv .mvp-heading { font-size: 44px; }
+.mvp-stage.tv .mvp-sticker { font-size: clamp(15px, 2vh, 24px); padding: 7px 15px; }
+.mvp-stage.tv .mvp-heading { font-size: clamp(44px, 6vh, 80px); }
+.mvp-stage.tv .mvp-score { font-size: clamp(18px, 2.8vh, 36px); }
+.mvp-stage.tv .mvp-total { font-size: clamp(30px, 4.6vh, 58px); }
+.mvp-stage.tv .mvp-roll .f6-avatar { width: clamp(96px, 14vh, 170px) !important; height: clamp(96px, 14vh, 170px) !important; }
 .mvp-stage.tv .mvp-name { font-size: clamp(80px, 11vw, 170px); }
 .mvp-stage.phone .mvp-heading { font-size: 26px; }
 .mvp-stage.phone .mvp-name { font-size: clamp(40px, 13vw, 64px); }

@@ -88,7 +88,7 @@ export function RobotStage() {
     const wins = v.wins[pid] || 0;
     const left = v.parts - f.lost.length;
     return (
-      <div className={`nk-corner ${i === 0 ? 'left' : 'right'}`} style={{ ['--robot' as string]: ROBOT_COLORS[i] }} data-testid={`robot-corner-${pid}`}>
+      <div className={`nk-corner ${i === v.left ? 'left' : 'right'}`} style={{ ['--robot' as string]: ROBOT_COLORS[i] }} data-testid={`robot-corner-${pid}`}>
         <div className="nk-who">
           {p && <Avatar name={p.name} avatar={p.avatar} size={44} />}
           <span className="nk-name">{name(pid)}</span>
@@ -109,12 +109,12 @@ export function RobotStage() {
       <canvas ref={canvas} className="nk-canvas" aria-label="Two wind-up robots boxing" />
       {failed && <p className="nk-nogl" role="status">This screen can't draw the ring in 3D: the fight is in the bars above.</p>}
       <div className="nk-hud">
-        {corner(0)}
+        {corner(v.left)}
         <div className="nk-clock" data-testid="robot-clock">
           <span className="nk-round">{v.stage === 'done' ? 'Final bell' : v.sudden ? 'Sudden death' : `Round ${v.round}`}</span>
           {v.stage === 'fighting' && <span className={`nk-secs${secs <= 10 ? ' hurry' : ''}`}>{secs}</span>}
         </div>
-        {corner(1)}
+        {corner(v.left === 0 ? 1 : 0)}
       </div>
       {splash && <div key={splash} className="nk-splash" role="status" data-testid="robot-splash">{splash}</div>}
     </div>

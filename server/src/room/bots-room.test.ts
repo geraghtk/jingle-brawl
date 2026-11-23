@@ -66,6 +66,26 @@ describe('practice bots', () => {
     });
   }
 
+  it('a team game: the room plays a player whose phone has dropped, and stops when they are back', () => {
+    const t = room(0, 4);
+    const walked = () => (arenaOf(t.game())!.state as { teams: { walker: { pos: number } }[] }).teams.map((x) => x.walker.pos);
+    const present = (pid: string, on: boolean) => (t.r as unknown as { setConnected(p: string, on: boolean): void }).setConnected(pid, on);
+    for (const pid of t.pids) present(pid, true);
+    expect(t.press(HOST, { type: 'lab_start', gameId: 'mecha_santa', players: t.pids })).toEqual({ ok: true });
+    t.press(HOST, { type: 'arena_start_now' });                                            // (nobody presses Ready in this test)
+    t.clock.advance(12_000);
+    expect(arenaOf(t.game())!.lifecycle).toBe('active');
+    expect(walked()).toEqual([0, 0]);                                                      // everyone is here and nobody pressed: the room presses nothing for them
+    for (const pid of t.pids) present(pid, false);
+    t.clock.advance(15_000);
+    expect(Math.max(...walked())).toBeGreaterThan(2);                                      // the stand-ins walk the robots on
+    for (const pid of t.pids) present(pid, true);
+    t.clock.advance(1000);                                                                 // (a step already in the air lands)
+    const there = walked();
+    t.clock.advance(10_000);
+    expect(walked()).toEqual(there);                                                       // back at their phones: it is theirs again
+  });
+
   it('Pass the Gremlin in the lab: when it catches a bystander the bots play on into round 2, to a duel winner', () => {
     let played = 0;
     for (let seed = 1; seed < 40 && played < 3; seed++) {

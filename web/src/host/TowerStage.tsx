@@ -5,13 +5,15 @@
 // with their own energy) and the clock. Sounds on the TV only.
 import { useEffect, useRef } from 'react';
 import { armed, guardTarget, powerOf, reachOf, targetOf, unitAt } from '../core/minigames/engines/lanes';
-import { energyOf, towerView } from '../core/minigames/towers/view';
+import { energyOf, fieldClock, towerView } from '../core/minigames/towers/view';
 import type { TowerTeamView } from '../core/minigames/towers/view';
 import { useFrameNow } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { secsLeft } from '../ui/clock';
 import { play } from '../ui/sound';
 import { TOWER_COLORS, TowerArt, UnitArt, WorkshopArt, artSrc } from '../ui/towers/art';
+import { recoil, shotEvery, shotPhase, stagger } from '../ui/towers/motion';
+import '../ui/motion.css';
 import '../ui/arena.css';
 import '../ui/towers.css';
 import { useHost } from './HostContext';
@@ -38,14 +40,17 @@ export function TowerStage() {
   const now = av.pausedAt ?? live;                       // paused: the battle stands as it was
   const v = towerView(av.view);
   const f = v.field, p = v.rules;
+  // while everyone plans the field stands still (as the last march left it); while it marches it is now
+  const fnow = fieldClock(v, now);
+  const planning = v.stage !== 'done' && v.phase === 'plan';
   const name = (id: string) => game.players?.[id]?.name || 'Someone';
 
   // out loud on the TV: each new thing once
   const newest = f.events.at(-1)?.n ?? 0;
-  const heard = useRef({ n: newest, stage: v.stage as string, primed: false });
+  const heard = useRef({ n: newest, stage: v.stage as string, phase: `${v.round}|${v.phase}`, primed: false });
   useEffect(() => {
     const was = heard.current;
-    heard.current = { n: Math.max(newest, was.n), stage: v.stage, primed: true };
+    heard.current = { n: Math.max(newest, was.n), stage: v.stage, phase: `${v.round}|${v.phase}`, primed: true };
     if (!tv) return;
     if (!was.primed) { play('go'); return; }
     for (const e of f.events) {
@@ -62,24 +67,26 @@ export function TowerStage() {
       else if (e.kind === 'combo') { play('whoosh', 0.6 * pitch); play('thud', 0.6 * pitch); }
     }
     if (was.stage !== v.stage) { if (v.stage === 'done') play('fanfare'); else if (v.stage === 'overtime') play('bell'); }
-  }, [newest, v.stage, tv]); // eslint-disable-line react-hooks/exhaustive-deps
+    // the two halves of a round: a horn as the armies march out, a bell when it is time to plan again
+    else if (was.phase !== `${v.round}|${v.phase}` && v.stage !== 'done') play(v.phase === 'march' ? 'horn' : 'bell');
+  }, [newest, v.stage, v.phase, v.round, tv]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const secs = secsLeft(v.endsAt, now);
-  const finale = v.stage !== 'done' && v.rush > 1 && now >= v.rushAt;
-  // the finale starts: a bell, once
-  const rang = useRef(finale);
-  useEffect(() => { if (finale && !rang.current && tv) play('bell'); rang.current = finale; }, [finale, tv]);
+  const secs = secsLeft(v.phaseEndsAt, now);
   const winner = v.stage === 'done' ? v.teams.find((t) => t.teamId === v.winner) : null;
   const laneY = (lane: number) => laneTop(lane, p.lanes);
 
   // a toy that is gone before it got there was knocked over: a puff where it last stood
-  const stood = useRef(new Map<string, { x: number; lane: number; side: number; d: number }>());
-  const puffs = useRef<{ key: string; x: number; lane: number; side: number; at: number }[]>([]);
-  const here = new Map(f.units.map((u) => { const d = unitAt(u, f.asOf, now); return [u.id, { x: fieldX(u.side, d), lane: u.lane, side: u.side, d }] as const; }));
+  // (and the toy itself, tipping over backwards in it)
+  const stood = useRef(new Map<string, { x: number; lane: number; side: number; d: number; kind: string }>());
+  const puffs = useRef<{ key: string; x: number; lane: number; side: number; kind: string; at: number }[]>([]);
+  const here = new Map(f.units.map((u) => { const d = unitAt(u, f.asOf, fnow); return [u.id, { x: fieldX(u.side, d), lane: u.lane, side: u.side, d, kind: u.kind }] as const; }));
   for (const [id, was] of stood.current) if (!here.has(id) && was.d < 0.9) puffs.current.push({ key: id, ...was, at: now });
   stood.current = here;
   puffs.current = puffs.current.filter((q) => now - q.at < 700 && now >= q.at);
+  const just = (kind: string, ms: number, mine: (side: number) => boolean) => f.events.some((e) => e.kind === kind && mine(e.side) && now - e.at >= 0 && now - e.at < ms);
   const hit = (side: number) => f.events.some((e) => e.kind === 'arrived' && e.side !== side && now - e.at < 500);
+  /** A toy has just left this workshop: it gives a little heave. */
+  const sent = (side: number) => just('sent', 320, (s) => s === side);
 
   const panel = (t: TowerTeamView, i: number) => {
     const s = f.sides[i];
@@ -95,10 +102,10 @@ export function TowerStage() {
           {t.members.map((id) => {
             const pl = game.players?.[id];
             return (
-              <span key={id} className={`tw-job${t.active.includes(id) ? '' : ' away'}`} data-testid={`tower-member-${id}`}>
+              <span key={id} className={`tw-job${t.active.includes(id) ? '' : ' away'}${planning && t.done.includes(id) ? ' done' : ''}`} data-testid={`tower-member-${id}`}>
                 <span className="tw-who on" title={name(id)}><Avatar name={pl?.name || id} avatar={pl?.avatar} size={30} /></span>
                 {t.members.length <= 3 && <i>{name(id)}</i>}
-                <b className={`tw-energy${finale ? ' rush' : ''}`}>{Math.floor(energyOf(t, id, now, p, v))}</b>
+                <b className="tw-energy">{planning && t.done.includes(id) ? '✓' : Math.floor(energyOf(t, id))}</b>
               </span>
             );
           })}
@@ -108,12 +115,13 @@ export function TowerStage() {
   };
 
   return (
-    <div className={`tw-stage${v.stage === 'done' ? ' over' : ''}`} data-testid="tower-stage">
+    <div className={`tw-stage${v.stage === 'done' ? ' over' : ''}${av.pausedAt != null || planning ? ' held' : ''}${planning ? ' planning' : ''}`} data-testid="tower-stage">
       <div className="tw-hud">
         {v.teams[0] && panel(v.teams[0], 0)}
         <div className="tw-clock" data-testid="tower-clock">
-          <span className={`tw-clock-label${finale ? ' rush' : ''}`}>{v.stage === 'done' ? 'Battle over' : v.stage === 'overtime' ? 'Overtime' : finale ? 'Double energy!' : 'To the bell'}</span>
-          {v.stage !== 'done' && <span className={`tw-secs${secs <= 10 ? ' hurry' : ''}`}>{secs}</span>}
+          <span className="tw-clock-label" data-testid="tower-round">{v.stage === 'done' ? 'Battle over' : v.stage === 'overtime' ? 'Extra round' : `Round ${v.round} of ${v.rounds}`}</span>
+          {v.stage !== 'done' && <span key={`${v.round}${v.phase}`} className={`tw-phase ${v.phase}`} data-testid="tower-phase">{planning ? 'Plan' : 'March!'}</span>}
+          {v.stage !== 'done' && <span className={`tw-secs${planning && secs <= 3 ? ' hurry' : ''}`}>{secs}</span>}
         </div>
         {v.teams[1] && panel(v.teams[1], 1)}
       </div>
@@ -124,18 +132,33 @@ export function TowerStage() {
         {[0, 1].map((side) => {
           const health = f.sides[side].hp / p.baseHp;
           return (
-            <div key={side} className={`tw-base side-${side}${hit(side) ? ' hit' : ''}${health <= 0 ? ' down' : ''}`} style={{ ['--team' as string]: TOWER_COLORS[side] }} data-testid={`tower-base-${side}`}>
+            <div key={side} className={`tw-base side-${side}${hit(side) ? ' hit' : sent(side) ? ' sent' : ''}${health <= 0 ? ' down' : ''}`} style={{ ['--team' as string]: TOWER_COLORS[side] }} data-testid={`tower-base-${side}`}>
               <WorkshopArt color={TOWER_COLORS[side]} health={health} flip={side === 1} style={{ width: '100%', height: '100%' }} />
-              {health < 0.6 && <span className={`tw-smoke${health < 0.3 ? ' thick' : ''}`} aria-hidden><i /><i /><i /></span>}
+              {health < 0.6 && <span className={`tw-smoke${health < 0.3 ? ' thick' : ''}`} aria-hidden><i /><i /><i />{health <= 0 && <><i /><i /></>}</span>}
+              {/* it has fallen: a cloud of dust rolls out from under it, once */}
+              {health <= 0 && <span className="tw-rubble" aria-hidden><i /><i /><i /><i /><i /><i /></span>}
             </div>
           );
         })}
+        {/* what each team has lined up at its door for the next march (everyone can see it: plan against it) */}
+        {planning && [0, 1].flatMap((side) => Array.from({ length: p.lanes }, (_, lane) => {
+          const mine = v.queue.filter((q) => q.side === side && q.lane === lane);
+          if (!mine.length) return null;
+          return (
+            <div key={`q${side}-${lane}`} className={`tw-queue side-${side}`} style={{ left: `${fieldX(side, 0.085)}%`, top: `${laneY(lane)}%`, ['--team' as string]: TOWER_COLORS[side] }} data-testid={`tower-queue-${side}-${lane}`}>
+              {mine.map((q, k) => <span key={k} className="tw-queued"><UnitArt kind={q.unit} color={TOWER_COLORS[side]} flip={side === 1} style={{ width: '100%', height: '100%' }} /></span>)}
+            </div>
+          );
+        }))}
         {/* the spots (on the verge above each path), and what is built on them */}
         {[0, 1].flatMap((side) => Array.from({ length: p.lanes }, (_, lane) => p.slots.map((q, slot) => {
-          const t = f.sides[side].towers.find((x) => x.lane === lane && x.slot === slot);
+          const ti = f.sides[side].towers.findIndex((x) => x.lane === lane && x.slot === slot), t = f.sides[side].towers[ti];
+          const firing = !!t && v.stage !== 'done' && !!p.towers[t.kind].dps && !!targetOf(f, side, t, p);
+          // it kicks back as each of its shots leaves (the same loop the shot below is drawn from)
+          const kick = t && firing ? recoil(shotPhase(now, ti, shotEvery(t.kind === 'cannon', powerOf(t, p)))) : 0;
           return (
             <div key={`${side}-${lane}-${slot}`} className={`tw-spot${t ? ' built' : ''}`} style={{ left: `${fieldX(side, q)}%`, top: `${laneY(lane)}%`, zIndex: zAt(laneY(lane)) - 2, ['--team' as string]: TOWER_COLORS[side] }} data-testid={`tower-spot-${side}-${lane}-${slot}`}>
-              {t && <span key={`${t.kind}-${t.level || 1}`} className={`tw-tower${targetOf(f, side, t, p) && p.towers[t.kind].dps ? ' firing' : ''}`} style={{ ['--grow' as string]: 1 + 0.14 * ((t.level || 1) - 1) }}><TowerArt kind={t.kind} color={TOWER_COLORS[side]} flip={side === 1} style={{ width: '100%', height: '100%' }} /></span>}
+              {t && <span key={`${t.kind}-${t.level || 1}`} className={`tw-tower${firing ? ' firing' : ''}`} style={{ ['--grow' as string]: 1 + 0.07 * ((t.level || 1) - 1), ['--kick' as string]: kick.toFixed(3), ['--dir' as string]: side === 0 ? 1 : -1 }}><TowerArt kind={t.kind} level={t.level || 1} color={TOWER_COLORS[side]} flip={side === 1} style={{ width: '100%', height: '100%' }} /></span>}
               {t && (t.level || 1) > 1 && <span className="tw-stars" aria-label={`level ${t.level}`}>{'★'.repeat((t.level || 1) - 1)}</span>}
               {/* just built or made better: how far it reaches, for a moment */}
               {t && f.events.some((e) => e.kind === 'built' && e.side === side && e.lane === lane && (e.what || '').split(':')[1] === String(slot) && now - e.at >= 0 && now - e.at < 1600)
@@ -149,9 +172,9 @@ export function TowerStage() {
           if (t.kind === 'frost') return <span key={key} className="tw-frost" style={{ left: `${x}%`, top: `${laneY(t.lane)}%`, width: `${reachOf(t, p) * 2 * 82}%` }} />;
           const aim = targetOf(f, side, t, p);
           if (!aim || v.stage === 'done') return null;
-          const heavy = t.kind === 'cannon', every = (heavy ? 760 : 460) / Math.sqrt(powerOf(t, p));
-          const to = fieldX(1 - side, unitAt(aim, f.asOf, now));
-          const k = ((now + i * 137) % every) / every;                       // one shot in the air at a time, from the tower's top to the toy
+          const heavy = t.kind === 'cannon', every = shotEvery(heavy, powerOf(t, p));
+          const to = fieldX(1 - side, unitAt(aim, f.asOf, fnow));
+          const k = shotPhase(now, i, every);                                // one shot in the air at a time, from the tower's top to the toy
           const y = -11 * (1 - k) + (aim.side === 0 ? -5 : 0) * k - 9 * 4 * k * (1 - k);
           return (
             <span key={key} className={`tw-ball${heavy ? ' heavy' : ''}`} style={{ left: `${x + (to - x) * k}%`, top: `calc(${laneY(t.lane)}% + ${y}cqh)`, transform: `translate(-50%, -50%) rotate(${k * 540}deg) scale(${0.8 + 0.4 * Math.sin(Math.PI * k)})` }} />
@@ -161,7 +184,7 @@ export function TowerStage() {
         {v.stage !== 'done' && [0, 1].flatMap((side) => Array.from({ length: p.lanes }, (_, lane) => {
           const aim = guardTarget(f, side, lane, p);
           if (!aim) return null;
-          const from = fieldX(side, 0.02), to = fieldX(1 - side, unitAt(aim, f.asOf, now));
+          const from = fieldX(side, 0.02), to = fieldX(1 - side, unitAt(aim, f.asOf, fnow));
           const k = ((now + (side * 3 + lane) * 113) % 380) / 380;
           const y = -6 * (1 - k) + (aim.side === 0 ? -5 : 0) * k - 5 * 4 * k * (1 - k);
           return <span key={`g${side}-${lane}`} className="tw-ball" style={{ left: `${from + (to - from) * k}%`, top: `calc(${laneY(lane)}% + ${y}cqh)`, transform: `translate(-50%, -50%) rotate(${k * 540}deg) scale(${0.7 + 0.3 * Math.sin(Math.PI * k)})` }} />;
@@ -179,13 +202,18 @@ export function TowerStage() {
         {f.units.map((u) => {
           const full = p.units[u.kind].hp;
           return (
-            <div key={u.id} className={`tw-unit ${u.kind} side-${u.side}`} style={{ left: `${fieldX(u.side, unitAt(u, f.asOf, now))}%`, top: `${laneY(u.lane)}%`, zIndex: zAt(laneY(u.lane)) + (u.side === 0 ? 0 : 1), ['--team' as string]: TOWER_COLORS[u.side] }} data-testid={`tower-unit-${u.id}`}>
-              <span className="tw-toy"><UnitArt kind={u.kind} color={TOWER_COLORS[u.side]} flip={u.side === 1} style={{ width: '100%', height: '100%' }} /></span>
+            <div key={u.id} className={`tw-unit ${u.kind} side-${u.side}`} style={{ left: `${fieldX(u.side, unitAt(u, f.asOf, fnow))}%`, top: `${laneY(u.lane)}%`, zIndex: zAt(laneY(u.lane)) + (u.side === 0 ? 0 : 1), ['--team' as string]: TOWER_COLORS[u.side] }} data-testid={`tower-unit-${u.id}`}>
+              <span className="tw-toy" style={{ animationDelay: `-${stagger(u.id, 800)}ms` }}><UnitArt kind={u.kind} color={TOWER_COLORS[u.side]} flip={u.side === 1} style={{ width: '100%', height: '100%' }} /></span>
               {u.hp < full && <span className="tw-unit-hp"><i style={{ width: `${Math.max(0, Math.min(1, u.hp / full)) * 100}%` }} /></span>}
             </div>
           );
         })}
         {/* a toy knocked over: a puff of snow where it stood */}
+        {puffs.current.map((q) => (
+          <div key={`f${q.key}`} className={`tw-unit tw-fallen ${q.kind} side-${q.side}`} style={{ left: `${q.x}%`, top: `${laneY(q.lane)}%`, ['--dir' as string]: q.side === 0 ? 1 : -1 }} aria-hidden>
+            <span className="tw-toy"><UnitArt kind={q.kind} color={TOWER_COLORS[q.side]} flip={q.side === 1} style={{ width: '100%', height: '100%' }} /></span>
+          </div>
+        ))}
         {puffs.current.map((q) => <span key={q.key} className="tw-puff" style={{ left: `${q.x}%`, top: `${laneY(q.lane)}%`, ['--team' as string]: TOWER_COLORS[q.side] }} aria-hidden><i /><i /><i /><i /><i /></span>)}
         {/* a toy that got through: a bang at the workshop and what it cost */}
         {f.events.filter((e) => e.kind === 'arrived' && now - e.at >= 0 && now - e.at < 900).map((e) => (
@@ -195,13 +223,6 @@ export function TowerStage() {
           <span key={e.n} className="tw-clink" style={{ left: `${fieldX(e.side, 0.925)}%`, top: `${laneY(e.lane ?? 1)}%` }} aria-hidden />
         ))}
       </div>
-      {v.stage === 'done' && (
-        <div className="tw-end" role="status" data-testid="tower-end" style={{ ['--team' as string]: winner ? TOWER_COLORS[v.teams.indexOf(winner)] : '#1d2a3a' }}>
-          <div className="tw-end-title">{winner ? `Team ${winner.teamId} wins!` : 'Dead level!'}</div>
-          <div className="tw-end-sub">{winner ? `${name(winner.captainId)}'s team: ${av.result?.reason || ''}` : 'The host decides'}</div>
-          {winner && <div className="tw-end-crew">{winner.members.map((id) => { const pl = game.players?.[id]; return <span key={id}><Avatar name={pl?.name || id} avatar={pl?.avatar} size={54} /><b>{name(id)}</b></span>; })}</div>}
-        </div>
-      )}
     </div>
   );
 }

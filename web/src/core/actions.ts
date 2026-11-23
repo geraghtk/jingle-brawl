@@ -78,6 +78,24 @@ export function startGame(game: Game): Plan {
 
 export const endGame = (game: Game): Plan => new Tx(game).set('phase', 'ended').plan();
 
+/** The night is over and the same people want another go: back to the lobby with everyone still in their
+ *  seat (name, avatar, phone), and everything the last game left behind gone: gifts, chips, scores, the turn. */
+export function playAgain(game: Game): Plan {
+  if (game.phase !== 'ended') return refuse('The game is not over yet');
+  const cfg = cfgOf(game);
+  const ids = Object.keys(game.players || {});
+  const chips = cfg.startingChips ?? variableStartingChips(ids.length);
+  const tx = new Tx(game);
+  for (const key of ['gifts', 'currentTurn', 'minigame', 'arena', 'lastDuel', 'betPool', 'undo', 'teamPairs', 'triedGames'] as const) tx.set(key, null);
+  for (const id of ids) {
+    const p = game.players![id];
+    const fresh: Player = { name: p.name, chips, connected: p.connected !== false, ...(p.joinedAt != null ? { joinedAt: p.joinedAt } : {}), ...(p.ownerUid ? { ownerUid: p.ownerUid } : {}),
+      ...(p.age != null ? { age: p.age } : {}), ...(p.avatar ? { avatar: p.avatar } : {}) };
+    tx.set(`players/${id}`, fresh);
+  }
+  return tx.set('phase', 'lobby').event('🎄 Same again! Everyone is back in the lobby for a new game.', 'gift').plan();
+}
+
 // --- opening a gift + sealed bids ----------------------------------------------------------
 
 export function drawGift(game: Game, giftName: string, giftId: string, ctx: Ctx): Plan {

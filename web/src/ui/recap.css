@@ -1,0 +1,210 @@
+/* The finale (ui/Recap.tsx). One night-sky stage for every screen: `.as-show` is the TV and the console
+   (sized in vh / vw so it reads from across the room and fits 4 to 12 players without scrolling),
+   `.as-card` is a phone's scrolling card. Moves come from the motion kit (ui/motion.css). */
+.recap {
+  --rcp-gold: #ffc53d; --rcp-silver: #dfe6ee; --rcp-bronze: #f0a26b; --rcp-ink: #0d1018; --rcp-soft: rgba(255, 255, 255, .72);
+  position: fixed; inset: 0; z-index: 2150; overflow: hidden; box-sizing: border-box; color: #fff; text-align: center;
+  font-family: var(--f6-body, system-ui, sans-serif);
+  background:
+    radial-gradient(60vmax 46vmax at 50% 24%, rgba(255, 51, 102, .30), rgba(255, 51, 102, 0) 70%),
+    linear-gradient(#1b1436, #10142a 55%, #0d1018);
+  animation: moFade .4s ease-out both;
+}
+.recap::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .07;
+  background-image: radial-gradient(#fff 1.3px, transparent 1.5px); background-size: 12px 12px;
+}
+.recap *, .recap *::before { box-sizing: border-box; }
+.recap ul, .recap ol { list-style: none; margin: 0; padding: 0; }
+.recap h1, .recap h2 { margin: 0; }
+.recap .f6-avatar { box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(0, 0, 0, .35); overflow: hidden; }
+.recap .yd-icon { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -.28em; object-fit: contain; }
+
+/* buttons (the two pages style theirs differently: these are the finale's own) */
+.rcp-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px; border-radius: 999px; cursor: pointer;
+  font: 800 15px/1 var(--f6-body, system-ui, sans-serif); text-decoration: none; white-space: nowrap; border: 2px solid transparent; transition: transform .12s, filter .12s;
+}
+.rcp-btn:active { transform: scale(.96); }
+.rcp-btn.primary { background: var(--rcp-gold); color: var(--rcp-ink); box-shadow: 0 4px 0 #b9860f; }
+.rcp-btn.primary:disabled { filter: saturate(.6) brightness(.9); cursor: default; }
+.rcp-btn.ghost { background: rgba(255, 255, 255, .1); color: #fff; border-color: rgba(255, 255, 255, .45); }
+.rcp-btn.small { min-height: 32px; padding: 0 14px; font-size: 13px; }
+.rcp-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* the way back in once it is closed */
+.recap-open {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; border: 2.5px solid #0d1018; cursor: pointer;
+  background: #ffc53d; color: #0d1018; font: 800 14px/1 var(--f6-body, system-ui, sans-serif); box-shadow: 3px 3px 0 #0d1018;
+}
+.recap-open .yd-icon { width: 1.4em; height: 1.4em; }
+.recap-open.on-console { position: fixed; left: 16px; bottom: 16px; z-index: 40; }
+.recap-open.on-phone { display: flex; margin: 4px auto 18px; }
+
+/* ---- the podium (both layouts; sizes below) ---- */
+.rcp-podium { position: relative; display: flex; align-items: flex-end; justify-content: center; clip-path: inset(-100vh -100vw 0 -100vw); }
+.rcp-step { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 0; }
+.rcp-step:not(.up) { visibility: hidden; }
+.rcp-step-who { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.rcp-step-avs { position: relative; display: flex; justify-content: center; }
+.rcp-step-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; letter-spacing: -.01em; }
+.rcp-step-block { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--rcp-ink); }
+.rcp-step.p1 .rcp-step-block { background: linear-gradient(#ffd56b, var(--rcp-gold)); }
+.rcp-step.p2 .rcp-step-block { background: linear-gradient(#f2f6fa, var(--rcp-silver)); }
+.rcp-step.p3 .rcp-step-block { background: linear-gradient(#f7b98c, var(--rcp-bronze)); }
+.rcp-step-place { font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+.rcp-step-score { font-weight: 800; opacity: .8; white-space: nowrap; }
+.rcp-step.up .rcp-step-block { animation: rcpRise .8s var(--mo-spring, ease-out) both; }
+.rcp-step.up .rcp-step-who { animation: moPop var(--mo-base, .36s) var(--mo-spring, ease-out) .5s both; }
+.rcp-crown { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 22%) rotate(-8deg); z-index: 2; }
+@keyframes rcpRise { 0% { transform: translateY(102%); } 100% { transform: none; } }
+
+/* ================= the show: TV and console ================= */
+.recap.as-show { display: grid; grid-template-rows: minmax(0, 1fr); padding: 3.5vh 4vw 4vh; }
+.recap.as-show:not(.scene-final) { cursor: pointer; }
+.recap.as-show.scene-podium { padding-bottom: 0; }
+.recap.as-show .rcp-scene { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; animation: moFade .35s ease-out both; }
+.recap.as-show .rcp-head { display: grid; justify-items: center; gap: 1.2vh; padding-bottom: 2vh; }
+.recap.as-show .rcp-sticker { font-size: clamp(11px, 1.9vh, 22px); padding: .8vh 1.6vh; }
+.recap.as-show .rcp-title { font: 700 clamp(34px, 8.4vh, 110px)/1 var(--f6-disp, system-ui, sans-serif); letter-spacing: -.03em; text-shadow: .5vh .5vh 0 var(--accent, #ff3366); }
+.rcp-controls { position: absolute; top: 2.2vh; right: 2vw; z-index: 8; display: flex; align-items: center; gap: 10px; }
+.rcp-skip { font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .55); margin-right: 4px; }
+
+.recap.as-show .rcp-podium { gap: 1.6vw; align-self: end; padding: 0 2vw; }
+.recap.as-show .rcp-step { width: 25vw; max-width: 46vh; }
+.recap.as-show .rcp-step-avs .f6-avatar { width: 14vh !important; height: 14vh !important; margin: 0 -1.2vh; border-radius: 30%; box-shadow: 0 0 0 .5vh #fff, 0 1vh 2.4vh rgba(0, 0, 0, .4); }
+.recap.as-show .rcp-step.p1 .rcp-step-avs .f6-avatar { width: 19vh !important; height: 19vh !important; }
+.recap.as-show .rcp-crown { width: 9vh; height: 9vh; }
+.recap.as-show .rcp-step-name { font-size: clamp(18px, 4.4vh, 56px); line-height: 1.25; margin: 1vh 0 1.2vh; padding: 0 .4vw; }
+.recap.as-show .rcp-step.p1 .rcp-step-name { font-size: clamp(20px, 5.4vh, 68px); }
+.recap.as-show .rcp-step-block { border-radius: 2.6vh 2.6vh 0 0; gap: .6vh; box-shadow: inset 0 -1.4vh 0 rgba(13, 16, 24, .12), inset 0 .5vh 0 rgba(255, 255, 255, .55); }
+.recap.as-show .rcp-step.p1 .rcp-step-block { height: 30vh; }
+.recap.as-show .rcp-step.p2 .rcp-step-block { height: 22vh; }
+.recap.as-show .rcp-step.p3 .rcp-step-block { height: 15vh; }
+.recap.as-show .rcp-step-place { font-size: 9vh; }
+.recap.as-show .rcp-step.p1 .rcp-step-place { font-size: 13vh; }
+.recap.as-show .rcp-step.p3 .rcp-step-place { font-size: 7vh; }
+.recap.as-show .rcp-step-score { font-size: clamp(12px, 2.6vh, 32px); }
+
+/* the awards, read out one by one */
+.recap.as-show .rcp-cards { display: flex; align-items: center; justify-content: center; gap: 1.6vw; align-self: center; padding-bottom: 4vh; }
+.rcp-card {
+  flex: 1 1 0; min-width: 0; max-width: 24vw; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; align-content: start; gap: 1.4vh; padding: 3.4vh 1.2vw 3vh; border-radius: 3vh;
+  background: #fff; color: var(--rcp-ink); box-shadow: 0 0 0 .5vh var(--rcp-ink), .9vh 1.2vh 0 var(--accent, #ff3366);
+}
+.rcp-card:nth-child(odd) { transform: rotate(-1.6deg); }
+.rcp-card:nth-child(even) { transform: rotate(1.4deg) translateY(1.6vh); }
+.rcp-card:not(.up) { visibility: hidden; }
+.rcp-card.up { animation: rcpCard .55s var(--mo-spring, ease-out) both; }
+@keyframes rcpCard { 0% { opacity: 0; scale: 1.9; } 60% { opacity: 1; scale: .95; } 100% { opacity: 1; scale: 1; } }
+.recap .rcp-card-icon { width: 12vh; height: 12vh; }
+.rcp-card-title { font: 700 clamp(15px, 3.5vh, 44px)/1.05 var(--f6-disp, system-ui, sans-serif); letter-spacing: -.02em; min-height: 2.1em; display: grid; align-items: center; }
+.rcp-card-who { display: flex; align-items: center; justify-content: center; gap: 1.2vh; max-width: 100%; min-width: 0; padding: .8vh 1.6vh .8vh .8vh; border-radius: 999px; background: #fff3d1; font: 800 clamp(13px, 3vh, 38px)/1 var(--f6-body, system-ui, sans-serif); }
+.rcp-card-who span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recap.as-show .rcp-card-who .f6-avatar { width: 6vh !important; height: 6vh !important; box-shadow: none; }
+.rcp-card-detail { font-size: clamp(12px, 2.5vh, 30px); font-weight: 600; line-height: 1.25; color: #4a5162; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* who got what: the awards beside the whole table */
+.recap.as-show .rcp-final { display: grid; grid-template-columns: minmax(0, 38fr) minmax(0, 56fr); gap: 3vw; align-items: center; min-height: 0; }
+/* a big table (two columns of players): the awards become a strip above it, so every gift has room */
+.recap.as-show .rcp-final.two { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 2.4vh; align-content: center; }
+.recap.as-show .rcp-final.solo { grid-template-columns: minmax(0, 1fr); padding: 0 12vw; }
+.recap.as-show .rcp-final.solo.two { padding: 0 5vw; }
+.recap.as-show .rcp-awards { --ah: min(13.5vh, calc((70vh - (var(--n) - 1) * 1.5vh) / var(--n))); display: grid; gap: 1.5vh; }
+.rcp-award-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; text-align: left; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .14); }
+.rcp-award-title { font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; color: var(--rcp-gold); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcp-award-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--rcp-soft); font-weight: 600; }
+.rcp-award-who strong { color: #fff; font-weight: 800; }
+.rcp-award-who i { font-style: normal; opacity: .6; margin: 0 .15em; }
+.recap.as-show .rcp-award-row { min-height: var(--ah); gap: calc(var(--ah) * .14); padding: 0 calc(var(--ah) * .2) 0 calc(var(--ah) * .14); border-radius: calc(var(--ah) * .22); }
+.recap.as-show .rcp-award-icon { width: calc(var(--ah) * .62); height: calc(var(--ah) * .62); }
+.recap.as-show .rcp-award-title { font-size: calc(var(--ah) * .27); line-height: 1.15; }
+.recap.as-show .rcp-award-who { font-size: calc(var(--ah) * .19); line-height: 1.25; margin-top: calc(var(--ah) * .03); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.recap.as-show .rcp-final.two .rcp-awards { --ah: 11.5vh; grid-template-columns: repeat(var(--n), minmax(0, 30vw)); justify-content: center; gap: 1.2vw; }
+.recap.as-show .rcp-final.two .rcp-award-title { font-size: calc(var(--ah) * .23); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.recap.as-show .rcp-final.two .rcp-award-who { font-size: calc(var(--ah) * .21); display: block; white-space: nowrap; }
+.recap.as-show .rcp-final.two .rcp-award-who i, .recap.as-show .rcp-final.two .rcp-award-who span { display: none; }
+.recap.as-show .rcp-final.two .rcp-list { --rh: min(11vh, calc((55vh - (var(--rows) - 1) * 1.1vh) / var(--rows))); }
+.recap.as-show .rcp-final.two.solo .rcp-list { --rh: min(11vh, calc((70vh - (var(--rows) - 1) * 1.1vh) / var(--rows))); }
+
+.rcp-list { display: grid; }
+.rcp-line { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; text-align: left; background: rgba(255, 255, 255, .08); }
+.rcp-line.top { background: rgba(255, 197, 61, .17); box-shadow: inset 0 0 0 1.5px rgba(255, 197, 61, .45); }
+.rcp-line-place { font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; color: var(--rcp-soft); text-align: center; }
+.rcp-line.top .rcp-line-place, .rcp-line.top .rcp-line-score { color: var(--rcp-gold); }
+.rcp-line-who { display: grid; min-width: 0; }
+.rcp-line-name { font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcp-line-gift { color: var(--rcp-soft); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcp-line-gift.none { font-style: italic; opacity: .8; }
+.rcp-line-score { font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.recap.as-show .rcp-list {
+  --rh: min(13.5vh, calc((70vh - (var(--rows) - 1) * 1.1vh) / var(--rows)));
+  grid-auto-flow: column; grid-template-rows: repeat(var(--rows), var(--rh)); grid-auto-columns: minmax(0, 1fr); gap: 1.1vh 1.2vw; align-content: center;
+}
+.recap.as-show .rcp-line { gap: calc(var(--rh) * .16); padding: 0 calc(var(--rh) * .22) 0 calc(var(--rh) * .12); border-radius: calc(var(--rh) * .26); }
+.recap.as-show .rcp-line-place { width: calc(var(--rh) * .62); font-size: calc(var(--rh) * .3); }
+.recap.as-show .rcp-line .f6-avatar { width: calc(var(--rh) * .72) !important; height: calc(var(--rh) * .72) !important; }
+.recap.as-show .rcp-line-name { font-size: calc(var(--rh) * .33); line-height: 1.15; }
+.recap.as-show .rcp-line-gift { font-size: calc(var(--rh) * .235); line-height: 1.25; }
+.recap.as-show .rcp-line-score { font-size: calc(var(--rh) * .44); min-width: calc(var(--rh) * .5); }
+
+/* ================= the card: a phone, or the console in a narrow window ================= */
+.recap.as-card { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+#seat-panel-game .recap.as-card { top: 64px; }
+.rcp-scroll { position: relative; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 22px 14px 18px; }
+.rcp-sheet { display: grid; gap: 18px; width: 100%; max-width: 460px; margin: 0 auto; }
+.rcp-bar { position: relative; z-index: 6; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); background: rgba(13, 16, 24, .88); box-shadow: 0 -1px 0 rgba(255, 255, 255, .12); }
+.rcp-bar .rcp-btn { width: 100%; padding: 0 10px; }
+.recap.as-card .rcp-bar { max-width: none; }
+
+.rcp-hero { display: grid; justify-items: center; gap: 6px; }
+.recap.as-card .rcp-sticker { font-size: 10px; margin-bottom: 8px; }
+.rcp-hero-place { font: 700 clamp(44px, 15vw, 64px)/.95 var(--f6-disp, system-ui, sans-serif); letter-spacing: -.03em; text-shadow: 4px 4px 0 var(--accent, #ff3366); }
+.rcp-hero-place.small { font-size: clamp(30px, 9.5vw, 42px); }
+.rcp-hero-score { margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--rcp-gold); }
+.rcp-hero-num { font: 700 26px/1 var(--f6-disp, system-ui, sans-serif); margin-right: 2px; }
+.rcp-hero-gift { font-size: 14px; font-weight: 600; color: var(--rcp-soft); line-height: 1.35; overflow-wrap: anywhere; }
+.rcp-hero-gift strong { color: #fff; }
+
+.rcp-mine { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px 16px 12px 12px; border-radius: 20px; text-align: left; background: var(--rcp-gold); color: var(--rcp-ink); box-shadow: 0 0 0 3px var(--rcp-ink), 5px 6px 0 var(--accent, #ff3366); transform: rotate(-1.2deg); }
+.recap .rcp-mine-icon { width: 58px; height: 58px; }
+.rcp-mine-k { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.rcp-mine-title { font: 700 22px/1.1 var(--f6-disp, system-ui, sans-serif); letter-spacing: -.02em; }
+.rcp-mine-detail { font-size: 13px; font-weight: 700; margin-top: 2px; overflow-wrap: anywhere; }
+
+.rcp-sec { display: grid; gap: 10px; }
+.rcp-h { font: 800 11px/1 var(--f6-body, system-ui, sans-serif); letter-spacing: .14em; text-transform: uppercase; color: var(--rcp-gold); text-align: left; }
+
+.recap.as-card .rcp-podium { gap: 6px; padding-top: 22px; }
+.recap.as-card .rcp-step { flex: 1 1 0; max-width: 150px; }
+.recap.as-card .rcp-step-avs .f6-avatar { margin: 0 -5px; }
+.recap.as-card .rcp-step-avs.n3 .f6-avatar { margin: 0 -12px; }
+.recap.as-card .rcp-crown { width: 30px; height: 30px; }
+.recap.as-card .rcp-step-name { font-size: 14px; line-height: 1.3; margin: 5px 0 6px; padding: 0 2px; }
+.recap.as-card .rcp-step-block { border-radius: 12px 12px 0 0; gap: 2px; box-shadow: inset 0 -5px 0 rgba(13, 16, 24, .12); }
+.recap.as-card .rcp-step.p1 .rcp-step-block { height: 84px; }
+.recap.as-card .rcp-step.p2 .rcp-step-block { height: 64px; }
+.recap.as-card .rcp-step.p3 .rcp-step-block { height: 50px; }
+.recap.as-card .rcp-step-place { font-size: 26px; }
+.recap.as-card .rcp-step.p1 .rcp-step-place { font-size: 34px; }
+.recap.as-card .rcp-step.p3 .rcp-step-place { font-size: 20px; }
+.recap.as-card .rcp-step-score { font-size: 10px; }
+
+.recap.as-card .rcp-awards { display: grid; gap: 8px; }
+.recap.as-card .rcp-award-row { gap: 10px; padding: 9px 12px 9px 10px; border-radius: 14px; }
+.recap.as-card .rcp-award-icon { width: 38px; height: 38px; }
+.recap.as-card .rcp-award-title { font-size: 16px; }
+.recap.as-card .rcp-award-who { font-size: 13px; margin-top: 1px; white-space: normal; overflow-wrap: anywhere; }
+
+.recap.as-card .rcp-list { gap: 6px; }
+.recap.as-card .rcp-line { gap: 9px; padding: 7px 12px 7px 6px; border-radius: 14px; }
+.recap.as-card .rcp-line.me { box-shadow: inset 0 0 0 2px #fff; }
+.recap.as-card .rcp-line-place { width: 34px; font-size: 14px; }
+.recap.as-card .rcp-line-name { font-size: 15px; line-height: 1.25; }
+.recap.as-card .rcp-line-gift { font-size: 12px; line-height: 1.3; }
+.recap.as-card .rcp-line-score { font-size: 20px; min-width: 22px; }
+
+.rcp-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.rcp-gallery li { display: grid; justify-items: center; gap: 6px; padding: 8px 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .08); }
+.rcp-gallery img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; background: #fff; }
+.rcp-gallery-name { max-width: 100%; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

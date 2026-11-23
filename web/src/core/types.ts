@@ -39,6 +39,10 @@ export interface Settings {
   /** Pass the Gremlin's challenges: all three in turn, or just one kind. */
   gremlinChallenges?: GremlinChallenges;
   readyCheck?: boolean;
+  /** `relaxed`: more time in the mini-games (minigames/pace.ts). */
+  pace?: 'normal' | 'relaxed';
+  /** The first time a mini-game comes up in a night it is played for a moment with nothing at stake, then for real. */
+  practiceRound?: boolean;
   aiCriticEnabled?: boolean;       // (games from before AI Draw Off became a duel game)
   aiCriticUrl?: string;
   /** AI Draw Off's critic: the host's own OpenAI / Gemini key (given to the room server, never stored), or the local critic. */
@@ -161,6 +165,8 @@ export interface Game {
   currentTurn?: Turn | null;
   minigame?: import('./party').PartyGame | import('./drawoff').DrawOff | null;
   lastDuel?: LastDuel | null;
+  /** The mini-games this table has already played tonight (so only the first go gets a practice round). */
+  triedGames?: Record<string, true> | null;
   /** Spectator bets: chips left in the pool by earlier duels, waiting for the next one (scoring.ts). */
   betPool?: number | null;
   /** players + gifts as they were before the last duel was resolved (Admin → Undo); never shown. */

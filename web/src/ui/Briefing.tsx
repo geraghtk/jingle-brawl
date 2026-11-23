@@ -1,12 +1,14 @@
 // Before a mini-game starts: how to play it, who is ready, and (once everyone is) the 3, 2, 1. The same
 // panel on the TV, the host console and every phone; a phone in the game also has the Ready button.
 // The room decides when the game starts (core/minigames/runtime.ts: briefing); this only shows it.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { ArenaView } from '../core/minigames/runtime';
 import type { Game } from '../core/types';
 import { Avatar } from './avatar';
 import { Glyphs } from './icons';
 import { play } from './sound';
+import './motion.css';
 import './arena.css';
 
 /** How to play each game, in a few short lines (a game not listed here shows its one-paragraph rules). */
@@ -37,17 +39,48 @@ export const HOW_TO: Record<string, string[]> = {
     'Your phone is only your buttons: a leg, the balance or the arms. Nothing tells you when to press, so watch the TV and call it out!',
     'Legs: step in turn, left, right, left, right. The same leg twice, or a step before the last foot is down, and it trips.',
     'A gap: both legs JUMP together. A wall: the arms SMASH it. A rocket candle: the arms GRAB it. Balance: push it back before it tips over.',
+    'A chimney stack: the arms GRAB, then the legs climb. A rope: the arms GRAB, then both legs JUMP to let go. The course is new every race.',
     'The first robot over the line wins.',
   ],
   elf_tower_wars: [
-    'Two workshops, three paths between them.',
-    'On your phone: pick a card, then tap where it goes. Everything costs energy, and yours refills by itself.',
-    'Send toys down a path: every one that reaches the other workshop hurts it.',
-    'Build towers on your spots to stop theirs: a snow tower for soldiers, a cannon for a pack of mice. Build one again to make it better.',
-    'The avalanche needs two of you on the same path at once. Energy doubles for the last half minute.',
-    'Knock theirs down, or have the stronger one at the bell.',
+    'Two workshops, three paths between them. Five rounds, each in two halves.',
+    'PLAN: everyone gets energy. On your phone pick a card, then tap where it goes: toys line up at a path, towers go on your spots. Talk it over, then press Done.',
+    'MARCH: both armies walk out together. Watch the TV! Every toy that reaches the other workshop hurts it.',
+    'Towers stop theirs: a snow tower for soldiers, a cannon for a pack of mice. Build one again to make it better.',
+    'While they march you have a snowball, a shield, and an avalanche that needs two of you on the same path.',
+    'Knock theirs down, or have the stronger one after the last round.',
   ],
 };
+
+/** True for a moment after the instructions give way to the game: "GO!". */
+export function useGo(lifecycle: string | undefined, instanceId: string | undefined): boolean {
+  const was = useRef<string | undefined>(undefined);
+  const [go, setGo] = useState('');
+  useEffect(() => {
+    const before = was.current;
+    was.current = lifecycle;
+    if (before !== 'briefing' || lifecycle !== 'active' || !instanceId) return;
+    setGo(instanceId);
+    const t = setTimeout(() => setGo(''), 900);
+    return () => clearTimeout(t);
+  }, [lifecycle, instanceId]);
+  return !!go && go === instanceId;
+}
+
+/** "GO!" across the screen for a moment (it takes no taps: the game under it is already on). */
+export function GoFlash() {
+  return <div className="arena-go" aria-hidden data-testid="arena-go"><b>GO!</b></div>;
+}
+
+/** A practice round is on: a ribbon across the top of the game saying so, and how long is left. */
+export function PracticeRibbon({ endsAt, now }: { endsAt?: number; now: number }) {
+  const left = endsAt != null ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : null;
+  return (
+    <div className="practice-ribbon mo-down" role="status" data-testid="practice-ribbon">
+      <b>Practice</b><span>This one does not count{left != null ? `: ${left}` : ''}</span>
+    </div>
+  );
+}
 
 export interface BriefingProps {
   game: Game;
@@ -81,16 +114,30 @@ export function Briefing({ game, av, label, emoji, rules, now, me, onReady, onSt
     play('tick', count === 1 ? 1.5 : 1);
   }, [count, where]);
 
+  // after a practice round: no instructions again, just "now for real" and the count
+  if (b.real) {
+    return (
+      <div className={`brief brief-${where} brief-real`} role="dialog" aria-label={`${label}: now for real`} data-testid="arena-briefing">
+        <div className="brief-card">
+          <p className="brief-kicker mo-down">That was practice</p>
+          <h2 className="brief-title"><Glyphs>{emoji}</Glyphs> Now for real!</h2>
+          {count > 0 && <div className="brief-count" key={count} role="status" data-testid="briefing-count">{count}</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`brief brief-${where}`} role="dialog" aria-label={`How to play ${label}`} data-testid="arena-briefing">
+    <div className={`brief brief-${where}${lines.length >= 5 ? " brief-long" : ""}`} role="dialog" aria-label={`How to play ${label}`} data-testid="arena-briefing">
       <div className="brief-card">
         <h2 className="brief-title"><Glyphs>{emoji}</Glyphs> {label}</h2>
         <ol className="brief-how" data-testid="briefing-how">
-          {lines.map((line, i) => <li key={i}><span className="brief-n">{i + 1}</span><span>{line}</span></li>)}
+          {lines.map((line, i) => <li key={i} style={{ ['--i']: i } as CSSProperties}><span className="brief-n">{i + 1}</span><span>{line}</span></li>)}
         </ol>
+        {av.practice && <p className="brief-practice" data-testid="briefing-practice">First a short practice round: it does not count.</p>}
         <ul className="brief-roster" aria-label="Who is ready">
-          {people.map(({ id, p }) => (
-            <li key={id} className={`${isReady(id) ? 'ready' : p!.connected === false ? 'away' : ''}`} data-testid={`briefing-player-${id}`}>
+          {people.map(({ id, p }, i) => (
+            <li key={id} style={{ ['--i']: i } as CSSProperties} className={`${isReady(id) ? 'ready' : p!.connected === false ? 'away' : ''}`} data-testid={`briefing-player-${id}`}>
               <Avatar name={p!.name || id} avatar={p!.avatar} size={44} />
               <span className="brief-name">{p!.name || 'Someone'}</span>
               <span className="brief-mark" aria-label={isReady(id) ? 'ready' : 'not ready yet'}>{isReady(id) ? '✓' : '…'}</span>

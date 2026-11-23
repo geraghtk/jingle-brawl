@@ -143,10 +143,10 @@ async function createGame(browser, settings = {}) {
   // …and no duel-game pick/wheel (duelPick off) unless a test asks for one
   // …and only the in-app duel games a test ticks itself ('duel-table-games' off: the screen's default ticks the team games)
   // …and no instructions-and-ready stage before a mini-game ('ready-check' off) unless a test asks for it
-  const all = { 'vote-window': '0', 'duel-pick': 'off', 'duel-table-games': 'off', 'ready-check': 'off', ...settings };
+  const all = { 'vote-window': '0', 'duel-pick': 'off', 'duel-table-games': 'off', 'ready-check': 'off', 'practice-round': 'off', ...settings };
   for (const [id, value] of Object.entries(all)) {
     const select = host.locator(`#setting-${id}`); // a <select>, checkbox or textarea
-    if ((id === 'vote-window' || id === 'duel-pick' || id === 'duel-table-games' || id === 'ready-check') && !(await select.count())) continue;
+    if ((id === 'vote-window' || id === 'duel-pick' || id === 'duel-table-games' || id === 'ready-check' || id === 'practice-round') && !(await select.count())) continue;
     const kind = await select.evaluate((e) => (e.tagName === 'INPUT' ? e.type : e.tagName.toLowerCase()));
     if (kind === 'select') await select.selectOption(value);
     else if (kind === 'checkbox') await select.setChecked(value === true || value === 'on');

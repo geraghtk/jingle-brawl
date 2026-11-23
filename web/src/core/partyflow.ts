@@ -1,4 +1,5 @@
 // Party mini-game flow: intro → playing → (voting) → results → the duel.
+import { pacedMs } from './minigames/pace';
 import type { Rng } from './rng';
 import { GAMES, MAX_LIVE, RESULTS_MS, SKETCH_PROMPTS, results as partyResults, whackBounds } from './party';
 import type { PartyGame, PartyType } from './party';
@@ -69,8 +70,8 @@ export function advanceParty(game: Game, fromPhase: PartyGame['phase'], now: num
   if (!mg || !GAMES[mg.type] || mg.phase !== fromPhase) return refuse('That phase is over');
   const g = GAMES[mg.type];
   const tx = new Tx(game).claim(`minigame/claims/${fromPhase}`, true);
-  if (fromPhase === 'intro') return tx.set('minigame/phase', 'playing').set('minigame/playStartAt', now).set('minigame/phaseEndsAt', now + g.playMs).plan();
-  if (fromPhase === 'playing' && mg.type === 'sketch_off') return tx.set('minigame/live', null).set('minigame/phase', 'voting').set('minigame/phaseEndsAt', now + (g.voteMs || 30000)).plan();
+  if (fromPhase === 'intro') return tx.set('minigame/phase', 'playing').set('minigame/playStartAt', now).set('minigame/phaseEndsAt', now + (mg.type === 'sketch_off' ? pacedMs(game.settings, g.playMs) : g.playMs)).plan();
+  if (fromPhase === 'playing' && mg.type === 'sketch_off') return tx.set('minigame/live', null).set('minigame/phase', 'voting').set('minigame/phaseEndsAt', now + pacedMs(game.settings, g.voteMs || 30000)).plan();
   if (fromPhase === 'results') return mg.minigameGoal === 'lab' ? refuse('Practice: play again or go back to the lobby') : completeTx(tx, mg).plan();
 
   // playing (Whack-an-Elf) or voting (Sketch-Off) → results + rewards

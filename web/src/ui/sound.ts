@@ -48,10 +48,10 @@ export function cueNotes(cue: Cue, pitch = 1): Note[] {
 }
 
 // ---- the instruments ----------------------------------------------------------------------------
-interface Rig { ctx: AudioContext; out: GainNode; wet: GainNode; noise: AudioBuffer }
+export interface Rig { ctx: AudioContext; out: GainNode; wet: GainNode; noise: AudioBuffer }
 let rig: Rig | null = null;
 
-function getRig(): Rig | null {
+export function getRig(): Rig | null {
   if (rig) return rig;
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
@@ -94,7 +94,7 @@ function hiss(r: Rig, t: number, len: number, to: AudioNode): void {
   s.buffer = r.noise; s.loop = true; s.connect(to); s.start(t, Math.random() * 0.5); s.stop(t + len + 0.05);
 }
 
-const VOICES: Record<Voice, (r: Rig, f: number, t: number, len: number, level: number) => void> = {
+export const VOICES: Record<Voice, (r: Rig, f: number, t: number, len: number, level: number) => void> = {
   // a small bell: sine partials a bell has (not a neat harmonic stack), the high ones dying first
   chime(r, f, t, len, level) {
     [[1, 1, 1], [2.76, 0.42, 0.55], [5.4, 0.22, 0.32], [8.93, 0.1, 0.18]].forEach(([ratio, gain, life]) => {

@@ -15,6 +15,7 @@ import '../ui/arena.css';
 import '../ui/ringtoss.css';   // its clock is Ring Toss's .rt-banner (and the full-screen rules for it)
 import '../ui/conveyor.css';
 import '../ui/conveyorFactory.css';
+import '../ui/motion.css';
 import { useHost } from './HostContext';
 
 export function ConveyorStage() {
@@ -70,7 +71,7 @@ function Lane({ v, t, now }: { v: ConveyorView; t: ConveyorTeamView; now: number
         <FactoryLine v={v} team={t} now={now} who={who} />
         <div className="cv-end">
           <Sleigh count={t.delivered} quota={v.quota} color={TEAM_COLORS[t.teamId]} teamId={t.teamId} bump={end.delivered} />
-          <Bin count={t.rejected + t.stolen} teamId={t.teamId} bump={end.rejected} />
+          <Bin count={t.rejected + t.stolen} teamId={t.teamId} bump={end.rejected} lost={end.lost} parts={v.parts} />
         </div>
         {v.winner === t.teamId && <div className="cv-won-flag" role="status">Winners!</div>}
       </div>

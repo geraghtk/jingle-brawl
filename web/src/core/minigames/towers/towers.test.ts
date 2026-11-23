@@ -14,9 +14,9 @@ import { advance, arm, armed, build, DEFAULT_LANES as P, energyAt, guardTarget, 
 import type { Field } from '../engines/lanes';
 import { assignTeams } from '../engines/teams';
 import { arenaAct, arenaDeadline, arenaOf, arenaPause, arenaResume, handoff, startArena } from '../runtime';
-import { DEFAULTS, handOffers, towers } from './towers';
+import { DEFAULTS, handOffers, incomeOf, toughAt, towers } from './towers';
 import type { TowerState } from './towers';
-import { energyOf, towerView } from './view';
+import { energyOf, fieldClock, towerView } from './view';
 
 const must = (d: { field?: Field; error?: string }): Field => { if (!d.field) throw new Error(d.error); return d.field; };
 /** The battle with no workshop throwing (what the towers alone do). */
@@ -172,174 +172,243 @@ const tv = (g: Game, now: number) => towerView((projectGame(g, { kind: 'tv' }, n
 const phone = (g: Game, who: string, now: number) => towerView((projectGame(g, { kind: 'phone', pid: who }, now).arenaView as { view: unknown }).view);
 /** A player on team `ti` (not its captain by default). */
 const on = (g: Game, ti: number, i = 1) => st(g).teams[ti].members[i];
-const energy = (g: Game, who: string, now: number) => { const s = st(g); return energyOf(s.teams.find((t) => t.members.includes(who))!, who, now, s.cfg.rules, { rushAt: s.rushAt, rush: s.cfg.rush }); };
+const energy = (g: Game, who: string) => { const s = st(g); return energyOf(s.teams.find((t) => t.members.includes(who))!, who); };
+/** When this half of the round ends at the latest. */
+const ends = (g: Game) => st(g).phaseEndsAt;
+/** On to the march of the round in hand (the plan runs out its clock). */
+const march = (g: Game) => tick(g, ends(g));
 
-describe('Elf Tower Wars', () => {
-  it('two teams under the captains; no jobs: everyone has their own energy, and a team earns the same whatever its size', () => {
-    for (const n of [4, 6, 9, 14]) {
-      const [a, b] = st(play(n)).teams;
-      for (const t of [a, b]) expect(Object.keys(t.purses).sort()).toEqual([...t.members].sort());
-      expect(a.rate * a.active.length).toBeCloseTo(b.rate * b.active.length);        // 4 against 5: the four earn more each
-      expect(a.rate * a.active.length).toBeGreaterThanOrEqual(DEFAULTS.teamEnergy);
-      expect(Math.min(a.rate, b.rate)).toBeGreaterThanOrEqual(DEFAULTS.minShare - 1e-9);   // a big table: nobody waits long for a go
-    }
-    const g = play(6);
-    expect(st(g).teams.map((t) => t.captainId)).toEqual(['p1', 'p2']);
-    const v = phone(g, on(g, 1), NOW + 1000);
-    expect(v.myTeam).toBe('B');
-    expect(energyOf(v.teams[1], on(g, 1), NOW + 1000, v.rules)).toBeCloseTo(5);       // a screen works its energy out from the view
-    expect(tv(g, NOW).teams[0]).toMatchObject({ rate: 1, active: st(g).teams[0].members });
+describe('Elf Tower Wars: plan, then watch', () => {
+  it('two teams under the captains; it opens with a plan: the field stands still and everyone has their share of the round\'s energy, near enough the same for a team whatever its size', () => {
+    const g = play(5);                                                         // three against two
+    const s = st(g);
+    expect(s).toMatchObject({ stage: 'running', phase: 'plan', round: 1, phaseAt: NOW, phaseEndsAt: NOW + DEFAULTS.planMs });
+    expect(s.teams.map((t) => t.captainId)).toEqual(['p1', 'p2']);
+    const [big, small] = s.teams[0].members.length === 3 ? s.teams : [s.teams[1], s.teams[0]];
+    // (the bigger team gets a little more in all, `crowd` for each extra player: a share split more ways buys less)
+    expect(energy(g, big.members[0])).toBeCloseTo((incomeOf(s, 1) + DEFAULTS.crowd) / 3);
+    expect(energy(g, small.members[0])).toBeCloseTo(incomeOf(s, 1) / 2);
+    expect(big.members.reduce((n, m) => n + energy(g, m), 0)).toBeCloseTo(small.members.reduce((n, m) => n + energy(g, m), 0) + DEFAULTS.crowd);
+    // nothing trickles in by the clock
+    expect(energyOf(tv(g, NOW + 5000).teams[0], s.teams[0].members[0])).toBeCloseTo(energy(g, s.teams[0].members[0]));
+    expect(tv(g, NOW)).toMatchObject({ phase: 'plan', round: 1, rounds: DEFAULTS.rounds, phaseEndsAt: NOW + DEFAULTS.planMs });
+    expect(phone(g, 'p1', NOW).myTeam).toBe('A');
+    // a big table: nobody's share falls under the least
+    const crowd = st(play(12));
+    expect(incomeOf(crowd, 1) / 6).toBeGreaterThanOrEqual(DEFAULTS.minShare);
   });
 
-  it('anyone may build, send or defend, paid from their own energy: nobody spends what they have not got, or a teammate\'s', () => {
-    const g = play(6);
-    const who = on(g, 0), mate = on(g, 0, 2);
-    expect(act(g, who, { kind: 'patch' }, NOW + 100).error).toMatch(/Nothing to mend/);
-    expect(act(g, who, { kind: 'build', lane: 0, slot: 0, tower: 'cannon' }, NOW + 100).error).toMatch(/Not enough energy/);   // 8, with 4 in hand
-    expect(act(g, who, { kind: 'build', lane: 9, slot: 0, tower: 'snow' }, NOW + 100).error).toBeTruthy();
-    expect(act(g, who, { kind: 'build', lane: 0, slot: 0, tower: 'laser' }, NOW + 100).error).toBeTruthy();
-    let next = apply(g, act(g, who, { kind: 'build', lane: 0, slot: 0, tower: 'snow' }, NOW + 100));
-    expect(st(next).field.sides[0].towers).toEqual([{ lane: 0, slot: 0, kind: 'snow' }]);
-    expect(act(next, who, { kind: 'build', lane: 0, slot: 0, tower: 'snow' }, NOW + 4200).error).toBeUndefined();   // the same tower again: it may be made better
-    expect(energy(next, who, NOW + 100)).toBeCloseTo(0.1);
-    expect(energy(next, mate, NOW + 100)).toBeCloseTo(4.1);                              // a teammate's energy is untouched
-    expect(act(next, who, { kind: 'send', lane: 2, unit: 'soldier' }, NOW + 200).error).toMatch(/Not enough energy/);   // the same purse: the tower took it
-    next = apply(next, act(next, who, { kind: 'send', lane: 2, unit: 'soldier' }, NOW + 2100));          // and a toy, from the same hand, once it has refilled
-    next = apply(next, act(next, mate, { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 2200));
-    expect(tv(next, NOW + 3200).field.units.map((u) => [u.side, u.lane])).toEqual([[0, 2], [0, 1]]);
-    expect(arenaOf(next)!.deadlines.some((d) => d.id === 'tick')).toBe(true);              // the room keeps waking while a toy is out
-    expect(act(next, 'nobody', { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 2300).error).toBeTruthy();
+  it('planning: a tower goes up at once, toys are lined up at the door and do not move; each paid from your own energy; reactions wait for the march', () => {
+    let g = play(4);
+    const who = on(g, 0), mate = st(g).teams[0].members[0];
+    const before = energy(g, who);
+    g = apply(g, act(g, who, { kind: 'build', lane: 0, slot: 0, tower: 'snow' }, NOW + 1000));
+    expect(st(g).field.sides[0].towers).toEqual([{ lane: 0, slot: 0, kind: 'snow' }]);
+    expect(energy(g, who)).toBeCloseTo(before - P.towers.snow.cost);
+    expect(energy(g, mate)).toBeCloseTo(before);                               // a teammate's is their own
+    g = apply(g, act(g, who, { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 2000));
+    expect(st(g).queue).toEqual([{ side: 0, lane: 1, unit: 'soldier', by: who }]);
+    expect(st(g).field.units).toEqual([]);                                     // not out yet
+    expect(tv(g, NOW + 2500).queue).toHaveLength(1);                           // every screen sees what is lined up
+    expect(act(g, who, { kind: 'send', lane: 1, unit: 'tank' }, NOW + 2500).error).toMatch(/Not enough energy/);
+    expect(act(g, mate, { kind: 'zap', lane: 1 }, NOW + 2500).error).toMatch(/Wait for the march/);
+    expect(act(g, mate, { kind: 'shield', lane: 1 }, NOW + 2500).error).toMatch(/Wait for the march/);
+    expect(act(g, 'nobody', { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 2500).error).toBeTruthy();
+    // a door only holds so many
+    let full = play(2, { income: 200, rules: { purse: { start: 0, rate: 0, max: 200 } } });
+    for (let i = 0; i < DEFAULTS.maxQueue; i++) full = apply(full, act(full, 'p1', { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 100 + i));
+    expect(act(full, 'p1', { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 900).error).toMatch(/door is full/);
+    expect(act(full, 'p1', { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 900).error).toBeUndefined();
+  });
+
+  it('the march: both teams\' toys come out together, one behind the other, and walk; planning moves are refused; the phones have their reactions', () => {
+    let g = play(4);
+    const a = on(g, 0), b = on(g, 1);
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 1000));
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 1500));
+    g = apply(g, act(g, b, { kind: 'send', lane: 2, unit: 'mouse' }, NOW + 2000));
+    g = march(g);
+    const s = st(g), T = NOW + DEFAULTS.planMs;
+    expect(s).toMatchObject({ phase: 'march', round: 1, phaseAt: T, phaseEndsAt: T + DEFAULTS.marchMs });
+    expect(s.queue).toEqual([]);
+    expect(s.field.asOf).toBe(T);
+    const mine = s.field.units.filter((u) => u.side === 0);
+    expect(mine.map((u) => u.pos)).toEqual([0, -(PACK_GAP + PACK_GAP * 1.5)]);  // the second starts behind the first, inside the workshop
+    expect(s.field.units.filter((u) => u.side === 1)).toHaveLength(P.units.mouse.pack!);
+    expect(act(g, a, { kind: 'send', lane: 0, unit: 'soldier' }, T + 500).error).toMatch(/next round/);
+    expect(act(g, a, { kind: 'build', lane: 0, slot: 0, tower: 'snow' }, T + 500).error).toMatch(/next round/);
+    // they walk: a screen glides them from the field's own clock
+    const later = tv(g, T + 3000);
+    expect(later.phase).toBe('march');
+    expect(later.field.units.find((u) => u.side === 0)!.pos).toBeCloseTo(P.units.soldier.speed * 3, 1);
+    expect(fieldClock(later, T + 3000)).toBe(T + 3000);
+  });
+
+  it('the march ends and the next plan begins: what is still walking stands where it is, the next round\'s energy arrives on top of what was kept', () => {
+    let g = play(4);
+    const a = on(g, 0);
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'tank' }, NOW + 1000));          // slow: still out when the march ends
+    const kept = energy(g, a);
+    g = march(g);
+    g = tick(g, ends(g));
+    const s = st(g), T2 = NOW + DEFAULTS.planMs + DEFAULTS.marchMs;
+    expect(s).toMatchObject({ phase: 'plan', round: 2, phaseAt: T2, phaseEndsAt: T2 + DEFAULTS.planMs });
+    const tank = s.field.units[0];
+    expect(tank.pos).toBeCloseTo(P.units.tank.speed * DEFAULTS.marchMs / 1000, 1);
+    expect(energy(g, a)).toBeCloseTo(kept + incomeOf(s, 2) / 2);
+    expect(incomeOf(s, 2)).toBe(DEFAULTS.income + DEFAULTS.incomeStep);
+    // while everyone plans it does not move, on the room's side or on a screen
+    const v = tv(g, T2 + 6000);
+    expect(v.field.units[0].pos).toBeCloseTo(tank.pos);
+    expect(fieldClock(v, T2 + 6000)).toBe(v.field.asOf);
+    // and the next march takes it up from there
+    g = march(g);
+    expect(st(g).field.asOf).toBe(T2 + DEFAULTS.planMs);
+    expect(tv(g, T2 + DEFAULTS.planMs + 2000).field.units[0].pos).toBeGreaterThan(tank.pos + 0.05);
+  });
+
+  it('nobody waits for nothing: a plan ends once everyone here has said done, and a march with an empty field ends early', () => {
+    let g = play(4);
+    const everyone = st(g).teams.flatMap((t) => t.members);
+    for (const [i, p] of everyone.entries()) {
+      expect(st(g).phaseEndsAt).toBe(NOW + DEFAULTS.planMs);                    // not until the last one
+      g = apply(g, act(g, p, { kind: 'done' }, NOW + 2000 + i * 100));
+    }
+    expect(act(g, everyone[0], { kind: 'done' }, NOW + 2500).error).toMatch(/Already/);
+    expect(st(g).phaseEndsAt).toBe(NOW + 2300 + DEFAULTS.doneMs);
+    expect(tv(g, NOW + 2400).teams[0].done.length).toBe(2);
+    g = tick(g, NOW + 2300 + DEFAULTS.doneMs);
+    expect(st(g)).toMatchObject({ phase: 'march', round: 1 });
+    // nothing was sent: the march is over as soon as it decently can be
+    const T = NOW + 2300 + DEFAULTS.doneMs;
+    g = tick(g, T + DEFAULTS.minMarchMs + 500);
+    expect(st(g)).toMatchObject({ phase: 'plan', round: 2 });
+    expect(st(g).phaseAt).toBeLessThan(T + DEFAULTS.marchMs);
+    // a phone that is away is not waited for
+    let away = play(4, {}, ['p4']);
+    for (const p of st(away).teams.flatMap((t) => t.active)) away = apply(away, act(away, p, { kind: 'done' }, NOW + 1000));
+    expect(st(away).phaseEndsAt).toBe(NOW + 1000 + DEFAULTS.doneMs);
   });
 
   it('a workshop that falls loses: the other captain wins the duel, their team a Party point each', () => {
-    let g = play(6, { rules: { ...P, baseHp: 2 } });
-    const who = on(g, 0);
-    g = apply(g, act(g, who, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 100));
-    g = apply(g, act(g, who, { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 200));
-    g = tick(g, NOW + 30_000);
-    const r = arenaOf(g)!.result!, [a, b] = st(g).teams;
+    let g = play(4, { rules: { baseHp: 2, guard: 0 } });
+    const a = on(g, 0);
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 500));
+    g = apply(g, act(g, a, { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 600));
+    g = march(g);
+    g = tick(g, ends(g));
+    const r = arenaOf(g)!.result!;
     expect(r).toMatchObject({ status: 'resolved', reason: 'the other workshop fell', duel: { winningDuelistId: 'p1', losingDuelistId: 'p2' } });
     expect(st(g)).toMatchObject({ stage: 'done', winner: 'A' });
-    expect(r.rewards!.map((x) => x.playerId).sort()).toEqual([...a.members].sort());
-    expect(r.rewards!.every((x) => x.points === 1)).toBe(true);
+    expect(r.rewards!.map((x) => x.playerId).sort()).toEqual([...st(g).teams[0].members].sort());
     g.currentTurn = { ...g.currentTurn!, phase: 'minigame_arena' };
     const after = apply(g, handoff(g));
-    expect(after.players![a.members[1]].partyPoints || 0).toBe(1);
-    expect(after.players![b.members[1]].partyPoints || 0).toBe(0);
+    expect(after.players![st(g).teams[0].members[0]].partyPoints || 0).toBe(1);
+    expect(after.players![st(g).teams[1].members[0]].partyPoints || 0).toBe(0);
     expect(after.currentTurn).toMatchObject({ phase: 'duel', duelGameWinner: 'p1' });
   });
 
-  it('the bell: the stronger workshop wins; level: overtime with no more building; still level: the host decides, nobody is paid', () => {
-    let hurt = play(6);
-    hurt = apply(hurt, act(hurt, on(hurt, 1), { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 100));
-    hurt = tick(hurt, NOW + DEFAULTS.roundMs);
-    expect(arenaOf(hurt)!.result).toMatchObject({ status: 'resolved', reason: 'the stronger workshop at the bell', duel: { winningDuelistId: 'p2' } });
-    let g = tick(play(6), NOW + DEFAULTS.roundMs);
-    expect(arenaOf(g)!.result).toBeUndefined();
-    expect(st(g)).toMatchObject({ stage: 'overtime', endsAt: NOW + DEFAULTS.roundMs + DEFAULTS.overtimeMs });
-    expect(act(g, on(g, 0), { kind: 'build', lane: 0, slot: 0, tower: 'snow' }, NOW + DEFAULTS.roundMs + 500).error).toMatch(/overtime/);
-    expect(act(g, on(g, 0), { kind: 'send', lane: 0, unit: 'soldier' }, NOW + DEFAULTS.roundMs + 500).error).toBeUndefined();
-    g = tick(g, NOW + DEFAULTS.roundMs + DEFAULTS.overtimeMs);
-    expect(arenaOf(g)!.result).toMatchObject({ status: 'requires_tiebreaker', winners: [] });
-    expect(arenaOf(g)!.result!.rewards).toBeUndefined();
+  it('after the last round the stronger workshop wins; level: one more round, once; still level: the host decides, nobody is paid', () => {
+    const quick = { rounds: 2, planMs: 1000, marchMs: 12_000, rules: { guard: 0 } };
+    let g = play(4, quick);
+    g = apply(g, act(g, on(g, 0), { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 100));
+    for (let i = 0; i < 4 && !arenaOf(g)!.result; i++) g = tick(g, ends(g));
+    expect(arenaOf(g)!.result).toMatchObject({ status: 'resolved', reason: 'the stronger workshop after the last round', duel: { winningDuelistId: 'p1' } });
+    // nobody does anything: level after the last round, so one more; level again: the host
+    let idle = play(4, quick);
+    for (let i = 0; i < 12 && st(idle).stage === 'running'; i++) idle = tick(idle, Math.min(ends(idle), st(idle).phase === 'march' ? st(idle).phaseAt + DEFAULTS.minMarchMs : ends(idle)));
+    expect(st(idle)).toMatchObject({ stage: 'overtime', round: 3, phase: 'plan' });
+    expect(tv(idle, ends(idle) - 10).rounds).toBe(3);
+    for (let i = 0; i < 4 && !arenaOf(idle)!.result; i++) idle = tick(idle, ends(idle));
+    const r = arenaOf(idle)!.result!;
+    expect(r).toMatchObject({ status: 'requires_tiebreaker', winners: [] });
+    expect(r.rewards ?? []).toEqual([]);
   });
 
-  it('toys sent later in the battle are sturdier, so it cannot end in a stand-off', () => {
-    let g = play(6);
-    g = apply(g, act(g, on(g, 0), { kind: 'send', lane: 0, unit: 'soldier' }, NOW));
-    g = apply(g, act(g, on(g, 0), { kind: 'send', lane: 1, unit: 'soldier' }, NOW + 60_000));
-    const units = st(g).field.units.filter((u) => u.lane === 1);
-    expect(units[0].hp).toBeCloseTo(P.units.soldier.hp * (1 + DEFAULTS.toughen));
+  it('toys sent in later rounds are sturdier, so it cannot end in a stand-off', () => {
+    let g = play(4, { planMs: 1000, marchMs: 5000, minMarchMs: 5000 });
+    const a = on(g, 0);
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 100));
+    g = march(g);
+    const first = st(g).field.units[0].hp;
+    g = tick(g, ends(g));
+    g = apply(g, act(g, a, { kind: 'send', lane: 1, unit: 'soldier' }, st(g).phaseAt + 100));
+    g = march(g);
+    const second = st(g).field.units.find((u) => u.lane === 1)!.hp;
+    expect(first).toBe(P.units.soldier.hp);
+    expect(second).toBeCloseTo(P.units.soldier.hp * toughAt(st(g), 2));
+    expect(toughAt(st(g), 2)).toBeGreaterThan(1);
   });
 
-  it('the finale: for the last half minute energy comes twice as fast, and every screen is told when', () => {
-    const g = play(6), who = on(g, 0), rushAt = NOW + DEFAULTS.roundMs - DEFAULTS.rushMs;
-    expect(st(g).rushAt).toBe(rushAt);
-    expect(tv(g, NOW)).toMatchObject({ rushAt, rush: DEFAULTS.rush });
-    let spent = apply(g, act(g, who, { kind: 'send', lane: 0, unit: 'tank' }, rushAt - 4000));     // 12 in hand, 6 left
-    expect(energy(spent, who, rushAt - 4000)).toBeCloseTo(6);
-    expect(energy(spent, who, rushAt)).toBeCloseTo(10);                                  // 1 a second up to the finale
-    spent = apply(spent, act(spent, who, { kind: 'send', lane: 1, unit: 'tank' }, rushAt));
-    expect(energy(spent, who, rushAt + 2000)).toBeCloseTo(8);                            // then 2 a second
-    const v = phone(spent, who, rushAt + 2000);
-    expect(energyOf(v.teams[0], who, rushAt + 2000, v.rules, v)).toBeCloseTo(8);         // a screen works out the same
-    // straddling the start of it: half at one rate, half at the other
-    const early = apply(g, act(g, who, { kind: 'send', lane: 0, unit: 'tank' }, rushAt - 1000));
-    expect(energy(early, who, rushAt + 1000)).toBeCloseTo(6 + 1 + 2);
+  it('two of a team set off the avalanche between them during a march, each paying; a snowball and a shield are march moves too', () => {
+    let g = play(4, { income: 40 });
+    const [a, b] = st(g).teams[1].members, them = on(g, 0);
+    for (const lane of [0, 0, 0]) g = apply(g, act(g, them, { kind: 'send', lane, unit: 'soldier' }, NOW + 100));
+    g = march(g);
+    const T = st(g).phaseAt;
+    g = tick(g, T + 6000);                                                     // on team B's half now
+    expect(st(g).field.units.filter((u) => u.side === 0)).toHaveLength(3);
+    const before = energy(g, a);
+    g = apply(g, act(g, a, { kind: 'combo', lane: 0 }, T + 6000));
+    expect(st(g).field.units.filter((u) => u.side === 0)).toHaveLength(3);     // it waits for a second pair of hands
+    expect(tv(g, T + 6100).field.sides[1]).toMatchObject({ armLane: 0, armBy: a });
+    expect(act(g, a, { kind: 'shield', lane: 1 }, T + 6200).error).toBeUndefined();
+    expect(act(g, a, { kind: 'zap', lane: 0 }, T + 6200).error).toBeUndefined();
+    g = apply(g, act(g, b, { kind: 'combo', lane: 0 }, T + 6500));
+    expect(st(g).field.units.filter((u) => u.side === 0)).toHaveLength(0);
+    expect(energy(g, a)).toBeCloseTo(before - P.comboCost);
+    expect(energy(g, b)).toBeCloseTo(before - P.comboCost);
   });
 
-  it('two of a team set off the avalanche between them, each paying; alone it only waits', () => {
-    let g = play(6);
-    const [a, b] = [on(g, 1, 0), on(g, 1, 1)], them = on(g, 0);
-    for (const lane of [0, 0]) g = tick(apply(g, act(g, them, { kind: 'send', lane, unit: 'soldier' }, arenaOf(g)!.stateVersion ? NOW + 100 + st(g).field.units.length * 700 : NOW + 100)), NOW + 100 + st(g).field.units.length * 700);
-    g = tick(g, NOW + 8000);
-    expect(st(g).field.units).toHaveLength(2);
-    g = apply(g, act(g, a, { kind: 'combo', lane: 0 }, NOW + 8000));
-    expect(st(g).field.units).toHaveLength(2);
-    expect(tv(g, NOW + 8100).field.sides[1]).toMatchObject({ armLane: 0, armBy: a });       // the TV can show it waiting
-    expect(act(g, a, { kind: 'combo', lane: 0 }, NOW + 8200).error).toMatch(/second pair of hands/);
-    g = apply(g, act(g, b, { kind: 'combo', lane: 0 }, NOW + 8500));
-    expect(st(g).field.units).toHaveLength(0);
-    expect(energy(g, a, NOW + 8500)).toBeCloseTo(12 - P.comboCost + 0.5);            // (paid when they armed it, half a second ago)
-    expect(energy(g, b, NOW + 8500)).toBeCloseTo(12 - P.comboCost);
+  it("a phone that has dropped gets no share of the next round's energy: it goes to the teammates who are here", () => {
+    let g = play(4);
+    const [x, y] = st(g).teams[0].members;
+    g = { ...g, players: { ...g.players, [y]: { ...g.players![y], connected: false } } };
+    const keptX = energy(g, x), keptY = energy(g, y);
+    g = march(g);
+    g = tick(g, ends(g));
+    expect(st(g).round).toBe(2);
+    expect(st(g).teams[0].active).toEqual([x]);
+    expect(energy(g, y)).toBeCloseTo(keptY);                                    // what they had is still theirs
+    expect(energy(g, x)).toBeCloseTo(Math.min(DEFAULTS.rules.purse.max, keptX + incomeOf(st(g), 2)));
   });
 
-  it("a phone that drops out earns nothing and its share goes to the teammates who are here; back, it earns again", () => {
-    const whole = play(6);
-    const [away, here, other] = [on(whole, 0, 2), on(whole, 0, 1), on(whole, 0, 0)];
-    let g = play(6, {}, [away]);
-    expect(st(g).teams[0]).toMatchObject({ active: [other, here], rate: 1.5 });
-    expect(st(g).teams[1].rate).toBe(1);                                                // the other team is all here: the same 3 a second in all
-    expect(energy(g, here, NOW + 2000)).toBeCloseTo(7);
-    expect(energy(g, away, NOW + 2000)).toBeCloseTo(4);                                 // what it had, waiting for it
-    // it comes back: the next thing that happens deals the rate out again, from what everyone has now
-    g = { ...g, players: { ...g.players, [away]: { ...g.players![away], connected: true } } };
-    g = apply(g, act(g, here, { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 2000));
-    expect(st(g).teams[0]).toMatchObject({ rate: 1 });
-    expect([...st(g).teams[0].active].sort()).toEqual([away, here, other].sort());
-    expect(energy(g, other, NOW + 2000)).toBeCloseTo(7);                                // banked at the old rate
-    expect(energy(g, other, NOW + 4000)).toBeCloseTo(9);                                // and on at the new one
-    expect(energy(g, away, NOW + 4000)).toBeCloseTo(6);
-    expect(energy(g, here, NOW + 4000)).toBeCloseTo(7);
+  it('a pause holds everything: the plan clock, toys in the middle of a march, what is lined up', () => {
+    let g = play(4);
+    g = apply(g, act(g, on(g, 0), { kind: 'send', lane: 0, unit: 'tank' }, NOW + 500));
+    g = march(g);
+    const T = st(g).phaseAt;
+    g = tick(g, T + 3000);
+    g = apply(g, arenaPause(g, T + 3000));
+    const held = projectGame(g, { kind: 'tv' }, T + 30_000).arenaView!;
+    expect(towerView(held.view).field.units[0].pos).toBeCloseTo(P.units.tank.speed * 3, 1);
+    g = apply(g, arenaResume(g, T + 63_000));
+    expect(st(g).phaseEndsAt).toBe(T + DEFAULTS.marchMs + 60_000);
+    expect(st(g).field.units[0].pos).toBeCloseTo(P.units.tank.speed * 3, 1);
   });
 
-  it('a pause holds everything: toys stand where they were, energy does not refill, the bell waits', () => {
-    let g = play(6);
-    g = apply(g, act(g, on(g, 0), { kind: 'send', lane: 0, unit: 'soldier' }, NOW + 1000));
-    g = tick(g, NOW + 3000);
-    g = apply(g, arenaPause(g, NOW + 3000));
-    const held = projectGame(g, { kind: 'tv' }, NOW + 50_000).arenaView!;
-    const v = towerView(held.view);
-    expect(held.pausedAt).toBe(NOW + 3000);
-    expect(unitAt(v.field.units[0], v.field.asOf, held.pausedAt!)).toBeCloseTo(P.units.soldier.speed * 2, 1);
-    g = apply(g, arenaResume(g, NOW + 63_000));
-    expect(st(g).endsAt).toBe(NOW + DEFAULTS.roundMs + 60_000);
-    expect(energy(g, on(g, 0, 2), NOW + 63_000)).toBeCloseTo(7);                          // three seconds' worth, not sixty-three
-  });
-
-  it('the simulated hands play it to an end (all-rounders: towers go up and toys go out), the same however the clock is stepped', () => {
-    const mctx = (_g: Game, now: number) => ({ ...ctx(now), instanceId: 'x', mode: 'captain_teams' as const, participants: [], duelists: ['p1', 'p2'] as [string, string], connected: () => true });
+  it('the simulated hands play it to an end (towers go up, toys go out, they say when they are done), the same however the clock is stepped', () => {
     const run = (stepMs: number) => {
       let g = play(6);
-      for (let now = NOW + 500; now < NOW + 200_000 && !arenaOf(g)!.result; now += 500) {
-        for (let t = now - 500 + stepMs; t <= now; t += stepMs) g = tick(g, t);
+      const ids = st(g).teams.flatMap((t) => t.members);
+      for (let now = NOW + 300; now < NOW + 400_000 && !arenaOf(g)!.result; now += stepMs) {
+        g = tick(g, now);
         if (arenaOf(g)!.result) break;
-        for (const p of Object.keys(g.players!)) {
-          const o = handOffers(mctx(g, now), st(g), p)[0];
-          if (o) g = apply(g, act(g, p, o, now));
+        if ((now - NOW - 300) % 600 !== 0) continue;                            // the hands look every 600 ms whatever the step
+        for (const p of ids) {
+          const o = handOffers({ ...ctx(now), instanceId: 'x', mode: 'captain_teams', participants: ids, duelists: ['p1', 'p2'], connected: () => true }, st(g), p);
+          if (o.length) { const did = act(g, p, o[Math.floor(now / 7 + p.length) % o.length], now); if (!did.error) g = apply(g, did); }
         }
       }
       return g;
     };
-    const a = run(500), b = run(100);
-    expect(['resolved', 'requires_tiebreaker']).toContain(arenaOf(a)!.result!.status);   // (both sides playing the very same moves can end dead level)
-    expect(st(a).field.sides.map((s) => s.towers.length)).toEqual([6, 6]);
-    expect(st(a).field.sides[0].sent).toBeGreaterThan(10);
-    expect(arenaOf(b)!.result).toEqual(arenaOf(a)!.result);
-    // a hand with a habit only does that; the game's own offers are the all-rounder's
-    const g = play(6);
-    expect(handOffers(mctx(g, NOW + 100), st(g), on(g, 0), 'send').every((o) => o.kind === 'send')).toBe(true);
-    expect(towers.offers(mctx(g, NOW + 100), st(g), on(g, 0))).toEqual(handOffers(mctx(g, NOW + 100), st(g), on(g, 0)));
+    const a = run(100), b = run(300);
+    expect(arenaOf(a)!.result).toBeTruthy();
+    expect(arenaOf(a)!.result!.status).not.toBe('cancelled');
+    expect(st(a).field.sides.some((x) => x.towers.length > 0)).toBe(true);
+    expect(st(a).field.sides[0].sent + st(a).field.sides[1].sent).toBeGreaterThan(6);
+    expect(arenaOf(b)!.result!.winners).toEqual(arenaOf(a)!.result!.winners);
+    expect(st(b).field.sides.map((x) => x.hp)).toEqual(st(a).field.sides.map((x) => x.hp));
   });
 
   it('starts as the duel game with four at the table: captains and teams; refuses settings that make no battle', () => {
@@ -347,8 +416,10 @@ describe('Elf Tower Wars', () => {
     g.currentTurn = { phase: 'duel', challengerId: 'p2', defenderId: 'p1', pot: 2, duelGame: { name: 'Elf Tower Wars', kind: 'app', app: 'elf_tower_wars', via: 'picker' } };
     const started = apply(g, startDuelApp(g, ctx(NOW)));
     expect(arenaOf(started)).toMatchObject({ gameId: 'elf_tower_wars', mode: 'captain_teams', duelists: ['p2', 'p1'] });
-    expect(() => towers.validateConfig({ rules: { ...P, lanes: 0 } })).toThrow();
-    expect(() => towers.validateConfig({ tickMs: 5 })).toThrow();
-    expect(startArena(new Tx(table(2)), 'elf_tower_wars', { mode: 'direct_duel', participants: ['p1', 'p2'], duelists: ['p1', 'p2'] }, ctx(NOW)).error).toBeTruthy();
+    expect(st(started).teams.map((t) => t.captainId)).toEqual(['p2', 'p1']);
+    expect(() => towers.validateConfig({ rounds: 0 })).toThrow();
+    expect(() => towers.validateConfig({ minMarchMs: 99_999 })).toThrow();
+    expect(() => towers.validateConfig({ rules: { lanes: 9 } })).toThrow();
+    expect(towers.validateConfig({}).rules.purse.rate).toBe(0);                 // energy comes a round at a time, never by the clock
   });
 });

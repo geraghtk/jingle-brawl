@@ -7,6 +7,7 @@
 // the table knows what's being played. An in-app game settles the duel itself: everyone plays,
 // the duellist who places higher wins, the rest earn party points as usual.
 import { startDrawOff } from './drawoff';
+import { pacedConfig } from './minigames/pace';
 import { getDef, registered } from './minigames/registry';
 import { startArena } from './minigames/runtime';
 import { assignTeams, recordPairs } from './minigames/engines/teams';
@@ -145,6 +146,9 @@ export function spinDuelGame(game: Game, ctx: { now: number; rng: Rng }, by?: Pl
 }
 
 /** An in-app duel game: the host starts it once the table has voted. */
+/** Games that open with a practice of their own (Ring Toss: a few throws that do not count). */
+const OWN_PRACTICE = new Set(['reindeer_ring_toss']);
+
 export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
   const t = game.currentTurn;
   if (!t || t.phase !== 'duel' || t.duelGame?.kind !== 'app' || !t.duelGame.app) return refuse('No mini-game to start');
@@ -160,15 +164,19 @@ export function startDuelApp(game: Game, ctx: { now: number; rng: Rng }): Plan {
     const party = everyone.length >= 3 && def.supportedModes.includes('party_with_duelists');
     const arenaConfig = def.id === 'pass_the_gremlin' ? { challenges: gremlinKinds(config(game.settings).gremlinChallenges) } : undefined;
     const briefing = config(game.settings).readyCheck;   // the instructions first, and everyone says when they are ready
+    // the first time this game comes up tonight: a short go with nothing at stake, then for real
+    const practice = config(game.settings).practiceRound && !game.triedGames?.[def.id] && !OWN_PRACTICE.has(def.id);
+    tx.set(`triedGames/${def.id}`, true);
+    const paced = (c?: unknown) => pacedConfig(game.settings, def.id, c);
     let started: { error?: string };
     if (def.supportedModes.includes('captain_teams')) {
       // a team game: the duelists captain, the engine deals everyone else out (splitting past teammates)
       const table = [...new Set([...duelists, ...everyone])];
       const deal = assignTeams(duelists, table, ctx.rng, { pairs: game.teamPairs || {} });
       tx.set('teamPairs', recordPairs(deal.teams, game.teamPairs || {}));
-      started = startArena(tx, def.id, { mode: 'captain_teams', participants: table, duelists, config: { teams: deal }, briefing }, ctx);
+      started = startArena(tx, def.id, { mode: 'captain_teams', participants: table, duelists, config: paced({ teams: deal }), briefing, practice }, ctx);
     } else {
-      started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists, config: arenaConfig, briefing }, ctx);
+      started = startArena(tx, def.id, { mode: party ? 'party_with_duelists' : 'direct_duel', participants: party ? everyone : duelists, duelists, config: paced(arenaConfig), briefing, practice }, ctx);
     }
     if (started.error) return refuse(started.error);
   } else startPartyGame(tx, t.duelGame.app as PartyType, 'duel', duelists, ctx);

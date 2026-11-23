@@ -2,7 +2,7 @@
 // wall, a gap that needs both legs, a boost; and the rule every clock-settled engine keeps: settling
 // in one go or step by step gives the same walk.
 import { describe, expect, it } from 'vitest';
-import { blocker, boostNear, DEFAULT_WALK as P, free, gapAhead, grab, jump, leanAt, newWalker, nextAt, posAt, push, settle, shiftWalker, smash, step, topplesAt, wallAhead } from './walker';
+import { blocker, boostNear, climbAt, comingUp, DEFAULT_WALK as P, free, gapAhead, grab, gripAhead, jump, leanAt, newWalker, nextAt, onIce, posAt, push, settle, shiftWalker, smash, step, swingAt, topplesAt, wallAhead } from './walker';
 import type { Course, Leg, Walker } from './walker';
 
 const T0 = 1000;
@@ -223,5 +223,181 @@ describe('the walker: the clock', () => {
     const a = walk(newWalker(T0), 6, T0, open).w, b = walk(newWalker(T0), 6, T0, open).w;
     expect(a).toEqual(b);
     expect(walk(newWalker(T0), 6, T0, { ...open, seed: 8 }).w.lean).not.toBe(a.lean);
+  });
+});
+
+describe('the walker: a climb', () => {
+  const course: Course = { length: 40, seed: 7, obstacles: [{ id: 'c', kind: 'climb', at: 4 }] };
+  /** At the foot of the climb, upright, the arms holding on. */
+  function atFoot(): { w: Walker; at: number } {
+    const r = walk(newWalker(T0), 2, T0, course);
+    expect(r.w.pos).toBe(4);
+    const w = must(grab({ ...r.w, lean: 0 }, r.at, course));
+    return { w, at: r.at };
+  }
+
+  it('the arms take hold (from within reach it is pulled in); without them a step only bonks into it', () => {
+    const r = walk(newWalker(T0), 1, T0, course);                                   // at 2: within reach
+    expect(gripAhead(r.w, course)?.id).toBe('c');
+    const held = must(grab(r.w, r.at, course));
+    expect(held).toMatchObject({ grip: { id: 'c', kind: 'climb', rung: 0 }, move: { kind: 'pull', to: 4 } });
+    expect(held.events.at(-1)).toMatchObject({ kind: 'grabbed', id: 'c' });
+    expect(settle(held, r.at + P.pullMs, course).pos).toBe(4);
+    expect(grab(held, r.at + 400, course).error).toMatch(/Holding on/);
+    const foot = walk(newWalker(T0), 2, T0, course);
+    expect(must(step(foot.w, 0, foot.at + 100, course)).events.at(-1)).toMatchObject({ kind: 'bump', id: 'c' });
+    expect(must(smash(foot.w, foot.at + 100, course)).events.at(-1)!.kind).toBe('whiff');   // it is not a wall to break
+  });
+
+  it('then a rung each, legs in turn: the last rung and it is over the top and walking again', () => {
+    let { w, at } = atFoot();
+    let leg: Leg = 0;
+    for (let i = 0; i < P.rungs; i++) {
+      w = must(step(w, leg, at, course));
+      expect(climbAt(w, at + P.rungMs / 2, course)).toBeCloseTo((i + 0.5) / P.rungs);
+      at += P.rungMs;
+      w = { ...settle(w, at, course), lean: 0 };
+      leg = leg === 0 ? 1 : 0;
+    }
+    expect(w.grip).toBeUndefined();
+    expect(w.taken).toContain('c');
+    expect(w.events.at(-1)).toMatchObject({ kind: 'topped', id: 'c' });
+    expect(w.move).toMatchObject({ kind: 'vault', from: 4, to: 4 + P.vault });       // over the top and down the far side
+    w = { ...settle(w, at + P.vaultMs, course), lean: 0 };
+    expect(w.pos).toBe(4 + P.vault);
+    expect(blocker(w, course)).toBeNull();
+    expect(must(step(w, 0, at + P.vaultMs + 10, course)).move).toMatchObject({ kind: 'step' });
+  });
+
+  it('the same leg twice slips down a rung; a jump lets go; leaning right over drops it off', () => {
+    const { w: w0, at } = atFoot();
+    let w = settle(must(step(w0, 0, at, course)), at + P.rungMs, course);
+    w = settle(must(step({ ...w, lean: 0 }, 1, at + P.rungMs, course)), at + 2 * P.rungMs, course);
+    expect(w.grip!.rung).toBe(2);
+    const slipped = must(step({ ...w, lean: 0 }, 1, at + 2 * P.rungMs + 10, course));
+    expect(slipped).toMatchObject({ grip: { rung: 1 }, busy: 'stumble', busyUntil: at + 2 * P.rungMs + 10 + P.slipMs });
+    expect(slipped.events.at(-1)!.kind).toBe('slip');
+    expect(slipped.slips).toBe(w.slips + 1);
+    const off = must(jump({ ...w, lean: 0 }, 0, at + 2 * P.rungMs + 10, course));
+    expect(off.grip).toBeUndefined();
+    expect(off.events.at(-1)!.kind).toBe('dropped');
+    expect(blocker(off, course)?.id).toBe('c');                                     // still to climb
+    const leaning = { ...w, lean: 0.9, leanAsOf: at + 2 * P.rungMs };
+    const fallen = settle(leaning, topplesAt(leaning)!, course);
+    expect(fallen).toMatchObject({ busy: 'topple' });
+    expect(fallen.grip).toBeUndefined();
+  });
+});
+
+describe('the walker: a rope', () => {
+  const course: Course = { length: 40, seed: 7, obstacles: [{ id: 'r', kind: 'rope', at: 4, width: 7 }] };
+  function hanging(): { w: Walker; at: number } {
+    const r = walk(newWalker(T0), 2, T0, course);
+    return { w: must(grab(r.w, r.at, course)), at: r.at };
+  }
+  const forward = P.swingMs / 2, back = P.swingMs;
+
+  it('the arms grab it and it swings by the clock: back, forward, back', () => {
+    const { w, at } = hanging();
+    expect(w).toMatchObject({ grip: { id: 'r', kind: 'rope', at }, lean: 0 });
+    expect(swingAt(w.grip!, at)).toBeCloseTo(-1);
+    expect(swingAt(w.grip!, at + forward)).toBeCloseTo(1);
+    expect(swingAt(w.grip!, at + back)).toBeCloseTo(-1);
+    expect(step(w, 0, at + 100, course).error).toMatch(/Hanging on/);
+  });
+
+  it('both legs let go on the forward part of the swing: it lands across; at the wrong moment it drops into the gap', () => {
+    const { w, at } = hanging();
+    const go = (t: number) => must(jump(must(jump(w, 0, t, course)), 1, t + 50, course));
+    const over = go(at + forward - 50);
+    expect(over).toMatchObject({ move: { kind: 'jump', to: 11.5 } });
+    expect(over.grip).toBeUndefined();
+    expect(settle(over, at + forward + P.jumpMs, course).pos).toBe(11.5);
+    const down = go(at + back - 50);
+    expect(down).toMatchObject({ busy: 'climb', busyUntil: at + back + P.climbMs });
+    expect(down.events.at(-1)).toMatchObject({ kind: 'fell', id: 'r' });
+    expect(down.pos).toBe(4);                                                       // out the side it went in: the rope again
+    expect(gripAhead({ ...down, busyUntil: 0 }, course)?.id).toBe('r');
+  });
+
+  it('a push from the balance swings it harder: a moment that was too early is now good, and nothing leans', () => {
+    const { w, at } = hanging();
+    const early = at + Math.round(P.swingMs * 0.29);                                // the swing is a little forward of the middle
+    expect(swingAt(w.grip!, early)).toBeGreaterThan(P.swingPumped);
+    expect(swingAt(w.grip!, early)).toBeLessThan(P.swingGood);
+    const go = (x: Walker) => must(jump(must(jump(x, 0, early, course)), 1, early + 400, course));   // the first leg's moment is the one that counts
+    expect(go(w).busy).toBe('climb');
+    const pumped = must(push(w, 1, at + 100));
+    expect(pumped).toMatchObject({ grip: { pumped: true }, lean: 0 });
+    expect(pumped.events.at(-1)!.kind).toBe('pump');
+    expect(go(pumped).move).toMatchObject({ kind: 'jump' });
+  });
+
+  it('one leg lets go alone: when the other does not follow, down it goes; without the rope a jump there only hops', () => {
+    const { w, at } = hanging();
+    const one = must(jump(w, 0, at + forward, course));
+    const gone = settle(one, at + forward + P.jumpWindowMs, course);
+    expect(gone).toMatchObject({ busy: 'climb' });
+    expect(gone.grip).toBeUndefined();
+    const r = walk(newWalker(T0), 2, T0, course);
+    const hop = must(jump(must(jump(r.w, 0, r.at, course)), 1, r.at + 50, course));
+    expect(hop.move!.to).toBe(4);                                                   // never into the gap
+    expect(must(step(r.w, 0, r.at + 10, course)).events.at(-1)).toMatchObject({ kind: 'fell', id: 'r' });   // a step off the edge
+  });
+});
+
+describe('the walker: ice, and what is coming up', () => {
+  const course: Course = { length: 60, seed: 7, obstacles: [{ id: 'i', kind: 'ice', at: 4, width: 8 }, { id: 'b', kind: 'boost', at: 20 }, { id: 'w', kind: 'wall', at: 30 }] };
+
+  it('on ice the lean grows faster, so it topples sooner; off it, as before', () => {
+    expect(onIce(3.9, course)).toBe(false);
+    expect(onIce(4, course)).toBe(true);
+    expect(onIce(12, course)).toBe(false);
+    const r = walk(newWalker(T0), 2, T0, course);                                   // stands at 4: on the ice
+    expect(r.w.slick).toBe(true);
+    const dry = { ...r.w, lean: 0.2, leanAsOf: r.at, slick: false }, wet = { ...dry, slick: true };
+    expect(leanAt(wet, r.at + 1000)).toBeCloseTo(0.2 * Math.exp(P.leanRate * P.iceLean));
+    expect(leanAt(dry, r.at + 1000)).toBeCloseTo(0.2 * Math.exp(P.leanRate));
+    expect(topplesAt(wet)! - r.at).toBeLessThan((topplesAt(dry)! - r.at) * 0.6);
+    const past = walk(r.w, 5, r.at, course, 0);
+    expect(past.w.pos).toBeGreaterThanOrEqual(12);
+    expect(past.w.slick).toBe(false);
+  });
+
+  it('what is coming up: the next thing within range, of any kind; nothing when the way is clear', () => {
+    const w = newWalker(T0);
+    expect(comingUp(w, T0, course)?.id).toBe('i');
+    expect(comingUp(w, T0, course, P, 3)).toBeNull();
+    expect(comingUp({ ...w, pos: 6 }, T0, course)?.id).toBe('i');                    // still on it
+    expect(comingUp({ ...w, pos: 13 }, T0, course)?.id).toBe('b');
+    expect(comingUp({ ...w, pos: 13, taken: ['b'] }, T0, course)).toBeNull();        // the wall is 17 away
+    expect(comingUp({ ...w, pos: 20, taken: ['b'] }, T0, course)?.id).toBe('w');
+    expect(comingUp({ ...w, pos: 31, hits: { w: P.wallHits } }, T0, course)).toBeNull();
+    // something it was put past without dealing with (a climb never climbed) is behind it: not what is coming
+    const behind: Course = { length: 60, seed: 7, obstacles: [{ id: 'c', kind: 'climb', at: 10 }, { id: 'w', kind: 'wall', at: 30 }] };
+    expect(comingUp({ ...w, pos: 30 }, T0, behind)?.id).toBe('w');
+    expect(comingUp({ ...w, pos: 12 }, T0, behind)).toBeNull();
+  });
+
+  it('settling in one go or moment by moment gives the same climb', () => {
+    const both: Course = { length: 60, seed: 3, obstacles: [{ id: 'c', kind: 'climb', at: 4 }, { id: 'r', kind: 'rope', at: 12, width: 7 }] };
+    const presses: [number, (w: Walker, t: number) => { walker?: Walker; error?: string }][] = [
+      [0, (w, t) => step(w, 0, t, both)], [600, (w, t) => step(w, 1, t, both)], [1300, (w, t) => grab(w, t, both)],
+      [1700, (w, t) => step(w, 0, t, both)], [2200, (w, t) => step(w, 1, t, both)], [2700, (w, t) => step(w, 0, t, both)], [3200, (w, t) => step(w, 1, t, both)],
+    ];
+    const run = (fine: boolean) => {
+      let w = newWalker(T0);
+      let last = 0;
+      for (const [at, press] of presses) {
+        if (fine) for (let t = last; t < at; t += 37) w = settle(w, T0 + t, both);
+        w = settle(w, T0 + at, both);
+        const did = press({ ...w, lean: 0 }, T0 + at);
+        if (did.walker) w = did.walker;
+        last = at;
+      }
+      return settle(w, T0 + 4600, both);
+    };
+    expect(run(true)).toEqual(run(false));
+    expect(run(false).taken).toContain('c');
   });
 });

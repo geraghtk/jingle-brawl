@@ -69,6 +69,15 @@
 .brief-tv .brief-mark { width: 3.4vh; height: 3.4vh; font-size: 2vh; top: -1vh; right: -1vh; }
 .brief-tv .brief-wait { font-size: clamp(18px, 3.2vh, 36px); }
 .brief-tv .brief-count { font-size: clamp(110px, 22vh, 260px); }
+/* a game with a lot to say (five lines or more): a wider card and smaller type, so the roster and the count still fit */
+.brief-tv.brief-long .brief-card { max-width: min(1500px, 92vw); gap: 1.6vh; padding: 3vh 2.4vw; }
+.brief-tv.brief-long .brief-title { font-size: clamp(30px, 5.6vh, 68px); }
+.brief-tv.brief-long .brief-how { gap: .8vh; }
+.brief-tv.brief-long .brief-how li { font-size: clamp(15px, 2.5vh, 29px); padding: .9vh 1.2vw; }
+.brief-tv.brief-long .brief-n { width: 3.6vh; height: 3.6vh; font-size: 2.1vh; }
+.brief-tv.brief-long .brief-roster .f6-avatar { width: 6vh !important; height: 6vh !important; }
+.brief-tv.brief-long .brief-roster li { padding: .7vh .8vw .5vh; }
+.brief-tv.brief-long .brief-count { font-size: clamp(90px, 16vh, 200px); }
 /* the console in full-screen view: the instructions lie over the stage (the bar above stays usable) */
 .arena-full .brief-console { position: fixed; inset: 60px 0 0 0; z-index: 50; margin: 0; display: grid; place-items: center; padding: 16px; background: rgba(13, 16, 24, .45); backdrop-filter: blur(4px); overflow-y: auto; }
 /* a party game's intro waiting for the table (ui/PartyReady.tsx) */
@@ -81,3 +90,84 @@
 .party-ready.brief-tv-inline .brief-name { font-size: clamp(13px, 2.2vh, 24px); max-width: 16vh; }
 .party-ready.brief-tv-inline .brief-mark { width: 3.4vh; height: 3.4vh; font-size: 2vh; top: -1vh; right: -1vh; }
 .party-ready.brief-tv-inline .brief-wait { font-size: clamp(18px, 3.4vh, 38px); }
+
+/* the opening (ui/Briefing.tsx): the title lands, the lines come up one after the other */
+.brief-title { animation: moSlam .5s var(--mo-spring) both .12s; }
+.brief-how li { animation: moUp var(--mo-base) var(--mo-out) both; animation-delay: calc(.3s + var(--i, 0) * 90ms); }
+.brief-roster li { animation: moPop var(--mo-base) var(--mo-spring) both; animation-delay: calc(.55s + var(--i, 0) * 50ms); }
+.brief-roster li.ready .brief-mark { animation: moBump .3s var(--mo-spring) both; }
+/* and it is off: GO! over the game for a moment (host/ArenaStage.tsx, player/GameScreen.tsx) */
+.arena-go { position: fixed; inset: 0; z-index: 950; display: grid; place-items: center; pointer-events: none; animation: arenaGoOut .9s ease-in both; }
+.arena-go b { font: 900 clamp(90px, 30vh, 340px)/1 var(--f6-disp, system-ui); color: #18b88a; -webkit-text-stroke: clamp(4px, 1vh, 12px) #1d2a3a; paint-order: stroke fill; text-shadow: 0 clamp(6px, 1.4vh, 16px) 0 rgba(29, 42, 58, .28); animation: moSlam .4s var(--mo-spring) both; }
+@keyframes arenaGoOut { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
+
+/* how a mini-game ends (ui/Ceremony.tsx): placed like the opening (over the TV, a card on the console,
+   the phone's whole screen), the game's own ending still there behind it */
+.cer { color: #1d2a3a; }
+.cer-tv { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 4vh 4vw; background: rgba(13, 16, 24, .5); backdrop-filter: blur(4px); animation: moFade .4s ease-out both; }
+.cer-console { margin: 0 0 12px; }
+.arena-full .cer-console { position: fixed; inset: 60px 0 0 0; z-index: 50; margin: 0; display: grid; place-items: center; padding: 16px; background: rgba(13, 16, 24, .45); backdrop-filter: blur(4px); overflow-y: auto; animation: moFade .4s ease-out both; }
+.cer-phone { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 14px; box-sizing: border-box; overflow-y: auto; background: rgba(13, 16, 24, .55); backdrop-filter: blur(4px); animation: moFade .3s ease-out both; }
+#seat-panel-game .cer-phone { top: 64px; }
+.cer-card { position: relative; overflow: hidden; display: grid; gap: 12px; justify-items: center; width: 100%; max-width: 560px; box-sizing: border-box; padding: 22px 18px; border-radius: 24px; background: #fff; text-align: center;
+  box-shadow: 0 0 0 3px #1d2a3a, 0 8px 0 rgba(29, 42, 58, .2); animation: moPop .45s var(--mo-spring) both; }
+.cer-win .cer-card { background: linear-gradient(#fff6d6, #fff 55%); }
+.cer-card > * { position: relative; z-index: 6; }
+.cer-card > .mo-confetti { position: absolute; z-index: 5; }
+.cer-headline { margin: 0; font: 900 32px/1.08 var(--f6-disp, system-ui); overflow-wrap: anywhere; }
+.cer-win .cer-headline { color: #c2185b; }
+.cer-sub { margin: 0; font: 700 16px/1.3 var(--f6-body, system-ui); color: #4a5568; }
+.cer-stars, .cer-also { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.cer-person { position: relative; display: grid; justify-items: center; gap: 3px; padding: 8px 10px 6px; border-radius: 16px; min-width: 76px; background: #fff; box-shadow: inset 0 0 0 3px #ffc21a, 0 4px 0 rgba(29, 42, 58, .14); }
+.cer-person.also { box-shadow: inset 0 0 0 2px #d5dde8; min-width: 64px; }
+.cer-person.also .f6-avatar { transform: scale(.8); margin: -5px; }
+.cer-name { font: 800 14px/1.1 var(--f6-disp, system-ui); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cer-points { display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px; border-radius: 999px; background: #1d2a3a; color: #ffc21a; font: 900 14px/1.3 var(--f6-disp, system-ui); }
+.cer-points i { font-style: normal; }
+.cer-scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; max-width: 380px; }
+.cer-scores li { display: grid; grid-template-columns: 26px auto 1fr auto; gap: 8px; align-items: center; padding: 5px 12px 5px 6px; border-radius: 999px; background: #eef4fb; text-align: left; }
+.cer-scores li:first-child { background: #ffe9a8; }
+.cer-rank { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #1d2a3a; color: #fff; font: 900 13px/1 var(--f6-disp, system-ui); }
+.cer-score { font: 900 18px/1 var(--f6-disp, system-ui); }
+.cer-also-k { margin: 2px 0 -4px; font: 800 12px/1 var(--f6-disp, system-ui); letter-spacing: .08em; text-transform: uppercase; color: #6a7180; }
+.cer-mine { padding: 8px 20px; border-radius: 999px; font: 900 30px/1.1 var(--f6-disp, system-ui); background: #e6ecf4; box-shadow: 0 0 0 3px #1d2a3a; }
+.cer-mine-won { background: #ffc21a; }
+.cer-mine-safe { background: #bfeedd; }
+.cer-mine-level { background: #bfe0f5; }
+.cer-phone .cer-headline { font-size: 22px; color: #1d2a3a; }
+.cer-my-points { margin: 0; padding: 8px 16px; border-radius: 14px; background: #1d2a3a; color: #ffc21a; font: 900 18px/1.2 var(--f6-disp, system-ui); }
+.cer-practice { margin: 0; font: 700 13px/1.2 var(--f6-body, system-ui); color: #6a7180; }
+/* the TV: the same card, sized for the room */
+.cer-tv .cer-card { max-width: min(1200px, 88vw); gap: 2.2vh; padding: 5vh 3vw 4vh; border-radius: 4vh; box-shadow: 0 0 0 .5vh #1d2a3a, 0 2vh 6vh rgba(13, 16, 24, .5); }
+.cer-tv .cer-headline { font-size: clamp(40px, 9vh, 110px); }
+.cer-tv .cer-sub { font-size: clamp(18px, 3.2vh, 38px); }
+.cer-tv .cer-stars, .cer-tv .cer-also { gap: 1.2vw; }
+.cer-tv .cer-person { padding: 1.4vh 1.2vw 1.1vh; min-width: 13vh; border-radius: 2.4vh; gap: .6vh; box-shadow: inset 0 0 0 .5vh #ffc21a, 0 .8vh 0 rgba(29, 42, 58, .14); }
+.cer-tv .cer-person .f6-avatar { width: 13vh !important; height: 13vh !important; }
+.cer-tv .cer-person.also { min-width: 9vh; box-shadow: inset 0 0 0 .3vh #d5dde8; }
+.cer-tv .cer-person.also .f6-avatar { width: 8vh !important; height: 8vh !important; transform: none; margin: 0; }
+.cer-tv .cer-name { font-size: clamp(14px, 2.6vh, 30px); max-width: 20vh; }
+.cer-tv .cer-points { font-size: clamp(14px, 2.6vh, 30px); padding: .3vh 1.4vh; }
+.cer-tv .cer-scores { max-width: min(720px, 60vw); gap: 1vh; }
+.cer-tv .cer-scores li { grid-template-columns: 4.4vh auto 1fr auto; gap: 1.2vw; padding: .8vh 2vw .8vh 1vh; }
+.cer-tv .cer-scores .f6-avatar { width: 5.4vh !important; height: 5.4vh !important; }
+.cer-tv .cer-rank { width: 4.4vh; height: 4.4vh; font-size: 2.4vh; }
+.cer-tv .cer-score { font-size: clamp(18px, 3.6vh, 40px); }
+.cer-tv .cer-also-k { font-size: clamp(12px, 2vh, 22px); }
+.cer-tv .cer-practice { font-size: clamp(13px, 2.2vh, 24px); }
+
+/* a practice round (ui/Briefing.tsx PracticeRibbon): a ribbon over the top of the game, on every screen */
+.practice-ribbon { position: fixed; top: 10px; left: 50%; z-index: 940; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: #1d2a3a; color: #fff;
+  font: 800 15px/1.2 var(--f6-disp, system-ui); box-shadow: 0 4px 0 rgba(13, 16, 24, .3); pointer-events: none; white-space: nowrap; }
+.practice-ribbon b { padding: 4px 12px; border-radius: 999px; background: #ffc21a; color: #1d2a3a; text-transform: uppercase; letter-spacing: .06em; }
+.arena-full .practice-ribbon { top: 1.2vh; font-size: clamp(15px, 2.6vh, 30px); padding: .7vh 2.2vh .7vh .7vh; gap: 1.4vh; }
+.arena-full .practice-ribbon b { padding: .5vh 1.6vh; }
+#seat-panel-game .practice-ribbon { top: 70px; }
+.brief-practice { margin: 0; padding: 6px 14px; border-radius: 999px; background: #ffe9a8; font: 800 14px/1.2 var(--f6-disp, system-ui); }
+.brief-tv .brief-practice { font-size: clamp(15px, 2.6vh, 30px); padding: .8vh 2vh; }
+.brief-kicker { margin: 0; padding: 4px 14px; border-radius: 999px; background: #ffc21a; font: 900 14px/1.2 var(--f6-disp, system-ui); text-transform: uppercase; letter-spacing: .08em; }
+.brief-tv .brief-kicker { font-size: clamp(16px, 3vh, 34px); padding: .8vh 2.4vh; }
+.brief-real .brief-title { color: #c2185b; }
+/* on a phone the ribbon is small and sits in the very top edge, clear of the name and the chips */
+.game-screen > .practice-ribbon { top: 2px; padding: 3px 10px 3px 3px; gap: 6px; font-size: 12px; }
+.game-screen > .practice-ribbon b { padding: 2px 8px; }

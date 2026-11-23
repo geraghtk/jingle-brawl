@@ -8,7 +8,7 @@ import { partyStandings } from '../core/scoring';
 import { minCost } from '../core/settings';
 import type { Game } from '../core/types';
 import { Avatar, avatarColor } from '../ui/avatar';
-import { MvpReveal } from '../ui/MvpReveal';
+import { Recap } from '../ui/Recap';
 import { playsIn } from '../net/seats';
 import { DuelModal } from './DuelModal';
 import { DuelVerdict } from './DuelVerdict';
@@ -18,13 +18,13 @@ import { Sidebar } from './Sidebar';
 import { TurnPanel } from './TurnPanel';
 import { useHostAutomation } from './useHostAutomation';
 import { Icon } from '../ui/icons';
+import { MusicToggle } from './Music';
 
 /** The console inside the host's phone (the Host tab next to their own game): player.html frames it. */
 const EMBEDDED = new URLSearchParams(location.search).get('embedded') === '1';
 
 export function GameScreen({ onExit }: { onExit: () => void }) {
   const [modal, setModal] = useState<ReactNode | null>(null);
-  const [mvpSeen, setMvpSeen] = useState(false);
   const { game, tv } = useHost();
   useHostAutomation();
   const [consoleFull, setFull] = useState(false);
@@ -52,7 +52,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       <Modal content={modal} onClose={() => setModal(null)} />
       <DuelModal />
       <DuelVerdict />
-      {game.phase === 'ended' && !mvpSeen && <MvpReveal game={game} variant="tv" onClose={() => setMvpSeen(true)} />}
+      {game.phase === 'ended' && <Recap game={game} where={tv ? 'tv' : 'console'} />}
       <div className="coin-animation-container" id="coin-animation-container" />
       {full && (arenaOn ? <ArenaFull /> : <PartyFull />)}
     </ModalCtx.Provider>
@@ -72,6 +72,7 @@ function Strip() {
       <div className="cell minor"><span className="k">Players</span><span className="v f6-num"><span id="connected-count">{Object.keys(game.players || {}).length}</span></span></div>
       <div className="cell minor"><span className="k">Gifts left</span><span className="v f6-num" id="strip-gifts">{wrappedGifts(game)}</span></div>
       <div className={`cell pot-cell${inDuel && pot > 0 ? '' : ' hidden'}`} id="strip-pot-cell"><span className="k">Pot</span><span className="v f6-num" id="strip-pot">{pot} ◆</span></div>
+      <MusicToggle />
       <div className="cell room-cell"><span className="k">Room code</span><span className="v f6-num" id="strip-room">{room}</span></div>
       {!tv && !EMBEDDED && (playsIn(room)
         ? <a className="cell seat-switch" href="player.html?rejoin=1&tab=game" data-testid="to-player">🎮 My player screen</a>

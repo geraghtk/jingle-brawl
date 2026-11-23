@@ -13,7 +13,8 @@ export function useMvps(game: Game) {
   return useMemo(() => partyMvps(game.players), [game.players]);
 }
 
-export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: PlayerId; variant: 'tv' | 'phone'; onClose: () => void }) {
+/** `autoMs`: move on by itself that long after the name lands (the TV: nobody is there to tap it). */
+export function MvpReveal({ game, me, variant, onClose, autoMs }: { game: Game; me?: PlayerId; variant: 'tv' | 'phone'; onClose: () => void; autoMs?: number }) {
   const mvps = useMvps(game);
   const players = game.players || {};
   const names = mvps.map((id) => players[id]?.name || '?');
@@ -47,6 +48,11 @@ export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: Pla
   useEffect(() => {
     if (!rolling && iWon && variant === 'phone') navigator.vibrate?.([120, 60, 120, 60, 300]);
   }, [rolling]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (rolling || !autoMs || !mvps.length) return;
+    const id = window.setTimeout(onClose, autoMs);
+    return () => clearTimeout(id);
+  }, [rolling, autoMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!mvps.length) return null;
   const top = players[mvps[0]];
@@ -72,7 +78,8 @@ export function MvpReveal({ game, me, variant, onClose }: { game: Game; me?: Pla
             <span className="mvp-total f6-num">{partyScore(top)}</span>
           </div>
         )}
-        {!rolling && <div className="mvp-hint">{variant === 'phone' && !iWon ? `Cheer for ${winnerLabel}!` : 'Tap to see the final standings'}</div>}
+        {!rolling && !autoMs && <div className="mvp-hint">{variant === 'phone' && !iWon ? `Cheer for ${winnerLabel}!` : 'Tap to see the final standings'}</div>}
+        {!rolling && variant === 'phone' && !iWon && <div className="mvp-hint mvp-next">Tap to see how your night went</div>}
       </div>
     </div>
   );
