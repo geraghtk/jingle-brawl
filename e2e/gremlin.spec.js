@@ -103,6 +103,9 @@ test('Pass the Gremlin settles a duel: solve, pass, doom; the TV never shows the
     // the TV's table: a seat for everyone, the holder's lit, with how often each has held it
     for (const n of NAMES) await expect(tv.getByTestId(`gremlin-seat-${p[n].id}`)).toContainText(n);
     await expect(tv.getByTestId(`gremlin-seat-${a0.state.holder}`)).toHaveClass(/has/);
+    // a duelist's seat says DUEL in words (it was a pair of crossed swords in a red disc: it read as a cross, "out")
+    for (const id of a0.duelists || []) await expect(tv.getByTestId(`gremlin-duelist-${id}`)).toHaveText(/duel/i);
+    await expect(tv.locator('[data-testid^=gremlin-duelist-]')).toHaveCount((a0.duelists || []).length);
     await expect(tv.getByTestId(`gremlin-seat-${a0.state.holder}`)).toContainText('×1');
     await expect(tv.getByTestId('gremlin-tv-mood')).not.toBeEmpty();
     for (const n of NAMES.filter((x) => x !== holderName)) await expect(pages[n].getByTestId('gremlin-prompt')).toHaveCount(0);
@@ -178,7 +181,6 @@ test("the Gremlin's sound switch is remembered on the phone", async ({ browser }
     await mute.click();
     await expect(mute).toHaveAttribute('aria-pressed', 'true');
     await t.holder.reload();
-    await t.holder.getByRole('button', { name: /Rejoin/i }).click().catch(() => {});
     await expect(t.holder.getByTestId('gremlin-mute')).toHaveAttribute('aria-pressed', 'true');
     await expect(t.holder.locator('.grem-art').first()).toBeVisible();             // the sticker, not the emoji
     expect(await t.holder.locator('.grem-art').first().evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);

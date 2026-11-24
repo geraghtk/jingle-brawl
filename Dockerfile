@@ -1,5 +1,5 @@
-# The room server and the app in one small image: `docker build -t yuel-duel .` then
-# `docker run -p 8080:8080 -v yuel-data:/data yuel-duel`. Rooms live in /data/rooms.db (keep it on a
+# The room server and the app in one small image: `docker build -t yuleduel .` then
+# `docker run -p 8080:8080 -v yuleduel-data:/data yuleduel`. Rooms live in /data/rooms.db (keep it on a
 # volume). Behind a reverse proxy (Fly, Caddy, nginx) set JB_TRUST_PROXY=1. See DEPLOY.md.
 
 FROM node:22-slim AS build

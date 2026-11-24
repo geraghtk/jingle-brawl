@@ -3,373 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yuel Duel - Quick Reference</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #fafafa;
-            --bg-card: #ffffff;
-            --accent-red: #c41e3a;
-            --accent-red-dark: #a01830;
-            --accent-green: #2d6a4f;
-            --accent-green-light: #d8f3dc;
-            --accent-gold: #d4a574;
-            --accent-gold-light: #fef3c7;
-            --text-primary: #1a1a2e;
-            --text-secondary: #4a4a5a;
-            --slate: #475569;
-            --slate-light: #94a3b8;
-            --border: #e8e8ec;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            min-height: 100vh;
-            color: var(--text-primary);
-        }
-
-        .header-wrap {
-            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-            padding: 2.5rem 1rem 3rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .header-wrap::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(ellipse at 20% 20%, rgba(196, 30, 58, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 80%, rgba(45, 106, 79, 0.15) 0%, transparent 50%);
-        }
-
-        .header-wrap::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.3), transparent);
-        }
-
-        header {
-            position: relative;
-            z-index: 1;
-        }
-
-        .logo-title {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: white;
-            margin-bottom: 0.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .logo-title .brawl {
-            color: var(--accent-gold);
-        }
-
-        .logo-tagline {
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.5);
-            font-style: italic;
-            margin-top: 0.5rem;
-        }
-
-        .logo-tagline span {
-            color: var(--accent-gold);
-        }
-
-        .logo-subtitle {
-            font-size: 1.1rem;
-            color: rgba(255,255,255,0.9);
-            font-weight: 700;
-            margin-top: 0.75rem;
-            padding: 0.4rem 1rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 6px;
-            display: inline-block;
-        }
-
-        .nav-links {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1.25rem;
-            flex-wrap: wrap;
-        }
-
-        .nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.5rem 1rem;
-            background: rgba(255,255,255,0.1);
-            color: rgba(255,255,255,0.85);
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.8rem;
-            transition: all 0.2s ease;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .nav-link:hover {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            transform: translateY(-1px);
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        .quick-ref-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .ref-section {
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            border-left: 4px solid var(--slate-light);
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--slate-light);
-        }
-
-        .ref-section.warning {
-            border-left-color: var(--accent-gold);
-            background: linear-gradient(135deg, var(--accent-gold-light) 0%, white 100%);
-        }
-
-        .ref-section.info {
-            border-left-color: var(--accent-green);
-            background: linear-gradient(135deg, var(--accent-green-light) 0%, white 100%);
-        }
-
-        .ref-section.danger {
-            border-left-color: var(--accent-red);
-            background: linear-gradient(135deg, #fef2f2 0%, white 100%);
-        }
-
-        .ref-section h3 {
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #1f2937;
-        }
-
-        .ref-section h3 .emoji {
-            font-size: 1.5rem;
-        }
-
-        .ref-section ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .ref-section li {
-            padding: 0.5rem 0;
-            padding-left: 1.5rem;
-            position: relative;
-            line-height: 1.5;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .ref-section li:last-child {
-            border-bottom: none;
-        }
-
-        .ref-section li::before {
-            content: '•';
-            position: absolute;
-            left: 0;
-            color: var(--slate-light);
-            font-weight: bold;
-        }
-
-        .ref-section li strong {
-            color: var(--accent-red-dark);
-        }
-
-        .ref-section li em {
-            color: var(--slate);
-            font-size: 0.9rem;
-        }
-
-        .formula-box {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            color: white;
-            padding: 1rem;
-            border-radius: 10px;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-top: 1rem;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .tagline {
-            font-style: italic;
-            color: var(--slate);
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
-        }
-
-        .cost-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-
-        .cost-table th,
-        .cost-table td {
-            padding: 0.75rem;
-            text-align: center;
-            border: 1px solid #e2e8f0;
-        }
-
-        .cost-table th {
-            background: #f8fafc;
-            font-weight: 700;
-            color: var(--slate);
-        }
-
-        .cost-table td {
-            font-weight: 600;
-        }
-
-        .cost-table tr:nth-child(even) td {
-            background: #fafafa;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 2rem 1rem;
-            color: var(--slate);
-            font-size: 0.9rem;
-        }
-
-        .footer a {
-            color: var(--accent-red);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        .print-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.8rem 1.5rem;
-            background: var(--accent-green);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 700;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-top: 1rem;
-        }
-
-        .print-btn:hover {
-            background: var(--accent-green-dark);
-            transform: translateY(-2px);
-        }
-
-        @media print {
-            .header-wrap {
-                background: white !important;
-                color: black !important;
-                padding: 1rem;
-            }
-            .logo-title, .logo-subtitle {
-                color: black !important;
-                text-shadow: none !important;
-            }
-            .nav-links, .print-btn, .footer {
-                display: none !important;
-            }
-            .ref-section {
-                break-inside: avoid;
-                page-break-inside: avoid;
-            }
-            body {
-                background: white !important;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .logo-title {
-                font-size: 1.8rem;
-            }
-            .quick-ref-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <title>YuleDuel - Quick Reference</title>
+    <link rel="icon" type="image/png" href="ydlogo3.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pages.css">
 </head>
 <body>
-    <div class="header-wrap">
-        <header>
-            <div class="logo-title">
-                <span>🎄</span>
-                <span>Jingle</span>
-                <span class="brawl">Brawl</span>
-                <span>🥊</span>
-            </div>
-            <div class="logo-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
-            <div class="logo-subtitle">Quick Reference Card</div>
-            <nav class="nav-links">
-                <a href="rules.html" class="nav-link">📖 Full Rules</a>
-            </nav>
-        </header>
-    </div>
+    <header class="pg-head">
+        <div class="pg-brand">Yule<span>Duel</span></div>
+        <p class="pg-kicker">Keep it on the table</p>
+        <h1 class="pg-title">Quick reference card</h1>
+        <p class="pg-tagline">A game of <b>high stakes</b>, <b>low blows</b>, and <b>questionable gifts</b>.</p>
+        <nav class="pg-actions">
+            <button class="btn btn-primary" id="print" type="button">Print this card</button>
+            <a class="btn btn-secondary" href="rules.html">Full rules</a>
+        </nav>
+    </header>
 
-    <div class="container">
-        <div class="quick-ref-grid">
-            <div class="ref-section warning">
-                <h3><span class="emoji">😈</span> Grump's Gambit</h3>
+    <main class="pg-wrap">
+        <div class="qr">
+            <section class="qr-card gold">
+                <h2><img class="yd-icon" src="art/icons/gambit.webp" alt=""> Grump's Gambit</h2>
                 <ul>
                     <li>Triggers when <strong>nobody bids</strong> on your opened gift</li>
                     <li>Keep the gift <strong>OR</strong> challenge anyone!</li>
                     <li>Pay Minimum Cost to Bank</li>
                 </ul>
-                <p class="tagline">"Why settle when you can steal..."</p>
-            </div>
+                <p class="quote">"Why settle when you can steal..."</p>
+            </section>
 
-            <div class="ref-section info">
-                <h3><span class="emoji">🦌</span> Reindeer Reprisal</h3>
+            <section class="qr-card go">
+                <h2><img class="yd-icon" src="art/icons/reprisal.webp" alt=""> Reindeer Reprisal</h2>
                 <ul>
                     <li>Triggers when you <strong>LOSE</strong> a sealed-bid duel</li>
                     <li>Challenge any gift <em>(except the one you just lost and your own)</em></li>
@@ -378,21 +44,51 @@
                     <li>Pick a Misfit? Claim it, no duel</li>
                     <li>Pay Minimum Cost to Bank</li>
                 </ul>
-                <p class="tagline">"Because reindeer kick back..."</p>
-            </div>
+                <p class="quote">"Because reindeer kick back..."</p>
+            </section>
 
-            <div class="ref-section">
-                <h3><span class="emoji">💰</span> Minimum Cost</h3>
+            <section class="qr-card">
+                <h2><img class="yd-icon" src="art/icons/moneybag.webp" alt=""> Minimum Cost</h2>
                 <ul>
-                    <li>For Grump's Gambit, Reprisals & Steals</li>
+                    <li>For Grump's Gambit, Reprisals &amp; Steals</li>
                     <li>Pay to the Bank (no pot created)</li>
                     <li>Defending is always <strong>FREE</strong></li>
                 </ul>
-                <div class="formula-box">Cost = 1 + Naughty Level</div>
-            </div>
+                <div class="formula">Cost = 1 + Naughty Level</div>
+            </section>
 
-            <div class="ref-section">
-                <h3><span class="emoji">🎁</span> Swap Algorithm</h3>
+            <section class="qr-card">
+                <h2><img class="yd-icon" src="art/icons/naughty.webp" alt=""> Quick Cost Reference</h2>
+                <table class="qr-table">
+                    <thead>
+                        <tr><th>Naughty Level</th><th>Minimum Cost</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>0 (Fresh)</td><td>1 chip</td></tr>
+                        <tr><td>1</td><td>2 chips</td></tr>
+                        <tr><td>2</td><td>3 chips</td></tr>
+                        <tr><td>3</td><td>4 chips</td></tr>
+                        <tr><td>4</td><td>5 chips</td></tr>
+                        <tr><td>5+</td><td>6+ chips</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="qr-card">
+                <h2><img class="yd-icon" src="art/icons/chip.webp" alt=""> Starting Chips</h2>
+                <table class="qr-table">
+                    <thead>
+                        <tr><th>Players</th><th>Chips Each</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Up to 10</td><td>10 chips</td></tr>
+                        <tr><td>11+</td><td>12 chips</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="qr-card">
+                <h2><img class="yd-icon" src="art/icons/swap.webp" alt=""> Swap Algorithm</h2>
                 <ul>
                     <li><strong>Winner</strong> takes contested gift</li>
                     <li>Winner's old gift → Loser</li>
@@ -400,124 +96,85 @@
                     <li>Gift to Misfit resets to <strong>Naughty 0</strong></li>
                     <li>Player who loses gift to Misfit → new <strong>Head Elf</strong> (table play)</li>
                 </ul>
-            </div>
+            </section>
 
-            <div class="ref-section danger">
-                <h3><span class="emoji">🏦</span> Santa Tax</h3>
+            <section class="qr-card hot">
+                <h2><img class="yd-icon" src="art/icons/santa.webp" alt=""> Santa Tax</h2>
                 <ul>
                     <li>Applies to sealed bid pots of <strong>2+ chips</strong></li>
                     <li>Winner takes at most <strong>2 chips</strong></li>
                     <li>Rest → Bank (tax)</li>
                 </ul>
-            </div>
+            </section>
 
-            <div class="ref-section warning">
-                <h3><span class="emoji">💸</span> Loser's Dividend</h3>
+            <section class="qr-card gold">
+                <h2><img class="yd-icon" src="art/icons/sad.webp" alt=""> Loser's Dividend</h2>
                 <ul>
                     <li>Lose a duel <strong>as the Defender</strong>? Get <strong>+1 chip</strong> from Bank</li>
                     <li>Attackers who lose get nothing</li>
                     <li><em>Exception: No dividend for misfit, yield, or tie-break duels</em></li>
                 </ul>
-            </div>
+            </section>
 
-            <div class="ref-section info">
-                <h3><span class="emoji">🎰</span> Endgame (Misfit Lottery)</h3>
-                <ul>
-                    <li>Giftless players enter one by one</li>
-                    <li>Draw oldest Misfit (FIFO)</li>
-                    <li><strong>Path A:</strong> Steal from any player (pay cost)</li>
-                    <li><strong>Path B:</strong> Auction the Misfit</li>
-                    <li>No Loser's Dividend in endgame</li>
-                </ul>
-            </div>
-
-            <div class="ref-section">
-                <h3><span class="emoji">🎡</span> Picking the Duel</h3>
-                <ul>
-                    <li>The <strong>Defender picks</strong> from the host's list (or spins)</li>
-                    <li>Yield &amp; tiebreak duels: <strong>the wheel</strong> picks</li>
-                    <li>Under 16? You <strong>always pick</strong> (youngest wins a clash). Tick it when joining</li>
-                    <li>An in-app game (Whack-an-Elf, AI Draw Off, Pass the Gremlin, Ring Toss, Gift Conveyor, Nutcracker Knockout, Mecha Santa Mayhem, Elf Tower Wars…) settles it: better-placed duellist wins</li>
-                    <li>Playing along while two others duel earns party points: <strong>Pass the Gremlin</strong> 1 if it never catches you, <strong>Ring Toss</strong> 3 / 2 / 1 by your own score; in a team game (Gift Conveyor, Mecha Santa, Elf Tower Wars) everyone on the winning team gets 1</li>
-<li><strong>Before a phone game:</strong> read how to play, press Ready; it starts when everyone has (3, 2, 1)</li>
-<li><strong>First time a phone game comes up:</strong> a short practice round that does not count, then the same game for real</li>
-<li><strong>When the night is over:</strong> the host can press Play again with the same people: everyone keeps their seat, gifts, chips and scores start again</li>
-                    <li>With 4+ players the team games are on the list by default: the duellists captain, everyone plays</li>
-                    <li>Spectators call it once the duel is known; the host waits for the votes</li>
-                </ul>
-            </div>
-
-            <div class="ref-section">
-                <h3><span class="emoji">🎯</span> Yield Duels</h3>
+            <section class="qr-card">
+                <h2><img class="yd-icon" src="art/icons/target.webp" alt=""> Yield Duels</h2>
                 <ul>
                     <li>Opener can <strong>yield</strong> if there's a 2nd bidder</li>
                     <li>Duel becomes Challenger 1 vs Challenger 2</li>
                     <li>Both pay <strong>half their bid</strong> (rounded down)</li>
                     <li>Opener's name goes back in Draw Bag</li>
                 </ul>
-            </div>
+            </section>
 
-            <div class="ref-section">
-                <h3><span class="emoji">🎉</span> Party Tiebreakers</h3>
+            <section class="qr-card cool">
+                <h2><img class="yd-icon" src="art/icons/party.webp" alt=""> Party Tiebreakers</h2>
                 <ul>
                     <li>Sketch-Off or Whack-an-Elf: <strong>everyone</strong> plays</li>
                     <li>Best-placed tied bidder wins the tie</li>
                     <li>Top 3 score <strong>3 / 2 / 1</strong> party points</li>
                     <li>Best non-tied finisher: <strong>+1 chip</strong> Elf Bonus</li>
-                    <li>🏅 <strong>Party Score</strong> = party points + duels fought + correct duel calls → Party MVP and the final standings (leftover chips count for nothing)</li>
+                    <li><strong>Party Score</strong> = party points + duels fought + correct duel calls → Party MVP and the final standings (leftover chips count for nothing)</li>
                 </ul>
-            </div>
-        </div>
+            </section>
 
-        <div style="text-align: center; margin-top: 2rem;">
-            <h3 style="margin-bottom: 1rem; color: var(--slate);">📊 Quick Cost Reference</h3>
-            <table class="cost-table" style="max-width: 400px; margin: 0 auto;">
-                <thead>
-                    <tr>
-                        <th>Naughty Level</th>
-                        <th>Minimum Cost</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td>0 (Fresh)</td><td>1 chip</td></tr>
-                    <tr><td>1</td><td>2 chips</td></tr>
-                    <tr><td>2</td><td>3 chips</td></tr>
-                    <tr><td>3</td><td>4 chips</td></tr>
-                    <tr><td>4</td><td>5 chips</td></tr>
-                    <tr><td>5+</td><td>6+ chips</td></tr>
-                </tbody>
-            </table>
-        </div>
+            <section class="qr-card cool">
+                <h2><img class="yd-icon" src="art/icons/wheel.webp" alt=""> Picking the Duel</h2>
+                <ul>
+                    <li>The <strong>Defender picks</strong> from the host's list (or spins)</li>
+                    <li>Yield &amp; tiebreak duels: <strong>the wheel</strong> picks</li>
+                    <li>Under 16? You <strong>always pick</strong> (youngest wins a clash). Tick it when joining</li>
+                    <li>An in-app game (Whack-an-Elf, AI Draw Off, Pass the Gremlin, Ring Toss, Gift Conveyor, Nutcracker Knockout, Mecha Santa Mayhem, Elf Tower Wars…) settles it: better-placed duellist wins</li>
+                    <li>With 4+ players the team games are on the list by default: the duellists captain, everyone plays</li>
+                    <li>Spectators call it once the duel is known; the host waits for the votes</li>
+                </ul>
+            </section>
 
-        <div style="text-align: center; margin-top: 2rem;">
-            <h3 style="margin-bottom: 1rem; color: var(--slate);">🪙 Starting Chips</h3>
-            <table class="cost-table" style="max-width: 400px; margin: 0 auto;">
-                <thead>
-                    <tr>
-                        <th>Players</th>
-                        <th>Chips Each</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td>Up to 10</td><td>10 chips</td></tr>
-                    <tr><td>11+</td><td>12 chips</td></tr>
-                </tbody>
-            </table>
-        </div>
+            <section class="qr-card go">
+                <h2><img class="yd-icon" src="art/icons/medal.webp" alt=""> Games on the Phones</h2>
+                <ul>
+                    <li>Playing along while two others duel earns party points: <strong>Pass the Gremlin</strong> 1 if it never catches you, <strong>Ring Toss</strong> 3 / 2 / 1 by your own score; in a team game (Gift Conveyor, Mecha Santa, Elf Tower Wars) everyone on the winning team gets 1</li>
+                    <li><strong>Before a phone game:</strong> read how to play, press Ready; it starts when everyone has (3, 2, 1)</li>
+                    <li><strong>First time a phone game comes up:</strong> a short practice round that does not count, then the same game for real</li>
+                </ul>
+            </section>
 
-        <div style="text-align: center;">
-            <button class="print-btn" id="print">
-                🖨️ Print This Card
-            </button>
+            <section class="qr-card go">
+                <h2><img class="yd-icon" src="art/icons/bid.webp" alt=""> Endgame (Misfit Lottery)</h2>
+                <ul>
+                    <li>Giftless players enter one by one</li>
+                    <li>Draw oldest Misfit (FIFO)</li>
+                    <li><strong>Path A:</strong> Steal from any player (pay cost)</li>
+                    <li><strong>Path B:</strong> Auction the Misfit</li>
+                    <li>No Loser's Dividend in endgame</li>
+                    <li><strong>When the night is over:</strong> the host can press Play again with the same people: everyone keeps their seat, gifts, chips and scores start again</li>
+                </ul>
+            </section>
         </div>
-    </div>
+    </main>
 
-    <div class="footer">
-        <p><em>A game of high stakes, low blows, and questionable gifts.</em></p>
-        <p style="margin-top: 0.5rem;">
-            <a href="rules.html">📖 Read Full Rules</a>
-        </p>
-    </div>
+    <footer class="pg-foot no-print">
+        <p><a href="rules.html">Read the full rules</a> · <a href="privacy.html">Privacy</a></p>
+    </footer>
     <script src="print.js"></script>
 </body>
 </html>

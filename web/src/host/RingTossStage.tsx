@@ -6,7 +6,7 @@
 // ui/ringtoss/Flights.tsx.
 import { useEffect, useRef, useState } from 'react';
 import type { Peg } from '../core/minigames/engines/targets';
-import { finalCount, leaderOf, STREAK_MIN, streakAt, streakCall, streakPitch } from '../core/minigames/ringtoss/flair';
+import { callOf, finalCount, leaderOf, STREAK_MIN, streakAt, streakCall, streakPitch } from '../core/minigames/ringtoss/flair';
 import { ringView } from '../core/minigames/ringtoss/view';
 import type { RingThrow, RingView } from '../core/minigames/ringtoss/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
@@ -77,6 +77,9 @@ export function RingScene({ v, participants, offset, instance = '', onLand, name
   // whose ringer, and their run as it stood when it landed
   const tag = (t: RingThrow) => [nameOf ? short(nameOf(t.pid)) : '', streakCall(streakAt(landed, t.pid, t.n))].filter(Boolean).join(' · ');
   const cheer = ringers.at(-1)?.t;
+  // ONE call-out at a time (flair.callOf): the words of the newest ringer, a full set holding a moment against
+  // lesser ones. Every ringer keeps its stars; only that one has its points, its name and its run, or "Full set!"
+  const said = callOf(ringers.map(({ t }) => ({ n: t.n, at: landAt(t), weight: t.bonus ? 2 : streakAt(landed, t.pid, t.n) >= STREAK_MIN ? 1 : 0 })), now);
   const splash = useSplash(v.stage);
   const count = finalCount(v.stage, v.stageEndsAt, now);
   // where each ringer still in the air will end up: on its tip, above the ones already there
@@ -109,10 +112,10 @@ export function RingScene({ v, participants, offset, instance = '', onLand, name
       <Snow n={26} seed={7} far />
       <Reindeer pegs={v.pegs} cheer={cheer?.n} big={!!cheer?.bonus} />
       {ringers.map(({ t, at }) => <g key={`f${t.n}`} clipPath={`url(#rt-front-${instance}-${t.n})`}><Ring at={at} color={color(t)} practice={t.stage === 'practice'} ringer /></g>)}
-      {ringers.map(({ t, at }) => <Burst key={`s${t.n}`} at={at} color={RING_COLORS[color(t)]} points={t.points} tag={tag(t)} />)}
+      {ringers.map(({ t, at }) => <Burst key={`s${t.n}`} at={at} color={RING_COLORS[color(t)]} points={t.n === said && !t.bonus ? t.points : 0} tag={t.n === said && !t.bonus ? tag(t) : ''} />)}
       {ringers.filter(({ t }) => t.bonus).map(({ t }) => <Confetti key={`c${t.n}`} seed={t.n} />)}
       {/* a full set: across the top of the scene, in the thrower's colour */}
-      {ringers.filter(({ t }) => t.bonus).map(({ t }) => (
+      {ringers.filter(({ t }) => t.bonus && t.n === said).map(({ t }) => (
         <text key={`set${t.n}`} x={W / 2} y={92} textAnchor="middle" className="rt-fullset" fill={RING_COLORS[color(t)]} data-testid="ringtoss-fullset">Full set! +{t.bonus}</text>
       ))}
       {misses.filter((t) => t.z < DEER_Z).map((t) => <Ring key={t.n} at={toScreen(t.x, t.z)} color={color(t)} practice={t.stage === 'practice'} ground />)}
@@ -233,7 +236,7 @@ export function RingTossStage() {
         {v.stage === 'practice' ? `Practice throws (not scored): ${secs}s`
           : v.stage === 'throwing' ? `Throw! ${secs}s left`
           : v.stage === 'tiebreak' ? `Level! One more ring each: ${duel.map(name).join(' vs ')}`
-          : 'All rings thrown'}
+          : 'Time is up!'}
       </div>
       <div className="rt-layout">
         <RingScene v={v} participants={av.participants} offset={offset} instance={av.instanceId} onLand={landSound} nameOf={name} />

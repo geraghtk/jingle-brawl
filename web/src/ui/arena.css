@@ -98,7 +98,7 @@
 .brief-roster li.ready .brief-mark { animation: moBump .3s var(--mo-spring) both; }
 /* and it is off: GO! over the game for a moment (host/ArenaStage.tsx, player/GameScreen.tsx) */
 .arena-go { position: fixed; inset: 0; z-index: 950; display: grid; place-items: center; pointer-events: none; animation: arenaGoOut .9s ease-in both; }
-.arena-go b { font: 900 clamp(90px, 30vh, 340px)/1 var(--f6-disp, system-ui); color: #18b88a; -webkit-text-stroke: clamp(4px, 1vh, 12px) #1d2a3a; paint-order: stroke fill; text-shadow: 0 clamp(6px, 1.4vh, 16px) 0 rgba(29, 42, 58, .28); animation: moSlam .4s var(--mo-spring) both; }
+.arena-go b { font: 900 clamp(64px, min(30vh, 26vw), 340px)/1 var(--f6-disp, system-ui); color: #18b88a; -webkit-text-stroke: clamp(4px, 1vh, 12px) #1d2a3a; paint-order: stroke fill; text-shadow: 0 clamp(6px, 1.4vh, 16px) 0 rgba(29, 42, 58, .28); animation: moSlam .4s var(--mo-spring) both; }
 @keyframes arenaGoOut { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
 
 /* how a mini-game ends (ui/Ceremony.tsx): placed like the opening (over the TV, a card on the console,
@@ -126,7 +126,7 @@
 .cer-points i { font-style: normal; }
 .cer-scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; max-width: 380px; }
 .cer-scores li { display: grid; grid-template-columns: 26px auto 1fr auto; gap: 8px; align-items: center; padding: 5px 12px 5px 6px; border-radius: 999px; background: #eef4fb; text-align: left; }
-.cer-scores li:first-child { background: #ffe9a8; }
+.cer-scores li.win { background: #ffe9a8; }
 .cer-rank { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #1d2a3a; color: #fff; font: 900 13px/1 var(--f6-disp, system-ui); }
 .cer-score { font: 900 18px/1 var(--f6-disp, system-ui); }
 .cer-also-k { margin: 2px 0 -4px; font: 800 12px/1 var(--f6-disp, system-ui); letter-spacing: .08em; text-transform: uppercase; color: #6a7180; }
@@ -171,3 +171,14 @@
 /* on a phone the ribbon is small and sits in the very top edge, clear of the name and the chips */
 .game-screen > .practice-ribbon { top: 2px; padding: 3px 10px 3px 3px; gap: 6px; font-size: 12px; }
 .game-screen > .practice-ribbon b { padding: 2px 8px; }
+/* a phone with a lot to read: the Ready button stays in reach at the bottom of the screen while the rules scroll
+   above it (it used to be pushed off the screen by five or six lines of rules) */
+.brief-phone { place-items: start center; }
+.brief-phone .brief-ready { position: sticky; bottom: 14px; z-index: 2; box-shadow: 0 6px 0 #0f8a66, 0 0 0 16px #fff, 0 -22px 18px 10px #fff; }
+.brief-phone .brief-wait, .brief-phone .brief-count { position: sticky; bottom: 6px; z-index: 2; background: #fff; padding: 6px 10px; border-radius: 12px; box-shadow: 0 -14px 18px 8px #fff; }
+/* the 3, 2, 1 lies over the instructions card: the card keeps its size (on a 1080p TV it used to grow off the bottom) */
+.brief-card { position: relative; }
+.brief:not(.brief-real) .brief-count { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; margin: 0; padding: 0; border-radius: inherit; background: rgba(255, 255, 255, .9); box-shadow: none; }
+/* (a practice ribbon is on: a game's full-screen frame starts below it: ui/arenaPhone.css) */
+/* (on a phone the card may be taller than the screen: there the count rides at the bottom of the screen instead) */
+.brief-phone:not(.brief-real) .brief-count { position: sticky; inset: auto auto 14px auto; width: 100%; height: 120px; background: #fff; box-shadow: 0 0 0 16px #fff; }

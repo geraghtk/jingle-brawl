@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI Art Critic - Local vision model server for Jingle Brawl's Counterfeit Canvas minigame.
+AI Art Critic - Local vision model server for YuleDuel's Counterfeit Canvas minigame.
 
 Uses Ollama with a vision model (e.g., llava) to:
 1. Describe what was drawn in the collaborative canvas

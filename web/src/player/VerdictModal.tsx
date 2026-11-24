@@ -21,6 +21,7 @@ export function VerdictModal() {
     if (seen.current === undefined || key === seen.current) { seen.current = key; return; }
     seen.current = key;
     if (!d || (d.winnerId !== me && d.loserId !== me)) return;
+    if (d.announced) return;   // an in-app game's ending has just said who won and what they take: not twice
     const won = d.winnerId === me;
     setV({
       won, amount: won ? d.pot || 0 : d.loserPaid || 0, chips: player.chips, dividend: won ? 0 : d.dividend || 0,

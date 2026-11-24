@@ -18,6 +18,7 @@ import { SetPips } from '../ui/ringtoss/SetPips';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/arenaPhone.css';
 import '../ui/ringtoss.css';
 
 const CHARGE_PERIOD_MS = 1400;        // the hold-to-charge meter rises and falls in this long
@@ -64,11 +65,11 @@ export function RingTossCard() {
   const color = ringColor(av.participants, me);
 
   const top = (
-    <div className="rt-top">
-      <span className={`rt-stage-pill${v.stage === 'throwing' && secs <= 10 ? ' hurry' : ''}`} data-testid="ringtoss-stage-pill">
+    <div className="ap-bar rt-top">
+      <span className="ap-mid rt-mine" aria-label={`Your score ${v.myScore ?? 0}`}>Score <b data-testid="ringtoss-my-score">{v.myScore ?? 0}</b></span>
+      <span className={`ap-clock rt-stage-pill${v.stage === 'throwing' && secs <= 10 ? ' hurry' : ''}`} data-testid="ringtoss-stage-pill">
         {v.stage === 'practice' ? 'Practice' : v.stage === 'tiebreak' ? 'Tiebreak' : v.stage === 'done' ? 'Done' : 'Scored'} · {secs}s
       </span>
-      <span className="rt-mine" aria-label={`Your score ${v.myScore ?? 0}`}>Score <b data-testid="ringtoss-my-score">{v.myScore ?? 0}</b></span>
     </div>
   );
   // the scored round: the batch's slots, used ones hollow, refilling one by one while you reload; else the rings left
@@ -86,40 +87,31 @@ export function RingTossCard() {
   const set = v.stage === 'throwing' || v.stage === 'tiebreak'
     ? <div className="rt-myset">Your set <SetPips v={v} pid={me} color={color} />{need && <span className="rt-need" data-testid="ringtoss-need">Just {PEG_NAMES[need] || 'one'} to go!</span>}</div> : null;
   const said = feedback(v, last, !!lastLanded, run);
-  if (canThrow && !buttons) {
-    return (
-      <FlickSurface disabled={waiting} hint={reloading ? 'Reloading…' : undefined} color={color} flash={flash} onSwipe={(path) => throwIt({ path })}>
-        {top}
-        {rings}
-        {set}
-        <div key={flash?.n ?? 0} className={`rt-feedback big${flash ? ' hit' : ''}`} aria-live="polite" data-testid="ringtoss-feedback">{said}</div>
-        <div className="arena-error" role="alert">{error}</div>
+  // ONE layout for the whole game (it used to change to a small card whenever you had no ring to throw: after
+  // the practice rings, in a tiebreak that is not yours, at the end): the frame, the bar, the rings and the
+  // words stay where they are; only the bottom changes (the ring to flick, the buttons, or what you wait for)
+  const wait = canThrow ? null
+    : v.stage === 'done' ? 'Time is up!' : v.stage === 'tiebreak' && !inPool ? 'The duelists throw one more ring each…'
+    : v.stage === 'practice' ? 'Practice done: the scored rings start soon' : 'All your rings are thrown: watch the TV!';
+  return (
+    <FlickSurface disabled={waiting || !canThrow} idle={!canThrow} hint={wait ?? (reloading ? 'Reloading…' : undefined)} color={color} flash={flash} onSwipe={(path) => throwIt({ path })}
+      bottom={canThrow && buttons ? (
+        <>
+          <Controls disabled={waiting} color={color} onThrow={(aim, power) => throwIt({ aim, power })} />
+          <button type="button" className="rt-link rt-escape" onClick={() => setButtons(false)} data-testid="ringtoss-controls-toggle">Flick instead</button>
+        </>
+      ) : undefined}>
+      {top}
+      {rings}
+      {set}
+      <div key={flash?.n ?? 0} className={`ap-word rt-feedback big${flash ? ' hit' : ''}`} aria-live="polite" data-testid="ringtoss-feedback">{said}</div>
+      <div className="arena-error" role="alert">{error}</div>
+      {canThrow && !buttons && (
         <button type="button" className="rt-link rt-escape" onPointerDown={(e) => e.stopPropagation()} onClick={() => setButtons(true)} data-testid="ringtoss-controls-toggle">
           Use buttons instead of flicking
         </button>
-      </FlickSurface>
-    );
-  }
-
-  return (
-    <div className="card rt-card" data-testid="ringtoss-card">
-      {top}
-      <div className="rt-feedback" aria-live="polite" data-testid="ringtoss-feedback">{said}</div>
-      {canThrow ? (
-        <>
-          {rings}
-          {set}
-          <Controls disabled={waiting} color={color} onThrow={(aim, power) => throwIt({ aim, power })} />
-          <button type="button" className="rt-link" onClick={() => setButtons(false)} data-testid="ringtoss-controls-toggle">Flick instead</button>
-        </>
-      ) : (
-        <p className="rt-wait" data-testid="ringtoss-wait">
-          {v.stage === 'done' ? 'All rings thrown!' : v.stage === 'tiebreak' && !inPool ? 'The duelists throw one more ring each…'
-            : v.stage === 'practice' ? 'Practice done: the scored rings start soon' : 'All your rings are thrown: watch the TV!'}
-        </p>
       )}
-      <div className="arena-error" role="alert">{error}</div>
-    </div>
+    </FlickSurface>
   );
 }
 
@@ -143,8 +135,12 @@ function feedback(v: RingView, last: RingView['throws'][number] | undefined, lan
  *  you let go, carries on up and off the screen along your flick (then it's on the TV). The path goes
  *  in screen heights (across too: a sideways millimetre is a millimetre) and ms since the touch began;
  *  the room turns it into the throw. */
-function FlickSurface({ onSwipe, disabled, hint, color, flash, children }: {
+function FlickSurface({ onSwipe, disabled, idle, hint, color, flash, bottom, children }: {
   onSwipe: (path: SwipePath) => void; disabled: boolean; hint?: string; color: string;
+  /** Nothing to throw just now: the hint says what you are waiting for. */
+  idle?: boolean;
+  /** Something else at the bottom than the ring to flick (the buttons). */
+  bottom?: React.ReactNode;
   /** My last ring was a ringer (a full set: `set`): the pad lights up in my colour. */
   flash?: { n: number; set: boolean } | null; children: React.ReactNode;
 }) {
@@ -159,11 +155,11 @@ function FlickSurface({ onSwipe, disabled, hint, color, flash, children }: {
   const h = () => window.innerHeight;
   const ringAt = gone ? `translate(${gone.x}px, ${gone.y}px) scale(.7)` : drag ? `translate(${drag.x}px, ${Math.min(0, drag.y)}px)` : undefined;
   return (
-    <div className={`rt-fullpad${disabled ? ' disabled' : ''}`} data-testid="ringtoss-card">
+    <div className={`ap rt-fullpad${disabled ? ' disabled' : ''}${idle ? ' idle' : ''}${bottom ? ' buttons' : ''}`} data-testid="ringtoss-card">
       {flash && <i key={flash.n} className={`rt-pad-flash${flash.set ? ' set' : ''}`} style={{ background: color }} data-testid="ringtoss-flash" />}
       <div className="rt-pad-surface" data-testid="ringtoss-pad"
         onPointerDown={(e) => {
-          if (disabled) return;
+          if (disabled || bottom) return;
           try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* a pointer the browser no longer knows */ }
           t0.current = e.timeStamp;
           path.current = [pt(e)];
@@ -193,8 +189,12 @@ function FlickSurface({ onSwipe, disabled, hint, color, flash, children }: {
         }}
         onPointerCancel={() => { path.current = null; setDrag(null); }} />
       <div className="rt-fullpad-info">{children}</div>
-      <span className={`rt-pad-ring${gone ? ' gone' : ''}`} style={{ borderColor: color, transform: ringAt }} />
-      <span className="rt-pad-hint" data-testid="ringtoss-pad-hint">{hint ?? (disabled ? 'Next ring…' : 'Flick up anywhere ↑')}</span>
+      {bottom ?? (
+        <>
+          <span className={`rt-pad-ring${gone ? ' gone' : ''}`} style={{ borderColor: color, transform: ringAt }} />
+          <span className="rt-pad-hint" data-testid={idle ? 'ringtoss-wait' : 'ringtoss-pad-hint'}>{hint ?? (disabled ? 'Next ring…' : 'Flick up anywhere ↑')}</span>
+        </>
+      )}
     </div>
   );
 }

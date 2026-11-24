@@ -13,12 +13,31 @@ import { arenaView } from './minigames/runtime';
 import { wallOrder, wallSlot } from './party';
 import type { PartyGame } from './party';
 import { config } from './settings';
+import { duelStakes } from './stakes';
 import type { Game, PlayerId } from './types';
 
 export type Viewer = { kind: 'host' } | { kind: 'tv' } | { kind: 'phone'; pid: PlayerId };
 
 const SEALED_PHASES = new Set(['bidding', 'endgame_bidding']);
 export const HIDDEN_DRAWING = 'data:,';
+
+/** The duelist an in-app game's ending is announcing as the duel's winner right now, if any. */
+export function announcedWinner(game: Game): PlayerId | null {
+  const t = game.currentTurn;
+  if (!t || t.lab || !t.challengerId || !t.defenderId) return null;
+  const duelist = (id: PlayerId | undefined | null) => (id && (id === t.challengerId || id === t.defenderId) ? id : null);
+  const a = game.arena;
+  if (a) {
+    if (t.phase !== 'minigame_arena' || a.practice || a.endedAt == null || a.result?.status !== 'resolved') return null;
+    const w = a.result.duel?.winningDuelistId;
+    return w && a.duelists?.includes(w) ? duelist(w) : null;
+  }
+  const mg = game.minigame;
+  if (!mg || !('type' in mg)) return null;
+  if (mg.type === 'draw_off') return t.phase === 'minigame_draw_off' && mg.phase === 'results' ? duelist(mg.winners?.[0]) : null;
+  const party = mg as PartyGame;
+  return t.phase === 'minigame_party' && party.minigameGoal === 'duel' && party.phase === 'results' ? duelist(party.results?.winners?.[0]) : null;
+}
 
 export function projectGame(game: Game, viewer: Viewer, now = Date.now()): Game {
   const g: Game = JSON.parse(JSON.stringify(game));
@@ -41,6 +60,16 @@ export function projectGame(game: Game, viewer: Viewer, now = Date.now()): Game 
   }
 
   if (g.arena) { g.arenaView = arenaView(g.arena, viewer, now); delete g.arena; }   // a game's secrets stay with it
+
+  // an in-app game has named the duel's winner: its ending says what they take too (the room knows every
+  // chip, so it works that out here, from the same resolveDuel that then settles it). Never for a practice
+  // round or the Game Lab: they hand nothing off, so they promise nothing.
+  const winner = announcedWinner(game);
+  if (winner) {
+    const stakes = duelStakes(game, winner, now);
+    if (stakes && g.arenaView) g.arenaView.stakes = stakes;
+    else if (stakes && g.minigame) g.minigame.stakes = stakes;
+  }
 
   const mg = g.minigame;
   const drawing = mg && 'type' in mg && ((mg.type === 'sketch_off' && mg.phase === 'playing')

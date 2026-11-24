@@ -1,4 +1,4 @@
-# Deploying Yuel Duel
+# Deploying YuleDuel
 
 One Node process serves the app and runs every room (WebSockets, SQLite). It needs one machine, one
 disk for `rooms.db`, and HTTPS in front of it (phones' browsers want `wss://` on a public site).
@@ -21,8 +21,8 @@ answers only this machine asking by a localhost name.
 ## Docker
 
 ```bash
-docker build -t yuel-duel .
-docker run -d --name yuel-duel -p 8080:8080 -v yuel-data:/data -e JB_TRUST_PROXY=1 yuel-duel
+docker build -t yuleduel .
+docker run -d --name yuleduel -p 8080:8080 -v yuleduel-data:/data -e JB_TRUST_PROXY=1 yuleduel
 ```
 
 Put a TLS proxy in front (Caddy is the least work: `yourdomain.example { reverse_proxy 127.0.0.1:8080 }`).

@@ -12,8 +12,8 @@ const NAMES = ['Alice', 'Bob', 'Charlie'];
 // The mascots pick a line at random from a pool per moment (web/src/ui/mascots.ts): match any
 // line of the pool.
 const MASCOT_LINES = (() => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'web', 'src', 'ui', 'mascots.ts'), 'utf8');
-  const { code } = require('esbuild').transformSync(src, { loader: 'ts', format: 'cjs' });
+  // (bundled: mascots.ts imports its queue)
+  const code = require('esbuild').buildSync({ entryPoints: [require('path').join(__dirname, '..', 'web', 'src', 'ui', 'mascots.ts')], bundle: true, format: 'cjs', write: false, logLevel: 'silent' }).outputFiles[0].text;
   const module = { exports: {} };
   new Function('module', 'exports', 'location', code)(module, module.exports, { search: '' });
   return module.exports.lines;
@@ -1018,8 +1018,7 @@ test.describe('Regressions (2026-10 review)', () => {
     const { pages, contexts, errors } = await H.joinPlayers(browser, roomCode, ["O'Brien"]);
     try {
       const phone = pages["O'Brien"];
-      await phone.reload();
-      await phone.getByRole('button', { name: /Rejoin Game/ }).click();
+      await phone.reload();                                            // straight back in: no Rejoin question
       await expect(phone.locator('#game-screen')).toBeVisible();
       await expect(phone.locator('#display-name')).toHaveText("O'Brien");
       expect(errors).toEqual([]);

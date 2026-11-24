@@ -94,7 +94,6 @@ test('Ring Toss: practice, swipes and buttons, rings on the TV, the duel to the 
     }
     // a page that reloads keeps its rings (nothing doubled)
     await t.pages[t.opener].reload();
-    await t.pages[t.opener].getByRole('button', { name: /Rejoin/i }).click().catch(() => {});
     await expect(t.pages[t.opener].getByTestId('ringtoss-card')).toBeVisible();
     expect((await stateOf(t.roomCode)).throws.filter((x) => x.pid === t.p[t.opener].id && x.stage === 'throwing')).toHaveLength(3);
 
@@ -180,9 +179,10 @@ test('Ring Toss: the show: Go!, whose ringer and their run, the leader, one to g
     await t.tv.waitForTimeout(700);
     await shot(t.tv, 'flight');
 
-    // the TV: each burst says whose ring, the third and fourth call the run; the reindeer's nose lights up
-    await expect(t.tv.getByTestId('ringtoss-who').filter({ hasText: '4 in a row!' })).toContainText(t.opener, { timeout: 5000 });
-    await expect(t.tv.getByTestId('ringtoss-who').filter({ hasText: '3 in a row!' })).toHaveCount(1);
+    // the TV: ONE call-out at a time (they used to pile up on each other): the newest ringer's, whose ring and the run
+    await expect(t.tv.getByTestId('ringtoss-who').filter({ hasText: /[34] in a row!/ })).toContainText(t.opener, { timeout: 5000 });   // (thrown together, the furthest peg's ring lands last: its run is the one said)
+    await expect(t.tv.getByTestId('ringtoss-who')).toHaveCount(1);
+    await expect(t.tv.locator('[data-testid=ringtoss-scene] .rt-plus')).toHaveCount(2);      // its points and its name: no other words
     await expect(t.tv.getByTestId('ringtoss-nose')).toBeAttached();
     await shot(t.tv, 'ringers');
     // the phone: the pad lights up, the run, and the one target the set still needs
@@ -206,6 +206,31 @@ test('Ring Toss: the show: Go!, whose ringer and their run, the leader, one to g
     await expect(t.tv.getByTestId('ringtoss-stage-label')).toHaveClass(/hurry/);
     await expect(al.getByTestId('ringtoss-stage-pill')).toHaveClass(/hurry/);
     await shot(t.tv, 'count');
+    expect([...t.errors, ...t.phoneErrors]).toEqual([]);
+  } finally {
+    await t.close();
+  }
+});
+
+test('Ring Toss: the phone keeps ONE layout all game long (it used to flip to a small card with nothing to throw)', async ({ browser }) => {
+  test.setTimeout(120000);
+  const t = await toRingToss(browser);
+  try {
+    const al = t.pages[t.opener];
+    const card = al.getByTestId('ringtoss-card');
+    await expect(card).toHaveClass(/rt-fullpad/);
+    const box0 = await card.boundingBox();
+    const pill0 = await al.getByTestId('ringtoss-stage-pill').boundingBox();
+    // the practice rings run out: the same full screen, the ring dimmed, the hint says what comes next
+    for (let i = 0; i < 12 && !(await al.getByTestId('ringtoss-wait').count()); i++) { await swipe(al, 0, 0.7); await al.waitForTimeout(650); }
+    await expect(al.getByTestId('ringtoss-wait')).toContainText('scored rings start soon');
+    await expect(card).toHaveClass(/rt-fullpad/);
+    expect(await card.boundingBox()).toEqual(box0);
+    expect((await al.getByTestId('ringtoss-stage-pill').boundingBox()).y).toBe(pill0.y);
+    // the scored round: the same frame again, ready to flick
+    await endStage(t.roomCode);
+    await expect(al.getByTestId('ringtoss-pad-hint')).toHaveText(/Flick up/, { timeout: 8000 });
+    expect(await card.boundingBox()).toEqual(box0);
     expect([...t.errors, ...t.phoneErrors]).toEqual([]);
   } finally {
     await t.close();

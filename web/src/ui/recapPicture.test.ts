@@ -5,7 +5,7 @@ import type { Game } from '../core/types';
 import { PIC_H, PIC_W, fitText, layoutPicture, roughMeasure, stepNames } from './recapPicture';
 import type { PicItem, PicText } from './recapPicture';
 
-const WORDS = { brand: 'Yuel Duel', title: 'The final standings', date: '23 November 2026' };
+const WORDS = { brand: 'YuleDuel', title: 'The final standings', date: '23 November 2026' };
 const LONG = 'Bartholomew Featherstonehaugh the Third of Little Snoring';
 
 /** A finished table of `n` with scores, chips, duels and gifts all different (so every award is given). */

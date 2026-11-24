@@ -136,8 +136,7 @@ test('a phone that reloads rejoins with its token, as the same player', async ({
   const { roomCode, pages, close } = await setup(browser);
   try {
     const before = await H.playersByName(roomCode);
-    await pages.Alice.reload();
-    await pages.Alice.getByRole('button', { name: /Rejoin/i }).click();
+    await pages.Alice.reload();                                        // no Rejoin question: the saved seat goes straight in
     await pages.Alice.waitForSelector('#game-screen', { state: 'visible' });
     const after = await H.playersByName(roomCode);
     expect(Object.keys(after).length).toBe(Object.keys(before).length);

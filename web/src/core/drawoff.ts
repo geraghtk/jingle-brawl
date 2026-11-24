@@ -85,6 +85,8 @@ export interface DrawOff {
   resultsEndTime?: number;
   startedAt: number;
   claims?: Record<string, true>;
+  /** With the results in and a winner: what they take (core/stakes.ts, added by the projection). */
+  stakes?: import('./stakes').DuelStakes;
 }
 
 export const isDrawOff = (mg: unknown): mg is DrawOff => !!mg && (mg as DrawOff).type === 'draw_off';
@@ -142,7 +144,7 @@ export function completeDrawOff(game: Game): Plan {
   if (mg?.phase !== 'results' || !t) return refuse('No Draw Off results yet');
   const tx = new Tx(game).claim('minigame/claims/results', true).set('minigame', null).set('currentTurn/phase', 'duel');
   const winner = mg.winners?.[0];
-  if (winner) tx.set('currentTurn/duelGameWinner', winner);
+  if (winner) tx.set('currentTurn/duelGameWinner', winner).set('currentTurn/duelAnnounced', winner);   // the results said who won and what they take
   else tx.set('currentTurn/duelGameOutcome', { status: 'no_contest', reason: mg.failed || 'the critic could not decide' });
   return tx.plan();
 }

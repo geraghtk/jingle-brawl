@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LastDuel, Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
+import { FitName } from '../ui/FittedName';
+import { theGift } from '../ui/notes';
 import { flyChips } from '../ui/chips';
 import { useHost } from './HostContext';
 
@@ -27,6 +29,7 @@ export function DuelVerdict() {
     const duel = game.lastDuel;
     const turn = lastTurn.current;
     if (!duel || !turn) return;
+    if (duel.announced) return;   // an in-app game's ending has just said who won and what they take: not twice
     const now = game.players?.[duel.winnerId]?.chips;
     setV({ duel, turn, chipsBefore: typeof now === 'number' ? Math.max(0, now - duel.pot) : null });
   }, [at]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -77,20 +80,20 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const outcome = gift
-    ? (duel.winnerId === turn.defenderId ? `keeps the ${gift}` : `takes the ${gift}`)
+    ? (duel.winnerId === turn.defenderId ? `keeps ${theGift(gift)}` : `takes ${theGift(gift)}`)
     : 'wins the duel';
   return (
     <div className={`verdict-stage ${winnerIsChallenger ? 'red' : 'green'}`} id="duel-verdict" role="status" onClick={onClose}>
       <div className="verdict-halftone fz-halftone" />
       <div className="verdict-body">
         <span className="fz-sticker ink verdict-sticker">{winnerIsChallenger ? 'Red corner wins' : 'Green corner wins'}</span>
-        <h1 className="verdict-name f6-disp fz-riso">{name(duel.winnerId)}</h1>
+        <h1 className="verdict-name f6-disp fz-riso"><FitName name={name(duel.winnerId)} chars={13.5} lines={2} upper /></h1>
         <p className="verdict-outcome">{outcome}</p>
 
         <div className="verdict-purse">
           <div className="purse-tile loser" ref={loser} data-duel-corner={duel.loserId}>
             <Avatar name={name(duel.loserId)} avatar={game.players?.[duel.loserId]?.avatar} size={56} />
-            <div className="purse-name">{name(duel.loserId)}</div>
+            <div className="purse-name"><FitName name={name(duel.loserId)} chars={19} lines={2} /></div>
             <div className="purse-note">
               {duel.loserPaid > 0 ? `paid ${duel.loserPaid}` : 'defended for free'}
               {duel.dividend > 0 && <> · +{duel.dividend} back</>}
@@ -99,7 +102,7 @@ function VerdictStage({ v, onClose }: { v: Verdict; onClose: () => void }) {
           <div className="purse-arc" aria-hidden />
           <div className="purse-tile winner" ref={winner} data-duel-corner={duel.winnerId}>
             <Avatar name={name(duel.winnerId)} avatar={game.players?.[duel.winnerId]?.avatar} size={56} />
-            <div className="purse-name">{name(duel.winnerId)}</div>
+            <div className="purse-name"><FitName name={name(duel.winnerId)} chars={19} lines={2} /></div>
             <div className="purse-chips f6-num" data-testid="verdict-winner-chips"><span className="jb-chip" />{v.chipsBefore == null ? `+${chips}` : chips}</div>
           </div>
         </div>

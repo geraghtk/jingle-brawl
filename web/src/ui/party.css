@@ -53,14 +53,6 @@
 .pg .pg-gallery button { all: unset; display: block; cursor: pointer; }
 .pg .pg-gallery figure.mine { opacity: .5; }
 .pg .pg-gallery figure.voted { box-shadow: 0 0 0 3px var(--accent, #ff3b5c); }
-.pg .pg-rank { list-style: none; padding: 0; margin: 8px auto; max-width: 520px; text-align: left; }
-.pg .pg-rank .sc { font-weight: 800; }
-.pg .pg-rank li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; margin-bottom: 6px; background: var(--bg, #eef1f6); }
-.pg .pg-rank li.tied { box-shadow: inset 4px 0 0 var(--accent, #ff3b5c); }
-.pg .pg-rank li.win { background: color-mix(in srgb, var(--accent, #ff3b5c) 14%, white); font-weight: 800; }
-.pg .pg-rank .pos { width: 26px; font-weight: 800; color: var(--muted, #6b7280); }
-.pg .pg-rank .nm { flex: 1; }
-.pg .pg-rank .tag { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: #fff; }
 .pg .pg-bars { max-width: 520px; margin: 0 auto; text-align: left; }
 .pg .pg-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .pg .pg-bar .nm { width: 110px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -91,16 +83,6 @@
 .wh-stage { height: 100%; box-sizing: border-box; border-radius: 14px; background: linear-gradient(#dcebfb, #b9d3ef); padding: 2vh 2vw; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4vh; }
 /* the results on the big screen (Sketch-Off's panel too): a board the room can read from the sofa */
 .wh-stage.intro, .wh-stage.results { background: linear-gradient(rgba(206, 228, 250, .72), rgba(176, 208, 240, .55)), url('/art/ringtoss/backdrop.webp') center 70% / cover no-repeat; }
-.wh-stage.results h3, .sk-results h3 { font: 900 clamp(30px, 6.5vh, 72px)/1.1 var(--f6-disp, system-ui); margin: 0; }
-.wh-stage.results .pg-sub, .sk-results .pg-sub { font-size: clamp(15px, 2.6vh, 28px); font-weight: 700; margin: 0 0 1vh; color: #1d2a3a; opacity: .8; }
-.wh-stage.results .pg-rank { width: min(62vw, 1100px); max-width: none; margin: 0; padding: 2vh 1.6vw; box-sizing: border-box; border-radius: 2.4vh; background: rgba(255, 255, 255, .92); box-shadow: 0 1.2vh 4vh rgba(30, 60, 110, .22); }
-.wh-stage.results .pg-rank li, .sk-results .pg-rank li { font-size: clamp(16px, 3vh, 32px); font-weight: 700; padding: .9vh 1.2vw; gap: 1vw; border-radius: 1.6vh; margin-bottom: .8vh; }
-.wh-stage.results .pg-rank li:first-child, .sk-results .pg-rank li:first-child { background: #fff3c4; box-shadow: 0 0 0 .4vh #ffc21a; font-weight: 900; }
-.wh-stage.results .pg-rank li:last-child, .sk-results .pg-rank li:last-child { margin-bottom: 0; }
-.wh-stage.results .pg-rank .pos, .sk-results .pg-rank .pos { width: 1.6em; font-weight: 900; }
-.wh-stage.results .pg-rank .f6-avatar, .sk-results .pg-rank .f6-avatar { width: 1.7em !important; height: 1.7em !important; }
-.wh-stage.results .pg-rank .sc, .sk-results .pg-rank .sc { font: 900 1.15em/1 var(--f6-disp, system-ui); font-variant-numeric: tabular-nums; }
-.wh-stage.results .pg-rank .tag, .sk-results .pg-rank .tag { font-size: .5em; padding: .3em .9em; }
 .wh-stage .wh-title { font: 900 clamp(34px, 6vh, 64px)/1.1 var(--f6-disp, system-ui); margin: 0; }
 .wh-stage .wh-rules { font-size: clamp(16px, 3vh, 32px); font-weight: 700; line-height: 1.3; max-width: 32em; margin: 0; }
 .wh-stage.intro .wh-legend { width: min(46vw, 80vh); max-width: none; gap: 2vw; margin: 1vh auto; }

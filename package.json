@@ -1,7 +1,7 @@
 {
   "name": "jingle-brawl",
   "version": "1.0.0",
-  "description": "Yuel Duel - gift exchange party game",
+  "description": "YuleDuel - gift exchange party game",
   "private": true,
   "scripts": {
     "dev": "node tools/dev.mjs",

@@ -1,0 +1,71 @@
+/* The ending's newer parts (ui/CeremonyCard.tsx; the card itself is in arena.css): what a duel was for,
+   a party game's fuller score list, Sketch-Off's favourite drawing, and the card set into a stage. */
+
+/* what the duel was for: the prize, what it means for the loser, the small print */
+.cer-stakes { display: grid; gap: 6px; justify-items: center; width: 100%; max-width: 460px; box-sizing: border-box; padding: 10px 14px; border-radius: 16px; background: #1d2a3a; color: #fff; }
+.cer-stakes p { margin: 0; overflow-wrap: anywhere; }
+.cer-prize { font: 900 19px/1.2 var(--f6-disp, system-ui); color: #ffc21a; }
+.cer-loser { font: 700 14px/1.3 var(--f6-body, system-ui); color: #dfe7f1; }
+.cer-loser b { color: #fff; font-weight: 900; }
+.cer-foot { font: 700 12px/1.3 var(--f6-body, system-ui); color: #a9b6c8; }
+.cer-tv .cer-stakes, .cer-stakes.big { max-width: min(1000px, 80vw); gap: .8vh; padding: 1.6vh 2vw; border-radius: 2.2vh; }
+.cer-tv .cer-prize, .cer-stakes.big .cer-prize { font-size: clamp(20px, 4vh, 48px); }
+.cer-tv .cer-loser, .cer-stakes.big .cer-loser { font-size: clamp(15px, 2.7vh, 32px); }
+.cer-tv .cer-foot, .cer-stakes.big .cer-foot { font-size: clamp(13px, 2.1vh, 24px); }
+
+/* a score row's extras: a note under the name, the unit, Party points earned, someone who did not play */
+.cer-scores .cer-name { display: grid; max-width: none; min-width: 0; }
+.cer-scores .cer-name, .cer-scores .cer-tag { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cer-tag { font: 800 10px/1.2 var(--f6-disp, system-ui); letter-spacing: .06em; text-transform: uppercase; color: #6a7180; }
+.cer-scores li { grid-template-columns: 26px auto minmax(0, 1fr) auto auto; }
+.cer-scores li > .cer-score, .cer-scores li > .cer-noscore { grid-column: 5; }
+.cer-scores li > .cer-points { grid-column: 4; font-size: 12px; padding: 1px 7px; }
+.cer-scores li.me { box-shadow: inset 0 0 0 2px #1d2a3a; }
+.cer-scores li.out { opacity: .6; }
+.cer-score small { font: 800 .62em/1 var(--f6-disp, system-ui); color: #6a7180; }
+.cer-noscore { font: 700 12px/1 var(--f6-body, system-ui); color: #6a7180; }
+.cer-tv .cer-scores li { grid-template-columns: 4.4vh auto minmax(0, 1fr) auto auto; }
+.cer-tv .cer-tag { font-size: clamp(10px, 1.6vh, 18px); }
+.cer-tv .cer-scores li > .cer-points { font-size: clamp(12px, 2vh, 24px); padding: .2vh 1.1vh; }
+.cer-tv .cer-noscore { font-size: clamp(12px, 2vh, 22px); }
+/* a long table on the big screen: two columns, so the card stays on the screen */
+.cer-tv .cer-many .cer-scores { grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(var(--rows, 4), auto); max-width: min(1100px, 82vw); column-gap: 1.4vw; }
+
+/* Sketch-Off: the drawing the table liked best */
+.cer-picture { margin: 0; display: grid; justify-items: center; gap: 4px; }
+.cer-picture img { width: min(40vw, 150px); aspect-ratio: 1; display: block; border-radius: 12px; background: #fff; box-shadow: 0 0 0 3px #1d2a3a, 0 5px 0 rgba(29, 42, 58, .18); rotate: -2deg; }
+.cer-picture figcaption { font: 800 13px/1.2 var(--f6-disp, system-ui); color: #4a5568; }
+.cer-tv .cer-picture img { width: min(24vh, 22vw); border-radius: 1.6vh; }
+.cer-tv .cer-picture figcaption { font-size: clamp(13px, 2.2vh, 26px); }
+
+/* set into a stage (a party game's results: the stage has nothing else to show, so no veil over the screen) */
+.cer.cer-inline, .arena-full .cer.cer-inline { position: static; inset: auto; z-index: auto; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center; background: none; backdrop-filter: none; overflow: visible; animation: none; }
+.cer-tv.cer-inline .cer-card { box-shadow: 0 0 0 .5vh #1d2a3a, 0 1.4vh 0 rgba(29, 42, 58, .2); max-height: 100%; overflow: hidden; }
+/* Sketch-Off's results: the card beside the wall of drawings, sized for its column */
+.sk-ceremony { flex: 1.15; min-width: 320px; min-height: 0; align-self: stretch; display: grid; place-items: center; }
+.sk-ceremony .cer-tv .cer-card { padding: 3vh 1.6vw 2.6vh; gap: 1.6vh; }
+.sk-ceremony .cer-tv .cer-headline { font-size: clamp(26px, 5.4vh, 64px); }
+.sk-ceremony .cer-tv .cer-sub { font-size: clamp(15px, 2.4vh, 28px); }
+.sk-ceremony .cer-tv .cer-person .f6-avatar { width: 9vh !important; height: 9vh !important; }
+.sk-ceremony .cer-tv .cer-many .cer-scores { grid-template-columns: 1fr; grid-auto-flow: row; grid-template-rows: none; }
+.sk-ceremony .cer-tv .cer-scores { gap: .6vh; }
+.sk-ceremony .cer-tv .cer-scores li { padding: .5vh 1.2vw .5vh .8vh; }
+.sk-ceremony .cer-tv .cer-scores .f6-avatar { width: 4.2vh !important; height: 4.2vh !important; }
+.sk-ceremony .cer-tv .cer-rank { width: 3.6vh; height: 3.6vh; font-size: 2vh; }
+.sk-ceremony .cer-tv .cer-score { font-size: clamp(16px, 2.8vh, 32px); }
+.sk-ceremony .cer-tv .cer-stakes { max-width: 100%; }
+.sk-ceremony .cer-tv .cer-prize { font-size: clamp(17px, 3vh, 34px); }
+.sk-ceremony .cer-tv .cer-loser { font-size: clamp(14px, 2.2vh, 26px); }
+/* the console's small view (host/PartyPanel.tsx): a card in the page */
+.party-host .cer-console.cer-inline { height: auto; }
+/* a phone: the card may be taller than the screen (a long table): it starts at the top and scrolls */
+.cer-phone { place-items: safe center; }
+.cer-phone .cer-card { margin: auto 0; }
+
+/* AI Draw Off's results carry the stakes too (its three screens are its own: a block under the result) */
+.drawoff-stakes { display: grid; justify-items: center; margin: 0 0 12px; }
+/* the big screen: whatever a game has to say, the card stays on the screen */
+.cer-tv:not(.cer-inline) .cer-card { max-height: 92vh; overflow: hidden; }
+.cer-tv .cer-card:has(.cer-stakes) { gap: 1.6vh; padding-top: 3.4vh; padding-bottom: 3vh; }
+.cer-tv .cer-card:has(.cer-stakes) .cer-person .f6-avatar { width: 10vh !important; height: 10vh !important; }
+.cer-tv .cer-card:has(.cer-stakes) .cer-headline { font-size: clamp(34px, 7.4vh, 92px); }

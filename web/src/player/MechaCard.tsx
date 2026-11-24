@@ -5,6 +5,7 @@
 // never lights up, changes or counts down: the phone only says what has just happened to the robot.
 // A small team has two jobs each: both are on the screen. The phone only says what was pressed; the
 // room decides what the robot did.
+import { ArenaWatch } from '../ui/ArenaWatch';
 import { useEffect, useRef } from 'react';
 import { posAt } from '../core/minigames/engines/walker';
 import { JOBS, JOB_NAMES, mechaView, NEEDS } from '../core/minigames/mecha/view';
@@ -13,6 +14,7 @@ import { BUSY_WORDS, MECHA_COLORS, OBSTACLE_NAMES, OBSTACLE_RECIPE } from '../ui
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/arenaPhone.css';
 import '../ui/motion.css';
 import '../ui/mecha.css';
 
@@ -40,10 +42,7 @@ export function MechaCard() {
 
   if (!team || !w || !other) {
     return (
-      <div className="card ms-watch" data-testid="mecha-card">
-        <p className="ms-watch-title">Mecha Santa Mayhem</p>
-        <p>Watch the TV: two teams, two giant wind-up Santas, one finish line.</p>
-      </div>
+      <ArenaWatch testid="mecha-card" title="Mecha Santa Mayhem" line="Watch the TV: two teams, two giant wind-up Santas, one finish line." />
     );
   }
 
@@ -92,12 +91,12 @@ export function MechaCard() {
   );
 
   return (
-    <div className={`ms-controller jobs-${mine.length}${running ? '' : ' waiting'}`} style={{ ['--team' as string]: MECHA_COLORS[ti] }} data-testid="mecha-card">
-      <div className="ms-top">
-        <span className="ms-me" data-testid="mecha-my-team">Team {team.teamId} · {mine.map((k) => JOB_NAMES[JOBS[k]]).join(' + ')}</span>
+    <div className={`ap ms-controller jobs-${mine.length}${running ? '' : ' waiting'}`} style={{ ['--team' as string]: MECHA_COLORS[ti] }} data-testid="mecha-card">
+      <div className="ap-bar">
+        <span className="ap-pill" data-testid="mecha-my-team">Team {team.teamId} · {mine.map((k) => JOB_NAMES[JOBS[k]]).join(' + ')}</span>
         <span className={`ms-gap${ahead >= 0 ? ' ahead' : ''}`} data-testid="mecha-ahead">{Math.abs(ahead) < 0.5 ? 'Neck and neck' : ahead > 0 ? 'Ahead' : 'Behind'}</span>
       </div>
-      <div className={`ms-phone-word${won ? ` game-over ${won === 'won' ? 'win' : won === 'lost' ? 'lose' : 'level'}` : ''}`} aria-live="polite" data-testid="mecha-word">{word || 'Watch the TV and call it out!'}</div>
+      <div className={`ap-word ms-phone-word${won ? ` game-over ${won === 'won' ? 'win' : won === 'lost' ? 'lose' : 'level'}` : ''}`} aria-live="polite" data-testid="mecha-word">{word || 'Watch the TV and call it out!'}</div>
       {next && <div key={next.id} className={`ms-phone-next ${next.kind}`} role="status" data-testid="mecha-next"><b>{OBSTACLE_NAMES[next.kind]}</b><span>{OBSTACLE_RECIPE[next.kind]}</span></div>}
       <div className="ms-pads">
         {mine.map((k) => (k <= 1 ? leg(k as 0 | 1) : k === 2 ? balance() : arms()))}

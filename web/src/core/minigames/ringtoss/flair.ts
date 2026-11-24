@@ -56,3 +56,25 @@ export function lastNeeded(pegs: { id: string }[], got: string[]): string | null
   const need = pegs.filter((p) => !got.includes(p.id));
   return pegs.length > 1 && need.length === 1 ? need[0].id : null;
 }
+
+/** A ringer the TV could say something about: when it landed and how much it matters
+ *  (0 an ordinary ringer, 1 a run worth calling, 2 a full set). */
+export interface Call { n: number; at: number; weight: number }
+/** A bigger call-out keeps the screen this long against lesser ones that land after it. */
+export const CALL_HOLD_MS = 900;
+
+/** The ONE ringer whose call-out is on the TV now (its name, its run, "Full set!"): the newest, unless a
+ *  bigger one landed less than CALL_HOLD_MS ago. The words used to be drawn for every ringer at once, one
+ *  over the other when a table throws fast. Null: nothing to say. */
+export function callOf(calls: Call[], now: number): number | null {
+  let best: Call | null = null;
+  const holds = (c: Call) => now - c.at < CALL_HOLD_MS;
+  for (const c of calls) {
+    if (!best) { best = c; continue; }
+    const newer = c.at > best.at || (c.at === best.at && c.n > best.n);
+    if (c.weight === best.weight ? newer
+      : c.weight > best.weight ? newer || holds(c)
+      : newer && !holds(best)) best = c;
+  }
+  return best ? best.n : null;
+}

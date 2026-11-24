@@ -201,17 +201,10 @@
 @keyframes twRush { from { scale: 1; } to { scale: 1.12; } }
 
 /* someone not on a team */
-.tw-watch { text-align: center; }
-.tw-watch-title { font: 900 22px/1.2 var(--f6-disp, system-ui); margin: 0 0 6px; }
 
 /* a player's phone: the battlefield as a map, a hand of cards, their energy (under the host's tab bar, if they play too) */
-.tw-controller { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 14px; box-sizing: border-box; background: linear-gradient(#e4f1fb, #f4f8fc); color: #1d2a3a;
-  -webkit-user-select: none; user-select: none; touch-action: manipulation; overflow-y: auto; }
-#seat-panel-game .tw-controller { top: 64px; }
-.tw-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 800; }
-.tw-me { padding: 5px 12px; border-radius: 999px; background: var(--team); color: #fff; font-size: 15px; }
-.tw-score { padding: 5px 12px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px #1d2a3a; font-size: 14px; font-variant-numeric: tabular-nums; }
-.tw-phone-word { min-height: 22px; text-align: center; font: 900 18px/1.2 var(--f6-disp, system-ui); }
+/* (the frame, the top bar and the word line are every game's: ui/arenaPhone.css) */
+.tw-controller { gap: 8px; background: linear-gradient(#e4f1fb, #f4f8fc); color: #1d2a3a; touch-action: manipulation; overflow-y: auto; }
 
 /* the map: a row a path, the team's two spots on its workshop's side (team B's is on the right, as on the TV) */
 .tw-map { position: relative; flex: 1; min-height: 150px; max-height: 420px; display: grid; grid-auto-rows: 1fr; gap: 7px; padding: 22px 8px 8px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 2px #1d2a3a, 0 5px 0 2px rgba(29, 42, 58, .15); }
@@ -260,7 +253,7 @@
 .tw-card:disabled { opacity: .5; }
 .tw-card:active:not(:disabled) { transform: translateY(2px); }
 /* a short phone: smaller pictures, no second line */
-@media (max-height: 640px) { .tw-card-pic { width: 28px; height: 28px; } .tw-card small { display: none; } .tw-map { padding-top: 18px; gap: 5px; } .tw-controller { gap: 6px; padding-top: 8px; } }
+@media (max-height: 640px) { .tw-card-pic { width: 28px; height: 28px; } .tw-card small { display: none; } .tw-map { padding-top: 18px; gap: 5px; } }
 .tw-cards { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .tw-card b { font-size: 12px; }
 .tw-spot-btn { position: relative; }
@@ -281,7 +274,6 @@
 .tw-queued { display: block; width: 4.2cqh; height: 5.6cqh; animation: moPop .3s var(--mo-spring, ease-out) both; }
 .tw-job.done .tw-energy { background: #18b88a; color: #fff; }
 /* the phone in rounds: six cards while planning (bigger, three to a row), three reactions while it marches, and Done */
-.tw-round { padding: 5px 10px; border-radius: 999px; background: #1d2a3a; color: #fff; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tw-card-pic { width: 46px; height: 46px; }
 .tw-cards.react .tw-card { padding: 12px 2px 10px; }
 .tw-cards.react .tw-card-pic { width: 54px; height: 54px; }
@@ -290,7 +282,20 @@
 .tw-done { width: 100%; min-height: 52px; border: 0; border-radius: 16px; background: #18b88a; color: #fff; font: 900 19px/1 var(--f6-disp, system-ui); box-shadow: 0 5px 0 #0f8a66; -webkit-tap-highlight-color: transparent; }
 .tw-done:active { transform: translateY(3px); box-shadow: 0 2px 0 #0f8a66; }
 .tw-done.is, .tw-done:disabled { background: #c9d4e2; box-shadow: none; color: #4a5568; }
-@media (max-height: 640px) { .tw-card-pic { width: 34px; height: 34px; } .tw-card small { display: none; } .tw-done { min-height: 44px; font-size: 17px; } .tw-controller { gap: 6px; padding: 8px 10px 10px; } }
+@media (max-height: 640px) { .tw-card-pic { width: 34px; height: 34px; } .tw-card small { display: none; } .tw-done { min-height: 44px; font-size: 17px; } .tw-controller { gap: 6px; } }
 .tw-controller .tw-cards { grid-template-columns: repeat(3, 1fr); }
-.tw-controller .tw-top { flex-wrap: nowrap; gap: 6px; }
-.tw-controller .tw-me, .tw-controller .tw-score, .tw-controller .tw-round { white-space: nowrap; font-size: 13px; padding: 5px 9px; }
+/* a tower made better swaps its picture where it stands, with a bump (it does not drop in again from the sky) */
+.tw-tower.up { animation: moBump .45s var(--mo-spring, ease-out) both; }
+.tw-tower.up::before { animation: none; }
+/* while everyone plans: who the table is waiting for, under the clock; their chips breathe */
+.tw-waiting { display: block; margin-top: .4cqh; max-width: 26cqh; font: 700 1.6cqh/1.2 var(--f6-body, system-ui); color: #cfd9ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-job.thinking { animation: moPulse 1.2s ease-in-out infinite; }
+.tw-queued { position: relative; }
+.tw-queued b { position: absolute; right: -.6cqh; top: -.8cqh; min-width: 2.4cqh; height: 2.4cqh; border-radius: 50%; display: grid; place-items: center; background: #1d2a3a; color: #fff; font: 900 1.5cqh/1 var(--f6-disp, system-ui); }
+/* the phone: the path's words never run under its button */
+.tw-controller .tw-path.open { padding-right: 96px; }
+.flip.tw-controller .tw-path.open { padding-right: 12px; padding-left: 96px; }
+.tw-controller .tw-path-info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* a lane's gate at a workshop (ui/towers/art.tsx LaneGate): it stands across the end of the path, the toys come out of it */
+.tw-gate { position: absolute; width: 13cqh; height: 14.5cqh; transform: translate(-50%, -100%); margin-top: 5.4cqh; pointer-events: none; filter: drop-shadow(0 .6cqh 0 rgba(40, 70, 110, .18)); }

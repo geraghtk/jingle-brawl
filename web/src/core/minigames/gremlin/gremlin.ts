@@ -133,6 +133,14 @@ export const gremlin: GameDefinition<GremlinConfig, GremlinState, GremlinAction>
   },
 
   // the doom always lands on someone holding it; with duelists, a bystander's doom goes to sudden death between them
+  // every time the state holds moves on by the pause (the hold timer, the mood, a challenge's own clock, the secret moment)
+  shiftTime(s, ms) {
+    const later = (t: number | undefined) => (t ? t + ms : t);
+    const c = s.challenge as GremlinState['challenge'] & { params?: { startAt?: number } };
+    const challenge = c ? { ...c, issuedAt: c.issuedAt + ms, ...(c.params && typeof c.params.startAt === 'number' ? { params: { ...c.params, startAt: c.params.startAt + ms } } : {}) } : c;
+    return { ...s, holdSince: s.holdSince + ms, roundStartedAt: s.roundStartedAt + ms, doomAt: s.doomAt + ms, ...(s.cooldownUntil ? { cooldownUntil: later(s.cooldownUntil) } : {}), challenge: challenge as GremlinState['challenge'] };
+  },
+
   canAlwaysResolve: (mode) => (mode === 'free_for_all' ? { ok: false, reason: 'a free-for-all has no duel winner' } : { ok: true }),
 
   createInitialState(ctx, c) {

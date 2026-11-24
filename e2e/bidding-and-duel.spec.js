@@ -40,9 +40,10 @@ test.describe('Bidding and Duel', () => {
     // Host starts game
     await hostPage.getByRole('button', { name: /Start Game/i }).click();
 
-    // Host: Draw next player (will prompt for gift name)
-    hostPage.once('dialog', (dialog) => dialog.accept(GIFT_NAME));
+    // Host: Draw next player (the console asks for the gift's name in its own dialog)
     await hostPage.getByRole('button', { name: /Draw.*Santa|Santa.*Sack/i }).click();
+    await hostPage.getByTestId('gift-name').fill(GIFT_NAME);
+    await hostPage.getByTestId('gift-submit').click();
 
     // Wait for bidding phase
     await expect(hostPage.locator('#turn-panel')).toContainText(/BIDDING|Bidding/i, {

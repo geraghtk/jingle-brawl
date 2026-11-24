@@ -147,7 +147,14 @@ test('Sketch-Off fills the screens: the phone is the pad, and the TV shows the d
     await expect(tv.getByTestId('sketch-gallery').locator('.sk-paper > img')).toHaveCount(3, { timeout: 60000 });
     expect(await H.dbGet(r.roomCode, 'minigame/live')).toBeFalsy();                       // the snapshots are thrown away
     const tile = await tv.getByTestId('sketch-gallery').locator('.sk-paper').first().boundingBox();
-    expect(tile.height).toBeGreaterThan(900 * 0.5);                                       // three drawings: one big row
+    expect(tile.height).toBeGreaterThan(900 * 0.45);                                      // three drawings: one big row
+    // ...with a margin: no drawing touches the edge of the wall (they used to reach the frame of the TV)
+    const wall = await tv.getByTestId('sketch-gallery').boundingBox();
+    for (const paper of await tv.getByTestId('sketch-gallery').locator('.sk-paper').all()) {
+      const b = await paper.boundingBox(), m = wall.height * 0.02;
+      expect(b.x - wall.x).toBeGreaterThan(m); expect(wall.x + wall.width - (b.x + b.width)).toBeGreaterThan(m);
+      expect(b.y - wall.y).toBeGreaterThan(m); expect(wall.y + wall.height - (b.y + b.height)).toBeGreaterThan(m);
+    }
     await expect(pages.Alice.locator('.pg-gallery figure')).toHaveCount(3);
   } finally {
     await tvCtx.close();

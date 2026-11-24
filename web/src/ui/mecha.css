@@ -52,18 +52,12 @@
 /* the ending */
 
 /* someone not on a team */
-.ms-watch { text-align: center; }
-.ms-watch-title { font: 900 22px/1.2 var(--f6-disp, system-ui); margin: 0 0 6px; }
 
 /* a player's phone: the whole screen is the controller (under the host's tab bar, if they play too) */
-.ms-controller { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 18px; box-sizing: border-box;
-  background: linear-gradient(#1a2248, #2f3f80); color: #fff; -webkit-user-select: none; user-select: none; touch-action: none; }
-#seat-panel-game .ms-controller { top: 64px; }
-.ms-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 800; }
-.ms-me { padding: 5px 12px; border-radius: 999px; background: var(--team); font-size: 15px; }
-.ms-gap { padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 14px; }
+/* (the frame, the top bar and the word line are every game's: ui/arenaPhone.css) */
+.ms-controller { background: linear-gradient(#1a2248, #2f3f80); color: #fff; touch-action: none; }
+.ms-gap { flex: none; padding: 5px 10px; border-radius: 999px; background: rgba(255, 255, 255, .16); }
 .ms-gap.ahead { background: #fff; color: #1d2a3a; }
-.ms-phone-word { min-height: 30px; text-align: center; font: 900 21px/1.25 var(--f6-disp, system-ui); }
 .ms-pads { flex: 1; min-height: 0; display: grid; grid-auto-rows: 1fr; gap: 10px; }
 .ms-pad { position: relative; border: 0; border-radius: 22px; color: #fff; background: #4a5690; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 0;
   touch-action: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 6px 0 rgba(0, 0, 0, .35); transition: transform .06s, box-shadow .06s, background .12s, opacity .12s; font-family: inherit; }

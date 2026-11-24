@@ -10,7 +10,7 @@ import { rng } from '../../rng';
 import { apply, NOW, table } from '../../testkit';
 import { Tx } from '../../tx';
 import type { Game } from '../../types';
-import { advance, arm, armed, build, DEFAULT_LANES as P, energyAt, guardTarget, newField, PACK_GAP, powerOf, send, shield, spend, targetOf, unitAt, zap } from '../engines/lanes';
+import { advance, arm, armed, build, DEFAULT_LANES as P, energyAt, guardTarget, healthOf, newField, PACK_GAP, powerOf, send, shield, spend, targetOf, unitAt, zap } from '../engines/lanes';
 import type { Field } from '../engines/lanes';
 import { assignTeams } from '../engines/teams';
 import { arenaAct, arenaDeadline, arenaOf, arenaPause, arenaResume, handoff, startArena } from '../runtime';
@@ -244,27 +244,46 @@ describe('Elf Tower Wars: plan, then watch', () => {
     expect(fieldClock(later, T + 3000)).toBe(T + 3000);
   });
 
-  it('the march ends and the next plan begins: what is still walking stands where it is, the next round\'s energy arrives on top of what was kept', () => {
+  it('a march is over when the last toy is home or down, never while one is walking (they used to stop dead at the bell); then the next plan, with the new energy on top of what was kept', () => {
     let g = play(4);
     const a = on(g, 0);
-    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'tank' }, NOW + 1000));          // slow: still out when the march ends
+    g = apply(g, act(g, a, { kind: 'send', lane: 0, unit: 'tank' }, NOW + 1000));          // slow: about 18 s to cross
     const kept = energy(g, a);
     g = march(g);
-    g = tick(g, ends(g));
-    const s = st(g), T2 = NOW + DEFAULTS.planMs + DEFAULTS.marchMs;
-    expect(s).toMatchObject({ phase: 'plan', round: 2, phaseAt: T2, phaseEndsAt: T2 + DEFAULTS.planMs });
-    const tank = s.field.units[0];
-    expect(tank.pos).toBeCloseTo(P.units.tank.speed * DEFAULTS.marchMs / 1000, 1);
+    const M = NOW + DEFAULTS.planMs;
+    g = tick(g, M + 13_000);                                                               // (where the old march clock ran out)
+    expect(st(g)).toMatchObject({ phase: 'march', round: 1 });
+    expect(st(g).field.units).toHaveLength(1);
+    expect(tv(g, M + 13_000).field.units[0].pos).toBeGreaterThan(0.6);                     // still walking
+    const home = M + Math.ceil(1 / P.units.tank.speed) * 1000 + 1000;
+    g = tick(g, home);
+    const s = st(g);
+    expect(s).toMatchObject({ phase: 'plan', round: 2 });
+    expect(s.field.units).toHaveLength(0);                                                 // nothing is left standing on the path
+    expect(s.phaseAt).toBeLessThanOrEqual(home);
+    expect(s.phaseAt).toBeGreaterThan(M + 13_000);
+    expect(s.phaseEndsAt).toBe(s.phaseAt + DEFAULTS.planMs);
     expect(energy(g, a)).toBeCloseTo(kept + incomeOf(s, 2) / 2);
     expect(incomeOf(s, 2)).toBe(DEFAULTS.income + DEFAULTS.incomeStep);
-    // while everyone plans it does not move, on the room's side or on a screen
-    const v = tv(g, T2 + 6000);
-    expect(v.field.units[0].pos).toBeCloseTo(tank.pos);
-    expect(fieldClock(v, T2 + 6000)).toBe(v.field.asOf);
-    // and the next march takes it up from there
+    // while everyone plans the field's clock stands still, on the room's side and on a screen
+    const v = tv(g, s.phaseAt + 6000);
+    expect(fieldClock(v, s.phaseAt + 6000)).toBe(v.field.asOf);
     g = march(g);
-    expect(st(g).field.asOf).toBe(T2 + DEFAULTS.planMs);
-    expect(tv(g, T2 + DEFAULTS.planMs + 2000).field.units[0].pos).toBeGreaterThan(tank.pos + 0.05);
+    expect(st(g).field.asOf).toBe(s.phaseEndsAt);
+  });
+
+  it('a toy sent in a later round is sturdier than its kind, and its health is measured against what it set out with (a full bar on a tank being hit made towers look useless)', () => {
+    const f = send(newField(NOW, P), 0, 0, 'tank', NOW, P, 1.9).field!;
+    const u = f.units[0];
+    expect(u.max).toBeCloseTo(P.units.tank.hp * 1.9);
+    expect(healthOf(u, P)).toBe(1);
+    expect(healthOf({ ...u, hp: u.hp - 10 }, P)).toBeLessThan(1);                          // 10 off 76: it shows
+    expect(healthOf({ kind: 'tank', hp: P.units.tank.hp / 2 }, P)).toBeCloseTo(0.5);       // (a unit stored before `max`: its kind's)
+  });
+
+  it('the battle goes on until a workshop falls: eight rounds at most, never just five', () => {
+    expect(DEFAULTS.rounds).toBe(8);
+    expect(DEFAULTS.marchMs).toBeGreaterThanOrEqual(Math.ceil(1 / P.units.tank.speed) * 1000 * 2);   // room for a tank slowed all the way
   });
 
   it('nobody waits for nothing: a plan ends once everyone here has said done, and a march with an empty field ends early', () => {
@@ -366,7 +385,7 @@ describe('Elf Tower Wars: plan, then watch', () => {
     g = { ...g, players: { ...g.players, [y]: { ...g.players![y], connected: false } } };
     const keptX = energy(g, x), keptY = energy(g, y);
     g = march(g);
-    g = tick(g, ends(g));
+    g = tick(g, st(g).phaseAt + DEFAULTS.minMarchMs);                             // (nothing was sent: the march is over as soon as it may be)
     expect(st(g).round).toBe(2);
     expect(st(g).teams[0].active).toEqual([x]);
     expect(energy(g, y)).toBeCloseTo(keptY);                                    // what they had is still theirs

@@ -31,12 +31,13 @@ test('the TV follows the game with no controls: lobby QR, sealed bids as "in", t
       await H.allBid(pages, opener, { [bidder]: 3 });
       await expect(tv.locator('#turn-panel')).toContainText('TV Gift');
       await expect(tv.locator('#action-buttons')).toHaveCount(0);
+      await expect(tv.locator('.turn-panel, .host-strip')).toHaveCount(0);   // its own stage, not the console's cards
       await expect(tv.locator('#turn-panel button')).toHaveCount(0);
       // the host's audited Peek: amounts on the console only, and the log says so
       const ids = await H.playersByName(roomCode);
       await expect(host.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('✓ Sealed');
-      host.once('dialog', (d) => d.accept());
       await host.getByTestId('peek-bids').click();
+      await host.getByTestId('dialog-confirm').click();
       await expect(host.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('👀 3');
       await expect(tv.getByTestId(`sealed-${ids[bidder].id}`)).toHaveText('✓ Sealed');
       await H.revealBids(host);
@@ -46,6 +47,105 @@ test('the TV follows the game with no controls: lobby QR, sealed bids as "in", t
       await expect(tv.locator('#duel-modal-overlay button')).toHaveCount(0);   // no "X wins" on the TV
       await H.declareWinner(host, bidder);
       await expect(tv.locator('#duel-verdict')).toBeVisible();
+      expect([...errors, ...tvErrors]).toEqual([]);
+    } finally {
+      for (const c of contexts) await c.close();
+    }
+  } finally {
+    await tvCtx.close();
+    await hostCtx.close();
+  }
+});
+
+// The TV's own stage for the main game (host/TvStage.tsx): one picture that never scrolls, with nothing
+// leaving it, in every phase, on a 720p TV with a long name and a long gift name at the table.
+test('the TV is one picture that never scrolls: lobby, sealed bids, reveal, duel and endgame at 1280x720', async ({ browser }) => {
+  test.setTimeout(90000);
+  const LONG = 'Bartholomew-Alexander';
+  const names = ['Alice', 'Bob', LONG, 'Charlotte'];
+  const { host, hostCtx, roomCode, errors } = await H.createGame(browser);
+  const tvCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const tvErrors = [];
+  try {
+    const tv = await tvCtx.newPage();
+    tv.on('pageerror', (e) => tvErrors.push(e.message));
+    await tv.goto(`${H.BASE}/tv.html?room=${roomCode}`);
+    /** The page does not scroll, the stage's picture is the whole screen, and nothing in it (or in the duel over it) leaves the screen. */
+    const fits = async (label) => {
+      await tv.waitForTimeout(700);                                   // the scene has arrived
+      const m = await tv.evaluate(() => {
+        const out = [];
+        const off = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 1 || r.bottom > innerHeight + 1 || r.left < -1 || r.top < -1); };
+        document.querySelectorAll('#tv-stage .tvs-pic *, #duel-modal-overlay.active *').forEach((e) => { if (off(e)) out.push(String(e.className)); });
+        // a name set to fit never spills out of its own box sideways
+        document.querySelectorAll('#tv-stage .tvs-fit').forEach((e) => { if (e.scrollWidth > e.clientWidth + 2) out.push(`fit: ${e.textContent}`); });
+        const pic = document.querySelector('#tv-stage .tvs-pic').getBoundingClientRect();
+        return { scrollH: document.documentElement.scrollHeight, scrollW: document.documentElement.scrollWidth, h: innerHeight, w: innerWidth, pic: [Math.round(pic.width), Math.round(pic.height)], out };
+      });
+      expect(m.scrollH, `${label}: no vertical scroll`).toBeLessThanOrEqual(m.h);
+      expect(m.scrollW, `${label}: no horizontal scroll`).toBeLessThanOrEqual(m.w);
+      expect(m.pic, `${label}: the picture is the screen`).toEqual([1280, 720]);
+      expect(m.out, `${label}: nothing leaves the picture`).toEqual([]);
+      await expect(tv.locator('#tv-stage button:not([data-testid=music-toggle])'), `${label}: no controls`).toHaveCount(0);
+    };
+
+    await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'lobby');
+    const { pages, contexts } = await H.joinPlayers(browser, roomCode, names);
+    try {
+      await expect(tv.locator('#lobby-roster-list .roster-row')).toHaveCount(4);
+      await expect(tv.locator('#lobby-roster-list')).toContainText(LONG);
+      await fits('lobby');
+
+      await H.startGame(host, roomCode);
+      await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'between');
+      await expect(tv.locator('#players-grid [data-player-id]')).toHaveCount(4);   // everyone on the rail
+      await fits('between turns');
+
+      const gift = 'An Enormous Inflatable Reindeer Lawn';
+      const turn = await H.drawGift(host, roomCode, gift);
+      const ids = await H.playersByName(roomCode);
+      const opener = H.openerNameOf(turn, ids);
+      const bidders = names.filter((n) => n !== opener);
+      await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'bidding');
+      await expect(tv.getByTestId('tv-gift-name')).toHaveText(gift);
+      await expect(tv.getByTestId('tv-sealed-count')).toHaveText('0of 3');
+      await H.submitBid(pages[bidders[0]], 3);
+      await expect(tv.getByTestId('tv-sealed-count')).toHaveText('1of 3');
+      await expect(tv.getByTestId(`sealed-${ids[bidders[0]].id}`)).toHaveText('✓ Sealed');   // in, never how much
+      await expect(tv.getByTestId(`sealed-${ids[bidders[1]].id}`)).toHaveCount(0);
+      await fits('sealed bids');
+      await H.submitBid(pages[bidders[1]], 2);
+      await H.submitBid(pages[bidders[2]], 0);
+
+      await H.revealBids(host);
+      await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'reveal');
+      await expect(tv.locator('.tvs-col.shown')).toHaveCount(2, { timeout: 8000 });   // the bars rise one at a time; the pass has none
+      await expect(tv.locator('.tvs-outcome')).toContainText(`Highest bid: ${bidders[0]}`);
+      await fits('reveal');
+
+      await H.openerFights(pages[opener]);
+      await H.waitForTurnPhase(roomCode, 'duel_pending');
+      await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'duel_pending');
+      await fits('duel pending');
+      await H.clickStartDuel(host);
+      await H.waitForTurnPhase(roomCode, 'duel');
+      await expect(tv.locator('#duel-modal-overlay.active')).toBeVisible();
+      // the duel is the whole picture (once it has opened: it comes in a touch smaller)
+      await expect.poll(async () => { const box = await tv.locator('#duel-modal-content').boundingBox(); return [Math.round(box.width), Math.round(box.height)]; }).toEqual([1280, 720]);
+      await expect(tv.locator('#duel-modal-overlay button')).toHaveCount(0);
+      await fits('duel');
+      await H.declareWinner(host, bidders[0], { keepVerdict: true });
+      await expect(tv.locator('#duel-verdict')).toBeVisible();
+      const overflow = await tv.locator('#duel-verdict .verdict-name').evaluate((e) => e.scrollWidth > e.clientWidth + 2 || e.getBoundingClientRect().right > innerWidth);
+      expect(overflow).toBe(false);                                   // the winner fits the verdict, however long the name
+      await tv.locator('#duel-verdict').click();
+
+      // the endgame: a Misfit Lottery turn (written into the room: getting there by play takes the whole night)
+      await H.dbPatch(roomCode, { phase: 'endgame', lastDuel: null, 'gifts/mf1': { name: 'A Suspiciously Heavy Fruitcake', ownerId: 'misfit', naughtyLevel: 1, misfitOrder: 1 },
+        currentTurn: { phase: 'endgame_choice', activePlayerId: ids[LONG].id, misfitId: 'mf1', misfitName: 'A Suspiciously Heavy Fruitcake' } });
+      await expect(tv.getByTestId('tv-stage')).toHaveAttribute('data-scene', 'endgame_choice');
+      await expect(tv.locator('#turn-panel')).toContainText('A Suspiciously Heavy Fruitcake');
+      await fits('endgame');
       expect([...errors, ...tvErrors]).toEqual([]);
     } finally {
       for (const c of contexts) await c.close();

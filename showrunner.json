@@ -1,7 +1,7 @@
 {
   "id": "yule-duel",
-  "title": "Yule Duel",
-  "short": "Yule Duel",
+  "title": "YuleDuel",
+  "short": "YuleDuel",
   "kind": "game",
   "watch": {
     "adapter": "simlab_adapters.yule_duel.party:PartyAdapter",

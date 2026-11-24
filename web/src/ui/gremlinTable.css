@@ -36,7 +36,10 @@
 .gt-pic img { width: 88%; height: 88%; object-fit: contain; display: block; }
 .gt-name { max-width: 100%; padding: .4cqh 1.4cqh; border-radius: 999px; background: #fff; color: var(--ink); font: 800 calc(var(--seat) * .2)/1.15 var(--f6-disp, system-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 0 0 .4cqh var(--ink); transition: transform .3s; }
 .gt-held { position: absolute; top: calc(var(--seat) * -.1); left: calc(50% - var(--seat) * .62); min-width: calc(var(--seat) * .34); padding: 0 .6cqh; height: calc(var(--seat) * .34); box-sizing: border-box; border-radius: 999px; display: grid; place-items: center; background: #ffc21a; color: var(--ink); font: 900 calc(var(--seat) * .2)/1 var(--f6-disp, system-ui); box-shadow: 0 0 0 .4cqh var(--ink); }
-.gt-duel { position: absolute; right: calc(var(--seat) * -.12); bottom: calc(var(--seat) * -.1); width: calc(var(--seat) * .36); height: calc(var(--seat) * .36); border-radius: 50%; display: grid; place-items: center; background: var(--accent, #ff3366); color: #fff; font: normal 900 calc(var(--seat) * .2)/1 system-ui; box-shadow: 0 0 0 .4cqh var(--ink); }
+/* a duelist: a sash across the foot of their picture that says so (it was a pair of crossed swords in a red disc,
+   which read as a cross: "out") */
+.gt-duel { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--seat) * .25); border-radius: 0 0 calc(var(--seat) * .26) calc(var(--seat) * .26); display: grid; place-items: center; background: #ffc21a; color: var(--ink);
+  font: normal 900 calc(var(--seat) * .16)/1 var(--f6-disp, system-ui); letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 calc(var(--seat) * -.03) 0 var(--ink); }
 .gt-seat.has { z-index: 3; }
 .gt-seat.has .gt-pic { transform: scale(1.14); box-shadow: 0 0 0 .6cqh var(--ink), 0 0 0 1.5cqh var(--glow), 0 0 5cqh 2cqh var(--glow); animation: gtHas 1s ease-in-out infinite; }
 .grem-table.danger-unstable .gt-seat.has .gt-pic { animation-duration: .4s; }
@@ -49,7 +52,7 @@
 
 /* the Gremlin: glides to its new seat (left / top), hopping as it goes */
 .gt-gremlin { position: absolute; z-index: 4; width: 0; height: 0; transition: left .5s cubic-bezier(.3, .1, .3, 1), top .5s cubic-bezier(.3, .1, .3, 1); pointer-events: none; }
-.gt-hop { position: absolute; left: calc(var(--seat) * .18); bottom: calc(var(--seat) * .12); animation: gtHop .5s ease-out; }
+.gt-hop { position: absolute; left: calc(var(--seat) * .18); bottom: calc(var(--seat) * -.04); animation: gtHop .5s ease-out; }
 .grem.tv.grem-table .grem-face { font-size: calc(var(--seat) * .95); filter: drop-shadow(0 .6cqh .8cqh rgba(0, 0, 0, .45)); }
 .gt-bang { display: block; font-size: calc(var(--seat) * 1.3); line-height: 1; transform: translate(-45%, 30%); }
 @keyframes gtHop { 0% { transform: translateY(0) scale(1); } 45% { transform: translateY(calc(var(--seat) * -.9)) scale(1.18) rotate(-14deg); } 100% { transform: translateY(0) scale(1); } }

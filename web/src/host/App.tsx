@@ -20,6 +20,7 @@ let pendingCriticKey = '';
 export function App() {
   const [room, setRoom] = useState<string | null>(null);
   const [offer, setOffer] = useState<string | null>(null);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     const saved = hostSeat()?.room;
@@ -31,6 +32,7 @@ export function App() {
   }, []);
 
   async function create(settings: Settings, criticKey: string) {
+    setCreateError('');
     try {
       const { code, token } = await createRoom(settings);
       forget();
@@ -39,14 +41,14 @@ export function App() {
       window.scrollTo(0, 0);
       setRoom(code);
     } catch {
-      alert('Could not create a game right now. Please try again.');
+      setCreateError('Could not create a game right now. Please try again.');
     }
   }
 
   return (
     <>
       {room ? <Playing room={room} token={hostSeat()?.token || ''} onExit={() => { forget(); location.reload(); }} />
-        : <Setup onCreate={create} />}
+        : <Setup onCreate={create} error={createError} />}
       {offer && !room && (
         <div className="modal-overlay active" id="modal-overlay">
           <div className="modal" id="modal-content">

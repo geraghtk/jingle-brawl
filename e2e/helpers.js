@@ -144,6 +144,7 @@ async function createGame(browser, settings = {}) {
   // …and only the in-app duel games a test ticks itself ('duel-table-games' off: the screen's default ticks the team games)
   // …and no instructions-and-ready stage before a mini-game ('ready-check' off) unless a test asks for it
   const all = { 'vote-window': '0', 'duel-pick': 'off', 'duel-table-games': 'off', 'ready-check': 'off', 'practice-round': 'off', ...settings };
+  await host.getByTestId('setup-open-all').click(); // the settings are in groups, closed until opened
   for (const [id, value] of Object.entries(all)) {
     const select = host.locator(`#setting-${id}`); // a <select>, checkbox or textarea
     if ((id === 'vote-window' || id === 'duel-pick' || id === 'duel-table-games' || id === 'ready-check' || id === 'practice-round') && !(await select.count())) continue;
@@ -195,8 +196,9 @@ async function startGame(host, roomCode) {
 }
 
 async function drawGift(host, roomCode, giftName) {
-  host.once('dialog', (d) => d.accept(giftName));
   await host.getByRole('button', { name: /Draw.*Santa|Santa.*Sack/i }).click();
+  await host.getByTestId('gift-name').fill(giftName); // the console's own dialog (host/Dialogs.tsx), never a native prompt
+  await host.getByTestId('gift-submit').click();
   return waitForTurnPhase(roomCode, 'bidding');
 }
 

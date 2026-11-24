@@ -6,6 +6,8 @@ import { minCost } from '../core/settings';
 import { partyMvps, partyScore, partyStandings } from '../core/scoring';
 import type { Turn } from '../core/types';
 import { Avatar } from '../ui/avatar';
+import { FitName } from '../ui/FittedName';
+import { theGift } from '../ui/notes';
 import { dividendNote, reprisalNote, spectatorLoserNote, voteStakeNote } from '../ui/notes';
 import { voteStatus } from '../core/voting';
 import { betsOpen, duelAppInfo, duelGameStep, duelOptions, duelPicker, SPIN_MS, WHO_PLAYS, whoPlays } from '../core/duelgame';
@@ -14,6 +16,8 @@ import { DuelWheel } from '../ui/DuelWheel';
 import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
+import { RevealedBids } from './RevealedBids';
+import './names.css';
 import { Glyphs, Icon } from '../ui/icons';
 
 
@@ -64,7 +68,7 @@ function Lobby() {
   return (
     <Card>
       <div className="f6-cap">Room {room} · you're in</div>
-      <div className="lobby-title f6-disp fz-riso">Yuel <span className="lobby-accent">Duel</span></div>
+      <div className="lobby-title f6-disp fz-riso">Yule<span className="lobby-accent">Duel</span></div>
       <div className="lobby-tag">High stakes. Low blows. Questionable gifts.</div>
       <div className="final-stats">
         <div className="fstat"><div className="fstat-v f6-disp f6-num"><span className="f6-coin" /> {player.chips}</div><div className="fstat-k">your chips</div></div>
@@ -159,7 +163,7 @@ function Final() {
         <div className="fstat accent"><div className="fstat-v f6-disp f6-num">{gift ? <><Icon name="naughty" /> {gift.naughtyLevel ?? 0}</> : 'none'}</div><div className="fstat-k">gift naughty</div></div>
         {score > 0 && <div className="fstat"><div className="fstat-v f6-disp f6-num"><Icon name="medal" /> {score}</div><div className="fstat-k">party score</div></div>}
       </div>
-      <div className="status-desc" style={{ marginTop: 10 }}>Thanks for playing Yuel Duel!</div>
+      <div className="status-desc" style={{ marginTop: 10 }}>Thanks for playing YuleDuel!</div>
     </Card>
   );
 }
@@ -190,24 +194,17 @@ function Reveal({ t }: { t: Turn }) {
   const { game, me, send, cfg } = usePlayer();
   const [picking, setPicking] = useState(false);
   const bids = rankedBids(t);
-  const myBid = t.bids?.[me]?.amount || 0;
+  const giftName = t.giftId ? game.gifts?.[t.giftId]?.name : undefined;
   if (t.openerId !== me) {
-    return (
-      <Card tone="active">
-        <div className="status-icon"><Icon name="eye" /></div>
-        <div className="status-title">Bids Revealed!</div>
-        <div className="status-desc">
-          {bids.length === 0 ? 'No bids! Opener decides next...' : `${bids.length} bid${bids.length > 1 ? 's' : ''} placed. ${myBid > 0 ? `Your bid: ${myBid}` : ''}`}
-        </div>
-        {myBid > 0 && (
-          <div className="help-box">
-            <div className="help-title"><Icon name="idea" /> What's Next?</div>
-            <div className="help-content">If you're the highest bidder, you'll duel the opener!<br />If there's a tie, there may be a tiebreaker first.</div>
-          </div>
-        )}
-      </Card>
-    );
+    // everyone else: the bids themselves, and what the table is waiting for
+    const opener = nm(game, t.openerId);
+    const who = (id: string) => (id === me ? 'you' : nm(game, id));
+    const next = bids.length === 0 ? <><strong>{opener}</strong> keeps the gift or plays a Grump's Gambit.</>
+      : bids.length === 1 ? <><strong>{bids[0][0] === me ? 'You' : who(bids[0][0])}</strong> {bids[0][0] === me ? 'duel' : 'duels'} <strong>{opener}</strong> for it.</>
+      : <><strong>{opener}</strong> is choosing: fight or yield.</>;
+    return <RevealedBids id="status-card" what={giftName} next={next} />;
   }
+  const theBids = bids.length > 0 ? <RevealedBids what={giftName} /> : null;
   if (bids.length === 0) {
     if (picking) return <GambitPicker t={t} onCancel={() => setPicking(false)} />;
     const canGambit = gambitTargets(game, t.giftId, me).length > 0;
@@ -235,6 +232,7 @@ function Reveal({ t }: { t: Turn }) {
   if (bids.length === 1) {
     const [cid, amount] = bids[0];
     return (
+      <>
       <Card tone="your-turn">
         <div className="status-icon"><Icon name="duel" /></div>
         <div className="status-title">Duel Time!</div>
@@ -248,6 +246,8 @@ function Reveal({ t }: { t: Turn }) {
           </div>
         </div>
       </Card>
+      {theBids}
+      </>
     );
   }
   const tied = topTiedBidders(t);
@@ -255,6 +255,7 @@ function Reveal({ t }: { t: Turn }) {
   const fight = () => send({ type: 'fight' });   // the table works out who duels whom
   const yieldTo = () => send({ type: 'yield' });
   const choice = (title: ReactNode, desc: ReactNode, fightHelp: ReactNode, yieldHelp: ReactNode, fightBtn: ReactNode, yieldBtn: ReactNode, onFight: () => void, onYield: () => void, icon = '⚖️') => (
+    <>
     <Card tone="your-turn">
       <div className="status-icon"><Glyphs>{icon}</Glyphs></div>
       <div className="status-title">{title}</div>
@@ -268,6 +269,8 @@ function Reveal({ t }: { t: Turn }) {
         <button className="btn btn-gold" data-testid="yield" onClick={onYield}>{yieldBtn}</button>
       </div>
     </Card>
+    {theBids}
+    </>
   );
   if (tied.length >= 3) {
     return choice(`${tied.length}-WAY TIE!`, `${tied.map((id) => nm(game, id)).join(', ')} all bid ${top}. Two will be drawn at random. You decide!`,
@@ -376,7 +379,7 @@ function Duel({ t }: { t: Turn }) {
       <Card tone="your-turn">
         <div className="f6-cap">{(player.age ?? 99) < 16 ? "You're under 16, so you pick" : "You're defending"}</div>
         <div className="status-title">Pick the duel</div>
-        <div className="status-desc">{defending ? `${rival} challenged you${gift ? ` for the ${gift.name}` : ''}.` : `You're up against ${rival}.`} You choose how you fight.</div>
+        <div className="status-desc">{defending ? `${rival} challenged you${gift ? ` for ${theGift(gift.name)}` : ''}.` : `You're up against ${rival}.`} You choose how you fight.</div>
         <div className="duel-picker" role="list">
           {duelOptions(game).map((o, i) => (
             <button key={o.name} role="listitem" className="duel-pick" data-testid={`duel-game-${i}`} onClick={() => send({ type: 'pick_duel', index: i, name: o.name })}>
@@ -407,9 +410,9 @@ function Duel({ t }: { t: Turn }) {
         <div className="f6-cap">Duel</div>
         <div className="duel-you-row">
           <Avatar name={player.name} avatar={player.avatar} size={40} />
-          <span className="duel-side f6-disp" style={{ color: 'var(--accent)' }}>YOU</span>
+          <span className="duel-side you f6-disp" style={{ color: 'var(--accent)' }}>YOU</span>
           <span className="duel-vs-mini f6-disp fz-riso f6-wiggle">vs</span>
-          <span className="duel-side f6-disp" style={{ color: 'var(--accent2)' }}>{opponent.toUpperCase()}</span>
+          <span className="duel-side f6-disp" style={{ color: 'var(--accent2)' }}><FitName name={opponent} chars={6.5} lines={3} min={0.38} upper /></span>
           <Avatar name={opponent} avatar={opponentId ? game.players?.[opponentId]?.avatar : undefined} size={40} />
         </div>
         {!!t.pot && (
@@ -448,7 +451,7 @@ function Duel({ t }: { t: Turn }) {
       <>
         <span className="callit-corner-tag">{side === 'red' ? 'Red corner' : 'Green corner'}</span>
         <Avatar name={nm(game, id)} avatar={game.players?.[id]?.avatar} size={48} />
-        <span className="callit-name f6-disp">{nm(game, id)}</span>
+        <span className="callit-name f6-disp"><FitName name={nm(game, id)} chars={6.5} lines={3} min={0.38} /></span>
         <span className="callit-record">{record(id)}</span>
         {myVote === id && <span className="fz-sticker yel callit-pick">Your pick</span>}
       </>
@@ -464,7 +467,7 @@ function Duel({ t }: { t: Turn }) {
         <span className="callit-title f6-disp">Duel in progress</span>
         {canVote && votes.endsAt != null && <span className="callit-clock f6-num" aria-label={`${secondsLeft} seconds to vote`}>{secondsLeft}s</span>}
       </div>
-      <div className="callit-q">{t.isTiebreak ? 'Tiebreak: the winner goes on to the duel' : `Who takes ${gift ? `the ${gift.name}` : 'it'}?`}</div>
+      <div className="callit-q">{t.isTiebreak ? 'Tiebreak: the winner goes on to the duel' : `Who takes ${gift ? theGift(gift.name) : 'it'}?`}</div>
       {duelGameLine}
       <div className="callit-corners">
         {corner(t.challengerId!, 'red')}
@@ -595,6 +598,11 @@ function EndgameAuction({ t }: { t: Turn }) {
         <div className="help-box"><div className="help-content">Wait for bids, then you'll duel the highest bidder (or choose a defender if no bids).</div></div>
       </Card>
     );
+  }
+  if (t.phase === 'endgame_reveal') {
+    const top = rankedBids(t)[0]?.[0];
+    const active = t.activePlayerId === me ? 'you' : nm(game, t.activePlayerId);
+    return <RevealedBids id="status-card" what={t.misfitName} next={top ? <><strong>{top === me ? 'You' : nm(game, top)}</strong> {top === me ? 'duel' : 'duels'} <strong>{active}</strong> for it.</> : undefined} />;
   }
   return <Simple icon="🎰" tone="active" title="Misfit Lottery" desc={`${nm(game, t.activePlayerId)}'s turn for "${t.misfitName}"`} />;
 }

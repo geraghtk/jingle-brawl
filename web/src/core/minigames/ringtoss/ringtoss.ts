@@ -124,11 +124,11 @@ function finish(ctx: MatchCtx, s: RingState, reason: string): Transition<RingSta
     else {
       // level after the extra rings: the ring closest to the golden peg
       const ca = closest(s, a), cb = closest(s, b);
-      if (ca === cb) result = { ...h2h, reason: 'level, and no ring closer to the golden peg' };
+      if (ca === cb) result = { ...h2h, reason: 'level, and no ring closer to the hat' };
       else {
         const [w, l] = ca < cb ? [a, b] : [b, a];
-        result = { ...h2h, status: 'resolved', winners: [w], losers: [l], reason: 'level on points: closest ring to the golden peg',
-          duel: { duelists: ctx.duelists, winningDuelistId: w, losingDuelistId: l, resolutionReason: 'closest ring to the golden peg' } };
+        result = { ...h2h, status: 'resolved', winners: [w], losers: [l], reason: 'level on points: closest ring to the hat',
+          duel: { duelists: ctx.duelists, winningDuelistId: w, losingDuelistId: l, resolutionReason: 'closest ring to the hat' } };
       }
     }
   } else {

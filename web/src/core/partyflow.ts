@@ -92,7 +92,8 @@ function completeTx(tx: Tx, mg: PartyGame) {
   tx.set('minigame', null);
   if (mg.minigameGoal === 'duel') {
     // Back to the duel with its winner; the host resolves it (pot, gift, votes) as usual
-    return tx.set('currentTurn/phase', 'duel').set('currentTurn/duelGameWinner', winners[0]);
+    // (its results said who won and what they take: the duel is not announced a second time)
+    return tx.set('currentTurn/phase', 'duel').set('currentTurn/duelGameWinner', winners[0]).set('currentTurn/duelAnnounced', winners[0]);
   }
   if (mg.minigameGoal === 'pick_two') {
     const [c1, c2] = winners;

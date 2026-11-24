@@ -2,6 +2,7 @@
 // it with their order on a tag; when one is in your station, tap the piece it asks for before it has
 // gone by. A raccoon instead of a toy: shoo it. Small teams work two stations each (one under the
 // other). The phone only says which piece: the room decides whether the toy was still there.
+import { ArenaWatch } from '../ui/ArenaWatch';
 import { useEffect, useRef, useState } from 'react';
 import { posAt } from '../core/minigames/engines/belt';
 import { conveyorView } from '../core/minigames/conveyor/view';
@@ -13,6 +14,7 @@ import { Belt, Swatch } from '../ui/conveyorBelt';
 import { buzz, play } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/arenaPhone.css';
 import '../ui/conveyor.css';
 
 const NONE = -1;
@@ -34,23 +36,21 @@ export function ConveyorCard() {
     if (mine.stolen > was.current.stolen) { play('wrong'); buzz([80, 40, 80]); } else if (mine.delivered > was.current.delivered) play('ding');
     was.current = { delivered: mine.delivered, stolen: mine.stolen };
   }, [mine?.delivered, mine?.stolen]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!mine || !theirs) return <div className="card" data-testid="conveyor-card"><p>Watch the TV: the teams are racing!</p></div>;
+  if (!mine || !theirs) return <ArenaWatch testid="conveyor-card" title="The Great Gift Conveyor" line="Watch the TV: the teams are racing!" />;
 
   const secs = secsLeft(v.endsAt, now);
   const stations = v.myStations || [];
   return (
-    <div className={`card cv-card${stations.length > 1 ? ' many' : ''}`} data-testid="conveyor-card" style={{ ['--team' as string]: TEAM_COLORS[mine.teamId] }}>
-      <div className="cv-top">
-        <span className="cv-team" data-testid="conveyor-my-team">Team {mine.teamId} · captain {name(mine.captainId)}</span>
-        <span className="cv-clock">{v.stage === 'overtime' ? 'Overtime ' : ''}{v.stage === 'done' ? '' : `${secs}s`}</span>
-      </div>
-      <div className="cv-race" aria-label={`Your team ${mine.delivered} of ${v.quota}, the other team ${theirs.delivered}`}>
-        <span>Us <b data-testid="conveyor-ours">{mine.delivered}</b></span>
-        <span className="cv-quota">first to {v.quota} · speed {mine.level + 1}</span>
-        <span>Them <b>{theirs.delivered}</b></span>
+    <div className={`ap cv-card${stations.length > 1 ? ' many' : ''}`} data-testid="conveyor-card" style={{ ['--team' as string]: TEAM_COLORS[mine.teamId] }}>
+      <div className="ap-bar">
+        <span className="ap-pill" data-testid="conveyor-my-team" title={`Captain: ${name(mine.captainId)}`}>Team {mine.teamId}</span>
+        <span className="ap-mid cv-race" aria-label={`Your team ${mine.delivered} of ${v.quota}, the other team ${theirs.delivered}`}>
+          Us <b data-testid="conveyor-ours" style={{ color: TEAM_COLORS[mine.teamId] }}>{mine.delivered}</b> : <b style={{ color: TEAM_COLORS[theirs.teamId] }}>{theirs.delivered}</b> <small>of {v.quota}</small>
+        </span>
+        {v.stage !== 'done' && <span className="ap-clock" data-testid="conveyor-clock">{v.stage === 'overtime' ? 'Overtime ' : ''}{secs}s</span>}
       </div>
       {v.stage === 'done' ? (
-        <p className={`cv-wait game-over ${v.winner ? (v.winner === mine.teamId ? 'win' : 'lose') : 'level'}`} role="status">{v.winner ? (v.winner === mine.teamId ? 'Your team won!' : 'The other team won.') : 'Level: the host decides.'}</p>
+        <p className={`ap-word cv-wait game-over ${v.winner ? (v.winner === mine.teamId ? 'win' : 'lose') : 'level'}`} role="status">{v.winner ? (v.winner === mine.teamId ? 'Your team won!' : 'The other team won.') : 'Level: the host decides.'}</p>
       ) : stations.map((k) => <Station key={k} v={v} team={mine} k={k} now={now} send={send} />)}
     </div>
   );

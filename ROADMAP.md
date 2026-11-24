@@ -533,3 +533,92 @@ is uncommitted.
 - A full polish sweep by three reviewers (every game and the main flow, in motion) was asked for; its
   findings are recorded below when in.
 
+**2026-11-23 (third entry): the polish sweep (three reviewers, every game and the main flow, judged in
+motion from burst captures and replays).** Fixed the same day: the TV lobby's QR pointing at the TV
+page; Mecha Santa's climb through the stack, hands off the rope, the fall, the split's size jump;
+Tower Wars's frozen shots, vanishing upgrades, phone overflow, who the plan waits for; Knockout's raw
+error toasts, prompts on the phone, cramped top bar, the change of sides as a walk, the winner said
+twice; the Gremlin's clocks running through the instructions; Ring Toss wording and a ceremony that
+contradicted itself; "GO!" clipped on phones and over games with their own opening; the instructions
+card growing off a 1080p TV at the count and pushing Ready off small phones; a practice round naming
+a duel winner; party results overflowing a phone; the finale cutting off the last duel's verdict; the
+old dark Reprisal card; raw phase names; "the A jumper"; a stale tie rule in the rule pages.
+**Recommended then; all ten done the same day (see the fourth entry):**
+1. The TV in the main game is the console minus its buttons: every screen is taller than the TV,
+   cannot scroll, and its small text is sized for a laptop. It needs its own stage per phase (lobby
+   with a big QR and room code, bids, reveal, duel, endgame), as the mini-games and the finale have.
+2. One announcement per result: after an in-app game the winner is still said by the game, then the
+   ceremony, then the duel verdict. Let the ceremony carry the gift and chips and skip the verdict.
+3. Long names break mid-word in the duel corners, the MVP and vote cards: fit the type to the name.
+4. Native prompt() and confirm() boxes (the gift's name every turn, End game, Play again, Leave):
+   use the app's own modal.
+5. Setup is one 4000 px page: group it (chips and bids, duels, mini-games, ties), shorter option
+   labels, a sticky Create button, one line per game instead of a paragraph.
+6. Rule pages are a different design from the app, and two still say "Jingle Brawl" (the name
+   decision is still open); the old Google Docs export should go.
+7. Mascot bubbles sit on content and arrive late (a line about one turn showing in the next).
+8. Phones never show the revealed bids; a reloaded phone lands on "Rejoin" instead of the game.
+9. Three phone looks across the team games (Conveyor keeps the app header and a white card, Mecha is
+   navy, Tower Wars pale blue) and two results systems (ceremony, and the smaller party results).
+10. Per game: the Gremlin's duel badge reads as a red X and its pass trail strikes through the text;
+    Ring Toss call-outs pile up and its phone flips between two layouts; Conveyor's second station is
+    below the fold at 320 px; Whack-an-Elf's results card is small on the TV; Sketch-Off's walls
+    touch the frame; wind-up mice are grey for both teams; top and bottom lanes in Tower Wars have no
+    door at the workshop.
+
+**2026-11-23 (fourth entry): the ten recommendations, all built (six agents in parallel, one slice each),
+and the name.** Kevin: "the app name should be YuleDuel", and names capped at 24 letters.
+1. **The TV's own main-game screens:** a fixed 16:9 stage that never scrolls, a scene per phase (lobby with a
+   big QR and room code, between turns, sealed bids, the reveal as bars, versus, duel, reprisal, endgame,
+   AI Draw Off), a rail of players underneath (`host/TvStage.tsx`, `TvScenes.tsx`, `ui/tvstage.css`).
+2. **One announcement per result:** the ceremony says what the duel was for (gift, pot, what the loser paid),
+   worked out by `resolveDuel` itself (`core/stakes.ts`); the verdict overlay stands down for a duel a
+   mini-game announced. `RESULT_HOLD_MS` 6 s to 8 s.
+3. **Long names:** type fits the name (`ui/FittedName.tsx`); names are at most 24 letters (`NAME_MAX`).
+4. **No native boxes:** the gift's name, every confirm and every alert are the app's own dialogs
+   (`host/Dialogs.tsx`, `ui/ConfirmSheet.tsx`).
+5. **Setup:** five closed groups with a summary line each, Create always in reach, one line per mini-game.
+6. **Rule pages:** rules, quick reference (prints on one A4 page) and privacy on one stylesheet in the app's
+   look (`web/public/pages.css`); the old Google Docs export is deleted.
+7. **Mascots:** a slot per screen instead of sitting on content; a line about a past turn is dropped.
+8. **Phones:** the revealed bids as a list; a reloaded phone goes straight back into the game.
+9. **One look:** every runtime mini-game full-bleed on the phone in one frame (`ui/arenaPhone.css`); the
+   party games end on the same ceremony card as the rest.
+10. **Per game:** the Gremlin's "DUEL" sash and a pass trail round the table; one Ring Toss call-out at a
+    time and one phone layout; the Conveyor's two stations at 320 px; a margin round Sketch-Off's wall;
+    team-coloured mice and a gate on every lane in Tower Wars.
+**The name:** YuleDuel everywhere a player looks (a test fails on "Jingle Brawl" / "Yuel Duel"); the logo's
+tag re-lettered (`web/public/ydlogo3.png`: the same elephant, "Yule" over "Duel" in Lobster, an OFL font).
+Wording that went with it: "Scan, join, duel.", "Let the duels begin", the award "Yule Dueller".
+**Open after this pass:**
+- Judged from stills, not bursts: the TV's phase changes, the mascot slots, the verdict and MVP type.
+- Not seen on a screen: the TV's endgame with nobody drawn yet, AI Draw Off "judging", a mascot bubble at
+  320 px, Ring Toss's waiting state on the phone, Knockout at 320 px, the console inside the host's phone
+  frame (only as `?embedded=1` in a narrow window).
+- The Ring Toss TV scoreboard still marks duelists with crossed swords (the Gremlin's got a sash).
+- (done the same evening) Someone watching a mini-game has the players' full-screen frame (`ui/ArenaWatch.tsx`).
+- `core/screens.ts` (the simulated guests' words) does not know the revealed-bids list or `announced`.
+- `web/public/images/image2..10.webp` look orphaned since the export went: delete if nothing needs them.
+- (done the same evening, Kevin: "I kinda liked the flying coins") The pot's chips fly from the ceremony's prize line to the
+  winner's picture, on every screen (`CeremonyCard` `chipsWon`, `flyChips`; a 1-chip pot is one chip).
+- Tower Wars balance (rush beats the all-rounder about 7 in 10) and the music (never heard) as before.
+
+**2026-11-23 (fifth entry): Kevin's play-test notes the same evening.**
+- **Mecha Santa, a replay:** the moves did not match the course on the TV. The 3D scene builds its course once and
+  the stage was kept across games; a game's TV stage is now keyed by its instance (a replay, and the real game after
+  practice, are new stages).
+- **Tower Wars:** toys came out from under the workshop (the middle path has a gate of its own now, clear of the
+  building); tanks looked untouchable (their health bar was measured against the kind, not what a later round's
+  sturdier tank set out with, so it stayed full while it was hit: `Unit.max`, `healthOf`); toys stopped dead when the
+  march clock ran out (a march now lasts until the last toy is home or down, no clock shown); and the battle goes on
+  until a workshop falls (eight rounds at most, then the healthier). Retuned in simulation: snow and cannon 8 a
+  second, workshop 20, guard 4, toughen 0.5, income step 6: even teams about level, an all-toys rush about level with
+  a mixed team (it was 7 in 10), nearly every battle ends with a workshop down, about two and a half minutes (it was
+  80 s). Both workshops down in the same step: the one hit harder lost.
+- **Knockout:** a round went by too quickly: 3 blows a part (18 jabs; a haymaker is still a whole part); a health bar
+  for each robot on the TV and both phones; an arena round the ring (dusk sky, tiers of spectators, two trees, a
+  string of lights, snow). His reaction to the first, brighter version: "a bit too busy (lots of vibrant
+  colours/movement)", so it was toned down the same hour: dim still shapes that hop only when a blow lands.
+- **Flying chips** are back, in the ceremony; **someone watching** a game has the players' full-screen frame.
+**Open:** the two-and-a-half-minute Tower Wars battle and the 18-blow Knockout round are simulation and arithmetic,
+not yet his verdict; uneven Tower Wars teams still swing in simulation (2 v 3 and 3 v 4 rows).

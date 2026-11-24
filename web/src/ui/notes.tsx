@@ -36,3 +36,6 @@ export function voteStakeNote(cfg: Config, chips: number, betsOpen = true): stri
   if (chips < 1) return 'No chips to bet, but your vote still counts for your Party Score 🏅';
   return 'With bets open, your call stakes 1 chip into the pool: the winner\'s backers share it, up to 3 back for 1. Correct calls also add to your Party Score 🏅';
 }
+
+/** A gift's name in a sentence: "the Fuzzy socks", but "A hand-knitted jumper" keeps the article it came with. */
+export { theGift } from '../core/stakes';

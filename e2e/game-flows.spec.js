@@ -307,8 +307,8 @@ test.describe('Game flow permutations', () => {
         await H.assertInvariants(roomCode, `after round ${round + 1}`);
       }
 
-      host.once('dialog', (d) => d.accept());
       await host.getByRole('button', { name: /End Game for All/i }).click();
+      await host.getByTestId('dialog-confirm').click();
       await H.waitForGame(roomCode, (g) => g.phase === 'ended', { label: 'ended phase' });
 
       const game = await H.assertInvariants(roomCode, 'final tally');

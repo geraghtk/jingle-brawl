@@ -7,6 +7,7 @@
 //           the avalanche that takes two of you): pick one, tap a path.
 // The map is the TV's battlefield the same way round (your workshop on your team's side). The phone only
 // says what was pressed; the room decides what happened.
+import { ArenaWatch } from '../ui/ArenaWatch';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { armed, unitAt } from '../core/minigames/engines/lanes';
@@ -17,6 +18,7 @@ import { buzz, play } from '../ui/sound';
 import { CARD_HINTS, CARD_NAMES, CARD_TIPS, TOWER_COLORS, TOWER_NAMES, TowerArt, UnitArt } from '../ui/towers/art';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/arenaPhone.css';
 import '../ui/motion.css';
 import '../ui/towers.css';
 
@@ -59,10 +61,7 @@ export function TowerCard() {
 
   if (!team || !mySide || !me) {
     return (
-      <div className="card tw-watch" data-testid="tower-card">
-        <p className="tw-watch-title">Elf Tower Wars</p>
-        <p>Watch the TV: two workshops, three lanes, and a lot of toys.</p>
-      </div>
+      <ArenaWatch testid="tower-card" title="Elf Tower Wars" line="Watch the TV: two workshops, three lanes, and a lot of toys." />
     );
   }
 
@@ -141,13 +140,13 @@ export function TowerCard() {
   );
 
   return (
-    <div className={`tw-controller${running ? '' : ' waiting'}${ti === 1 ? ' flip' : ''} ${planning ? 'plan' : marching ? 'march' : ''}`} style={{ ['--team' as string]: color }} data-testid="tower-card">
-      <div className="tw-top">
-        <span className="tw-me" data-testid="tower-my-team">Team {team.teamId}</span>
-        {running && <span className="tw-round" data-testid="tower-phase">Round {v.round} of {v.rounds} · {planning ? `Plan ${secs}` : 'March'}</span>}
-        <span className="tw-score" aria-label={`Your workshop ${Math.ceil(mySide.hp)}, theirs ${Math.ceil(theirs.hp)}`} data-testid="tower-score"><b style={{ color: color }}>{Math.ceil(mySide.hp)}</b> : <b style={{ color: TOWER_COLORS[ti === 0 ? 1 : 0] }}>{Math.ceil(theirs.hp)}</b></span>
+    <div className={`ap tw-controller${running ? '' : ' waiting'}${ti === 1 ? ' flip' : ''} ${planning ? 'plan' : marching ? 'march' : ''}`} style={{ ['--team' as string]: color }} data-testid="tower-card">
+      <div className="ap-bar">
+        <span className="ap-pill" data-testid="tower-my-team">Team {team.teamId}</span>
+        <span className="ap-mid tw-score" aria-label={`Your workshop ${Math.ceil(mySide.hp)}, theirs ${Math.ceil(theirs.hp)}`} data-testid="tower-score">Us <b style={{ color: color }}>{Math.ceil(mySide.hp)}</b> : <b style={{ color: TOWER_COLORS[ti === 0 ? 1 : 0] }}>{Math.ceil(theirs.hp)}</b></span>
+        {running && <span className="ap-clock" data-testid="tower-phase">{v.round >= v.rounds ? 'Last round' : `Round ${v.round}`} · {planning ? `Plan ${secs}` : 'March'}</span>}
       </div>
-      <div className={`tw-phone-word${won ? ` game-over ${v.winner === team.teamId ? 'win' : v.winner ? 'lose' : 'level'}` : ''}${marching && !said ? ' watch' : ''}`} aria-live="polite" data-testid="tower-word">
+      <div className={`ap-word tw-phone-word${won ? ` game-over ${v.winner === team.teamId ? 'win' : v.winner ? 'lose' : 'level'}` : ''}${marching && !said ? ' watch' : ''}`} aria-live="polite" data-testid="tower-word">
         {won || said || (marching ? 'Watch the TV!' : v.stage === 'overtime' ? 'Extra round: plan your march' : 'Plan your march')}
       </div>
 
@@ -173,7 +172,7 @@ export function TowerCard() {
                 aria-label={`${LANE_NAMES[lane]} path`} data-testid={`tower-lane-${lane}`} onPointerDown={(e) => { e.preventDefault(); tapLane(lane); }}>
                 <b>{LANE_NAMES[lane]}</b>
                 <small className="tw-path-info" data-testid={`tower-lane-info-${lane}`}>
-                  {shielded ? 'Shield up' : planning ? [mine ? `${mine} lined up` : '', their ? `they have ${their}` : '', n ? `${n} of theirs here` : ''].filter(Boolean).join(' · ') || 'empty' : n ? `${n} coming!` : 'quiet'}
+                  {!running ? '' : shielded ? 'Shield up' : planning ? [mine ? `yours ${mine}` : '', their || n ? `theirs ${their + n}` : ''].filter(Boolean).join(' · ') || 'empty' : n ? `${n} coming!` : 'quiet'}
                 </small>
                 {open && verb && <span className="tw-path-go">{verb}</span>}
               </button>
@@ -186,14 +185,14 @@ export function TowerCard() {
       <div className="tw-purse" role="img" aria-label={`${Math.floor(have)} energy`} data-testid="tower-energy">
         <span className="tw-purse-bar"><i style={{ width: `${Math.min(100, (have / p.purse.max) * 100)}%` }} /></span><b>{Math.floor(have)}</b>
       </div>
-      {marching ? (
+      {!running ? null : marching ? (
         <div className="tw-cards react" data-testid="tower-reactions">{reactions.map((c) => cardButton(c, setReaction, false))}</div>
       ) : (
         <>
           <div className="tw-cards" data-testid="tower-hand">{cards.map((c) => cardButton(c, setPlanCard, !planning || iAmDone))}</div>
           <button type="button" className={`tw-done${iAmDone ? ' is' : ''}`} disabled={!planning || iAmDone} data-testid="tower-done"
             onPointerDown={(e) => { e.preventDefault(); if (planning && !iAmDone) void press({ kind: 'done' }); }}>
-            {iAmDone ? 'Done ✓' : 'Done: start the march'}
+            {iAmDone ? 'Done ✓' : 'Done'}
           </button>
         </>
       )}

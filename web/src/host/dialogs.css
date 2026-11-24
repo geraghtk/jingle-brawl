@@ -1,0 +1,43 @@
+/* The console's dialogs (Dialogs.tsx), inside the host's .modal */
+.dlg { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.dlg .dlg-title { margin: 0; font-size: 1.5rem; line-height: 1.15; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.dlg .dlg-body { margin: 0; color: var(--text-secondary, var(--muted)); font-size: 1rem; line-height: 1.45; font-weight: 500; max-width: 38ch; overflow-wrap: anywhere; }
+.dlg .dlg-actions { display: flex; gap: 10px; width: 100%; margin-top: 12px; }
+.dlg .dlg-actions .btn { flex: 1 1 0; min-width: 0; padding: 14px 16px; }
+.dlg .dlg-actions .btn:only-child { flex: 0 1 180px; margin: 0 auto; }
+
+/* something that cannot be taken back */
+.dlg-danger::before {
+  content: '!'; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: #ffe3ea; color: #c8102e; font: 800 26px/1 var(--f6-disp, system-ui, sans-serif);
+}
+.dlg .btn-danger { background: #c8102e; color: #fff; box-shadow: 0 8px 20px rgba(200, 16, 46, .3); }
+.dlg .btn-danger:hover:not(:disabled) { background: #b00d27; }
+.dlg .btn-danger:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+/* the gift's name: asked every turn */
+.dlg-gift .dlg-who { margin-bottom: 2px; }
+.dlg-gift .dlg-who .f6-avatar { box-shadow: 0 0 0 4px #fff, 0 8px 20px rgba(13, 16, 24, .18); }
+.dlg-gift .dlg-name { color: var(--accent); }
+.dlg-gift .dlg-field { position: relative; width: 100%; margin-top: 4px; }
+.dlg-gift .dlg-field .input { font-size: 1.15rem; font-weight: 600; text-align: center; padding-left: 40px; padding-right: 40px; }
+.dlg-gift .dlg-count { position: absolute; right: 12px; top: 50%; translate: 0 -50%; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dlg .dlg-error { margin: 0; color: #c8102e; font-size: .9rem; font-weight: 600; }
+
+/* a narrow console (a phone, or the Host tab inside the host's phone): the sheet with a text box
+   sits at the top, so the keyboard does not cover it */
+@media (max-width: 640px) {
+  .modal-overlay:has(.dlg-gift) { align-items: flex-start; padding: 12px; }
+  .modal-overlay:has(.dlg-gift) .modal { width: 100%; border-radius: var(--radius-lg); padding: 20px 16px; }
+  .modal-overlay:has(.dlg) .modal { padding: 22px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .dlg .dlg-title { font-size: 1.3rem; }
+}
+@media (max-width: 340px) {
+  .dlg .dlg-actions { flex-direction: column-reverse; }
+  .dlg .dlg-actions .btn { flex: none; width: 100%; }
+}
+
+/* an opening modal is visible at once (only its fade is animated), so a dialog can take the focus */
+.modal-overlay.active { transition: opacity 0.2s ease, visibility 0s; }
+.dlg .dlg-actions .btn { white-space: nowrap; }
+@media (max-width: 640px) { .dlg .dlg-actions .btn { padding-left: 10px; padding-right: 10px; } }

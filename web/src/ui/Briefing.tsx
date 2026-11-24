@@ -43,7 +43,7 @@ export const HOW_TO: Record<string, string[]> = {
     'The first robot over the line wins.',
   ],
   elf_tower_wars: [
-    'Two workshops, three paths between them. Five rounds, each in two halves.',
+    'Two workshops, three paths between them. Rounds of two halves, until a workshop falls.',
     'PLAN: everyone gets energy. On your phone pick a card, then tap where it goes: toys line up at a path, towers go on your spots. Talk it over, then press Done.',
     'MARCH: both armies walk out together. Watch the TV! Every toy that reaches the other workshop hurts it.',
     'Towers stop theirs: a snow tower for soldiers, a cannon for a pack of mice. Build one again to make it better.',
@@ -66,6 +66,9 @@ export function useGo(lifecycle: string | undefined, instanceId: string | undefi
   }, [lifecycle, instanceId]);
   return !!go && go === instanceId;
 }
+
+/** Games that open with a word of their own ("Round 1", practice throws): no "GO!" laid over it. */
+export const OWN_OPENING = new Set(['nutcracker_knockout', 'reindeer_ring_toss']);
 
 /** "GO!" across the screen for a moment (it takes no taps: the game under it is already on). */
 export function GoFlash() {
@@ -144,9 +147,8 @@ export function Briefing({ game, av, label, emoji, rules, now, me, onReady, onSt
             </li>
           ))}
         </ul>
-        {count > 0 ? (
-          <div className="brief-count" key={count} role="status" data-testid="briefing-count">{count}</div>
-        ) : where === 'phone' && mine && !iAmReady ? (
+        {count > 0 && <div className="brief-count" key={count} role="status" data-testid="briefing-count">{count}</div>}
+        {where === 'phone' && mine && !iAmReady && !count ? (
           <button type="button" className="brief-ready" data-testid="briefing-ready" onPointerDown={(e) => { e.preventDefault(); onReady?.(); }} onClick={() => onReady?.()}>I am ready!</button>
         ) : (
           <p className="brief-wait" role="status" data-testid="briefing-wait">

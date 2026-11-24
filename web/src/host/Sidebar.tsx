@@ -8,6 +8,7 @@ import { MISFIT } from '../core/types';
 import { useHost } from './HostContext';
 import { useModal } from './Modal';
 import { LabModal } from './LabModal';
+import { GiftDialog, useDialogs } from './Dialogs';
 import { Glyphs, Icon } from '../ui/icons';
 import '../ui/connection.css';
 
@@ -125,6 +126,7 @@ function CriticCard() {
 function GameTab({ onExit }: { onExit: () => void }) {
   const { game, send } = useHost();
   const setModal = useModal();
+  const dialogs = useDialogs();
   const players = Object.keys(game.players || {}).length;
   const wrapped = wrappedGifts(game);
   const bag = giftless(game).length;
@@ -135,12 +137,9 @@ function GameTab({ onExit }: { onExit: () => void }) {
   const drawLabel = busy ? '⏳ Turn in Progress...' : wrapped === 0 ? '🎁 All Gifts Opened' : bag === 0 ? '👥 Bag Empty' : "🎅 Draw from Santa's Sack";
 
   const draw = () => {
-    // The prompt names who's drawn: preview with the same seed the plan then draws with
+    // The dialog names who's drawn: preview with the same seed the plan then draws with
     const seed = Date.now() ^ Math.floor(Math.random() * 1e9);
-    const who = game.players?.[pick(giftless(game), rng(seed))]?.name || 'Someone';
-    const giftName = prompt(`🎅 ${who} was drawn!\n\nEnter the gift they're opening:`);
-    if (!giftName) return;
-    send({ type: 'draw', giftName: giftName.slice(0, 80), seed });
+    setModal(<GiftDialog key={seed} pid={pick(giftless(game), rng(seed))} seed={seed} onClose={dialogs.close} />);
   };
 
   return (
@@ -182,8 +181,8 @@ function GameTab({ onExit }: { onExit: () => void }) {
         <div className="card-title">Quick actions</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button className="btn btn-secondary" onClick={() => window.open('quick-reference.html', '_blank')}>Quick Reference</button>
-          <button className="btn btn-secondary" onClick={() => { if (confirm('Exit this game? You can rejoin later if you refresh.')) onExit(); }}>Exit Game</button>
-          <button className="btn btn-danger" data-testid="end-game" onClick={() => { if (confirm('Are you sure you want to end the game?')) send({ type: 'admin_end_game' }); }}>End Game for All</button>
+          <button className="btn btn-secondary" data-testid="exit-game" onClick={() => dialogs.confirm({ title: 'Leave this console?', body: 'The game carries on without it. Open the host page again on this device to come back.', confirm: 'Leave', onConfirm: onExit })}>Exit Game</button>
+          <button className="btn btn-danger" data-testid="end-game" onClick={() => dialogs.confirm({ title: 'End the game for everyone?', body: 'Every screen goes to the final tally. Gifts stay with whoever holds them now.', confirm: 'End the game', danger: true, onConfirm: () => send({ type: 'admin_end_game' }) })}>End Game for All</button>
         </div>
       </div>
     </>
@@ -244,6 +243,7 @@ const field = { padding: '0.25rem', borderRadius: 4, background: 'var(--bg-card)
 
 function AdminPanel() {
   const { game, send } = useHost();
+  const dialogs = useDialogs();
   const [open, setOpen] = useState(false);
   const [pid, setPid] = useState('');
   const [chips, setChips] = useState(0);
@@ -272,11 +272,11 @@ function AdminPanel() {
         {open && (
           <div id="admin-content" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button className="btn btn-secondary" title="Force skip current phase" onClick={() => { if (confirm('Skip current phase? This may cause unexpected state.')) send({ type: 'admin_reset_turn' }); }}>⏭️ Skip Phase</button>
-              <button className="btn btn-secondary" title="Reset to waiting state" onClick={() => { if (confirm('Reset current turn? All pending actions will be cleared.')) send({ type: 'admin_reset_turn' }); }}><Icon name="swap" /> Reset Turn</button>
-              <button className="btn btn-secondary" title="Undo the last duel" onClick={() => {
-                if (!game.undo) return alert('No state to undo. Undo captures state before each duel is resolved.');
-                if (confirm('Restore players and gifts to before the last duel?')) send({ type: 'admin_undo_duel' });
+              <button className="btn btn-secondary" title="Force skip current phase" data-testid="admin-skip-phase" onClick={() => dialogs.confirm({ title: 'Skip this phase?', body: 'The turn is dropped where it stands. Bids and choices already made in it are lost.', confirm: 'Skip it', danger: true, onConfirm: () => send({ type: 'admin_reset_turn' }) })}>⏭️ Skip Phase</button>
+              <button className="btn btn-secondary" title="Reset to waiting state" data-testid="admin-reset-turn" onClick={() => dialogs.confirm({ title: 'Reset this turn?', body: 'Everything pending in it is cleared and the game waits for the next draw.', confirm: 'Reset the turn', danger: true, onConfirm: () => send({ type: 'admin_reset_turn' }) })}><Icon name="swap" /> Reset Turn</button>
+              <button className="btn btn-secondary" title="Undo the last duel" data-testid="admin-undo" onClick={() => {
+                if (!game.undo) return dialogs.notice('Nothing to undo yet', 'Undo goes back to just before the last duel was decided, and no duel has been decided yet.');
+                dialogs.confirm({ title: 'Undo the last duel?', body: 'Players, chips and gifts go back to how they were just before it was decided.', confirm: 'Undo the duel', danger: true, onConfirm: () => send({ type: 'admin_undo_duel' }) });
               }}>↩️ Undo</button>
             </div>
 
@@ -320,7 +320,8 @@ function AdminPanel() {
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn btn-secondary" data-testid="admin-to-misfit" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem' }} onClick={() => send({ type: 'admin_move_misfit', giftId: gid })}>📦 → Misfit Pile</button>
                     <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.75rem', padding: '0.25rem', background: 'var(--accent-red)' }}
-                      onClick={() => { if (confirm(`Delete "${game.gifts?.[gid]?.name}"? This cannot be undone.`)) { send({ type: 'admin_delete_gift', giftId: gid }); setGid(''); } }}>🗑️ Delete</button>
+                      data-testid="admin-delete-gift"
+                      onClick={() => dialogs.confirm({ title: `Delete "${game.gifts?.[gid]?.name}"?`, body: 'The gift is removed from the game. This cannot be undone.', confirm: 'Delete the gift', danger: true, onConfirm: () => { send({ type: 'admin_delete_gift', giftId: gid }); setGid(''); } })}>🗑️ Delete</button>
                   </div>
                 </div>
               )}

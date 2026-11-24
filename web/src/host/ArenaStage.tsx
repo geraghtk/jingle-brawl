@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { getDef } from '../core/minigames/registry';
 import { useServerNow } from '../net/hooks';
-import { Briefing, GoFlash, PracticeRibbon, useGo } from '../ui/Briefing';
+import { Briefing, GoFlash, OWN_OPENING, PracticeRibbon, useGo } from '../ui/Briefing';
 import { Ceremony } from '../ui/Ceremony';
 import { play } from '../ui/sound';
 import '../ui/arena.css';
@@ -47,10 +47,12 @@ export function ArenaStage() {
         <Briefing game={game} av={av} label={def.label} emoji={def.emoji} rules={def.rules} now={now} where={tv ? 'tv' : 'console'}
           onStartNow={tv ? undefined : () => { void send({ type: 'arena_start_now' }); }} />
       )}
-      {go && <GoFlash />}
+      {go && !OWN_OPENING.has(id) && <GoFlash />}
       {av.practice && av.lifecycle !== 'briefing' && <PracticeRibbon endsAt={av.lifecycle === 'active' ? av.practice.endsAt : undefined} now={now} />}
       <Ceremony game={game} av={av} now={now} where={tv ? 'tv' : 'console'} />
-      <Stage />
+      {/* a new game is a new stage (keyed by the instance): a 3D scene builds its course once, so a replay, or the real
+          game after practice, used to be played on the last game's rooftops (Kevin, 2026-11-23) */}
+      <Stage key={av.instanceId} />
     </>
   );
 }

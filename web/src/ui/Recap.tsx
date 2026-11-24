@@ -11,12 +11,13 @@ import { Avatar } from './avatar';
 import { Icon } from './icons';
 import type { IconName } from './icons';
 import { Confetti, CountUp } from './motion';
+import { FitName } from './FittedName';
 import { MvpReveal, useMvps } from './MvpReveal';
 import { renderPicture, sharePicture, stepNames } from './recapPicture';
 import { play } from './sound';
 import './recap.css';
 
-const BRAND = 'Yuel Duel';
+const BRAND = 'YuleDuel';
 /** How long the TV holds the Party MVP before the show goes on (a console or a phone waits for a tap). */
 const MVP_HOLD_MS = 6500;
 const INTRO_MS = 1100, RISE_MS = 2200, WINNER_MS = 5600, AWARD_MS = 2600, LAST_AWARD_MS = 4200;
@@ -73,7 +74,7 @@ function SaveButton({ recap, className }: { recap: RecapData; className?: string
     setState('busy');
     try {
       const blob = ready.current || await renderPicture(recap, words);
-      const how = await sharePicture(blob, `yuel-duel-${new Date().toISOString().slice(0, 10)}.png`, `${BRAND}: ${words.title.toLowerCase()}`);
+      const how = await sharePicture(blob, `yuleduel-${new Date().toISOString().slice(0, 10)}.png`, `${BRAND}: ${words.title.toLowerCase()}`);
       setState(how === 'cancelled' ? 'idle' : 'done');
     } catch { setState('idle'); }                 // no picture on this browser: say nothing, the recap is still here
   };
@@ -105,7 +106,7 @@ function Podium({ steps, up, size }: { steps: PodiumStep[]; up: (place: number) 
               {s.place === 1 && <Icon name="crown" className="rcp-crown" />}
               {s.players.slice(0, SHOWN_ON_STEP).map((p) => <Avatar key={p.id} name={p.name} avatar={p.avatar} size={size(s.place)} />)}
             </div>
-            <div className="rcp-step-name">{stepNames(s.players)}</div>
+            <div className="rcp-step-name"><FitName name={stepNames(s.players)} chars={12} lines={2} min={0.5} /></div>
           </div>
           <div className="rcp-step-block">
             <span className="rcp-step-place">{ordinal(s.place)}</span>
@@ -222,7 +223,7 @@ function RecapShow({ recap, where, onClose }: { recap: RecapData; where: Where; 
               <li key={a.id} className={`rcp-card${i < step.shown ? ' up' : ''}`} aria-hidden={i >= step.shown} data-testid={`recap-card-${a.id}`}>
                 <Icon name={a.icon as IconName} className="rcp-card-icon" />
                 <div className="rcp-card-title">{a.title}</div>
-                <div className="rcp-card-who"><Avatar name={a.name} avatar={recap.lines.find((l) => l.id === a.winner)?.avatar} size={40} /><span>{a.name}</span></div>
+                <div className="rcp-card-who"><Avatar name={a.name} avatar={recap.lines.find((l) => l.id === a.winner)?.avatar} size={40} /><FitName name={a.name} chars={13} lines={2} min={0.55} /></div>
                 <div className="rcp-card-detail">{a.detail}</div>
               </li>
             ))}

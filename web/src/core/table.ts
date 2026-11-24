@@ -336,7 +336,7 @@ export function perform(game: Game, who: Who, offer: Offer, ctx: { now: number; 
     case 'arena_no_contest': return arenaStop(game, 'no_contest', ctx.now);
     case 'arena_ready': return arenaReady(game, who as PlayerId, ctx.now);
     case 'arena_start_now': return arenaCountdown(game, ctx.now, true);
-    case 'arena_continue': return handoff(game);
+    case 'arena_continue': return handoff(game, ctx.now);
     case 'arena_skip_practice': return arenaForReal(game, ctx, true);
     case 'lab_start': return startLab(game, { gameId: offer.gameId, players: offer.players, mode: offer.mode as MatchMode | undefined, duelists: offer.duelists }, ctx);
     case 'lab_end': return endLab(game);

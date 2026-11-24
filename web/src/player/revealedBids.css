@@ -1,0 +1,42 @@
+/* The revealed bids on the phone (player/RevealedBids.tsx): one row a bidder, highest first. */
+.rb { padding: 16px 14px 14px; text-align: left; }
+.rb-cap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.rb-cap .jb-icon, .rb-cap img { width: 16px; height: 16px; }
+.rb-what { color: var(--ink); overflow-wrap: anywhere; }
+.rb-summary { margin: 6px 0 12px; font-size: 24px; font-weight: 700; line-height: 1.12; letter-spacing: -.02em; color: var(--ink); overflow-wrap: break-word; }
+.rb-summary.tie { color: var(--accent); }
+.rb-summary.long { font-size: 19px; line-height: 1.2; }
+
+.rb-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rb-row {
+  position: relative; display: grid; grid-template-columns: 22px 30px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  min-height: 46px; height: auto; box-sizing: border-box; padding: 6px 12px 6px 8px; border-radius: 14px; overflow: hidden;
+  background: var(--bg2); color: var(--ink);
+}
+/* the bid as a bar behind the row: how far each one went */
+.rb-row::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: var(--fill, 0%); border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.rb-row > * { position: relative; }
+.rb-row.top { background: #fff3d1; box-shadow: inset 0 0 0 2px #ffc53d; }
+.rb-row.top::before { background: #ffd978; }
+.rb-row.mine { box-shadow: inset 0 0 0 2.5px var(--ink); }
+.rb-row.top.mine { box-shadow: inset 0 0 0 2.5px var(--ink); }
+.rb-row.pass { color: var(--muted); }
+.rb-row.pass .f6-avatar { opacity: .7; }
+
+.rb-place { display: grid; place-items: center; font: 700 13px var(--f6-disp); color: var(--muted); }
+.rb-place .jb-icon, .rb-place img { width: 20px; height: 20px; }
+.rb-name { min-width: 0; font: 700 16px/1.15 var(--f6-body); }
+.rb-name .fit-name { line-height: 1.15; }
+.rb-you {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  background: var(--ink); color: #fff; font: 700 10px/1.5 var(--f6-body); letter-spacing: .08em; text-transform: uppercase;
+}
+.rb-amount { display: inline-flex; align-items: center; gap: 5px; font-size: 22px; font-weight: 700; white-space: nowrap; }
+.rb-amount .f6-coin { --size: 18px; }
+.rb-row.pass .rb-amount { font: 600 13px var(--f6-body); }
+
+.rb-next { margin-top: 12px; font: 500 15px/1.4 var(--f6-body); color: var(--ink2); overflow-wrap: break-word; }
+.rb-next strong { color: var(--ink); }

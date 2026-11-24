@@ -32,8 +32,10 @@ export function newGame(opts: { hostId: string; hostUid: string | null; settings
   };
 }
 
-/** Names are rendered in many places: strip tag brackets and cap the length (rules allow 60). */
-export const cleanName = (raw: string) => raw.trim().replace(/[<>]/g, '').slice(0, 60);
+/** The most letters a name may have (Kevin, 2026-11-23: at 60 a name had to go tiny, or break mid-word, in a duel corner on a small phone). */
+export const NAME_MAX = 24;
+/** Names are rendered in many places: strip tag brackets and cap the length. */
+export const cleanName = (raw: string) => raw.trim().replace(/[<>]/g, '').slice(0, NAME_MAX).trim();
 
 /** The most people one game seats (a big office party; it also bounds a room's size on the server). */
 export const MAX_PLAYERS = 50;

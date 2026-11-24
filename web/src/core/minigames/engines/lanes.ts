@@ -59,7 +59,10 @@ export function spend(u: Purse, cost: number, now: number, p: LaneParams['purse'
   return have + 1e-9 >= cost ? { energy: have - cost, asOf: now } : null;
 }
 
-export interface Unit { id: string; side: number; lane: number; kind: string; pos: number; hp: number; v: number }
+export interface Unit { id: string; side: number; lane: number; kind: string; pos: number; hp: number; v: number; /** What it set out with (a later round's toys are sturdier than their kind): a screen's health bar is `hp / max`. */ max?: number }
+/** How much of its health a unit has left, 0 to 1 (measured against what it set out with, not its kind: a sturdier toy's bar
+ *  used to stay full while it was being hit, so towers looked as if they did nothing to a late teddy tank). */
+export const healthOf = (u: Pick<Unit, 'hp' | 'max' | 'kind'>, p: LaneParams = DEFAULT_LANES) => Math.max(0, Math.min(1, u.hp / (u.max || p.units[u.kind]?.hp || 1)));
 export interface Tower { lane: number; slot: number; kind: string; /** 1 (absent) to `maxLevel`. */ level?: number }
 /** How much stronger than its kind a tower is, for its level. */
 export const powerOf = (t: Pick<Tower, 'level'>, p: LaneParams = DEFAULT_LANES) => 1 + p.levelUp * ((t.level || 1) - 1);
@@ -196,7 +199,7 @@ export function send(field: Field, side: number, lane: number, kind: string, now
   if (now < f.sides[side].sendAt[lane]) return { error: 'That lane is busy' };
   const pack = Math.max(1, p.units[kind].pack || 1);
   f.units = [...f.units];
-  for (let i = 0; i < pack; i++) { f.ids += 1; f.units.push({ id: `u${f.ids}`, side, lane, kind, pos: (pack - 1 - i) * PACK_GAP, hp: p.units[kind].hp * tough, v: p.units[kind].speed }); }
+  for (let i = 0; i < pack; i++) { f.ids += 1; f.units.push({ id: `u${f.ids}`, side, lane, kind, pos: (pack - 1 - i) * PACK_GAP, hp: p.units[kind].hp * tough, max: p.units[kind].hp * tough, v: p.units[kind].speed }); }
   f.sides = f.sides.map((s, i) => (i === side ? { ...s, sent: s.sent + 1, sendAt: s.sendAt.map((t, l) => (l === lane ? now + p.sendMs : t)) } : s)) as [Side, Side];
   say(f, { at: now, kind: 'sent', side, lane, what: kind });
   return { field: f };

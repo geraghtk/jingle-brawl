@@ -1,4 +1,5 @@
-// The TV screen: top strip, turn panel, players / gifts / records, and the sidebar.
+// The host's console: top strip, turn panel, players / gifts / records, and the sidebar. The TV (tv.html)
+// gets its own stage for the main game instead (host/TvStage.tsx); the overlays below are shared.
 import { useEffect, useState } from 'react';
 import { ArenaFull, FullCtx } from './ArenaFull';
 import { PartyFull, partyGameOn } from './WhackStage';
@@ -9,6 +10,8 @@ import { minCost } from '../core/settings';
 import type { Game } from '../core/types';
 import { Avatar, avatarColor } from '../ui/avatar';
 import { Recap } from '../ui/Recap';
+import { finaleDue } from '../ui/clock';
+import { useServerNow } from '../net/hooks';
 import { playsIn } from '../net/seats';
 import { DuelModal } from './DuelModal';
 import { DuelVerdict } from './DuelVerdict';
@@ -16,9 +19,24 @@ import { useHost } from './HostContext';
 import { Modal, ModalCtx } from './Modal';
 import { Sidebar } from './Sidebar';
 import { TurnPanel } from './TurnPanel';
+import { TvStage } from './TvStage';
 import { useHostAutomation } from './useHostAutomation';
 import { Icon } from '../ui/icons';
 import { MusicToggle } from './Music';
+
+/** The night's finale, once the last duel's verdict has had its moment. */
+function Finale() {
+  const { game, tv } = useHost();
+  const now = useServerNow(500);
+  return finaleDue(game, now) ? <Recap game={game} where={tv ? 'tv' : 'console'} /> : null;
+}
+
+/** The turn's state in words a guest would use (the strip's Phase cell). */
+const PHASE_WORDS: Record<string, string> = {
+  main: 'Between turns', ended: 'Game over', endgame: 'Misfit Lottery', bidding: 'Sealed bids', reveal: 'Bids revealed', yield_choice: 'Fight or yield', duel_pending: 'Duel coming',
+  yield_pending: 'Yield duel coming', tiebreaker_pending: 'A tie', duel: 'Duel', reprisal: 'Reprisal', minigame_party: 'Party game', minigame_draw_off: 'AI Draw Off', minigame_arena: 'Mini-game',
+  endgame_choice: 'Steal or auction', endgame_steal_select: 'Picking a gift to steal', endgame_bidding: 'Auction bids', endgame_reveal: 'Auction revealed', endgame_nobids: 'No bids',
+};
 
 /** The console inside the host's phone (the Host tab next to their own game): player.html frames it. */
 const EMBEDDED = new URLSearchParams(location.search).get('embedded') === '1';
@@ -36,23 +54,27 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   return (
     <FullCtx.Provider value={{ full, setFull }}>
     <ModalCtx.Provider value={setModal}>
+      {tv ? <div id="game-screen" className="tv-screen"><TvStage /></div> : (
       <div id="game-screen">
         <Strip />
-        <div className={`container${tv ? ' tv' : ''}`}>
+        <div className="container">
           <div className="main-area">
             <TurnPanel />
+            {/* the mascots' own place (ui/mascots.ts): in the page's flow, so a bubble never lies over a control */}
+            <div data-mascot-slot="console" />
             <PartyScoreCard />
             <PlayersCard />
             <GiftsCard />
             <Records />
           </div>
-          {!tv && <Sidebar onExit={onExit} />}
+          <Sidebar onExit={onExit} />
         </div>
       </div>
+      )}
       <Modal content={modal} onClose={() => setModal(null)} />
       <DuelModal />
       <DuelVerdict />
-      {game.phase === 'ended' && <Recap game={game} where={tv ? 'tv' : 'console'} />}
+      <Finale />
       <div className="coin-animation-container" id="coin-animation-container" />
       {full && (arenaOn ? <ArenaFull /> : <PartyFull />)}
     </ModalCtx.Provider>
@@ -67,8 +89,8 @@ function Strip() {
   const inDuel = (game.currentTurn?.phase || '').includes('duel');
   return (
     <div className="f6-strip host-strip">
-      <div className="cell brand-cell"><img src="ydlogo2.png" alt="Yuel Duel" /><span className="brand-name f6-disp">Yuel Duel</span></div>
-      <div className="cell"><span className="k">Phase</span><span className="v f6-num" id="strip-phase">{raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()}</span></div>
+      <div className="cell brand-cell"><img src="ydlogo3.png" alt="YuleDuel" /><span className="brand-name f6-disp">YuleDuel</span></div>
+      <div className="cell"><span className="k">Phase</span><span className="v f6-num" id="strip-phase">{PHASE_WORDS[raw.toLowerCase().replace(/ /g, '_')] || raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()}</span></div>
       <div className="cell minor"><span className="k">Players</span><span className="v f6-num"><span id="connected-count">{Object.keys(game.players || {}).length}</span></span></div>
       <div className="cell minor"><span className="k">Gifts left</span><span className="v f6-num" id="strip-gifts">{wrappedGifts(game)}</span></div>
       <div className={`cell pot-cell${inDuel && pot > 0 ? '' : ' hidden'}`} id="strip-pot-cell"><span className="k">Pot</span><span className="v f6-num" id="strip-pot">{pot} ◆</span></div>

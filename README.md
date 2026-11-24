@@ -1,4 +1,4 @@
-# Yuel Duel (Jingle Brawl)
+# YuleDuel
 
 A real-time party game for gift exchanges: players bid Jingle Chips on opened gifts, duel
 for them, and strike back with Grump's Gambits and Reindeer Reprisals. One screen runs

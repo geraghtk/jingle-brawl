@@ -129,10 +129,18 @@ test('an in-app duel game settles it: everyone plays Whack-an-Elf, the better-pl
     await skip(); // → results
     const mg = await H.waitForGame(roomCode, (g) => (g.minigame?.phase === 'results' ? g.minigame : false), { label: 'results' });
     expect(mg.results.winners).toEqual([p[opener].id]);
+    // the results are the one announcement: who won the duel and what they take (here the opener keeps the gift and takes the pot)
+    await expect(host.getByTestId('ceremony-headline')).toHaveText(`${opener} wins the duel!`);
+    await expect(host.getByTestId('ceremony-prize')).toContainText(`${opener} keeps `);
+    await expect(pages[bidder].getByTestId('ceremony-stakes')).toBeVisible();
     await skip(); // → back to the duel, which the host settles with the game's winner
     const g = await H.waitForGame(roomCode, (x) => (x.lastDuel?.winnerId ? x : false), { label: 'duel resolved', timeout: 10000 });
     expect(g.lastDuel).toMatchObject({ winnerId: p[opener].id, loserId: p[bidder].id });
-    await expect(host.locator('#duel-verdict .verdict-name')).toHaveText(opener);
+    // settled without a second announcement: no verdict on the console, none on the duelists' phones
+    expect(g.lastDuel.announced).toBe(true);
+    await host.waitForTimeout(1200);
+    await expect(host.locator('#duel-verdict')).toHaveCount(0);
+    for (const n of [opener, bidder]) await expect(pages[n].locator('#duel-result-modal.active')).toHaveCount(0);
     s.noErrors();
   } finally {
     await s.cleanup();
@@ -232,6 +240,7 @@ test('"Every game the whole table plays" ticks them all on the setup screen; "On
   const host = await ctx.newPage();
   try {
     await host.goto(`${H.BASE}/host.html`);
+    await host.getByTestId('setup-group-minigames').click();                  // the settings are in groups: this one holds the games
     const box = (id) => host.locator(`#setting-duel-app-${id}`);
     await expect(host.locator('#setting-duel-table-games')).toHaveValue('teams');
     await expect(box('gift_conveyor')).toBeChecked();

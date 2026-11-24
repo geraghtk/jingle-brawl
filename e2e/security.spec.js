@@ -44,6 +44,17 @@ test('every page runs under the CSP without a violation', async ({ browser }) =>
     const rules = await ctx.newPage();
     await rules.goto(`${H.BASE}/rules.html`);
     expect(await violations(rules)).toEqual([]);
+    // the rule pages wear the app's look from one stylesheet, with the sticker icons (all our own files)
+    await expect(rules.locator('.pg-brand')).toHaveText('YuleDuel');
+    expect(await rules.evaluate(() => getComputedStyle(document.querySelector('.card')).borderRadius)).not.toBe('0px');
+    expect(await rules.evaluate(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0))).toBe(true);
+    await rules.locator('.toc a[href="#endgame"]').click();
+    await expect(rules.locator('#endgame')).toBeInViewport();
+    const privacy = await ctx.newPage();
+    await privacy.goto(`${H.BASE}/privacy.html`);
+    await expect(privacy.locator('.pg-brand')).toHaveText('YuleDuel');
+    expect(await violations(privacy)).toEqual([]);
+    expect((await ctx.request.get(`${H.BASE}/JingleBrawlV2.html`)).status()).toBe(404);   // the old export is retired
 
     const card = await ctx.newPage();
     await card.goto(`${H.BASE}/quick-reference.html`);

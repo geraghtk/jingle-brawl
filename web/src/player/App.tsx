@@ -1,7 +1,8 @@
-// Phone app: join / rejoin, then the game screen for this player. Joining returns a session
-// token from the room server; a refresh rejoins with it.
+// Phone app: join, then the game screen for this player. Joining returns a session token from the
+// room server; a reload goes straight back to the seat with it (no question, unless the address
+// names another room: player/resume.ts).
 import { useEffect, useState } from 'react';
-import { cleanName } from '../core/actions';
+import { cleanName, NAME_MAX } from '../core/actions';
 import { AVATARS } from '../core/avatars';
 import { joinRoom, lobby } from '../net/api';
 import { OffsetProvider, useRoom } from '../net/hooks';
@@ -9,6 +10,8 @@ import { GameScreen } from './GameScreen';
 import { PlayerProvider, useToast } from './PlayerContext';
 import { clearSession, loadSession, saveSession } from './session';
 import type { Session } from './session';
+import { resume } from './resume';
+import { ConfirmSheet } from '../ui/ConfirmSheet';
 import { Glyphs, Icon } from '../ui/icons';
 import { ConnectionBanner } from '../ui/ConnectionBanner';
 import { SeatTabs } from './SeatTabs';
@@ -19,8 +22,8 @@ const params = new URLSearchParams(location.search);
 function Hero() {
   return (
     <div className="join-hero">
-      <div className="logo-wrap"><img src="ydlogo2.png" alt="Yuel Duel" /></div>
-      <h1 className="join-title fz-riso">Yuel <span style={{ color: 'var(--accent)' }}>Duel</span></h1>
+      <div className="logo-wrap"><img src="ydlogo3.png" alt="YuleDuel" /></div>
+      <h1 className="join-title fz-riso">Yule<span style={{ color: 'var(--accent)' }}>Duel</span></h1>
       <div className="join-tagline">A game of <span>high stakes</span>, <span>low blows</span>, and <span>questionable gifts</span>.</div>
     </div>
   );
@@ -31,7 +34,7 @@ export function App() {
   const [saved, setSaved] = useState<Session | null | undefined>(undefined); // undefined = checking
   const [msg, show, toast] = useToast();
 
-  // A saved session whose player still exists → offer to rejoin
+  // A saved seat whose room is still there: straight back in. Only a link to ANOTHER room asks.
   useEffect(() => {
     const seat = params.get('seat'), pid = params.get('pid'), room = params.get('room');
     if (seat && pid && room) {
@@ -44,11 +47,13 @@ export function App() {
     }
     const s = loadSession();
     if (!s) { setSaved(null); return; }
-    // the room checks the token when the phone connects; here: is the room still there?
-    // ?rejoin=1 (the host switching back from their console): straight back in, no question
+    // the room checks the token when the phone connects (a refused one lands on "Join a game");
+    // here: is the room still there?
     lobby(s.room).then((l) => {
-      if (!l.exists || !s.token) { clearSession(); setSaved(null); return; }
-      if (params.get('rejoin') === '1') { setSaved(null); setSession(s); } else setSaved(s);
+      const next = resume(s, { room: params.get('room'), rejoin: params.get('rejoin') === '1', roomExists: l.exists });
+      if (next === 'forget') { clearSession(); setSaved(null); }
+      else if (next === 'ask') setSaved(s);
+      else { setSaved(null); setSession(s); }
     })
       .catch(() => setSaved(null));
   }, []);
@@ -69,17 +74,12 @@ export function App() {
     }
   }
 
-  function rejoin(s: Session) {
-    setSession(s);
-    toast('Reconnected! 🎄');
-  }
-
   return (
     <>
       <div className="container">
         {session ? <Playing session={session} toast={toast} />
           : saved === undefined ? null
-          : saved ? <Rejoin s={saved} onRejoin={() => rejoin(saved)} onOther={() => { clearSession(); setSaved(null); }} />
+          : saved ? <Rejoin s={saved} other={(params.get('room') || '').toUpperCase()} onRejoin={() => setSession(saved)} onOther={() => { clearSession(); setSaved(null); }} />
           : <Join onJoin={join} />}
       </div>
       <div className={`toast${show ? ' show' : ''}`} id="toast"><Glyphs>{msg}</Glyphs></div>
@@ -117,7 +117,7 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
       <div className="join-form">
         <input type="text" id="room-code-input" className="room-code-input" placeholder="ROOM" maxLength={4} autoComplete="off"
           value={room} onChange={(e) => setRoom(e.target.value.toUpperCase())} />
-        <input type="text" id="player-name-input" placeholder="Your name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
+        <input type="text" id="player-name-input" placeholder="Your name" autoComplete="off" maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
         <fieldset className="avatar-pick" data-testid="avatar-pick">
           <legend>Pick your avatar <small>{avatar ? AVATARS.find((a) => a.id === avatar)?.label : "or we'll pick one for you"}</small></legend>
           <div className="avatar-grid">
@@ -151,18 +151,19 @@ function Join({ onJoin }: { onJoin: (room: string, name: string, age: number | n
   );
 }
 
-function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; onOther: () => void }) {
+/** Only when this phone has a seat in one room and the link it opened names another: which one? */
+function Rejoin({ s, other, onRejoin, onOther }: { s: Session; other: string; onRejoin: () => void; onOther: () => void }) {
   return (
     <div id="join-screen" className="join-screen">
       <Hero />
-      <div className="card" style={{ marginTop: 0, maxWidth: 320, textAlign: 'center' }}>
-        <h3 style={{ marginBottom: '0.5rem' }}>Welcome back, {s.name}!</h3>
+      <div className="card" data-testid="rejoin-choice" style={{ marginTop: 0, maxWidth: 320, textAlign: 'center' }}>
+        <h3 style={{ marginBottom: '0.5rem', overflowWrap: 'anywhere' }}>{s.name}, you have a seat in room {s.room}</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Room: <strong style={{ color: 'var(--accent-gold)' }}>{s.room}</strong>
+          This link is for room <strong style={{ color: 'var(--accent-gold)' }}>{other}</strong>. Which game?
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button className="btn btn-primary" id="rejoin-btn" data-testid="rejoin" onClick={onRejoin}><Icon name="swap" /> Rejoin Game</button>
-          <button className="btn btn-secondary" onClick={onOther}>🆕 Join Different Game</button>
+          <button className="btn btn-primary" id="rejoin-btn" data-testid="rejoin" onClick={onRejoin}><Icon name="swap" /> Back to room {s.room}</button>
+          <button className="btn btn-secondary" data-testid="join-other" onClick={onOther}>Join room {other}</button>
         </div>
       </div>
     </div>
@@ -173,6 +174,7 @@ function Rejoin({ s, onRejoin, onOther }: { s: Session; onRejoin: () => void; on
  *  any more: back to the join screen. */
 function Playing({ session, toast }: { session: Session; toast: (m: string) => void }) {
   const { client, game, offset, fatal, status } = useRoom(session.room, session.token);
+  const [leaving, setLeaving] = useState(false);
   useEffect(() => { if (fatal) clearSession(); }, [fatal]);
   if (fatal) {
     return <div className="card" style={{ margin: '2rem auto', maxWidth: 320, textAlign: 'center' }}><p>{fatal}</p><button className="btn btn-primary" onClick={() => location.reload()}>Join a game</button></div>;
@@ -180,16 +182,21 @@ function Playing({ session, toast }: { session: Session; toast: (m: string) => v
   const banner = <ConnectionBanner status={status} loaded={!!game} />;
   if (!game) return banner;
   const leave = () => {
-    if (!confirm('Leave this game?')) return;
     client.stop();
     clearSession();
     location.reload();
   };
+  const onLeave = () => setLeaving(true);
   return (
     <OffsetProvider offset={offset}>
       {banner}
       <PlayerProvider room={session.room} me={session.playerId} game={game} toast={toast} client={client}>
-        {hosts(session.room) ? <SeatTabs><GameScreen onLeave={leave} /></SeatTabs> : <GameScreen onLeave={leave} />}
+        {hosts(session.room) ? <SeatTabs><GameScreen onLeave={onLeave} /></SeatTabs> : <GameScreen onLeave={onLeave} />}
+        {leaving && (
+          <ConfirmSheet testid="leave-sheet" title="Leave this game?" danger confirm="Leave game" cancel="Stay in the game"
+            body="This phone gives up its seat. Your chips and gift stay at the table, and the host can give you a link back in."
+            onConfirm={leave} onClose={() => setLeaving(false)} />
+        )}
       </PlayerProvider>
     </OffsetProvider>
   );

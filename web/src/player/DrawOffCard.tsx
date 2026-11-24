@@ -6,6 +6,7 @@ import { useServerOffset } from '../net/hooks';
 import { useSecondsLeft } from '../ui/PartyResults';
 import { usePlayer } from './PlayerContext';
 import { Icon } from '../ui/icons';
+import { StakesLines } from '../ui/Stakes';
 
 type Seg = { color: string; size: number; from: [number, number]; to: [number, number] };
 
@@ -94,6 +95,7 @@ export function DrawOffCard() {
           <div style={{ fontWeight: 700, marginBottom: '0.5rem' }} data-testid="drawoff-result">
             {winner ? (winner === me ? 'You win the Draw Off!' : `${game.players?.[winner]?.name || 'Your rival'} wins the Draw Off`) : "The critic couldn't decide: the host picks the winner"}
           </div>
+          {winner && <div className="drawoff-stakes"><StakesLines stakes={mg.stakes} game={game} /></div>}
           {participant && myScore && <div style={{ marginBottom: '0.25rem' }}>Your score: {myScore.rating}/100</div>}
           {participant && myScore?.critique && <div style={{ fontStyle: 'italic' }}>{myScore.critique}</div>}
         </>}

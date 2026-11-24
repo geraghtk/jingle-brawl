@@ -18,7 +18,9 @@ const ROOF_Y = 0;
 /** How far apart (world units) the two may be and still both be in the picture (further: it splits, fx.ts). */
 const MAX_SPREAD = 15;
 /** How tall a climb stands, and how thick it is. */
-const STACK_H = 3.1, STACK_W = 0.55, STACK_X = 0.72;
+const STACK_H = 3.1, STACK_W = 0.5, STACK_X = 0.78;
+/** How far back from a stack's face a climbing robot's middle is (its chest, not its middle, is against the bricks). */
+const CLIMB_OFF = 0.74;
 const WHITE = 0xffffff;
 
 interface Robot {
@@ -30,6 +32,8 @@ interface Robot {
   key: THREE.Object3D;
   flame: THREE.Object3D;
   lean: number; crouch: number; swing: number; y: number;
+  /** 0 to 1: it is up a stack (the camera looks higher while it is). */
+  high: number;
   /** Where it was when it last hung on a rope (world x, height): a let-go starts from there, not from the edge it grabbed at. */
   hung: { x: number; y: number } | null;
 }
@@ -136,7 +140,7 @@ function buildSanta(color: number): Robot {
   flame.visible = false;
   body.add(flame);
   root.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.MeshToonMaterial | undefined; if (m?.type === 'MeshToonMaterial' && m.color.getHex() === color) o.userData.coat = true; });
-  return { root, tilt, body, legs, arms, key, flame, lean: 0, crouch: 0, swing: 0, y: 0, hung: null };
+  return { root, tilt, body, legs, arms, key, flame, lean: 0, crouch: 0, swing: 0, y: 0, high: 0, hung: null };
 }
 
 /** A bit of an effect: a star that flies and falls, or (`puff`) a soft ball of snow or smoke that swells, slows and fades. */
@@ -242,7 +246,8 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
           course.add(at(box(STACK_W, STACK_H, 1.7, 0x9a4b3c), x, ROOF_Y + STACK_H / 2, z));
           course.add(at(box(STACK_W + 0.16, 0.22, 1.86, 0x6b3d2a), x, ROOF_Y + STACK_H + 0.11, z));
           course.add(noShadow(at(box(STACK_W + 0.2, 0.14, 1.9, SNOW), x, ROOF_Y + STACK_H + 0.29, z)));
-          for (let k = 0; k < n; k++) course.add(at(box(0.1, 0.07, 0.9, GOLD), x - STACK_W / 2 - 0.05, ROOF_Y + ((k + 1) / (n + 0.4)) * STACK_H, z));
+          // (the rungs stick well out of the face it is climbed from, so they show from the side)
+          for (let k = 0; k < n; k++) course.add(at(box(0.3, 0.08, 1.5, GOLD), x - STACK_W / 2 - 0.15, ROOF_Y + ((k + 1) / (n + 0.4)) * STACK_H, z));
           for (let row = 0; row < 6; row++) course.add(noShadow(at(box(STACK_W + 0.02, 0.03, 1.72, 0x7d3a2e), x, ROOF_Y + 0.5 + row * 0.5, z)));
         });
       } else if (o.kind === 'rope') {
@@ -334,7 +339,9 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
     // up and down: a hop with each step, a leap over a gap, down in the gap after stepping into it
     let y = 0;
     if (m) y = Math.sin(f * Math.PI) * (m.kind === 'jump' ? 1.7 : m.kind === 'boost' ? 0.5 : 0.12);
-    if (busy === 'climb') { const left = (w.busyUntil - now) / p.climbMs; y = -1.7 * Math.min(1, left * 1.6); }
+    // in a gap: down out of sight, then hauled up over the edge in the last part of the wait
+    const sunk = busy === 'climb' ? Math.max(0, Math.min(1, (w.busyUntil - now) / p.climbMs)) : 0;
+    if (busy === 'climb') y = sunk > 0.4 ? -2.9 : -2.9 * (sunk / 0.4);
     if (won) y = Math.abs(Math.sin(t * 5)) * 0.35;
     // on a climb: up the stack rung by rung, then over the top and down the far side
     const grip = w.grip;
@@ -345,7 +352,8 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
       y = Math.min(1, (grip.rung + heave) / n) * (STACK_H + VAULT_CLEAR - 0.9) + (m && m.kind === 'rung' ? 0 : Math.sin(t * 7) * 0.02);
     }
     let wx = x * S + (busy === 'climb' ? 0.55 : 0);
-    if (grip?.kind === 'climb') wx += 0.16;                                  // pressed up against it
+    // (its chest to the bricks, standing off the face: its middle is never inside the stack)
+    if (grip?.kind === 'climb') wx = Math.min(wx, (view.course.obstacles.find((o) => o.id === grip.id)?.at ?? x) * S + STACK_X - CLIMB_OFF);
     if (m && m.kind === 'vault') {
       // over the top, clear of it, then down the far side (never through it)
       const v = vaultAt(f, STACK_H);
@@ -368,14 +376,17 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
       r.hung = { x: wx, y: r.y };
     } else if (!(m && m.kind === 'jump') && !(busy === 'climb')) r.hung = null;
     // dropped off the rope into the gap: it falls from where it hung, it does not jump back to the edge
-    if (busy === 'climb' && r.hung) { r.hung.x = ease(r.hung.x, wx, dt, 5); wx = r.hung.x; }
+    // (it drops where it let go, in the gap, and only comes across to the edge as it is hauled out)
+    if (busy === 'climb' && r.hung) wx = sunk > 0.4 ? r.hung.x : r.hung.x + (wx - r.hung.x) * (1 - sunk / 0.4);
+    r.high = ease(r.high, grip?.kind === 'climb' || (m && m.kind === 'vault' && f < 0.7) ? 1 : 0, dt, 4);
     r.root.position.x = wx;
     r.root.position.y = ROOF_Y + r.y;
     // the lean: forward (screen right) and back; flat on the roof when it has fallen, up again at the end
     // (on a climb it leans in to the wall, chest to the bricks, and sways a little with each heave)
-    let lean = grip?.kind === 'climb' ? 0.3 + leanAt(w, now, p) * 0.12 + (m && m.kind === 'rung' ? Math.sin(f * Math.PI) * 0.06 : 0) : leanAt(w, now, p) * 0.62;
+    let lean = grip?.kind === 'climb' ? 0.07 + leanAt(w, now, p) * 0.06 + (m && m.kind === 'rung' ? Math.sin(f * Math.PI) * 0.04 : 0) : leanAt(w, now, p) * 0.62;
     if (m && m.kind === 'vault') lean = 0.5 * Math.sin(Math.min(1, f / 0.6) * Math.PI);
-    if (rope && grip) lean = hangAt(swingAt(grip, now, p)).angle * 0.5;
+    if (rope && grip) lean = hangAt(swingAt(grip, now, p)).lean;
+    if (busy === 'climb' && sunk <= 0.4) lean = 0.25;                     // hauling itself out over the edge
     if (busy === 'topple') { const left = w.busyUntil - now; lean = (w.fell || 1) * (left > 700 ? 1.5 : 1.5 * (left / 700)); }
     if (busy === 'stumble') lean += Math.sin(t * 22) * 0.16;
     if (busy === 'misjump') lean += Math.sin(t * 18) * 0.08;
@@ -415,6 +426,7 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
       if (m && m.kind === 'vault') { a = f < 0.6 ? 2.2 : 2.9; out = (k === 0 ? 1 : -1) * 0.4; }
       if (won) { a = 2.9 + Math.sin(t * 9 + k) * 0.15; out = (k === 0 ? 1 : -1) * 0.5; }
       if (busy === 'topple') a = 1.4;
+      if (busy === 'climb') { a = 2.7; out = (k === 0 ? 1 : -1) * 0.15; }  // hands up on the edge
       arm.rotation.z = ease(arm.rotation.z, a, dt, 20);
       arm.rotation.x = out;
     });
@@ -529,9 +541,13 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
       const hfov = 2 * Math.atan(Math.tan((camera.fov * Math.PI) / 360) * (W / H));
       const dist = half / Math.tan(hfov / 2);
       camAt.set(ease(camAt.x, mid, dt, 4), ease(camAt.y, 2.6 + dist * 0.2, dt, 4), ease(camAt.z, dist, dt, 3));
-      lookAt.set(ease(lookAt.x, mid, dt, 4), 2.5, 0);
-      // (the strip cameras wait where the one camera is, so a split starts from this picture)
-      strips.forEach((c) => { c.at.copy(camAt); c.look.copy(lookAt); });
+      // (a robot up a stack: the picture looks higher and stands back, so it is not behind the panels at the top)
+      const up = Math.max(robots[0].high, robots[1].high);
+      lookAt.set(ease(lookAt.x, mid, dt, 4), ease(lookAt.y, 2.5 + up * 1.9, dt, 4), 0);
+      camAt.y = ease(camAt.y, 2.6 + dist * 0.2 + up * 1.2, dt, 2);
+      // (the strip cameras wait near the robot each will follow, close enough that it is the size it was: a split
+      // then starts from this picture and eases back, with no jump in size)
+      strips.forEach((c, i) => { c.at.set(i === 0 ? xa + 2.6 : xb + 2.6, camAt.y, Math.max(9, camAt.z * STRIPS[i].height * 1.6)); c.look.set(c.at.x, lookAt.y, 0); });
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, W, H);
       shoot({ at: camAt, look: lookAt }, W / H);
@@ -544,12 +560,16 @@ export function createMechaScene(canvas: HTMLCanvasElement): MechaScene {
     renderer.setScissorTest(true);
     [xa, xb].forEach((x, i) => {
       const c = strips[i], strip = STRIPS[i];
-      c.at.set(ease(c.at.x, x + 2.6, dt, 5), ease(c.at.y, 3.4, dt, 5), ease(c.at.z, 13.5, dt, 4));
-      c.look.set(ease(c.look.x, x + 2.6, dt, 5), ease(c.look.y, 2.3, dt, 5), TRACK_Z[i] * 0.4);
+      const up = robots[i].high;
+      c.at.set(ease(c.at.x, x + 2.6, dt, 5), ease(c.at.y, 3.4 + up * 1.6, dt, 5), ease(c.at.z, 13.5 + up * 5, dt, 4));
+      c.look.set(ease(c.look.x, x + 2.6, dt, 5), ease(c.look.y, 2.3 + up * 1.5, dt, 5), TRACK_Z[i] * 0.4);
+      // (a strip is its own robot's: the other one, far away, would only poke in at the edge)
+      robots[1 - i].root.visible = false;
       const y = Math.round(H * (1 - strip.top - strip.height)), h = Math.round(H * strip.height);
       renderer.setViewport(0, y, W, h);
       renderer.setScissor(0, y, W, h);
       shoot(c, W / h);
+      robots[1 - i].root.visible = true;
     });
     renderer.setScissorTest(false);
     // (the one camera follows the leader meanwhile, so joining again starts from somewhere sensible)

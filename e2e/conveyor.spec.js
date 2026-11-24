@@ -59,6 +59,13 @@ test('the Gift Conveyor: toys roll past your station, fit the piece in time; the
       await expect(page.locator('[data-testid^=conveyor-station-]')).toHaveCount(2);     // two stations each
     }
     await expect(workers[0].getByTestId('conveyor-my-team')).toContainText('Team A');
+    // a small phone (320 x 568): both stations are on the screen, every piece in reach, nothing to scroll
+    // (the second station used to be below the fold)
+    await workers[0].setViewportSize({ width: 320, height: 568 });
+    for (const station of await workers[0].locator('[data-testid^=conveyor-station-]').all()) await expect(station).toBeInViewport({ ratio: 1 });
+    for (const piece of await workers[0].locator('[data-testid^=conveyor-fit-], [data-testid^=conveyor-shoo-]').all()) await expect(piece).toBeInViewport({ ratio: 1 });
+    expect(await workers[0].evaluate(() => { const c = document.querySelector('[data-testid=conveyor-card]'); return c.scrollHeight <= c.clientHeight + 1; })).toBe(true);
+    await workers[0].setViewportSize({ width: 390, height: 844 });
     // the TV: both belts, the first toy on each, every station signed with who works it
     await expect(tv.getByTestId('conveyor-toy-A-0')).toBeVisible();
     await expect(tv.getByTestId('conveyor-toy-B-0')).toBeVisible();
@@ -94,9 +101,11 @@ test('the Gift Conveyor: toys roll past your station, fit the piece in time; the
 
     // a wrong piece: the toy is spoiled and the phone says so
     let slipped = 0;
-    for (let i = 0; i < 80 && !slipped; i++) { slipped = await work(workers[0], true); await tv.waitForTimeout(150); }
+    let told = false;                                                   // (the words stay 1.4 s: look for them as we go, not afterwards)
+    const wrong = workers[0].locator('.cv-said').filter({ hasText: 'Wrong piece' });
+    for (let i = 0; i < 80 && !(slipped && told); i++) { slipped = (await work(workers[0], true)) || slipped; told = told || (await wrong.count()) > 0; await tv.waitForTimeout(150); told = told || (await wrong.count()) > 0; }
     expect(slipped).toBeGreaterThan(0);
-    await expect(workers[0].locator('.cv-said').filter({ hasText: 'Wrong piece' })).toBeVisible();
+    expect(told).toBe(true);
 
     // the bell: more toys on the sleigh wins, on the TV and on every phone
     await H.dbPut(r.roomCode, 'arena/state/endsAt', Date.now());

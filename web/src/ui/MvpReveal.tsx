@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, PlayerId } from '../core/types';
 import { Avatar } from './avatar';
+import { FitName } from './FittedName';
 import './mvp.css';
 
 const ROLL_MS = 2600;
@@ -65,7 +66,7 @@ export function MvpReveal({ game, me, variant, onClose, autoMs }: { game: Game; 
         <div className="mvp-heading f6-disp">{heading}</div>
         <div className="mvp-roll" aria-live="polite">
           {!rolling && mvps.length === 1 && <Avatar name={top?.name || '?'} avatar={top?.avatar} size={variant === 'tv' ? 96 : 64} />}
-          <span className="mvp-name f6-disp fz-riso" data-testid="mvp-name">{rolling ? shown : winnerLabel}</span>
+          <span className="mvp-name f6-disp fz-riso" data-testid="mvp-name"><FitName name={rolling ? shown : winnerLabel} chars={variant === 'tv' ? 14 : 12} lines={variant === 'tv' ? 2 : 3} /></span>
         </div>
         {!rolling && top && (
           <div className="mvp-score">

@@ -801,7 +801,7 @@
         }
 
         .modal h2 {
-            font-family: 'Playfair Display', serif;
+            font-family: var(--f6-disp, system-ui, sans-serif);
             margin-bottom: var(--space-lg);
         }
 
@@ -838,7 +838,7 @@
         .duel-corner.green { background: var(--accent2); }
         .duel-corner .corner-halftone { position: absolute; inset: 0; opacity: 0.12; }
         .duel-corner .corner-sticker { position: relative; transform: rotate(-3deg); }
-        .duel-corner .corner-name { position: relative; font-size: clamp(34px, 4.5vw, 58px); margin-top: 12px; word-break: break-word; }
+        .duel-corner .corner-name { position: relative; font-size: clamp(34px, 4.5vw, 58px); line-height: 1.02; margin-top: 12px; max-width: 100%; }   /* the name sizes itself: ui/FitName */
         .duel-corner .corner-role { position: relative; font-weight: 600; font-size: 15px; margin-top: 8px; opacity: 0.95; }
 
         .duel-vs-strip {
@@ -1436,7 +1436,7 @@
             padding: 14px 0 6px;
             flex-wrap: wrap;
         }
-        .duel-pending-row .dp-side { font-size: clamp(28px, 3.4vw, 44px); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .duel-pending-row .dp-side { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.02; max-width: 36%; min-width: 0; text-align: center; }   /* ui/FitName fits the name: no ellipsis */
         .duel-pending-row .dp-vs { font-size: 24px; display: inline-block; }
 
         /* ===== zine accents ===== */
@@ -1532,7 +1532,7 @@
 .verdict-sticker { font-size: 15px; padding: 7px 15px; }
 .verdict-name {
   margin: 18px 0 0; font-size: clamp(84px, 12vw, 190px); line-height: 0.9; letter-spacing: -0.03em;
-  text-transform: uppercase; word-break: break-word; text-shadow: 7px 7px 0 var(--ink) !important;
+  text-transform: uppercase; max-width: 100%; text-shadow: 7px 7px 0 var(--ink) !important;
 }
 .verdict-outcome { margin: 22px 0 0; font: 700 clamp(22px, 2.4vw, 34px)/1.2 var(--f6-body); }
 .verdict-purse { display: flex; align-items: center; gap: 28px; margin-top: 52px; }
@@ -1543,7 +1543,7 @@
 }
 .purse-tile.loser { transform: rotate(-2deg); opacity: 0.88; }
 .purse-tile.winner { transform: rotate(2deg) scale(1.08); }
-.purse-name { font: 700 22px var(--f6-disp); }
+.purse-name { font: 700 22px/1.1 var(--f6-disp); max-width: 250px; text-align: center; }
 .purse-note { font: 600 15px var(--f6-body); color: var(--muted); }
 .purse-chips { display: flex; align-items: center; gap: 10px; font: 700 52px/1 var(--f6-disp); font-variant-numeric: tabular-nums; }
 .purse-chips .jb-chip { --size: 40px; }

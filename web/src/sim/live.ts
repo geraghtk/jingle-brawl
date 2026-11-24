@@ -121,7 +121,7 @@ export class LiveTable {
 
   private watch(page: Page, who: string) {
     page.on('pageerror', (e) => this.issue(`${who}: page error: ${e.message}`));
-    page.on('dialog', () => {});                      // answered where they're expected
+    page.on('dialog', (d) => { this.issue(`${who}: a native dialog opened ("${d.message().slice(0, 60)}")`); d.dismiss().catch(() => {}); }); // the app has its own dialogs: none is expected
   }
 
   private issue(text: string) {
@@ -240,8 +240,9 @@ export class LiveTable {
       case 'start': ok = await this.click(page, '#btn-start-game:not([disabled])', 'Start Game'); break;
       case 'draw': {
         const name = o.giftName || GIFTS[Object.keys(this.game.gifts || {}).length % GIFTS.length];
-        page.once('dialog', (d) => d.accept(name).catch(() => {}));
-        ok = await this.click(page, tid('draw'), 'Draw from the sack');
+        ok = await this.click(page, tid('draw'), 'Draw from the sack')                    // the console asks for the gift's name
+          && await page.getByTestId('gift-name').fill(name, { timeout: 8000 }).then(() => true, () => false)
+          && await this.click(page, tid('gift-submit'), 'Start bidding');
         break;
       }
       case 'reveal': ok = await this.click(page, tid('reveal-bids'), 'Reveal All Bids'); break;
@@ -260,7 +261,7 @@ export class LiveTable {
       case 'endgame': ok = await this.click(page, tid('endgame'), 'Endgame'); break;
       case 'reveal_auction': ok = await this.click(page, tid('reveal-auction'), 'Reveal Bids'); break;
       case 'auction_duel': ok = await this.click(page, tid('auction-duel'), 'Duel Highest Bidder'); break;
-      case 'end': page.once('dialog', (d) => d.accept().catch(() => {})); ok = await this.click(page, tid('end-game'), 'End Game for All'); break;
+      case 'end': ok = await this.click(page, tid('end-game'), 'End Game for All') && await this.click(page, tid('dialog-confirm'), 'End the game'); break;
     }
     if (!ok) return { ok: false, error: `couldn't press ${offer.type} on the page` };
     (this.did[who] ||= {})[offer.type] = (this.did[who][offer.type] || 0) + 1;

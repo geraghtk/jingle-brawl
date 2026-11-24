@@ -798,7 +798,7 @@
 
         /* Frost v6 duel header */
         .duel-you-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 8px 0 10px; flex-wrap: wrap; }
-        .duel-side { font-size: 28px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .duel-side { font-size: min(28px, 7.2vw); line-height: 1.02; max-width: 38%; min-width: 0; text-align: center; }   /* ui/FitName fits the name: no ellipsis */
         .duel-vs-mini { font-size: 18px; display: inline-block; }
 
         /* Frost v6 final result */
@@ -850,7 +850,7 @@
 
         /* Action Required */
         .action-card {
-            background: linear-gradient(135deg, #3d1e1e 0%, var(--bg-card) 100%);
+            background: color-mix(in srgb, var(--accent-red) 7%, var(--bg-card));
             border: 2px solid var(--accent-red);
         }
 
@@ -1147,7 +1147,7 @@ button.callit-corner { cursor: pointer; box-shadow: 0 4px 0 color-mix(in srgb, v
 button.callit-corner:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 button.callit-corner:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .callit-corner-tag { font: 400 10px var(--f6-zine); letter-spacing: 0.02em; opacity: 0.9; margin-bottom: auto; } /* top; the vs badge sits mid-height */
-.callit-name { font-size: 30px; font-weight: 700; line-height: 1; margin-top: 6px; word-break: break-word; }
+.callit-name { font-size: min(30px, 7.7vw); font-weight: 700; line-height: 1; margin-top: 6px; max-width: 100%; }   /* ui/FitName fits the name */
 .callit-record { font-size: 13px; font-weight: 600; opacity: 0.9; margin-top: 6px; }
 .callit-corner.faded { opacity: 0.35; filter: saturate(0.4); }
 .callit-corner.picked { outline: 3px solid var(--ink); outline-offset: 3px; }

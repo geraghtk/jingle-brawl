@@ -35,9 +35,28 @@ export function seats(n: number): Seat[] {
 /** How big a seat's picture is (percent of the scene's height): smaller at a fuller table. */
 export const seatSize = (n: number): number => (n <= 6 ? 17 : n <= 9 ? 14.5 : n <= 13 ? 12 : n <= 16 ? 10.5 : 9);
 
-/** A pass drawn across the table: a curve from one seat to another, bowed towards the middle. */
-export function passPath(from: Seat, to: Seat): string {
-  const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
-  const bx = mx + (OVAL.cx - mx) * 0.45, by = my + (OVAL.cy - my) * 0.45;
-  return `M${from.x.toFixed(2)},${from.y.toFixed(2)} Q${bx.toFixed(2)},${by.toFixed(2)} ${to.x.toFixed(2)},${to.y.toFixed(2)}`;
+/** The part of the scene that has words on it (who has it, what they are doing, the mood, the rule): the
+ *  middle of the table, in percent of the scene. A pass is never drawn through it. */
+export const WORDS = { x0: 25, x1: 75, y0: 32, y1: 72 };
+
+/** A pass drawn on the table: from one seat to another the short way ROUND the table, along the ring the
+ *  seats are on (it used to cut straight across, through the words in the middle). The seats are drawn on
+ *  top of it, so it shows between them and never crosses a name. `inset` (0..0.1) pulls it a little towards
+ *  the middle, so an older pass on the same stretch lies beside a newer one, not under it. */
+export function passPath(from: Seat, to: Seat, inset = 0): string {
+  const angle = (p: Seat) => Math.atan2((p.y - OVAL.cy) / OVAL.ry, (p.x - OVAL.cx) / OVAL.rx);
+  const a = angle(from);
+  let turn = angle(to) - a;
+  while (turn > Math.PI) turn -= Math.PI * 2;
+  while (turn < -Math.PI) turn += Math.PI * 2;
+  const k = 1 - Math.max(0, Math.min(0.1, inset));
+  const steps = Math.max(2, Math.ceil(Math.abs(turn) / (Math.PI / 24)));
+  const pts: string[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = a + (turn * i) / steps;
+    // it leaves and arrives at the seats themselves, and runs on the pulled-in ring between them
+    const pull = 1 - (1 - k) * Math.sin((Math.PI * i) / steps);
+    pts.push(`${(OVAL.cx + OVAL.rx * pull * Math.cos(t)).toFixed(2)},${(OVAL.cy + OVAL.ry * pull * Math.sin(t)).toFixed(2)}`);
+  }
+  return `M${pts.join(' L')}`;
 }

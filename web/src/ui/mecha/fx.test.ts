@@ -63,6 +63,13 @@ describe('Mecha Santa: the split picture', () => {
     expect(hangAt(1).dx).toBeGreaterThan(1.5);
     expect(hangAt(0).y).toBeLessThan(hangAt(1).y);                        // lowest in the middle of the swing
     expect(hangAt(0).y).toBeCloseTo(ROPE.pivotY - ROPE.length - ROPE.hands);
+    // its hands are on the end of the rope wherever it is in the swing (they used to hold air beside it)
+    for (const s of [-1, -0.4, 0, 0.6, 1]) {
+      const h = hangAt(s);
+      expect(h.dx + Math.sin(h.lean) * ROPE.hands).toBeCloseTo(Math.sin(h.angle) * ROPE.length);
+      expect(h.y + Math.cos(h.lean) * ROPE.hands).toBeCloseTo(ROPE.pivotY - Math.cos(h.angle) * ROPE.length);
+      expect(h.y).toBeGreaterThan(-0.2);                                   // and its feet stay clear of the roofs either side
+    }
     expect(hangAt(5)).toEqual(hangAt(1));                                 // never past its reach
   });
 });

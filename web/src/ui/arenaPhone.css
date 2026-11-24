@@ -1,0 +1,42 @@
+/* The phone's frame for a runtime mini-game: ONE system for all six (the Gremlin, Ring Toss, the Conveyor,
+   Knockout, Mecha Santa, Tower Wars). A game keeps its own palette, art and controls; what is the same is:
+
+   .ap        the frame: the game takes the whole screen (the app's header and "Leave game" are under it:
+              nobody reads their chips in the middle of a game), under the host's tab bar if they play too;
+              the same padding, clear of a notch and the home bar; a practice ribbon rides in the top edge
+              and the frame starts below it.
+   .ap-bar    the top bar, one line at any width, in this order:
+                left    who you are in this game (.ap-pill: your team in its colour; no teams: the round)
+                middle  the score, where there is one (it takes the room that is left)
+                right   the clock or the round (.ap-clock), else the game's one status
+   .ap-word   the line under it: what the game says to you now. It keeps its height, so what is under a
+              thumb never moves when the words change.
+
+   Type: bar 13px / 800, clock 13px / 900, word 20px / 900 (down to 17px on a narrow phone), all the display face. */
+.ap { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#seat-panel-game .ap { top: 64px; }
+.game-screen:has(> .practice-ribbon) .ap { padding-top: calc(34px + env(safe-area-inset-top, 0px)); }
+
+.ap-bar { flex: none; display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; gap: 6px; min-height: 28px; margin: 0;
+  font: 800 13px/1.2 var(--f6-disp, system-ui); }
+.ap-bar > * { white-space: nowrap; }
+.ap-pill { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 5px 10px; border-radius: 999px; background: var(--team, #1d2a3a); color: #fff; font-size: 13px; }
+.ap-mid { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: center; font-variant-numeric: tabular-nums; }
+.ap-clock { flex: none; padding: 5px 10px; border-radius: 999px; background: #1d2a3a; color: #fff; font: 900 13px/1.2 var(--f6-disp, system-ui); font-variant-numeric: tabular-nums; }
+.ap-clock.hurry { background: #e0143c; }
+
+.ap-word { flex: none; min-height: 26px; margin: 0; text-align: center; font: 900 clamp(17px, 5.4vw, 20px)/1.25 var(--f6-disp, system-ui); }
+@media (max-height: 640px) { .ap { gap: 6px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); } .ap-word { min-height: 22px; } }
+
+/* someone at the table who is not in this game (ui/ArenaWatch.tsx): the same frame, nothing to press */
+.ap-watch { background: linear-gradient(180deg, #24364f, #131c2b); color: #fff; }
+.ap-watch .ap-pill { background: rgba(255, 255, 255, .16); }
+.ap-watch .ap-clock { background: #ffc53d; color: #1d2a3a; }
+.ap-watch-body { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 0 10px; }
+.ap-watch-eye { display: grid; place-items: center; width: 112px; height: 112px; border-radius: 32px; background: rgba(255, 255, 255, .1); }
+.ap-watch-eye img, .ap-watch-eye .icon { width: 76px; height: 76px; }
+.ap-watch-title { margin: 0; font: 900 clamp(24px, 8vw, 32px)/1.15 var(--f6-disp, system-ui); text-wrap: balance; }
+.ap-watch-score { margin: 0; font: 900 clamp(44px, 16vw, 64px)/1 var(--f6-disp, system-ui); font-variant-numeric: tabular-nums; color: #ffc53d; }
+.ap-watch-line { margin: 0; max-width: 22em; font: 600 clamp(15px, 4.6vw, 18px)/1.4 var(--f6-body, system-ui); opacity: .86; text-wrap: balance; }

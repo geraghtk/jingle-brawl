@@ -13,16 +13,23 @@ import { partyMvps, partyScore } from '../core/scoring';
 import type { Game, Turn } from '../core/types';
 import { useJoinOrigin } from '../net/lan';
 import { Avatar, avatarColor } from '../ui/avatar';
+import { FitName } from '../ui/FittedName';
 import { useHost } from './HostContext';
 import { ArenaStage } from './ArenaStage';
 import { useArenaFull } from './ArenaFull';
 import '../ui/motion.css';
 import { duelAppInfo } from '../core/duelgame';
 import { OptionList, useModal } from './Modal';
+import { ConfirmDialog, NoticeDialog } from './Dialogs';
+import type { ConfirmOptions } from './Dialogs';
 import { PartyPanel } from './PartyPanel';
 import { Glyphs, Icon } from '../ui/icons';
+import { StakesLines } from '../ui/Stakes';
 
 const nm = (game: Game, id?: string | null) => (id && game.players?.[id]?.name) || 'Someone';
+
+/** The join page's path, from whichever page this is (the console's host.html or the TV's tv.html). */
+export const joinPath = (pathname: string) => pathname.replace(/[^/]*$/, 'player.html');
 
 export interface Panel {
   badge?: string; badgeClass?: string; action?: ReactNode; details?: ReactNode;
@@ -63,7 +70,7 @@ function LobbyHero() {
   const joinOrigin = useJoinOrigin();
   const players = Object.entries(game.players || {});
   const real = players.filter(([, p]) => !p.isBot).length;   // practice bots don't count: they leave at Start
-  const url = `${joinOrigin()}${location.pathname.replace('host.html', 'player.html')}?room=${room}`;
+  const url = `${joinOrigin()}${joinPath(location.pathname)}?room=${room}`;
   const svg = useMemo(() => {
     const qr = qrcode(0, 'M');
     qr.addData(url);
@@ -75,7 +82,7 @@ function LobbyHero() {
       <div className="lobby-hero-left">
         <span className="f6-chip tint2">● Live lobby</span>
         <div className="f6-cap lobby-kicker">Join the room</div>
-        <h1 className="lobby-hero-title f6-disp fz-riso">Scan,<br />join,<br /><span className="hero-accent">brawl.</span></h1>
+        <h1 className="lobby-hero-title f6-disp fz-riso">Scan,<br />join,<br /><span className="hero-accent">duel.</span></h1>
         <div className="lobby-hero-tag">High stakes. Low blows. Questionable gifts.</div>
         <div className="lobby-join-card f6-card f6-rise">
           <span className="fz-sticker yel lobby-sticker">{cfg.startingChips ?? 10} CHIPS EACH</span>
@@ -211,7 +218,7 @@ const Waiting = ({ who, what, override }: { who: string; what: string; override:
 );
 
 // Overheard at the gift pile while the next gift waits (the room code picks where the list starts)
-const OVERHEARD = [
+export const OVERHEARD = [
   '“Oh no. A scented candle. Again.”',
   '“I can hear it ticking. That\'s normal, right?”',
   '“Whoever wrapped this used an entire roll of tape.”',
@@ -234,7 +241,7 @@ const OVERHEARD = [
   '“There\'s a gift receipt taped to the outside. Subtle.”',
   '“I brought the candle. Please act surprised.”',
 ];
-const roomSeed = (room: string) => [...room].reduce((sum, c) => sum + c.charCodeAt(0), 0);
+export const roomSeed = (room: string) => [...room].reduce((sum, c) => sum + c.charCodeAt(0), 0);
 
 // --- which panel for which moment -------------------------------------------------------------
 
@@ -242,6 +249,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
   const { game, send, cfg, room } = host;
   const t = game.currentTurn;
   const close = () => setModal(null);
+  const ask = (o: ConfirmOptions) => setModal(<ConfirmDialog key={Date.now()} {...o} onClose={close} />);
+  const tell = (title: string, body?: string) => setModal(<NoticeDialog key={Date.now()} title={title} body={body} onClose={close} />);
   const arenaFull = useArenaFull();
 
   if (!t) {
@@ -269,7 +278,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       return { badge: 'READY', badgeClass: 'bidding', action: '✅ Everyone has a gift!', details: 'The game is complete, or you can continue with more rounds.' };
     }
     if (game.phase === 'endgame') return { badge: 'ENDGAME', badgeClass: 'duel', action: '🎰 Misfit Lottery', details: 'Giftless players compete for misfit gifts!' };
-    return { ...finalTally(game), buttons: <button className="btn btn-primary" data-testid="play-again" onClick={() => { if (confirm('Start a new game with the same people? Gifts, chips and scores start again.')) send({ type: 'admin_play_again' }); }}>🔁 Play again with the same people</button> };
+    return { ...finalTally(game), buttons: <button className="btn btn-primary" data-testid="play-again" onClick={() => ask({ title: 'Play again with the same people?', body: 'Everyone goes back to the lobby in their seats. Gifts, chips and scores start again.', confirm: 'Play again', onConfirm: () => send({ type: 'admin_play_again' }) })}>🔁 Play again with the same people</button> };
   }
 
   switch (t.phase) {
@@ -281,7 +290,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         buttons: <>
           <button className="btn btn-gold" data-testid="reveal-bids" onClick={() => send({ type: 'reveal' })}><Icon name="eye" /> Reveal All Bids</button>
           {!t.hostPeeked && <button className="btn btn-secondary" data-testid="peek-bids" title="Shows the bids on this console only; the table's log says you looked"
-            onClick={() => { if (confirm('Peek at the sealed bids? Only this console shows them, and the log tells the table you looked.')) send({ type: 'admin_peek_bids' }); }}>👀 Peek</button>}
+            onClick={() => ask({ title: 'Peek at the sealed bids?', body: 'Only this console shows them, and the log tells the table you looked.', confirm: 'Peek', onConfirm: () => send({ type: 'admin_peek_bids' }) })}>👀 Peek</button>}
           <button className="btn btn-secondary" onClick={() => send({ type: 'skip_bidding' })}>⏭️ No Bids (Skip)</button>
         </>,
       };
@@ -302,7 +311,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
             <button className="btn btn-primary" data-testid="override-keep" onClick={() => send({ type: 'keep' })}><Icon name="check" /> Opener Keeps Gift</button>
             <button className="btn btn-gold" onClick={() => {
               const targets = gambitTargets(game, t.giftId, t.openerId!);
-              if (!targets.length) return alert('No other gifts to challenge!');
+              if (!targets.length) return tell('No other gifts to challenge', `${opener} keeps the gift: there is nothing else on the table yet.`);
               setModal(<OptionList title="😈 Grump's Gambit" intro={`${opener} can challenge anyone's gift!`} onCancel={close}
                 options={targets.map(([id, g]) => {
                   const cost = minCost(cfg, g.naughtyLevel);
@@ -335,7 +344,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       if (second) {
         return {
           ...base,
-          details: <>Highest bid: <strong>{nm(game, c1)}</strong> ({top} chips). Second: {nm(game, second[0])}<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {opener} to choose: Fight or Yield?</span></>,
+          details: <>Highest bid: <strong>{nm(game, c1)}</strong> ({top} {top === 1 ? 'chip' : 'chips'}). Second: {nm(game, second[0])}<br /><span style={{ color: 'var(--accent-green)' }}><Icon name="wait" /> Waiting for {opener} to choose: Fight or Yield?</span></>,
           buttons: <Waiting who="Opener" what={`${opener} is choosing on their device`} override={<>
             <button className="btn btn-primary" data-testid="override-fight" onClick={() => send({ type: 'fight' })}><Icon name="duel" /> Duel: {nm(game, c1)} vs Opener</button>
             <button className="btn btn-secondary" data-testid="override-yield" onClick={() => send({ type: 'yield' })}><Icon name="run" /> Opener Yields</button>
@@ -343,7 +352,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         };
       }
       return {
-        ...base, details: `Highest bid: ${nm(game, c1)} (${top} chips)`,
+        ...base, details: `Highest bid: ${nm(game, c1)} (${top} ${top === 1 ? 'chip' : 'chips'})`,
         buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => send({ type: 'start_duel' })}><Icon name="duel" /> Start Duel</button>,
       };
     }
@@ -366,9 +375,9 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
         action: <span className="f6-chip tint" style={{ verticalAlign: 'middle', marginRight: 10 }}>Opener chose to fight</span>,
         details: <div className="duel-pending-row">
           <Avatar name={nm(game, t.challengerId)} avatar={game.players?.[t.challengerId!]?.avatar} size={52} />
-          <span className="dp-side f6-disp" style={{ color: 'var(--accent)' }}>{nm(game, t.challengerId).toUpperCase()}</span>
+          <span className="dp-side f6-disp" style={{ color: 'var(--accent)' }}><FitName name={nm(game, t.challengerId)} chars={11.5} lines={2} upper /></span>
           <span className="dp-vs f6-disp fz-riso f6-wiggle">VS</span>
-          <span className="dp-side f6-disp" style={{ color: 'var(--accent2)' }}>{nm(game, t.openerId).toUpperCase()}</span>
+          <span className="dp-side f6-disp" style={{ color: 'var(--accent2)' }}><FitName name={nm(game, t.openerId)} chars={11.5} lines={2} upper /></span>
           <Avatar name={nm(game, t.openerId)} avatar={game.players?.[t.openerId!]?.avatar} size={52} />
         </div>,
         buttons: <button className="btn btn-primary" data-testid="start-duel" onClick={() => send({ type: 'start_duel' })}><Icon name="duel" /> Start Duel!</button>,
@@ -457,7 +466,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
       const bids = rankedBids(t);
       return {
         badge: '👁️ REVEAL', badgeClass: 'reveal', action: 'Auction Bids Revealed!', area: <RevealChart t={t} />,
-        details: bids.length ? `Highest: ${nm(game, bids[0][0])} (${bids[0][1]} chips)` : 'No bids! Active player chooses a defender.',
+        details: bids.length ? `Highest: ${nm(game, bids[0][0])} (${bids[0][1]} ${bids[0][1] === 1 ? 'chip' : 'chips'})` : 'No bids! Active player chooses a defender.',
         buttons: bids.length
           ? <button className="btn btn-primary" data-testid="auction-duel" onClick={() => send({ type: 'auction_duel' })}><Icon name="duel" /> Duel Highest Bidder</button>
           : <button className="btn btn-primary" onClick={() => defenderModal()}><Icon name="target" /> Choose Defender</button>,
@@ -532,8 +541,8 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
             ? <button className="btn btn-primary" data-testid="arena-resume" onClick={() => send({ type: 'arena_resume' })}>▶️ Resume</button>
             : <button className="btn btn-secondary" data-testid="arena-pause" onClick={() => send({ type: 'arena_pause' })}>⏸️ Pause</button>}
           {av?.practice && !briefing && <button className="btn btn-primary" data-testid="arena-skip-practice" onClick={() => send({ type: 'arena_skip_practice' })}>⏭️ Enough practice</button>}
-          {!briefing && <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => { if (confirm('Call it a no contest? Nobody wins the game; you pick the duel winner.')) send({ type: 'arena_no_contest' }); }}>⚖️ No contest</button>}
-          <button className="btn btn-secondary" data-testid="arena-cancel" onClick={() => { if (confirm('Cancel the game? Nobody wins it; you pick the duel winner.')) send({ type: 'arena_cancel' }); }}>⏹️ Cancel</button>
+          {!briefing && <button className="btn btn-secondary" data-testid="arena-no-contest" onClick={() => ask({ title: 'Call it a no contest?', body: 'Nobody wins the mini-game. You pick the duel winner.', confirm: 'No contest', danger: true, onConfirm: () => send({ type: 'arena_no_contest' }) })}>⚖️ No contest</button>}
+          <button className="btn btn-secondary" data-testid="arena-cancel" onClick={() => ask({ title: 'Stop this mini-game?', body: 'Nobody wins it. You pick the duel winner.', confirm: 'Stop the game', cancel: 'Keep playing', danger: true, onConfirm: () => send({ type: 'arena_cancel' }) })}>⏹️ Cancel</button>
         </>,
       };
     }
@@ -542,7 +551,7 @@ function usePanel(host: ReturnType<typeof useHost>, setModal: ReturnType<typeof 
 
   function stealModal() {
     const targets = Object.entries(game.gifts || {}).filter(([, g]) => g.ownerId !== 'misfit' && g.ownerId !== t!.activePlayerId);
-    if (!targets.length) return alert('No player gifts to steal! Use Path B.');
+    if (!targets.length) return tell('No player gifts to steal', 'Nobody else holds a gift yet. Use Path B, the auction.');
     setModal(<OptionList title="🎯 Path A: Steal a Gift" intro={`${nm(game, t!.activePlayerId)} challenges a player. Loser takes the misfit.`} onCancel={close}
       options={targets.map(([id, g]) => {
         const cost = minCost(cfg, g.naughtyLevel);
@@ -565,7 +574,7 @@ function finalTally(game: Game): Panel {
   return {
     badge: 'FINAL TALLY', badgeClass: '',
     action: <><span className="fz-sticker" style={{ marginRight: 12, verticalAlign: 'middle' }}>FINAL VERDICT</span> Who got <span style={{ color: 'var(--accent)' }}>what.</span></>,
-    details: 'Thanks for playing Yuel Duel!', areaTitle: 'Standings',
+    details: 'Thanks for playing YuleDuel!', areaTitle: 'Standings',
     area: ranked.length ? <>
       {mvps.length > 0 && (
         <div className="party-mvp" style={{ gridColumn: '1 / -1', textAlign: 'center', fontWeight: 800, fontSize: '1.15rem', marginBottom: 8 }}>
@@ -628,6 +637,7 @@ function drawOffPanel(game: Game, send: ReturnType<typeof useHost>['send']): Pan
           {mg.wittyVerdict && <div style={{ background: 'linear-gradient(135deg, rgba(255, 197, 61,0.12) 0%, var(--bg-card-hover) 100%)', borderLeft: '4px solid var(--accent-gold)', padding: '1rem', borderRadius: 8, marginBottom: '1rem', fontStyle: 'italic' }}><Icon name="masks" /> <strong>Art Critic's Verdict:</strong> {mg.wittyVerdict}</div>}
           {mg.winners?.length ? <div style={{ fontSize: '0.9rem', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(24, 184, 138, 0.15)', borderRadius: 8, borderLeft: '4px solid var(--accent-green)' }}>
             <Icon name="trophy" /> <strong>{players[mg.winners[0]]?.name}</strong> wins the duel (the higher score)
+            <div className="drawoff-stakes" style={{ marginTop: 10 }}><StakesLines stakes={mg.stakes} game={game} /></div>
           </div> : <div data-testid="drawoff-no-contest" style={{ fontSize: '0.9rem', marginBottom: '1rem', padding: '0.75rem', borderRadius: 8, borderLeft: '4px solid var(--accent-gold)' }}>
             The critic couldn't decide ({mg.failed}). Next, the host picks the winner.
           </div>}

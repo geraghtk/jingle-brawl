@@ -5,13 +5,12 @@
 //                                        previous call and decides whether anyone pops up.
 //   Mascots.say('elf', 'text', opts)     show one directly.
 //
-// They never block clicks (pointer-events: none), queue rather than overlap, keep a polite
-// gap between appearances, and `?mascots=0` turns them off.
+// They never block clicks (pointer-events: none) and never lie over the game (each page gives them a
+// place: see `place`), one at a time, never about a turn that has passed (ui/mascotQueue.ts), and
+// `?mascots=0` turns them off.
 // @ts-nocheck — a straight port of mascots.js (DOM-only, no React); typed at its edges.
+import { emptyStage, offer, step, tvGap } from './mascotQueue';
 const OFF = new URLSearchParams(location.search).get('mascots') === '0';
-const GAP_MS = 5000;        // quiet time before idle chatter
-const MOMENT_GAP_MS = 1200; // big moments (Reprisal, ties, game start…) only wait this long
-const SHOW_MS = 4200;  // how long one stays up
 
 // --- the cast (flat vector, 120×120) ---------------------------------------------
 const SVG = {
@@ -52,28 +51,35 @@ const SVG = {
 const NAMES = { santa: 'Santa', elf: 'Jingles the Elf', reindeer: 'Rudy' };
 
 const css = `
-  .mascot { position: fixed; bottom: 0; z-index: 2300; pointer-events: none; display: flex; align-items: flex-end; gap: 10px;
-    transform: translateY(110%); transition: transform .45s cubic-bezier(.34,1.56,.64,1); }
-  .mascot.left { left: 24px; } .mascot.right { right: 24px; flex-direction: row-reverse; }
-  .mascot.up { transform: translateY(0); }
-  .mascot svg { width: var(--mascot-size, 132px); height: var(--mascot-size, 132px); display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,.25)); }
-  .mascot .bubble { margin-bottom: calc(var(--mascot-size, 132px) * .62); max-width: 300px; padding: 12px 16px; border-radius: 18px;
-    background: #fff; color: #161a26; font: 600 15px/1.35 system-ui, sans-serif; box-shadow: 0 10px 30px rgba(15,20,35,.2); position: relative; }
-  .mascot .bubble b { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8a90a2; margin-bottom: 3px; }
-  .mascot.left .bubble { border-bottom-left-radius: 4px; } .mascot.right .bubble { border-bottom-right-radius: 4px; }
+  .mascot { pointer-events: none; display: flex; align-items: center; gap: 10px; box-sizing: border-box; max-width: 100%; opacity: 0;
+    transform: translateY(10px) scale(.96); transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .25s ease-out; }
+  .mascot.up { opacity: 1; transform: none; }
+  .mascot svg { flex: none; width: var(--mascot-size, 60px); height: var(--mascot-size, 60px); display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,.2)); }
+  .mascot .bubble { flex: 0 1 auto; min-width: 0; padding: 8px 12px; border-radius: 14px; border-bottom-left-radius: 4px; overflow-wrap: anywhere;
+    background: #fff; color: #161a26; font: 600 var(--mascot-font, 14px)/1.3 system-ui, sans-serif; box-shadow: 0 0 0 2px #1d2a3a, 0 4px 0 rgba(29,42,58,.15); }
+  .mascot .bubble b { display: block; font-size: .7em; letter-spacing: .14em; text-transform: uppercase; color: #8a90a2; margin-bottom: 2px; }
   .mascot.hop svg { animation: mascotHop .5s ease-in-out 2; }
-  @keyframes mascotHop { 50% { transform: translateY(-14px) rotate(-4deg); } }
+  @keyframes mascotHop { 50% { transform: translateY(-8px) rotate(-4deg); } }
   .mascot-kick { animation: mascotKick .45s ease-in-out; }
   @keyframes mascotKick { 20% { transform: translateX(-10px) rotate(-.6deg); } 50% { transform: translateX(8px) rotate(.4deg); } 80% { transform: translateX(-4px); } }
-  @media (max-width: 640px) {
-    .mascot { --mascot-size: 92px; } .mascot.left { left: 8px; } .mascot.right { right: 8px; }
-    .mascot .bubble { max-width: 210px; font-size: 13px; padding: 10px 12px; }
-  }
+  /* a page's own place for them (in the flow of the page: it takes room, it never lies over anything) */
+  [data-mascot-slot]:empty { display: none; }
+  [data-mascot-slot] .mascot { margin: 0 2px 12px; }
+  /* the TV: the empty stretch of the top bar, measured (below every full-screen layer) */
+  .mascot.tv { position: fixed; z-index: 5; margin: 0; }
+  .mascot.tv .bubble { padding: .35em .8em; border-radius: .9em; border-bottom-left-radius: .25em; line-height: 1.22; max-height: 100%; overflow: hidden; box-sizing: border-box; }
+  .mascot.tv .bubble b { display: none; }
 `;
 
-const queue = [];
-let busy = false;
-let lastShown = 0;
+// --- where one goes, and when ----------------------------------------------------
+// Never over the game: a page gives them a place in its own flow (`data-mascot-slot`: the phone under its
+// header, the console under the turn panel), and on the TV they stand in the empty stretch of the top bar,
+// measured each time. With no free place the line is dropped. Which line is up and which waits is
+// ui/mascotQueue.ts (a line about a turn that has passed never shows).
+let stage = emptyStage();
+let turnNo = 0;
+let timer = null;
+let shown = null; // the bubble's element
 
 function mount() {
   if (document.getElementById('mascot-style')) return;
@@ -83,42 +89,77 @@ function mount() {
   document.head.appendChild(style);
 }
 
+/** Where a bubble may go on this page right now (null: nowhere, so nobody speaks). */
+function place() {
+  const slot = document.querySelector('[data-mascot-slot]');
+  if (slot) return { slot };
+  const bar = document.querySelector('.tvs-top');
+  if (!bar) return null;
+  const rect = (sel) => bar.querySelector(sel)?.getBoundingClientRect();
+  const tv = tvGap(rect('.tvs-brand'), rect('.tvs-badge'), bar.getBoundingClientRect());
+  return tv ? { tv } : null;
+}
+
+function clear() { if (shown) { shown.remove(); shown = null; } }
+
 /**
- * Show `who` saying `text`. opts: { side: 'left'|'right', hop, kick: Element, chatter }.
+ * Show `who` saying `text`. opts: { hop, kick: Element, chatter }.
  * `chatter` lines are flavour: dropped if anyone is talking or waiting. Everything
- * else is a game moment: it jumps ahead of queued chatter and waits only briefly.
+ * else is a game moment: the bubble that is up gives way to it.
  */
 function say(who, text, opts = {}) {
   if (OFF || !SVG[who]) return;
-  if (opts.chatter && (busy || queue.length)) return;
-  for (let i = queue.length - 1; i >= 0; i--) if (queue[i].opts.chatter) queue.splice(i, 1);
-  if (queue.length >= 3) queue.shift(); // stale moments aren't worth waiting for
-  queue.push({ who, text, opts });
+  stage = offer(stage, { who, text, turn: turnNo, at: Date.now(), chatter: !!opts.chatter, opts });
   pump();
 }
 
 function pump() {
-  if (busy || !queue.length) return;
-  const wait = Math.max(0, lastShown + (queue[0].opts.chatter ? GAP_MS : MOMENT_GAP_MS) - Date.now());
-  if (wait) { setTimeout(pump, wait); return; }
-  const { who, text, opts } = queue.shift();
-  busy = true;
+  clearTimeout(timer);
+  const was = stage.showing;
+  const r = step(stage, turnNo, Date.now());
+  stage = r.stage;
+  if (r.hide && shown) {
+    // in a page's slot the faded bubble keeps its room until the turn moves on (nothing jumps under a finger)
+    const keep = shown.parentElement?.hasAttribute('data-mascot-slot') && was?.turn === turnNo && !r.show;
+    shown.classList.remove('up');
+    if (!keep) { const gone = shown; shown = null; setTimeout(() => gone.remove(), 300); }
+  }
+  if (r.show && !show(r.show)) stage = { ...stage, showing: null };
+  const again = r.again ?? (stage.queue.length ? 200 : null);
+  if (again != null) timer = setTimeout(pump, again + 20);
+}
+
+function show({ who, text, opts }) {
+  const at = place();
+  if (!at) return false;
   mount();
+  clear();
   const el = document.createElement('div');
-  el.className = `mascot ${opts.side || (who === 'santa' ? 'left' : 'right')}${opts.hop ? ' hop' : ''}`;
+  el.className = `mascot${opts.hop ? ' hop' : ''}${at.tv ? ' tv' : ''}`;
   el.dataset.mascot = who;
   el.setAttribute('role', 'status');
   el.innerHTML = `${SVG[who]}<div class="bubble"><b>${NAMES[who]}</b></div>`;
   el.querySelector('.bubble').append(text); // text node: names are user input
-  document.body.appendChild(el);
+  if (at.tv) {
+    const { left, top, width, height } = at.tv;
+    Object.assign(el.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
+    el.style.setProperty('--mascot-size', `${height * 0.86}px`);
+    el.style.setProperty('--mascot-font', `${Math.max(12, height * 0.215)}px`);
+    document.body.appendChild(el);
+  } else at.slot.appendChild(el);
+  shown = el;
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('up')));
   if (opts.kick instanceof Element) {
     setTimeout(() => { opts.kick.classList.remove('mascot-kick'); void opts.kick.offsetWidth; opts.kick.classList.add('mascot-kick'); }, 450);
   }
-  setTimeout(() => {
-    el.classList.remove('up');
-    setTimeout(() => { el.remove(); busy = false; lastShown = Date.now(); pump(); }, 500);
-  }, SHOW_MS);
+  return true;
+}
+
+/** The game moved on to another turn or phase: lines about the last one are over. */
+function nextTurn() {
+  turnNo++;
+  if (!stage.showing) clear();   // a faded bubble's room in the page goes with the turn
+  pump();
 }
 
 const pick = (lines) => lines[Math.floor(Math.random() * lines.length)];
@@ -131,12 +172,12 @@ const pick = (lines) => lines[Math.floor(Math.random() * lines.length)];
 const chips = (n) => `${n} chip${n === 1 ? '' : 's'}`;
 const LINES = {
   start: [ // santa, the game begins
-    'Ho ho ho! Let the brawl begin.',
+    'Ho ho ho! Let the duels begin.',
     'Ho ho ho! Play nice. Or don\'t. That\'s the game.',
     'I\'ve checked the list twice. Some of you are on it a LOT.',
     'Welcome! Please keep your elbows inside the sleigh.',
     'Chips out, smiles on, grudges optional. Ho ho ho!',
-    'Let the brawl begin! I\'m not saying who\'s naughty. Yet.',
+    'Let the duels begin! I\'m not saying who\'s naughty. Yet.',
     'I see you when you\'re bidding. I know when you\'re bluffing.',
     'What do elves learn at school? The elf-abet! Ho ho. Let\'s play.',
     'Reading glasses: on. Naughty list: open. Begin!',
@@ -309,6 +350,7 @@ function observe(state, { me } = {}) {
   const pt = was.turn;
   const name = (id) => snap.players[id]?.name || 'someone';
   const turnChanged = t?.phase !== pt?.phase || t?.giftId !== pt?.giftId;
+  if (turnChanged || snap.phase !== was.phase) nextTurn();   // before anything is said about the new one
   if (me) return observePhone(snap, was, me, turnChanged, name);
 
   if (was.phase === 'lobby' && snap.phase === 'main') say('santa', line('start'), { hop: true });
@@ -317,6 +359,8 @@ function observe(state, { me } = {}) {
   if (snap.misfits > was.misfits) say('reindeer', line('misfit'));
   if (!t || !turnChanged) return idle(snap);
 
+  // (the newest line is the one that shows: the tax first, so a Reprisal or a Gambit is what is said)
+  if (pt?.phase === 'duel' && (pt.tax || 0) > 0 && t.phase !== 'duel') say('santa', line('tax', pt.tax));
   if (t.phase === 'bidding' && Math.random() < 0.3) say('elf', line('bidding'), { chatter: true });
   if (t.phase === 'reveal') {
     const bids = Object.values(t.bids || {}).filter((b) => b.amount > 0).map((b) => b.amount);
@@ -325,13 +369,12 @@ function observe(state, { me } = {}) {
     else if (bids.filter((b) => b === top).length >= 2) say('reindeer', line('tie'), { hop: true });
     else if (top >= 4) say('santa', line('bigBid', top), { chatter: true });
   }
-  if (t.phase === 'duel' && t.isGambit) say('elf', line('gambit', name(t.challengerId)), { side: 'left' });
+  if (t.phase === 'duel' && t.isGambit) say('elf', line('gambit', name(t.challengerId)));
   if (t.phase === 'reprisal') {
     say('reindeer', line('reprisal', name(t.reprisalPlayerId)), {
       hop: true, kick: document.querySelector('#turn-panel, .turn-panel, main'),
     });
   }
-  if (pt?.phase === 'duel' && (pt.tax || 0) > 0 && t.phase !== 'duel') say('santa', line('tax', pt.tax));
   idle(snap);
 }
 
@@ -339,7 +382,7 @@ function observe(state, { me } = {}) {
 function observePhone(snap, was, me, turnChanged, name) {
   const t = snap.turn;
   if (!t || !turnChanged) return;
-  if (t.phase === 'bidding' && t.openerId === me) say('santa', line('phoneOpener'), { side: 'left' });
+  if (t.phase === 'bidding' && t.openerId === me) say('santa', line('phoneOpener'));
   if (t.phase === 'reprisal' && t.reprisalPlayerId === me) say('reindeer', line('phoneReprisal'), { hop: true });
   if (t.phase === 'endgame_choice' && t.activePlayerId === me) say('elf', line('phoneEndgame'));
 }
@@ -351,7 +394,7 @@ function idle(snap) {
   if (key === idleKey) return;
   idleKey = key;
   clearTimeout(idleTimer);
-  if (key) idleTimer = setTimeout(() => say('elf', line('idle'), { side: 'left', chatter: true }), 30000);
+  if (key) idleTimer = setTimeout(() => say('elf', line('idle'), { chatter: true }), 30000);
 }
 
 

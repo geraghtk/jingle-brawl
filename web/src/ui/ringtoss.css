@@ -23,9 +23,8 @@
 .rt-pts { font: 900 22px/1 var(--f6-disp, system-ui); min-width: 2ch; text-align: right; }
 .rt-flights { pointer-events: none; }
 
-.rt-card { text-align: center; }
-.rt-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.rt-stage-pill { padding: 4px 12px; border-radius: 999px; background: var(--ink, #0d1018); color: #fff; font-weight: 800; font-size: 13px; }
+.rt-top { margin-bottom: 8px; }
+.rt-mine { text-align: left; }
 .rt-mine b { font: 900 22px/1 var(--f6-disp, system-ui); }
 .rt-feedback { min-height: 24px; margin: 8px 0; font-weight: 800; }
 .rt-rings { display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; }
@@ -37,18 +36,23 @@
 .rt-myset .rt-set i { width: 13px; height: 13px; }
 .rt-pad-ring { width: 64px; height: 64px; border-radius: 50%; border: 12px solid; box-sizing: border-box; pointer-events: none; will-change: transform; }
 /* the whole screen is the flick surface while you can throw (under the host's tab bar, if they play too) */
-.rt-fullpad { position: fixed; inset: 0; z-index: 40; background: linear-gradient(#f2f6fa, #dfe8f2); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 14px 16px 34px; box-sizing: border-box; overflow: hidden; -webkit-user-select: none; user-select: none; }
-#seat-panel-game .rt-fullpad { top: 64px; }
+/* (the frame and its top bar are every game's: ui/arenaPhone.css; the bar and the words lie over the flick surface.
+   ONE layout all game long: with no ring to throw the ring dims and the hint says what you wait for) */
+.rt-fullpad { background: linear-gradient(#f2f6fa, #dfe8f2); color: #1d2a3a; align-items: center; justify-content: flex-end; padding-bottom: calc(34px + env(safe-area-inset-bottom, 0px)); overflow: hidden; }
+.rt-fullpad > .rt-fullpad-info { position: relative; top: auto; left: auto; right: auto; align-self: stretch; margin-bottom: auto; }
+.rt-fullpad .rt-rings { min-height: 26px; }
+.rt-fullpad.idle.disabled .rt-pad-ring { opacity: .25; }
+.rt-fullpad.idle .rt-pad-hint { color: #1d2a3a; text-align: center; }
+.rt-fullpad .rt-controls { position: relative; width: 100%; text-align: center; }
 .rt-fullpad.disabled .rt-pad-ring { opacity: .45; }
 .rt-pad-surface { position: absolute; inset: 0; touch-action: none; cursor: grab; }
 .rt-fullpad-info { position: absolute; top: 14px; left: 16px; right: 16px; pointer-events: none; text-align: center; }
 .rt-fullpad .rt-pad-ring { position: relative; margin-bottom: 14px; }
 .rt-fullpad .rt-pad-hint { position: relative; top: auto; pointer-events: none; font-weight: 800; color: var(--muted, #6a7180); }
-.rt-feedback.big { font-size: 22px; margin: 14px 0 0; line-height: 1.25; }
+.rt-feedback.big { margin: 14px 0 0; }
 .rt-escape { pointer-events: auto; position: relative; }
 .rt-pad-hint { position: absolute; top: 14px; left: 0; right: 0; font-weight: 800; color: var(--muted, #6a7180); pointer-events: none; }
 .rt-link { margin-top: 8px; border: 0; background: none; color: var(--muted, #6a7180); text-decoration: underline; font-weight: 700; cursor: pointer; }
-.rt-wait { font-weight: 700; color: var(--muted, #6a7180); }
 .rt-controls { display: grid; gap: 10px; }
 .rt-aim { display: grid; gap: 4px; font-weight: 800; }
 .rt-aim input { width: 100%; }

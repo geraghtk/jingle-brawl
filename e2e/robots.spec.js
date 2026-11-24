@@ -46,6 +46,7 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     const box = async (page, id) => page.getByTestId(id).boundingBox();
     const layout = async (page, side) => {
       await expect(page.getByTestId('robot-pads')).toHaveAttribute('data-side', side);
+      await page.getByTestId('robot-pads').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));   // (they pop in: measure them at rest)
       const [jab, heavy, block, dodge] = [await box(page, 'robot-punch-jab'), await box(page, 'robot-punch-heavy'), await box(page, 'robot-block'), await box(page, 'robot-dodge')];
       expect(Math.abs(jab.x - heavy.x)).toBeLessThan(2);                // jab and haymaker: one above the other
       expect(Math.abs(block.x - dodge.x)).toBeLessThan(2);              // block and dodge: one above the other
@@ -56,7 +57,7 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     };
     await layout(A, 'left');
     await layout(B, 'right');
-    await expect(A.getByTestId('robot-side')).toContainText('on the left');
+    await expect(A.getByTestId('robot-side')).toContainText('Left');
     // the next round they change sides: the TV's corners and both phones' pads follow
     const sw = await H.dbGet(r.roomCode, 'arena');
     await H.dbPut(r.roomCode, 'arena/state/left', 1);
@@ -71,7 +72,7 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     await expect(A.getByTestId('robot-punch-jab')).toBeDisabled();
     await expect(A.getByTestId('robot-dodge')).toBeDisabled();
     const watcher = NAMES.find((n) => p[n].id !== first && p[n].id !== second);
-    if (watcher) await expect(pages[watcher].getByTestId('robot-card')).toContainText('Watch the TV');
+    if (watcher) { await expect(pages[watcher].getByTestId('robot-card')).toContainText('Watch the TV'); await expect(pages[watcher].getByTestId('robot-card')).toHaveClass(/(^| )ap( |$)/); if (process.env.NK_SHOTS) await pages[watcher].screenshot({ path: `${process.env.NK_SHOTS}/watcher.png` }); }   // the same full-screen frame as the players
     await tv.waitForTimeout(1200);                                  // the 3D scene has loaded and drawn
     await shot(tv, 'intro');
 
@@ -79,11 +80,11 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     await expect.poll(async () => (await state(r.roomCode)).stage).toBe('fighting');
     await expect(A.getByTestId('robot-punch-jab')).toBeEnabled();
     await expect(A.getByTestId('robot-word')).toHaveText('Jab, haymaker, block or dodge');
-    expect((await state(r.roomCode)).fight.f.map((f) => f.health)).toEqual([12, 12]);
+    expect((await state(r.roomCode)).fight.f.map((f) => f.health)).toEqual([18, 18]);                    // six parts, three blows each
 
     // a jab: the phone only says "jab"; the room lands it a moment later, and the hat is knocked loose (not off)
     await tap(A, 'robot-punch-jab');
-    await expect.poll(async () => (await state(r.roomCode)).fight.f[1].health, { timeout: 5000 }).toBe(11);
+    await expect.poll(async () => (await state(r.roomCode)).fight.f[1].health, { timeout: 5000 }).toBe(17);
     await expect(tv.getByTestId(`robot-parts-${second}`)).toHaveAttribute('aria-label', '6 of 6 parts left, the hat is loose');
     await expect(B.getByTestId('robot-word')).toHaveText(/Ouch!|Your hat is loose/);
     await tv.waitForTimeout(300);
@@ -95,9 +96,14 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     await expect.poll(async () => (await state(r.roomCode)).fight.thrown?.[0] || 0).toBe(2);
     await tv.waitForTimeout(450);
     await shot(tv, 'punch');
-    await expect.poll(async () => (await state(r.roomCode)).fight.f[1].health, { timeout: 5000 }).toBe(9);
+    await expect.poll(async () => (await state(r.roomCode)).fight.f[1].health, { timeout: 5000 }).toBe(14);
     await expect(tv.getByTestId(`robot-parts-${second}`)).toHaveAttribute('aria-label', '5 of 6 parts left, the left shoulder plate is loose');
     await expect(B.getByTestId('robot-my-parts')).toHaveAttribute('aria-label', 'Your robot has 5 of 6 parts left');
+    // and a health bar for each robot, on the TV and on both phones: 14 of 18 left
+    await expect(tv.getByTestId(`robot-health-${second}`)).toHaveAttribute('aria-label', 'Health 78%');
+    await expect(tv.getByTestId(`robot-health-${first}`)).toHaveAttribute('aria-label', 'Health 100%');
+    expect(await B.getByTestId('robot-my-health').locator('i').evaluate((el) => el.style.width)).toMatch(/^77\.7/);
+    expect(await A.getByTestId('robot-their-health').locator('i').evaluate((el) => el.style.width)).toMatch(/^77\.7/);
     await tv.waitForTimeout(350);
     await shot(tv, 'hit');
 
@@ -111,20 +117,20 @@ test('Nutcracker Knockout: phones are controllers, the room lands the punches, p
     await tv.waitForTimeout(300);
     await shot(tv, 'block');
     await expect.poll(async () => (await state(r.roomCode)).fight.events?.at(-1)?.kind, { timeout: 5000 }).toBe('blocked');
-    expect((await state(r.roomCode)).fight.f[1].health).toBe(9);
+    expect((await state(r.roomCode)).fight.f[1].health).toBe(14);
     await B.getByTestId('robot-block').dispatchEvent('pointerup', { pointerId: 5 });
     await expect.poll(async () => !!(await state(r.roomCode)).fight.f[1].guard).toBe(false);
 
     // a dodge: A throws a haymaker, B taps Dodge as it comes in: it misses, and A is left stumbling
     await expect(A.getByTestId('robot-punch-heavy')).toBeEnabled({ timeout: 5000 });
     await tap(A, 'robot-punch-heavy');
-    await expect(B.getByTestId('robot-word')).toHaveText('Haymaker coming: dodge!');
+    await expect(B.getByTestId('robot-word')).not.toContainText(/coming|dodge!|block!/i);   // the phone never says what to press or when: the wind-up is on the TV
     await B.waitForTimeout(330);
     await tap(B, 'robot-dodge');
     await tv.waitForTimeout(200);
     await shot(tv, 'dodge');
     await expect.poll(async () => (await state(r.roomCode)).fight.events?.at(-1)?.kind, { timeout: 5000 }).toBe('dodged');
-    expect((await state(r.roomCode)).fight.f[1].health).toBe(9);
+    expect((await state(r.roomCode)).fight.f[1].health).toBe(14);
     await expect(A.getByTestId('robot-word')).toHaveText('Missed! You are open');
 
     // the rest of the round: A lands until the head comes off (the room has one hit left to give)

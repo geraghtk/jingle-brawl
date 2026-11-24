@@ -53,6 +53,8 @@ export function resolveDuel(game: Game, winnerId: PlayerId, now: number): Plan {
     winnerId, loserId, pot, dividend,
     loserPaid: t.isYieldDuel ? Math.floor(loserBid / 2) : loserId === t.challengerId ? loserBid : 0,
     at: SERVER_TIME,
+    // an in-app game's ending said all this already (who won, what they take): the screens skip the verdict
+    ...(t.duelAnnounced && t.duelAnnounced === winnerId ? { announced: true as const } : {}),
   });
 
   const gift = t.giftId ? game.gifts?.[t.giftId] : undefined;

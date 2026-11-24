@@ -11,7 +11,7 @@ const S: Strategy[] = [aggressive(1), aggressive(2), aggressive(3), aggressive(4
 const out: string[] = [];
 const say = (s = '') => { out.push(s); console.log(s); };
 
-say(`# Jingle Brawl — economic simulation (${GAMES} games per cell, 6 players, default settings)`);
+say(`# YuleDuel — economic simulation (${GAMES} games per cell, 6 players, default settings)`);
 say(`Defaults: max bid ${DEFAULTS.maxBid}, Santa Tax: pots of ${DEFAULTS.taxThreshold}+ pay at most ${DEFAULTS.maxWinnerPayout}, Loser's Dividend: ${DEFAULTS.loserDividendRule}, base cost ${DEFAULTS.baseCost} + Naughty.`);
 say('Payoff = value (0–12) of the gift you end with. Duels are coin flips. ± = 95% CI.');
 say();

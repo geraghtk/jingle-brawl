@@ -22,9 +22,35 @@
 .grem .grem-meter.unstable span { width: 100%; background: #ff3b5c; animation: gremPulse .5s ease-in-out infinite; }
 .grem .grem-trail { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-size: 13px; color: var(--muted, #6b7280); margin-top: 8px; }
 .grem .grem-banner { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #ff3b5c; color: #fff; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; margin-bottom: 6px; }
-/* on a phone the banner has a line to itself, above the Gremlin */
-.card.grem .grem-banner { display: block; width: fit-content; margin: 0 auto 8px; }
-.card.grem .grem-stake { font-weight: 700; margin-top: -4px; }
+/* the phone: the frame and its top bar are every game's (ui/arenaPhone.css: the round on the left, the sound
+   switch on the right); under it the Gremlin and what to do, in the middle of the screen */
+.grem-phone.grem { position: fixed; }
+.grem-phone { background: linear-gradient(#e9f7f1, #f4f8fc); color: #1d2a3a; touch-action: manipulation; }
+.grem-phone.danger-uneasy { background: linear-gradient(#fff3d6, #f4f8fc); }
+.grem-phone.danger-unstable, .grem-phone.doomed { background: linear-gradient(#ffdfe5, #f4f8fc); }
+.grem-phone .grem-round.alarm { background: #ff3b5c; }
+.grem-phone .grem-mute { position: static; flex: none; padding: 2px 6px; }
+.grem-phone .grem-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
+.grem-phone .grem-body > * { flex: none; }
+.grem-phone .grem-face { align-self: center; }
+.grem-phone .grem-meter, .grem-phone .grem-track { width: 100%; box-sizing: border-box; background: #fff; box-shadow: inset 0 0 0 2px #1d2a3a; }
+.grem-phone .grem-pad, .grem-phone .grem-targets { width: 100%; }
+.grem-phone .grem-pad button, .grem-phone .grem-targets button:not(.random), .grem-phone .grem-sym:not(.slot) { background: #fff; box-shadow: 0 3px 0 rgba(13, 16, 24, .16); }
+.grem-phone .grem-stake { font-weight: 700; margin-top: -4px; }
+/* a short phone: the keypad still fits under the sum */
+@media (max-height: 640px) {
+  .grem-phone .grem-face, .grem-phone.mine .grem-face { font-size: 60px; }
+  .grem-phone .grem-title { font-size: 19px; margin: 2px 0; }
+  .grem-phone .grem-sub { margin-bottom: 4px; }
+  .grem-phone .grem-prompt { font-size: 34px; margin: 2px 0 4px; }
+  .grem-phone .grem-entry { font-size: 24px; min-height: 28px; }
+  .grem-phone .grem-pad { gap: 6px; margin: 4px auto; }
+  .grem-phone .grem-pad button { min-height: 44px; font-size: 20px; }
+  .grem-phone .grem-pad.syms button { min-height: 56px; }
+  .grem-phone .grem-row { min-height: 50px; margin: 4px 0 6px; }
+  .grem-phone .grem-sym { width: 46px; height: 46px; }
+  .grem-phone .grem-stop { min-height: 64px; }
+}
 .grem.tv .grem-face { font-size: 140px; }
 .grem.tv .grem-holder { font: 900 48px/1.1 var(--f6-disp, system-ui); margin: 8px 0; }
 .grem .grem-error { color: #d7263d; font-weight: 700; min-height: 20px; }
@@ -60,3 +86,4 @@
 .grem.tv.jumped .grem-holder { animation: gremPop .45s ease-out; }
 @keyframes gremPop { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } to { transform: scale(1); } }
 @keyframes gremBoom { 0% { transform: scale(.3) rotate(-20deg); } 50% { transform: scale(1.5) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+.grem-phone.mine .grem-trail { display: none; }

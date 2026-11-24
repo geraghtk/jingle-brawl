@@ -9,7 +9,8 @@ import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
 import { Glyphs } from '../ui/icons';
 import { PartyReady } from '../ui/PartyReady';
-import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
+import { PartyCeremony } from '../ui/Ceremony';
+import { useSecondsLeft } from '../ui/PartyResults';
 import { play } from '../ui/sound';
 import { WhackHole, WhackLegend, preloadWhackArt } from '../ui/whack';
 import type { HoleState } from '../ui/whack';
@@ -79,7 +80,7 @@ export function WhackStage({ mg }: { mg: PartyGame }) {
     if (secs !== was.secs && secs >= 1 && ((mg.phase === 'intro' && secs <= 3) || (mg.phase === 'playing' && secs <= 5))) play('tick', secs === 1 ? 1.5 : 1);
   }, [mg.phase, secs, tv]);
 
-  if (mg.phase === 'results' && mg.results) return <div className="wh-stage pg results" data-testid="whack-stage"><PartyResults mg={mg} game={game} /></div>;
+  if (mg.phase === 'results' && mg.results) return <div className="wh-stage pg results" data-testid="whack-stage"><PartyCeremony mg={mg} game={game} where="tv" inline /></div>;
 
   if (mg.phase === 'intro') {
     return (

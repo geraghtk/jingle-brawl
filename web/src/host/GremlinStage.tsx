@@ -1,6 +1,6 @@
 // Pass the Gremlin on the TV and the host console: the table. Everyone who can hold it sits round an
 // oval; the Gremlin perches on whoever has it and hops across when it is passed (the last few passes
-// stay drawn as fading curves); the middle says who has it, what kind of challenge they are doing (never
+// stay drawn as fading dotted lines round the table, never through the words in its middle); the middle says who has it, what kind of challenge they are doing (never
 // the challenge itself), for how long, a wrong answer as it happens, and how jumpy it is. Never the
 // answer or the deadline (the room never sends them). The TV plays the jumps and the doom out loud; the
 // console stays quiet (the host's phone has its own sounds).
@@ -84,7 +84,7 @@ export function GremlinStage() {
       <svg className="gt-passes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
         {trail.map((p, i) => {
           const a = spotOf(p.from), b = spotOf(p.to);
-          return a && b ? <path key={p.at} d={passPath(a, b)} className={`gt-pass age-${trail.length - 1 - i}`} vectorEffect="non-scaling-stroke" /> : null;
+          return a && b ? <path key={p.at} d={passPath(a, b, (trail.length - 1 - i) * 0.035)} className={`gt-pass age-${trail.length - 1 - i}`} data-testid="gremlin-pass" vectorEffect="non-scaling-stroke" /> : null;
         })}
       </svg>
 
@@ -99,7 +99,7 @@ export function GremlinStage() {
           <div key={id} className={cls} style={{ left: `${spots[i].x}%`, top: `${spots[i].y}%` }} data-testid={`gremlin-seat-${id}`}>
             <span className="gt-pic" style={{ background: a.color }}>
               <img src={`art/avatars/${a.id}.webp`} alt="" draggable={false} />
-              {duelists.includes(id) && <i className="gt-duel" title="Duelist">⚔</i>}
+              {duelists.includes(id) && <i className="gt-duel" data-testid={`gremlin-duelist-${id}`}>Duel</i>}
             </span>
             <span className="gt-name">{name(id)}</span>
             {!!held[id] && gone < 0 && <span className="gt-held" aria-label={`held it ${held[id]} times`}>×{held[id]}</span>}
@@ -129,7 +129,7 @@ export function GremlinStage() {
             : v.stage === 'out_intro' ? "They're out. Everyone else plays on!"
             : v.stage === 'sudden_death_intro' ? "They're out. Now it's just the duellists."
             : over ? <>
-              {winner && <b data-testid="gremlin-tv-verdict">{name(winner)} wins the duel!</b>}
+              {winner && <b data-testid="gremlin-tv-verdict">{av?.practice ? 'Only practice: nobody loses a thing' : `${name(winner)} wins the duel!`}</b>}
               {pays && lasted.length > 0 && survive > 0 && <span className="gt-lasted" data-testid="gremlin-tv-lasted">Never caught: {lasted.map(name).join(', ')} · +{survive} Party point{survive === 1 ? '' : 's'} each</span>}
             </>
             : ''}

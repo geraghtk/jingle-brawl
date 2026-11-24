@@ -3,7 +3,8 @@
 import { GAMES, rank, whackScores } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { useServerOffset } from '../net/hooks';
-import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
+import { PartyCeremony } from '../ui/Ceremony';
+import { useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import { useHost } from './HostContext';
 import { Glyphs, Icon } from '../ui/icons';
@@ -50,7 +51,7 @@ export function PartyPanel({ mg }: { mg: PartyGame }) {
       <div className="pg-gallery">{order.map((pid, i) => <figure key={pid}><img src={mg.submissions![pid]} alt={`drawing ${i + 1}`} /><figcaption>#{i + 1}</figcaption></figure>)}</div>
     </>;
   } else if (mg.phase === 'results' && mg.results) {
-    body = <PartyResults mg={mg} game={game} />;
+    body = <PartyCeremony mg={mg} game={game} where="console" inline />;
   }
   return <div className="party-host pg" style={{ gridColumn: '1 / -1' }}>{body}</div>;
 }

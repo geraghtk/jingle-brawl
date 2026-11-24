@@ -37,7 +37,7 @@ export function battle(teams: [Hands[], Hands[]], seed: number, config: Record<s
   const mctx = (now: number) => ({ ...ctx(now), instanceId: 'x', mode: 'captain_teams' as const, participants: ids, duelists: ['p1', 'p2'] as [string, string], connected: () => true });
   const pressAt: Record<string, number> = {};
   let now = NOW;
-  for (; now < NOW + 300_000 && !arenaOf(g)!.result; now += 100) {
+  for (; now < NOW + 900_000 && !arenaOf(g)!.result; now += 100) {
     for (let i = 0; i < 50 && !arenaOf(g)!.result; i++) {
       const d = [...arenaOf(g)!.deadlines].sort((x, y) => x.at - y.at)[0];
       if (!d || d.at > now) break;
@@ -56,7 +56,7 @@ export function battle(teams: [Hands[], Hands[]], seed: number, config: Record<s
   }
   const res = arenaOf(g)!.result, f = st(g).field;
   return {
-    winner: res?.status === 'resolved' ? (res.duel?.winningDuelistId === 'p1' ? 'A' : 'B') : null, reason: res?.reason || 'never ended', ms: now - NOW, fell: res?.reason === 'the other workshop fell',
+    winner: res?.status === 'resolved' ? (res.duel?.winningDuelistId === 'p1' ? 'A' : 'B') : null, reason: res?.reason || 'never ended', ms: now - NOW, fell: /fell/.test(res?.reason || ''),
     health: [f.sides[0].hp, f.sides[1].hp], sent: [f.sides[0].sent, f.sides[1].sent], towers: [f.sides[0].towers.length, f.sides[1].towers.length],
   };
 }

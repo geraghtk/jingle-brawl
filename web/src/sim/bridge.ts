@@ -1,4 +1,4 @@
-// The Simulation Lab's bridge: a game of Yule Duel driven one decision at a time over JSON lines
+// The Simulation Lab's bridge: a game of YuleDuel driven one decision at a time over JSON lines
 // (stdin → stdout), so a simulator in another language (showrunner's simlab, Python) can play it
 // through the real rules engine. One request per line, one reply per line:
 //

@@ -64,7 +64,7 @@ export interface WalkParams {
 export const DEFAULT_WALK: WalkParams = {
   version: WALKER_VERSION, stride: 2, stepMs: 520, strideMs: 320, strideBonus: 1.3, stumbleMs: 1100, kick: 0.11, leanRate: 0.55, push: 0.3, pushMs: 220,
   toppleMs: 2500, wallHits: 4, hitMs: 260, reach: 2.4, jumpWindowMs: 900, jumpMs: 800, misjumpMs: 700, climbMs: 2600, boost: 7, boostMs: 900, graceMs: 130, hop: 0.5,
-  rungs: 4, rungMs: 380, slipMs: 700, pullMs: 300, vaultMs: 650, vault: 3, swingMs: 1800, swingGood: 0.5, swingPumped: 0.1, iceLean: 2,
+  rungs: 4, rungMs: 380, slipMs: 700, pullMs: 300, vaultMs: 700, vault: 3.5, swingMs: 1800, swingGood: 0.5, swingPumped: 0.1, iceLean: 2,
 };
 
 export type ObstacleKind = 'wall' | 'gap' | 'boost' | 'climb' | 'rope' | 'ice';

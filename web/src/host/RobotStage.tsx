@@ -3,7 +3,7 @@
 // the clock and the big words (Round 2, Fight!, Knockout!). Sounds on the TV only.
 import { useEffect, useRef, useState } from 'react';
 import { PARTS } from '../core/minigames/robots/robots';
-import { robotView } from '../core/minigames/robots/view';
+import { healthPct, robotView } from '../core/minigames/robots/view';
 import type { RobotView } from '../core/minigames/robots/view';
 import { useServerNow, useServerOffset } from '../net/hooks';
 import { Avatar } from '../ui/avatar';
@@ -16,13 +16,13 @@ import '../ui/robots.css';
 import { useHost } from './HostContext';
 
 /** The big word across the ring right now, if any. */
-export function splashFor(v: RobotView, now: number, name: (id: string) => string): string {
+export function splashFor(v: RobotView, now: number, _name?: (id: string) => string): string {
   if (v.stage === 'intro') return v.stageEndsAt - now < 900 ? 'Fight!' : `Round ${v.round}`;
   if (v.stage === 'ko' && v.last) return v.last.how === 'knockout' ? 'Knockout!' : 'Time!';
   if (v.stage === 'done') {
     const [a, b] = v.order;
     const wa = v.wins[a] || 0, wb = v.wins[b] || 0;
-    return wa === wb ? 'Level!' : `${name(wa > wb ? a : b)} wins!`;
+    return wa === wb ? 'Level!' : '';                         // (the winner is the results ceremony's to announce: not twice)
   }
   return v.sudden && v.stageEndsAt - now > 18_500 ? 'Sudden death!' : '';
 }
@@ -96,6 +96,8 @@ export function RobotStage() {
             {Array.from({ length: v.roundsToWin }, (_, k) => <i key={k} className={k < wins ? 'won' : ''} />)}
           </span>
         </div>
+        {/* its health as a bar too (Kevin, 2026-11-23): the parts say what has come off, the bar how close the next one is */}
+        <div className="nk-health" role="img" aria-label={`Health ${Math.round(healthPct(f.health, v.maxHealth))}%`} data-testid={`robot-health-${pid}`}><i className={healthPct(f.health, v.maxHealth) <= 34 ? 'low' : ''} style={{ width: `${healthPct(f.health, v.maxHealth)}%` }} /></div>
         <div className="nk-parts" role="img" aria-label={`${left} of ${v.parts} parts left${f.loose ? `, the ${PART_NAMES[f.loose]} is loose` : ''}`} data-testid={`robot-parts-${pid}`}>
           {PARTS.map((part) => (
             <span key={part} className={`nk-part${f.lost.includes(part) ? ' lost' : f.loose === part ? ' loose' : ''}${part === 'head' ? ' head' : ''}`} title={PART_NAMES[part]} />

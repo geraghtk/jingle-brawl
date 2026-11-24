@@ -1,6 +1,6 @@
 # Multi-Device Testing Guide
 
-Yuel Duel is a party game where a host and multiple players interact in real time from their own devices. This guide explains how to test that interaction on a single machine.
+YuleDuel is a party game where a host and multiple players interact in real time from their own devices. This guide explains how to test that interaction on a single machine.
 
 ## Quick Start
 

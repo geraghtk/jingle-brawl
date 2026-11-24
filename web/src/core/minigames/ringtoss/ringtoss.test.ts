@@ -167,7 +167,7 @@ describe('Reindeer Ring Toss', () => {
     expect(arenaOf(duel)!.result!.rewards).toBeUndefined();
   });
 
-  it('level: one more ring each for the duelists only; still level: the ring closest to the golden peg', () => {
+  it('level: one more ring each for the duelists only; still level: the ring closest to the hat', () => {
     let g = play('party_with_duelists', 3, { practiceThrows: 0, batch: 1, tiebreakRounds: 1 });
     g = thrown(g, 'p1', 'left-inner', NOW + 100);   // 1 each: level
     g = thrown(g, 'p2', 'right-inner', NOW + 100);
@@ -176,13 +176,13 @@ describe('Reindeer Ring Toss', () => {
     expect(st(g)).toMatchObject({ stage: 'tiebreak', pool: ['p1', 'p2'], tiebreakRound: 1 });
     expect(arenaAct(g, 'p3', { action: toss('golden') }, ctx(NOW + 5000)).error).toMatch(/Just the duelists/);
     // both miss the extra ring: p1's earlier ring (left inner) and p2's (right inner) are as close as each other…
-    // so p2 throws a ring that lands nearer the golden peg without scoring
+    // so p2 throws a ring that lands nearer the hat without scoring
     const near = { kind: 'throw', path: pathFor({ angle: 0.03, power: aimAt('golden').power + 0.12 }) };
     g = apply(g, arenaAct(g, 'p2', { action: near }, ctx(NOW + 5000)));
     g = thrown(g, 'p1', 'miss', NOW + 5000);
     expect(st(g).scores.p1).toBe(st(g).scores.p2);
     g = due(g);
-    expect(arenaOf(g)!.result).toMatchObject({ status: 'resolved', duel: { winningDuelistId: 'p2', resolutionReason: 'closest ring to the golden peg' } });
+    expect(arenaOf(g)!.result).toMatchObject({ status: 'resolved', duel: { winningDuelistId: 'p2', resolutionReason: 'closest ring to the hat' } });
   });
 
   it('nobody threw at all: no winner is made up, the host decides', () => {

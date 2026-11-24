@@ -41,10 +41,13 @@ export const STRIPS: [{ top: number; height: number }, { top: number; height: nu
 
 /** Where a robot hanging on a rope is: the rope hangs from over the middle of the gap and swings through
     `swing` (-1 right back to 1 right forward). In world units, from the pivot. */
-export const ROPE = { length: 3.3, reach: 0.72, pivotY: 5.3, hands: 2.25 };
-export function hangAt(swing: number): { dx: number; y: number; angle: number } {
-  const angle = Math.max(-1, Math.min(1, swing)) * ROPE.reach;
-  return { dx: Math.sin(angle) * ROPE.length, y: ROPE.pivotY - Math.cos(angle) * ROPE.length - ROPE.hands, angle };
+export const ROPE = { length: 3.3, reach: 0.72, pivotY: 5.85, hands: 2.6, tilt: 0.35 };
+/** `dx`, `y`: where its feet are (so that its raised hands are on the end of the rope: it hangs tilted `lean`, a
+    part of the rope's own `angle`, and the hands are `ROPE.hands` up its body from the feet). */
+export function hangAt(swing: number): { dx: number; y: number; angle: number; lean: number } {
+  const angle = Math.max(-1, Math.min(1, swing)) * ROPE.reach, lean = angle * ROPE.tilt;
+  const endX = Math.sin(angle) * ROPE.length, endY = ROPE.pivotY - Math.cos(angle) * ROPE.length;
+  return { dx: endX - Math.sin(lean) * ROPE.hands, y: endY - Math.cos(lean) * ROPE.hands, angle, lean };
 }
 
 /** Over the top of a climb and down the far side, `f` (0 to 1) of the way through: first across the top, clear of

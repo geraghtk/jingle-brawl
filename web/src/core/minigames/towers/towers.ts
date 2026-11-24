@@ -50,12 +50,20 @@ export interface TowerConfig {
   teams?: TeamAssignment;
 }
 export const DEFAULTS: TowerConfig = {
-  rounds: 5, planMs: 12_000, marchMs: 13_000, minMarchMs: 4000, doneMs: 1200, tickMs: 400, rewardBase: 1, toughen: 0.3,
-  income: 16, incomeStep: 5, minShare: 4, crowd: 1, maxQueue: 5,
+  // (Kevin, 2026-11-23: a march is over when the last toy is home or down, never while they are walking, so `marchMs` is
+  // only a backstop; and the battle goes on until a workshop falls, `rounds` being the most it may take: after that the
+  // healthier one wins)
+  rounds: 8, planMs: 12_000, marchMs: 45_000, minMarchMs: 4000, doneMs: 1200, tickMs: 400, rewardBase: 1, toughen: 0.5,
+  income: 16, incomeStep: 6, minShare: 4, crowd: 1, maxQueue: 5,
   // (energy comes in lumps now, a round at a time: nothing trickles in by the clock)
   // (a workshop of 16 and a slightly keener guard: set from `npm run analyze:towers` so most battles are decided on
   // health after five rounds and a few by a workshop falling)
-  rules: { ...DEFAULT_LANES, purse: { start: 0, rate: 0, max: 24 }, sendMs: 0, baseHp: 16, guard: 3.25 },
+  // (2026-11-23, with marches that run to the end and no fixed number of rounds: towers that bite (8 a second), a workshop
+  // of 20 with a keener guard, and toys and energy that grow faster by the round so that somebody's workshop does fall.
+  // From the simulation: even teams about level, an all-toys rush about level with a mixed team, nearly every battle
+  // ends with a workshop down, in about two and a half minutes)
+  rules: { ...DEFAULT_LANES, purse: { start: 0, rate: 0, max: 24 }, sendMs: 0, baseHp: 20, guard: 4,
+    towers: { ...DEFAULT_LANES.towers, snow: { ...DEFAULT_LANES.towers.snow, dps: 8 }, cannon: { ...DEFAULT_LANES.towers.cannon, dps: 8 } } },
 };
 
 export interface TeamState {
@@ -188,7 +196,12 @@ function settle(ctx: MatchCtx, s0: TowerState): { state: TowerState; over?: Tran
     s = { ...s, field: advance(s.field, until, s.cfg.rules) };
     const [a, b] = s.field.sides;
     if (a.hp <= 0 || b.hp <= 0) {
-      if (a.hp <= 0 && b.hp <= 0) return { state: s, over: finish(ctx, s, null, 'both workshops fell in the same moment') };
+      // both in the same step: the one hit harder is the one that fell first; then whoever stopped more toys; then the host
+      if (a.hp <= 0 && b.hp <= 0) {
+        if (a.hp !== b.hp) return { state: s, over: finish(ctx, s, a.hp > b.hp ? 'A' : 'B', 'both workshops fell, theirs first') };
+        if (a.stopped !== b.stopped) return { state: s, over: finish(ctx, s, a.stopped > b.stopped ? 'A' : 'B', 'both workshops fell together: stopped more toys') };
+        return { state: s, over: finish(ctx, s, null, 'both workshops fell in the same moment') };
+      }
       return { state: s, over: finish(ctx, s, a.hp <= 0 ? 'B' : 'A', 'the other workshop fell') };
     }
     const empty = !busy(s.field) && ctx.now >= s.phaseAt + s.cfg.minMarchMs;
@@ -245,7 +258,7 @@ function apply(s: TowerState, side: number, a: TowerAction, now: number, who: Pl
 
 export const towers: GameDefinition<TowerConfig, TowerState, TowerAction> = {
   id: 'elf_tower_wars', version: '2', label: 'Elf Tower Wars', emoji: '🏰',
-  rules: 'The duellists captain two teams, each with a workshop on the TV. It is played in rounds. First you plan: everyone gets energy and spends it on their phone, on towers (build one again to make it better) and on toys lined up at the workshop door. Then both armies march and everyone watches the TV, with a snowball, a shield and a two-person avalanche in hand. Every toy that reaches the other workshop hurts it. Knock theirs down, or have the stronger one after the last round.',
+  rules: 'The duellists captain two teams, each with a workshop on the TV. It is played in rounds. First you plan: everyone gets energy and spends it on their phone, on towers (build one again to make it better) and on toys lined up at the workshop door. Then both armies march and everyone watches the TV, with a snowball, a shield and a two-person avalanche in hand. Every toy that reaches the other workshop hurts it. A march lasts until the last toy is home or stopped, and the battle until a workshop falls (after eight rounds, the stronger one wins).',
   categories: ['team_based', 'cross_device', 'real_time_action'],
   supportedModes: ['captain_teams'],
   compatibility: {

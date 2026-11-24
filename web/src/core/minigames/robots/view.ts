@@ -38,6 +38,9 @@ export interface RobotView {
   mySeat?: 0 | 1 | null;
 }
 
+/** A robot's health as a share of what it started the round with, 0 to 100 (the bars on the TV and the phone). */
+export const healthPct = (health: number, max: number) => Math.max(0, Math.min(100, max > 0 ? (health / max) * 100 : 0));
+
 /** A view as it arrives: empty lists and maps don't travel. */
 export function robotView(raw: unknown): RobotView {
   const v = (raw || {}) as RobotView;

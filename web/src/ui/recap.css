@@ -47,7 +47,7 @@
 .rcp-step:not(.up) { visibility: hidden; }
 .rcp-step-who { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
 .rcp-step-avs { position: relative; display: flex; justify-content: center; }
-.rcp-step-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; letter-spacing: -.01em; }
+.rcp-step-name { max-width: 100%; box-sizing: border-box; text-align: center; font-family: var(--f6-disp, system-ui, sans-serif); font-weight: 700; letter-spacing: -.01em; }
 .rcp-step-block { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--rcp-ink); }
 .rcp-step.p1 .rcp-step-block { background: linear-gradient(#ffd56b, var(--rcp-gold)); }
 .rcp-step.p2 .rcp-step-block { background: linear-gradient(#f2f6fa, var(--rcp-silver)); }
@@ -75,7 +75,7 @@
 .recap.as-show .rcp-step-avs .f6-avatar { width: 14vh !important; height: 14vh !important; margin: 0 -1.2vh; border-radius: 30%; box-shadow: 0 0 0 .5vh #fff, 0 1vh 2.4vh rgba(0, 0, 0, .4); }
 .recap.as-show .rcp-step.p1 .rcp-step-avs .f6-avatar { width: 19vh !important; height: 19vh !important; }
 .recap.as-show .rcp-crown { width: 9vh; height: 9vh; }
-.recap.as-show .rcp-step-name { font-size: clamp(18px, 4.4vh, 56px); line-height: 1.25; margin: 1vh 0 1.2vh; padding: 0 .4vw; }
+.recap.as-show .rcp-step-name { font-size: clamp(18px, 4.4vh, 56px); line-height: 1.1; margin: 1vh 0 1.2vh; padding: 0 .4vw; }
 .recap.as-show .rcp-step.p1 .rcp-step-name { font-size: clamp(20px, 5.4vh, 68px); }
 .recap.as-show .rcp-step-block { border-radius: 2.6vh 2.6vh 0 0; gap: .6vh; box-shadow: inset 0 -1.4vh 0 rgba(13, 16, 24, .12), inset 0 .5vh 0 rgba(255, 255, 255, .55); }
 .recap.as-show .rcp-step.p1 .rcp-step-block { height: 30vh; }
@@ -100,7 +100,7 @@
 .recap .rcp-card-icon { width: 12vh; height: 12vh; }
 .rcp-card-title { font: 700 clamp(15px, 3.5vh, 44px)/1.05 var(--f6-disp, system-ui, sans-serif); letter-spacing: -.02em; min-height: 2.1em; display: grid; align-items: center; }
 .rcp-card-who { display: flex; align-items: center; justify-content: center; gap: 1.2vh; max-width: 100%; min-width: 0; padding: .8vh 1.6vh .8vh .8vh; border-radius: 999px; background: #fff3d1; font: 800 clamp(13px, 3vh, 38px)/1 var(--f6-body, system-ui, sans-serif); }
-.rcp-card-who span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rcp-card-who .fit-name { min-width: 0; line-height: 1.05; text-align: left; }   /* the winner's name fits itself (ui/FittedName.tsx): no ellipsis */
 .recap.as-show .rcp-card-who .f6-avatar { width: 6vh !important; height: 6vh !important; box-shadow: none; }
 .rcp-card-detail { font-size: clamp(12px, 2.5vh, 30px); font-weight: 600; line-height: 1.25; color: #4a5162; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -180,7 +180,7 @@
 .recap.as-card .rcp-step-avs .f6-avatar { margin: 0 -5px; }
 .recap.as-card .rcp-step-avs.n3 .f6-avatar { margin: 0 -12px; }
 .recap.as-card .rcp-crown { width: 30px; height: 30px; }
-.recap.as-card .rcp-step-name { font-size: 14px; line-height: 1.3; margin: 5px 0 6px; padding: 0 2px; }
+.recap.as-card .rcp-step-name { font-size: 14px; line-height: 1.15; margin: 5px 0 6px; padding: 0 2px; }
 .recap.as-card .rcp-step-block { border-radius: 12px 12px 0 0; gap: 2px; box-shadow: inset 0 -5px 0 rgba(13, 16, 24, .12); }
 .recap.as-card .rcp-step.p1 .rcp-step-block { height: 84px; }
 .recap.as-card .rcp-step.p2 .rcp-step-block { height: 64px; }

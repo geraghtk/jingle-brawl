@@ -1,4 +1,4 @@
-// A whole party of Yule Duel on a virtual clock, through the real engine: everyone at the table
+// A whole party of YuleDuel on a virtual clock, through the real engine: everyone at the table
 // acts through the buttons on their own screen (core/table.ts), the host's automation runs on the
 // same steps as the host page (core/hostauto.ts), and what each person sees is the TV plus their
 // own phone (core/screens.ts). The people's skills, tastes and hands are sim/world.ts, shared with

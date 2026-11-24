@@ -92,6 +92,7 @@ class Arena {
     this.hookPage(this.host, 'HOST');
     if (this.onPage) await this.onPage(this.host, 'host', 0);
     await this.host.goto(`${H.BASE}/host.html`);
+    await this.host.getByTestId('setup-open-all').click(); // the settings are in groups, closed until opened
     // The referee calls duels once the agents have voted, so no vote window (unless asked)
     for (const [id, value] of Object.entries({ 'vote-window': '0', ...this.settings })) {
       const select = this.host.locator(`#setting-${id}`);
@@ -181,13 +182,8 @@ class Arena {
     });
     page.on('dialog', async (d) => {
       try {
-        if (d.type() === 'prompt' && /gift they're opening/i.test(d.message())) {
-          const name = this.giftQueue.shift() || `Gift ${this.turns + 1}`;
-          this.values[name] = 1 + Math.floor(this.random() * 10);
-          await d.accept(name);
-          return;
-        }
-        if (d.type() === 'confirm') { await d.accept(); return; }
+        // the console has its own dialogs (host/Dialogs.tsx): a native one there is a bug
+        if (d.type() === 'confirm' && who !== 'HOST') { await d.accept(); return; }
         this.issue('alert', `${who}: ${d.message().slice(0, 120)}`);
         await d.accept();
       } catch { /* page closed */ }
@@ -373,13 +369,21 @@ class Arena {
           // keyed by turns SEEN (not clicked): the host writes gift → owner → turn in steps
           return hostA(`draw#${this.turns}`, 'draw from the sack', async () => {
             await this.click(host, '#btn-draw-player:not([disabled])', 'HOST', 'Draw from Santa\'s Sack');
+            // the console asks for the gift's name in its own dialog (host/Dialogs.tsx)
+            const giftName = this.giftQueue.shift() || `Gift ${this.turns + 1}`;
+            this.values[giftName] = 1 + Math.floor(this.random() * 10);
+            await host.getByTestId('gift-name').fill(giftName);
+            await host.getByTestId('gift-submit').click();
           });
         }
         if (inBag > 0) return hostA('endgame', 'start the endgame', async () => {
           this.say('🎰 All gifts open — Misfit Lottery!');
           await this.click(host, '#btn-endgame:not([disabled])', 'HOST', 'Endgame');
         });
-        return hostA('end', 'end the game', () => this.click(host, sel('end-game'), 'HOST', 'End Game for All'));
+        return hostA('end', 'end the game', async () => {
+          await this.click(host, sel('end-game'), 'HOST', 'End Game for All');
+          await host.getByTestId('dialog-confirm').click();
+        });
       }
       return null; // endgame: host draws the next player itself
     }

@@ -86,7 +86,14 @@ test('Whack-an-Elf: full screen on the TV with a live race; phones count in, fil
 
     // the results, full screen too
     await H.waitForGame(r.roomCode, (g) => (g.minigame?.phase === 'results' ? g : false), { label: 'results', timeout: 40000 });
-    await expect(tv.getByTestId('whack-stage')).toContainText('Results');
+    // (the same ending as every other game: ui/Ceremony.tsx PartyCeremony, set into the stage and sized for the room)
+    await expect(tv.getByTestId('whack-stage').getByTestId('party-ceremony')).toBeVisible();
+    await expect(tv.getByTestId('ceremony-headline')).toContainText(/wins the tie!|wins the duel!|comes top!|win the tie!/);
+    const card = await tv.getByTestId('party-ceremony').locator('.cer-card').boundingBox();
+    const vp = tv.viewportSize();
+    expect(card.width, 'the results card is not lost in the screen').toBeGreaterThan(vp.width * 0.4);
+    expect(card.y + card.height, 'and it is all on the screen').toBeLessThanOrEqual(vp.height);
+    await expect(phone.getByTestId('party-ceremony')).toBeVisible();
     await expect(phone.locator('#party-card.whack-full')).toHaveCount(0);            // the phone's card is a card again
     await shot(tv, 'tv-results');
     expect([...r.errors, ...phoneErrors, ...tvErrors]).toEqual([]);

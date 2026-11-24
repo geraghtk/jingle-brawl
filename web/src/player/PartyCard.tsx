@@ -4,7 +4,8 @@ import { GAMES, rank, WHACK_ROLL, whackScores, whackSequence, whackTap } from '.
 import type { PartyGame } from '../core/party';
 import { useServerOffset } from '../net/hooks';
 import { PartyReady } from '../ui/PartyReady';
-import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
+import { PartyCeremony } from '../ui/Ceremony';
+import { useSecondsLeft } from '../ui/PartyResults';
 import '../ui/party.css';
 import '../ui/sketch.css';
 import { usePlayer } from './PlayerContext';
@@ -50,7 +51,7 @@ function Screen({ mg }: { mg: PartyGame }) {
   if (mg.phase === 'playing' && mg.type === 'sketch_off') return <SketchPad mg={mg} secs={secs} offset={offset} />;
   if (mg.phase === 'playing') return <WhackBoard mg={mg} secs={secs} offset={offset} />;
   if (mg.phase === 'voting') return <Voting mg={mg} secs={secs} />;
-  if (mg.phase === 'results' && mg.results) return <PartyResults mg={mg} game={game} me={me} />;
+  if (mg.phase === 'results' && mg.results) return <PartyCeremony mg={mg} game={game} where="phone" me={me} />;
   return null;
 }
 

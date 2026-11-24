@@ -40,6 +40,8 @@ export interface PartyGame {
   votes?: Record<PlayerId, PlayerId>;
   claims?: Record<string, boolean>;
   results?: PartyResults;
+  /** Deciding a duel (`minigameGoal: 'duel'`), with the results in: what the winner takes (core/stakes.ts, added by the projection). */
+  stakes?: import('./stakes').DuelStakes;
 }
 
 export const GAMES: Record<PartyType, { label: string; emoji: string; introMs: number; playMs: number; voteMs?: number; rules: string }> = {

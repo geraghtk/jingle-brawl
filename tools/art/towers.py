@@ -115,6 +115,35 @@ def recolor(im, hue, sat=1.0, val=1.0):
     return Image.fromarray((out * 255).round().astype(np.uint8), "RGBA")
 
 
+# a piece that is grey all over (the wind-up mice) gets its team's colour in its coat too: its key and bow alone
+# were too small to tell the two packs apart on the TV
+COAT = {"mouse"}
+
+
+def coat(im, hue, sat=0.42):
+    """The picture with its plain greys (a grey coat: not the ink lines, not white) tinted to `hue`. Tinted
+    pixels are no longer grey, so doing it twice changes nothing."""
+    a = np.asarray(im.convert("RGBA")).astype(np.float32) / 255
+    mx, mn = a[..., :3].max(-1), a[..., :3].min(-1)
+    s = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
+    grey = (s < 0.13) & (mx > 0.32) & (mx < 0.9) & (a[..., 3] > 0.3)
+    out = a.copy()
+    vec = np.vectorize(colorsys.hsv_to_rgb)
+    rr, gg, bb = vec(np.full(grey.sum(), hue), np.full(grey.sum(), sat), np.clip(mx[grey] * 1.22, 0, 1))
+    out[grey, 0], out[grey, 1], out[grey, 2] = rr, gg, bb
+    return Image.fromarray((out * 255).round().astype(np.uint8), "RGBA")
+
+
+def recoat():
+    """Give the placed COAT pieces their team coats (no ComfyUI needed): python tools/art/towers.py --coat"""
+    dest = Path(__file__).resolve().parents[2] / "web" / "public" / "art" / "towers"
+    for name in COAT:
+        for team, hue in (("a", A_HUE), ("b", B_HUE)):
+            f = dest / f"{name}-{team}.webp"
+            coat(Image.open(f), hue).save(f, quality=90)
+            print("coated", f.name)
+
+
 def trim(im, size):
     box = im.getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox()      # (a faint haze is not the picture's edge)
     im = im.crop(box) if box else im
@@ -133,8 +162,11 @@ def place(out, picks):
         if name in MIRROR:
             im = im.transpose(Image.FLIP_LEFT_RIGHT)
         if name in TEAM:
-            recolor(im, A_HUE).save(dest / f"{name}-a.webp", quality=90)
-            recolor(im, B_HUE, 0.9, 0.82).save(dest / f"{name}-b.webp", quality=90)
+            a, b = recolor(im, A_HUE), recolor(im, B_HUE, 0.9, 0.82)
+            if name in COAT:
+                a, b = coat(a, A_HUE), coat(b, B_HUE)
+            a.save(dest / f"{name}-a.webp", quality=90)
+            b.save(dest / f"{name}-b.webp", quality=90)
         else:
             im.save(dest / f"{name}.webp", quality=90)
         print("placed", name, seed)
@@ -142,6 +174,8 @@ def place(out, picks):
 
 def main():
     args = sys.argv[1:]
+    if "--coat" in args:
+        return recoat()
     out = Path(args[0]); (out / "raw").mkdir(parents=True, exist_ok=True); (out / "cut").mkdir(exist_ok=True)
     if "--place" in args:
         return place(out, {k: int(v) for k, v in (kv.split("=") for kv in args[args.index("--place") + 1].split(","))})

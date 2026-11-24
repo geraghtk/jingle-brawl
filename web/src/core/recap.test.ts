@@ -90,7 +90,7 @@ describe('the awards', () => {
     expect(award(ended([{}, {}], { Socks: ['p1', 0] }), 'naughty_list')).toBeUndefined();
   });
 
-  it('Jingle Brawler: the most duels fought, at least two', () => {
+  it('Yule Dueller: the most duels fought, at least two', () => {
     expect(award(ended([{ duelsFought: 4 }, { duelsFought: 3 }]), 'brawler')).toMatchObject({ winner: 'p1', detail: 'Fought 4 duels' });
     expect(award(ended([{ duelsFought: 1 }, {}]), 'brawler')).toBeUndefined();
   });

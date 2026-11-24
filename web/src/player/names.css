@@ -1,0 +1,25 @@
+/* Long names on the phone's standing furniture (the header and the table strip), so no name can push
+   the page wider than the screen. The big names fit themselves (ui/FittedName.tsx); these are the
+   small ones: the header's own name fits itself too, a seat in the table strip is cut with an ellipsis. */
+.header { gap: 10px; }
+.header .player-info { min-width: 0; }
+.header .player-info .f6-avatar { flex: 0 0 auto; }
+.header .player-name { min-width: 0; line-height: 1.1; }
+.header .chip-count { flex: 0 0 auto; }
+.table-row .players-list { min-width: 0; }
+.table-seat { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.table-seat .f6-avatar { flex: 0 0 auto; }
+.table-seat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-seat-chips { flex: 0 0 auto; }
+/* card titles that carry a name ("Christopher wants your gift!"): a long word wraps instead of running off the card */
+.status-title, .status-desc { overflow-wrap: break-word; }
+
+/* the duel: "YOU vs NAME" stays one row at any width (the far avatar used to drop to a line of its own) */
+.duel-you-row { flex-wrap: nowrap; gap: 8px; }
+.duel-you-row .f6-avatar { flex: 0 0 auto; }
+.duel-you-row .duel-side { flex: 0 1 auto; max-width: none; }
+.duel-you-row .duel-vs-mini, .duel-you-row .duel-side.you { flex: 0 0 auto; }
+@media (max-width: 350px) { .duel-you-row .f6-avatar { width: 32px !important; height: 32px !important; } }
+/* a spectator's corners: a tall name keeps clear of the "vs" badge between them */
+.callit-corner.red { padding-right: 22px; }
+.callit-corner.green { padding-left: 22px; }

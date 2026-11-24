@@ -16,7 +16,8 @@
 
 /* the wall: the grid's tiles are the biggest squares that fit (cols / rows from ui/sketchGrid.ts) */
 .sk-wall { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
-.sk-grid { --gap: 2.2cqh; --cap: 5cqh; --tile: min(calc((100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols)), calc((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows) - var(--cap)));
+/* (a margin all round and between the drawings: --pad / --gap / --cap come from sketchGrid.ts WALL, the sum is sketchTile's) */
+.sk-grid { --gap: 4.5cqh; --pad: 3.5cqh; --cap: 5cqh; --tile: min(calc((100cqw - 2 * var(--pad) - (var(--cols) - 1) * var(--gap)) / var(--cols)), calc((100cqh - 2 * var(--pad) - (var(--rows) - 1) * var(--gap)) / var(--rows) - var(--cap)));
   display: grid; grid-template-columns: repeat(var(--cols), var(--tile)); gap: var(--gap); justify-content: center; align-content: center; }
 .sk-easel { margin: 0; width: var(--tile); display: grid; gap: .8cqh; justify-items: center; }
 .sk-easel:nth-child(odd) .sk-paper { transform: rotate(-1.2deg); }
@@ -35,7 +36,7 @@
   font: 900 min(6cqh, calc(var(--tile) * .13))/1 var(--f6-disp, system-ui); }
 .sk-easel.win .sk-paper { box-shadow: 0 0 0 .5cqh var(--ink), 0 0 0 1.5cqh #ffc21a, 0 1.2cqh 0 1.5cqh rgba(29, 42, 58, .18); }
 /* the gallery has no captions: give their room to the drawings */
-[data-testid="sketch-gallery"] .sk-grid { --cap: 0cqh; }
+[data-testid="sketch-gallery"] .sk-grid { --cap: 0cqh !important; }
 
 /* the intro */
 .sk-stage.intro { justify-content: center; align-items: center; text-align: center; }
@@ -47,9 +48,6 @@
 /* the results: whose was whose beside the standings */
 .sk-stage.results { flex-direction: row; align-items: stretch; gap: 2vw; }
 .sk-stage.results .sk-wall { flex: 1.6; }
-.sk-results { flex: 1.1; min-width: 300px; align-self: center; max-height: 100%; overflow: auto; background: #fff; border-radius: 2.4vh; padding: 2.4vh 1.6vw; box-shadow: 0 0 0 3px var(--ink), 0 1.2vh 0 rgba(29, 42, 58, .15); }
-.sk-results .pg-rank { max-width: none; margin: 1vh 0 0; }
-.sk-results .pg-rank li { font-size: clamp(14px, 2.4vh, 26px); }
 
 /* ---- the phone ---- */
 /* drawing: the whole screen is the pad (under the host's tab bar, if they play too) */

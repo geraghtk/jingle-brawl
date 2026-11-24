@@ -25,22 +25,33 @@
 /* (the TV's factory lines: conveyorFactory.css) */
 
 /* --- the phone --- */
-.cv-card { text-align: center; border-top: 6px solid var(--team, #ff3366); }
-.cv-top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; }
-.cv-team { color: var(--team); }
-.cv-clock { font: 900 18px/1 var(--f6-disp, system-ui); }
-.cv-race { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding: 8px 12px; border-radius: 14px; background: var(--bg, #eceef2); font-weight: 700; }
-.cv-race b { font: 900 24px/1 var(--f6-disp, system-ui); }
-.cv-quota { color: var(--muted, #6a7180); font-size: 13px; }
-.cv-wait { font-weight: 700; color: var(--muted, #6a7180); }
-.cv-station { margin-top: 12px; padding: 10px; border-radius: 16px; background: var(--bg, #eceef2); border: 3px solid transparent; --belt-h: 128px; --toy-w: 30cqw; }
-.cv-station.live { border-color: var(--team); }
-.cv-card.many .cv-station { --belt-h: 96px; --toy-w: 24cqw; }
-.cv-station-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.cv-station-name { font: 900 16px/1.1 var(--f6-disp, system-ui); }
-.cv-said { font-weight: 800; font-size: 14px; color: #d7263d; min-height: 18px; }
+/* the frame and its top bar are every game's (ui/arenaPhone.css). Under the bar the stations share the height
+   that is left, so a player with two has both on the screen with nothing to scroll (320 x 568 too): a station's
+   belt is the part that gives, its name and its three pieces never do */
+.cv-card { text-align: center; background: linear-gradient(#e4f1fb, #f4f8fc); color: #1d2a3a; touch-action: manipulation; }
+.cv-race b { font: 900 17px/1 var(--f6-disp, system-ui); }
+.cv-race small { font-weight: 700; color: var(--muted, #6a7180); }
+.cv-station { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px 10px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 3px #1d2a3a; --toy-w: min(30cqw, 62cqh); }
+.cv-station.live { box-shadow: 0 0 0 4px var(--team); }
+.cv-station .cv-belt { flex: 0 1 150px; height: auto; min-height: 54px; container-type: size; }
+.cv-card { justify-content: center; }
+.cv-card > .ap-bar { margin-bottom: auto; }
+.cv-card > .cv-station:last-child { margin-bottom: auto; }
+.cv-station-head { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.cv-station-name { font: 900 15px/1.1 var(--f6-disp, system-ui); white-space: nowrap; }
+.cv-said { font-weight: 800; font-size: 13px; color: #d7263d; min-height: 16px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cv-said.good { color: #1a8f63; }
-.cv-ask { font: 800 18px/1.3 var(--f6-disp, system-ui); margin: 8px 0; min-height: 26px; }
+.cv-ask { flex: none; font: 800 17px/1.3 var(--f6-disp, system-ui); margin: 6px 0; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-choices, .cv-shoo { flex: none; }
+/* a short phone with two stations: smaller words, the pieces side by side with their names */
+@media (max-height: 640px) {
+  .cv-card.many .cv-station { padding: 6px 8px 8px; }
+  .cv-card.many .cv-station-head { margin-bottom: 4px; }
+  .cv-card.many .cv-ask { font-size: 15px; margin: 4px 0; min-height: 22px; }
+  .cv-card.many .cv-choice, .cv-card.many .cv-shoo { min-height: 50px; }
+  .cv-card.many .cv-choice { grid-auto-flow: column; justify-content: center; gap: 5px; font-size: 13px; padding: 4px; }
+  .cv-card.many .cv-swatch.big { width: 30px; height: 30px; }
+}
 .cv-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cv-choice { min-height: 76px; border: 0; border-radius: 16px; background: var(--surface, #fff); font: 800 15px/1.1 var(--f6-body, system-ui); display: grid; place-items: center; gap: 4px; padding: 8px 4px;
   cursor: pointer; touch-action: manipulation; box-shadow: 0 4px 0 rgba(13, 16, 24, .16); }

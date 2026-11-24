@@ -7,8 +7,9 @@ import { GAMES, rank, sketchScores, wallSlot } from '../core/party';
 import type { PartyGame } from '../core/party';
 import { useServerOffset } from '../net/hooks';
 import { Glyphs, Icon } from '../ui/icons';
-import { PartyResults, useSecondsLeft } from '../ui/PartyResults';
-import { sketchGrid } from '../ui/sketchGrid';
+import { PartyCeremony } from '../ui/Ceremony';
+import { useSecondsLeft } from '../ui/PartyResults';
+import { sketchGrid, WALL } from '../ui/sketchGrid';
 import { PartyReady } from '../ui/PartyReady';
 import '../ui/party.css';
 import '../ui/sketch.css';
@@ -33,7 +34,7 @@ function Wall({ n, children, testid }: { n: number; children: React.ReactNode; t
   const g = sketchGrid(n, aspect);
   return (
     <div className="sk-wall" ref={ref} data-testid={testid}>
-      <div className="sk-grid" style={{ ['--cols' as string]: g.cols, ['--rows' as string]: g.rows }}>{children}</div>
+      <div className="sk-grid" style={{ ['--cols' as string]: g.cols, ['--rows' as string]: g.rows, ['--gap' as string]: `${WALL.gap}cqh`, ['--pad' as string]: `${WALL.pad}cqh`, ['--cap' as string]: `${WALL.cap}cqh` }}>{children}</div>
     </div>
   );
 }
@@ -125,7 +126,8 @@ export function SketchStage({ mg }: { mg: PartyGame }) {
             ))}
           </Wall>
         )}
-        <div className="sk-results"><PartyResults mg={mg} game={game} /></div>
+        {/* (the wall beside it shows every drawing with its name: the card needs no picture, unless there is no wall) */}
+        <div className="sk-ceremony"><PartyCeremony mg={mg} game={game} where="tv" inline picture={false} /></div>
       </div>
     );
   }

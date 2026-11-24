@@ -7,9 +7,9 @@ import { describe, expect, it } from 'vitest';
 const ROOT = resolve(__dirname, '../../..');
 
 const ORIGINAL_PAGES = [
-  'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/JingleBrawlV2.html', 'web/public/privacy.html',
+  'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/privacy.html', 'web/public/pages.css',
   'Jingle Brawl V2.md', 'ai_art_critic.py', 'server/src/critic/critic.ts',
-  'web/host.html', 'web/player.html',
+  'web/host.html', 'web/player.html', 'web/tv.html',
 ];
 
 /** The React app: everything under web/src except the simulator and tests. */
@@ -58,5 +58,41 @@ describe('player-facing copy has no em dashes', () => {
     expect(stripComments(`fetch("http://x") /* ${em} */`, 'x.ts')).toBe('fetch("http://x") ');
     expect(stripComments(`<p>ok</p><!-- ${em} -->`, 'x.html')).toBe('<p>ok</p>');
     expect(stripComments(`x = "a" # ${em}`, 'x.py')).not.toContain(em);
+  });
+});
+
+// The product is YuleDuel (one word; the owner, 2026-11-23). The names it had before must not come
+// back on a screen, a page or in what the critic says. (Storage keys like jingleBrawl_host_room and
+// the rules file's name are not the product's name: neither has the space.)
+const OLD_NAMES = /jingle brawl|yuel|yule duel(?!l)/i;
+
+describe('the product is called YuleDuel everywhere a player looks', () => {
+  const files = [...ORIGINAL_PAGES, ...reactSources()].filter((f) => f !== 'web/src/ui/copy.test.ts');
+  it.each(files)('%s', (file) => {
+    const text = stripComments(readFileSync(join(ROOT, file), 'utf8'), file);
+    const hits = text.split(/\r?\n/).map((l, i) => [i + 1, l.trim()] as const).filter(([, l]) => OLD_NAMES.test(l.slice(0, 2000)));
+    expect(hits.map(([n, l]) => `${n}: ${l.slice(0, 120)}`)).toEqual([]);
+  });
+  it('the pages say the name', () => {
+    for (const page of ['web/host.html', 'web/player.html', 'web/tv.html', 'web/public/rules.html', 'web/public/quick-reference.html', 'web/public/privacy.html']) {
+      expect(readFileSync(join(ROOT, page), 'utf8'), page).toMatch(/<title>YuleDuel\b/);
+    }
+  });
+  it('catches the old names and lets the new one, the award and the storage keys through', () => {
+    for (const old of ['Jingle Brawl', 'Yuel Duel', 'Yule Duel', 'yuel-duel']) expect(OLD_NAMES.test(old)).toBe(true);
+    for (const ok of ['YuleDuel', 'Yule Dueller', 'jingleBrawl_host_room', 'Jingle Chips']) expect(OLD_NAMES.test(ok)).toBe(false);
+  });
+  it('the retired Google Docs export is gone and nothing links to it', () => {
+    expect(readdirSync(join(ROOT, 'web/public'))).not.toContain('JingleBrawlV2.html');
+    for (const page of ['rules.html', 'quick-reference.html', 'privacy.html']) {
+      expect(readFileSync(join(ROOT, 'web/public', page), 'utf8')).not.toContain('JingleBrawlV2');
+    }
+  });
+  it('the rule pages share one stylesheet and carry no styles or scripts of their own', () => {
+    for (const page of ['rules.html', 'quick-reference.html', 'privacy.html']) {
+      const html = readFileSync(join(ROOT, 'web/public', page), 'utf8');
+      expect(html, page).toContain('<link rel="stylesheet" href="pages.css">');
+      expect(html, page).not.toMatch(/<style|style="|<script(?![^>]*src=)|\son[a-z]+=/);
+    }
   });
 });

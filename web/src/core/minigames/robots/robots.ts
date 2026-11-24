@@ -2,7 +2,7 @@
 // their phones: a quick jab, a slow haymaker, hold to block, tap to dodge. The room is the referee
 // (engines/fight.ts): a punch winds up and lands a moment later; a block stops a jab and leaves the
 // jabber open; a haymaker smashes through a block; a dodge makes any punch miss; a punch into a
-// wind-up counts extra. A part takes a couple of blows (HITS_PER_PART): the first knocks it loose,
+// wind-up counts extra. A part takes a few blows (HITS_PER_PART): the first knocks it loose,
 // the next knocks it off (PARTS, in order); the last part is the head, and that is the round. Best of three.
 //   direct_duel  the two duelists fight; everyone else watches the TV.
 // A round that runs out of time goes to the robot with more parts left; level: sudden death (the next
@@ -18,7 +18,7 @@ import type { RobotView } from './view';
 export const PARTS = ['hat', 'left_shoulder', 'right_shoulder', 'chest_door', 'key', 'head'] as const;
 export type Part = (typeof PARTS)[number];
 /** Blows a part takes: the first knocks it loose, the last knocks it off (a round was over too soon at one each). */
-export const HITS_PER_PART = 2;
+export const HITS_PER_PART = 3;      // (2 until 2026-11-23: Kevin found a round over too quickly)
 /** The parts a robot with `health` left of `max` has lost, first to last (the head only at nothing left). */
 export function lost(health: number, max: number = PARTS.length * HITS_PER_PART): Part[] {
   const per = max / PARTS.length;
@@ -145,7 +145,8 @@ export const robots: GameDefinition<RobotConfig, RobotState, RobotAction> = {
     const c: RobotConfig = { ...DEFAULTS, ...r, fight: { ...DEFAULT_FIGHT, ...(r.fight || {}) } };
     // a robot's health is its parts: so many blows each
     c.hitsPerPart = Math.max(1, Math.min(4, Math.floor(c.hitsPerPart) || HITS_PER_PART));
-    c.fight = { ...c.fight, health: PARTS.length * c.hitsPerPart };
+    // (and a haymaker still takes a whole part, however many jabs a part takes, unless the settings say otherwise)
+    c.fight = { ...c.fight, health: PARTS.length * c.hitsPerPart, heavyDamage: (r.fight as { heavyDamage?: number } | undefined)?.heavyDamage ?? c.hitsPerPart };
     if (!(c.roundsToWin >= 1 && c.roundsToWin <= 5 && c.roundMs > 0 && c.introMs >= 0 && c.koMs >= 0 && c.suddenMs > 0 && c.fight.jabMs > 0 && c.fight.heavyMs > 0)) throw new Error('bad Nutcracker Knockout settings');
     return c;
   },

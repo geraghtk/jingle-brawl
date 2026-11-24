@@ -99,7 +99,7 @@ export function hostAuto(game: Game): AutoStep[] {
   // (a Game Lab game keeps its result on the screens until the host plays again or leaves)
   if (arena && (arena.lifecycle === 'completed' || arena.lifecycle === 'cancelled') && !t?.lab && !practiceOver) {
     // its ending stays on the screens for a few seconds first (a game the host stopped has no ending to show)
-    out.push({ key: `arena|${arena.instanceId}|handoff`, at: arena.endedAt ? arena.endedAt + RESULT_HOLD_MS : 0, quiet: true, run: (g) => handoff(g) });
+    out.push({ key: `arena|${arena.instanceId}|handoff`, at: arena.endedAt ? arena.endedAt + RESULT_HOLD_MS : 0, quiet: true, run: (g, ctx) => handoff(g, ctx.now) });
   }
 
   // ties start their party game themselves (once per turn)

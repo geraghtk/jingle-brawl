@@ -57,12 +57,15 @@ test('the first time a game comes up: a practice round on every screen that deci
     expect(first.practice.endsAt).toBeGreaterThan(Date.now());
 
     // somebody is caught in practice: nobody is announced, the duel is not settled, and the game is set up again for real
+    await tv.getByTestId('gremlin-stage').evaluate((el) => { el.dataset.old = '1'; });
     await finish(roomCode);
     await expect(tv.getByTestId('arena-briefing')).toContainText('Now for real', { timeout: 8000 });
     await shot(tv, 'real-tv'); await shot(pages.Alice, 'real-phone');
     await expect(tv.getByTestId('arena-ceremony')).toHaveCount(0);
     const real = await H.dbGet(roomCode, 'arena');
     expect(real.instanceId).not.toBe(first.instanceId);
+    // a new game is drawn on a new stage, never on what the last one built (Mecha Santa's replay kept the old course in 3D)
+    await expect(tv.getByTestId('gremlin-stage')).not.toHaveAttribute('data-old', '1');
     expect(real.practice ?? null).toBeNull();
     expect(real.result ?? null).toBeNull();
     expect((await H.dbGet(roomCode, 'lastDuel')) ?? null).toBeNull();
@@ -75,6 +78,7 @@ test('the first time a game comes up: a practice round on every screen that deci
     await expect(pages.Bob.getByTestId('practice-ribbon')).toHaveCount(0);
 
     // this one counts: when it ends the winner is announced on the TV and each phone says how it went for them
+    for (const page of [tv, ...Object.values(pages)]) await page.evaluate(() => { window.__chips = []; document.addEventListener('jb:chips', (e) => window.__chips.push(e.detail)); });
     await finish(roomCode);
     const result = (await H.dbGet(roomCode, 'arena')).result;
     const winner = NAMES.find((n) => r.p[n].id === result.duel.winningDuelistId);
@@ -86,13 +90,27 @@ test('the first time a game comes up: a practice round on every screen that deci
     await expect(pages[winner].getByTestId('ceremony-mine')).toHaveText('You won!');
     await expect(pages[loser].getByTestId('ceremony-mine')).toHaveText('Not this time.');
     await expect(pages[loser].getByTestId('confetti')).toHaveCount(0);
-    await tv.waitForTimeout(900);
+    // the one announcement: the ceremony also says what the duel was for (the room works it out from resolveDuel)
+    await expect(tv.getByTestId('ceremony-stakes')).toContainText(new RegExp(`${winner} (takes|keeps) `));
+    // and the pot flies to the winner's picture, on the TV and on the phones (the old verdict's flying chips)
+    await expect.poll(() => tv.evaluate(() => (window.__chips || []).filter((c) => c.drawn > 0).length), { timeout: 5000 }).toBe(1);
+    for (let k = 0; k < 7; k++) await shot(tv, `chips-${k}`);                       // (a burst: the flight is under a second)
+    for (const page of [tv, pages[winner], pages[loser]]) await expect.poll(() => page.evaluate(() => (window.__chips || []).filter((c) => c.drawn > 0).length), { timeout: 5000 }).toBe(1);
+    await expect(pages[loser].getByTestId('ceremony-stakes')).toBeVisible();
+    await tv.waitForTimeout(500);
     await shot(tv, 'ceremony-tv'); await shot(pages[winner], 'ceremony-won'); await shot(pages[loser], 'ceremony-lost');
 
     // then the duel is settled with that winner, and the announcement is gone
     await H.waitForGame(roomCode, (g) => (g.lastDuel ? g : false), { label: 'the duel settled', timeout: 15000 });
     expect((await H.dbGet(roomCode, 'lastDuel')).winnerId).toBe(r.p[winner].id);
     await expect(tv.getByTestId('arena-ceremony')).toHaveCount(0);
+    // ... and it is not announced a second time: no duel verdict on the TV, the console or either phone
+    // (the verdict used to come up over the main screen as soon as the duel was settled, for 6.5 s)
+    expect((await H.dbGet(roomCode, 'lastDuel')).announced).toBe(true);
+    await tv.waitForTimeout(1200);
+    await expect(tv.locator('#duel-verdict')).toHaveCount(0);
+    await expect(r.host.locator('#duel-verdict')).toHaveCount(0);
+    for (const n of NAMES) await expect(pages[n].locator('#duel-result-modal.active')).toHaveCount(0);
     expect([...r.errors, ...r.phoneErrors, ...r.tvErrors]).toEqual([]);
   } finally { await r.close(); }
 });
@@ -147,8 +165,8 @@ test('the end of the night: the finale on every screen, then Play again puts the
     // the host closes the finale and starts over with the same people
     await r.host.locator('#mvp-reveal').click();
     await r.host.getByTestId('recap-close').click();
-    r.host.once('dialog', (d) => d.accept());
     await r.host.getByTestId('play-again').click();
+    await r.host.getByTestId('dialog-confirm').click();
     const g = await H.waitForGame(r.roomCode, (x) => (x.phase === 'lobby' ? x : false), { label: 'back in the lobby' });
     expect(Object.values(g.players).map((x) => x.name).sort()).toEqual(['Alice', 'Bob', 'Charlie']);
     for (const x of Object.values(g.players)) { expect(x.giftId ?? null).toBeNull(); expect(x.partyPoints ?? 0).toBe(0); expect(x.chips).toBe(10); }

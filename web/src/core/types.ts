@@ -123,6 +123,9 @@ export interface Turn {
   duelGameWinner?: PlayerId;       // an in-app duel game decided it; the host resolves
   duelGameOutcome?: { status: 'no_contest'; reason: string } | null; // it couldn't decide: the host picks
   arenaHandedOff?: string;         // a runtime mini-game handed its result back (once)
+  /** An in-app game's ending has already told every screen this player won and what they take (core/stakes.ts):
+   *  if the duel is then settled for them, it is not announced again (`lastDuel.announced`). */
+  duelAnnounced?: PlayerId;
   /** A Game Lab game in the lobby (minigames/lab.ts): practice, nothing at stake; how it was set up. */
   lab?: { gameId: string; players: PlayerId[]; mode: string; duelists?: PlayerId[] };
   // double-tap guards (claimTurn)
@@ -149,6 +152,8 @@ export interface LastDuel {
   dividend: number;
   loserPaid: number;
   at: number | ServerTime;
+  /** An in-app game's ending announced this result, stakes and all, before it was settled: no verdict after it. */
+  announced?: true;
   /** Spectator bets on this duel: the pool, what each winning chip got back, what went back to the Fund,
    *  how many backed the winner, what waits for the next duel; `returned`: nobody backed the winner. */
   bets?: { pool: number; each: number; toBank: number; winners: number; carry: number; returned?: boolean };

@@ -44,7 +44,7 @@ app.server.listen(port, host, () => {
   const lan = Object.values(networkInterfaces()).flat().find((n) => n && n.family === 'IPv4' && !n.internal)?.address;
   const pages = statics === 'none' ? '  (the app: npm run dev serves it on :5173, phones too)'
     : lan ? `  (phones on this Wi-Fi: http://${lan}:${port}/player.html)` : '';
-  console.log(`Yuel Duel room server on http://localhost:${port}${pages}`);
+  console.log(`YuleDuel room server on http://localhost:${port}${pages}`);
   log.info('server.start', { port, db: db === ':memory:' ? 'memory' : 'sqlite', recovered, trustProxy, debugApi });
   console.log(`  rooms: ${db}${recovered ? `, ${recovered} recovered` : ''}${args.includes('--debug-api') ? '  [debug API on]' : ''}`);
 });

@@ -1,0 +1,16 @@
+/* A name at a size that fits it (ui/FittedName.tsx). It breaks at spaces and after hyphens only; the
+   scale comes from ui/nameFit.ts. `.fit-break` is the one case that may break inside a word: a name
+   too long for the place even at the smallest size. */
+.fit-name {
+  display: block; max-width: 100%; min-width: 0;
+  white-space: normal; overflow: visible; text-overflow: clip;
+  word-break: normal; overflow-wrap: normal; hyphens: manual;
+  text-wrap: balance;
+}
+.fit-name.fit-inline { display: inline; }
+.fit-name.fit-upper { text-transform: uppercase; }
+.fit-name.fit-break { overflow-wrap: anywhere; }
+
+/* the mini-game ceremony's winners (ui/CeremonyCard.tsx): the name under a winner fits itself, no
+   ellipsis (the scores list below it is a list: it keeps its one line) */
+.cer-person .cer-name { white-space: normal; overflow: visible; text-overflow: clip; text-align: center; }

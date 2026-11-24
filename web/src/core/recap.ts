@@ -81,7 +81,7 @@ const RULES: [AwardId, string, string, (lines: RecapLine[], game: Game) => { who
     return who && { who, detail: 'Took home the most fought-over gift' };
   }],
   // most duels fought, alone at the top, at least two
-  ['brawler', 'Jingle Brawler', 'fire', (lines) => {
+  ['brawler', 'Yule Dueller', 'fire', (lines) => {
     const who = soleTop(lines, (l) => l.duels, 2);
     return who && { who, detail: `Fought ${plural(who.duels, 'duel')}` };
   }],

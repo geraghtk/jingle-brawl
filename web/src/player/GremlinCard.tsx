@@ -13,6 +13,7 @@ import { glyphs } from '../ui/icons';
 import { buzz, muted, play, setMuted } from '../ui/sound';
 import { usePlayer } from './PlayerContext';
 import '../ui/arena.css';
+import '../ui/arenaPhone.css';
 import '../ui/gremlin.css';
 
 type Act = (action: unknown) => Promise<boolean>;
@@ -60,21 +61,30 @@ export function GremlinCard() {
   const myOut = out.indexOf(me);
   const mineSoFar = myOut >= 0 ? outPoints(myOut, survive) : 0;
   const outLine = !pays ? "You're out. Watch the TV!" : mineSoFar ? `You're out, with ${points(mineSoFar)} for lasting. Watch the TV!` : "You're out: no points this time. Watch the TV!";
-  const cls = `card grem${mine ? ' mine' : ''} danger-${v.danger}`;
-  const mute = (
+  const cls = `ap grem grem-phone${mine ? ' mine' : ''} danger-${v.danger}`;
+  const muteBtn = (
     <button type="button" className="grem-mute" aria-pressed={quiet} aria-label={quiet ? 'Sound off' : 'Sound on'} data-testid="gremlin-mute"
       onClick={() => { setMuted(!quiet); setQuiet(!quiet); }}>{quiet ? '🔇' : '🔊'}</button>
+  );
+  // the top bar every game's phone has (ui/arenaPhone.css): the round on the left, the sound switch on the right
+  const bar = (label: string, alarm = false) => (
+    <div className="ap-bar">
+      <span className={`ap-pill grem-round${alarm ? ' alarm' : ''}`} data-testid="gremlin-round">{label}</span>
+      {muteBtn}
+    </div>
   );
 
   if (v.stage === 'doomed' || av.result) {
     return (
       <div className={`${cls} doomed`} data-testid="gremlin-card" role="status">
-        {mute}
+        {bar('Pass the Gremlin')}
+        <div className="grem-body">
         <div className="grem-face grem-boom" aria-hidden>💥</div>
         <div className="grem-title">{v.doomed === me ? 'The Gremlin went berserk on you!' : `It went berserk on ${name(v.doomed)}!`}</div>
-        {winner && <p className={`grem-sub game-over ${winner === me ? 'win' : 'lose'}`} data-testid="gremlin-verdict">{winner === me ? 'You win the duel!' : `${name(winner)} wins the duel.`}</p>}
+        {winner && <p className={`grem-sub game-over ${winner === me ? 'win' : 'lose'}`} data-testid="gremlin-verdict">{av.practice ? 'Only practice: it does not count.' : winner === me ? 'You win the duel!' : `${name(winner)} wins the duel.`}</p>}
         {pays && myOut < 0 && survive > 0 && <p className="grem-sub grem-ok" data-testid="gremlin-earned">Never caught: {points(survive)} for you!</p>}
         {pays && myOut >= 0 && mineSoFar > 0 && <p className="grem-sub" data-testid="gremlin-earned">You lasted a while: {points(mineSoFar)}.</p>}
+        </div>
       </div>
     );
   }
@@ -82,31 +92,32 @@ export function GremlinCard() {
     const meOut = v.bystanderDoomed === me;
     return (
       <div className={`${cls}${meOut ? ' doomed' : ''}`} data-testid="gremlin-card" role="status">
-        {mute}
-        <span className="grem-banner">Round {(v.roundNo ?? 1) + 1} next</span>
+        {bar(`Round ${(v.roundNo ?? 1) + 1} next`, true)}
+        <div className="grem-body">
         <div className="grem-face grem-boom" aria-hidden>💥</div>
         <div className="grem-title">{meOut ? 'It got you!' : `It got ${name(v.bystanderDoomed)}!`}</div>
         <p className="grem-sub" data-testid="gremlin-out-line">{meOut ? outLine : "They're out. Everyone else plays on, and the fuse is shorter this time!"}</p>
+        </div>
       </div>
     );
   }
   if (v.stage === 'sudden_death_intro') {
     return (
       <div className={cls} data-testid="gremlin-card" role="status">
-        {mute}
-        <span className="grem-banner">Sudden death</span>
+        {bar('Sudden death', true)}
+        <div className="grem-body">
         <div className="grem-face" aria-hidden><GremlinFace danger="unstable" /></div>
         <div className="grem-title">It got {name(v.bystanderDoomed)}!</div>
         <p className="grem-sub">Now just {(av.duelists || []).map(name).join(' and ')}: whoever holds it next time loses the duel.</p>
+        </div>
       </div>
     );
   }
   const cooling = !!v.cooldownUntil && now < v.cooldownUntil;
   return (
     <div className={cls} data-testid="gremlin-card">
-      {mute}
-      {v.round === 'sudden_death' ? <span className="grem-banner">Sudden death</span>
-        : party && (v.roundNo ?? 1) > 1 ? <span className="grem-banner">Round {v.roundNo} · shorter fuse</span> : null}
+      {v.round === 'sudden_death' ? bar('Sudden death', true) : party && (v.roundNo ?? 1) > 1 ? bar(`Round ${v.roundNo} · shorter fuse`, true) : bar('Pass the Gremlin')}
+      <div className="grem-body">
       <div className="grem-face" aria-hidden><GremlinFace danger={v.danger} /></div>
       <div className="grem-title" data-testid="gremlin-holder" aria-live="assertive">{mine ? 'You have the Gremlin!' : `${name(v.holder)} has the Gremlin`}</div>
       <div className={`grem-meter ${v.danger}`} role="img" aria-label={`The Gremlin is ${v.danger}`}><span /></div>
@@ -136,6 +147,7 @@ export function GremlinCard() {
         : "Just the duellists now. Watch the TV!"}</p>}
       {pays && inPool && survive > 0 && <p className="grem-sub grem-stake" data-testid="gremlin-stake">Caught and you're out. Last to the end for {points(survive)}.</p>}
       {!!v.trail.length && <div className="grem-trail">{v.trail.slice(-5).map((p, i) => <span key={i}>{name(p.from)} → {name(p.to)}{p.random ? ' 🎲' : ''}</span>)}</div>}
+      </div>
     </div>
   );
 }

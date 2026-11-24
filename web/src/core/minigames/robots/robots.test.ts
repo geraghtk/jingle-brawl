@@ -74,7 +74,7 @@ describe('Nutcracker Knockout', () => {
     expect(act(g, 'p1', { kind: 'dodge' }, now).error).toBeUndefined();
   });
 
-  it('a part takes two blows: the first knocks it loose, the second knocks it off; the head is the last', () => {
+  it('a part takes three blows: the first knocks it loose, the third knocks it off; the head is the last', () => {
     let g = bell(fight());
     const t0 = NOW + DEFAULTS.introMs + 100;
     g = did(g, 'p1', JAB, t0);
@@ -86,7 +86,7 @@ describe('Nutcracker Knockout', () => {
     expect(tv.fighters[1]).toMatchObject({ health: HEALTH - 1, lost: [], loose: 'hat' });
     expect(tv.fighters[0].loose).toBeUndefined();
     expect(tv.events.at(-1)).toMatchObject({ kind: 'hit', by: 0, punch: 'jab' });
-    [g] = batter(g, 'p1', 1, t0 + F.jabMs + F.recoverMs + 10);
+    [g] = batter(g, 'p1', HITS_PER_PART - 1, t0 + F.jabMs + F.recoverMs + 10);
     tv = view(g, t0 + 5000);
     expect(tv.fighters[1].lost).toEqual(['hat']);
     expect(tv.fighters[1].loose).toBeUndefined();
@@ -95,7 +95,8 @@ describe('Nutcracker Knockout', () => {
     expect(PARTS.at(-1)).toBe('head');
     expect([lost(HEALTH), loose(HEALTH)]).toEqual([[], null]);
     expect([lost(HEALTH - 1), loose(HEALTH - 1)]).toEqual([[], 'hat']);
-    expect([lost(HEALTH - 2), loose(HEALTH - 2)]).toEqual([['hat'], null]);
+    expect([lost(HEALTH - 2), loose(HEALTH - 2)]).toEqual([[], 'hat']);
+    expect([lost(HEALTH - 3), loose(HEALTH - 3)]).toEqual([['hat'], null]);
     expect([lost(1), loose(1)]).toEqual([PARTS.slice(0, -1), 'head']);
     expect([lost(0).at(-1), loose(0)]).toEqual(['head', null]);
     expect(lost(2).includes('head')).toBe(false);                    // the head only goes with the last blow
@@ -107,7 +108,7 @@ describe('Nutcracker Knockout', () => {
     g = did(g, 'p1', HEAVY, t0);
     expect(st(g).fight.f[0].punch).toMatchObject({ kind: 'heavy', lands: t0 + F.heavyMs });
     g = due(g);
-    expect(view(g, t0 + F.heavyMs).fighters[1]).toMatchObject({ health: HEALTH - 2, lost: ['hat'] });
+    expect(view(g, t0 + F.heavyMs).fighters[1]).toMatchObject({ health: HEALTH - HITS_PER_PART, lost: ['hat'] });
   });
 
   it('a block stops a jab; the view shows the fight as it stands at that moment, with no new message', () => {
@@ -162,12 +163,12 @@ describe('Nutcracker Knockout', () => {
     expect(arenaOf(g)!.result ?? null).toBeNull();
   });
 
-  it('a round is no longer over in a handful of blows: twelve clean jabs, or six haymakers', () => {
-    expect(HEALTH).toBe(12);
-    expect(Math.ceil(HEALTH / F.jabDamage)).toBe(12);
-    expect(Math.ceil(HEALTH / F.heavyDamage)).toBe(6);
+  it('a round is not over in a handful of blows: eighteen clean jabs, or six haymakers (twelve jabs went by too quickly)', () => {
+    expect(HEALTH).toBe(18);
+    expect(Math.ceil(HEALTH / F.jabDamage)).toBe(18);
+    expect(st(bell(fight())).cfg.fight.heavyDamage).toBe(HITS_PER_PART);       // a haymaker is a whole part
     // even unanswered, that is several seconds of punching; a real exchange is much longer
-    expect(12 * (F.jabMs + F.recoverMs)).toBeGreaterThan(7000);
+    expect(18 * (F.jabMs + F.recoverMs)).toBeGreaterThan(10_000);
     expect(DEFAULTS.roundMs).toBe(60_000);
   });
 
@@ -270,7 +271,7 @@ describe('Nutcracker Knockout', () => {
     expect(arenaOf(g)!.deadlines).toEqual([{ id: 'tick', at: back + toGo }]);
     expect(view(g, back + toGo - 10).fighters[1].health).toBe(HEALTH);        // not yet
     g = due(g);
-    expect(st(g).fight.f[1].health).toBe(HEALTH - F.heavyDamage);             // and the dodge window was not lost to the pause
+    expect(st(g).fight.f[1].health).toBe(HEALTH - HITS_PER_PART);             // and the dodge window was not lost to the pause
     expect(st(g).stage).toBe('fighting');
   });
 

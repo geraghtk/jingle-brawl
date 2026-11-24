@@ -3,6 +3,7 @@
 // game's sticker art. Everything they do is read from the room's view each frame (a punch from its
 // start and landing times, a guard, a flinch): the scene decides nothing. A part the view says is
 // lost is knocked off and flies; the head goes last and furthest.
+import { buildArena } from './arena3d';
 import * as THREE from 'three';
 import type { Part } from '../../core/minigames/robots/robots';
 import type { RobotFighterView, RobotView } from '../../core/minigames/robots/view';
@@ -151,13 +152,18 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
   rope.rotation.set(Math.PI / 2, 0, Math.PI * 0.83);
   scene.add(at(rope, 0, 0.8, 0));
 
+  const arena = buildArena(scene);
+  let cheer = 0;                                    // how excited the crowd is (a blow lifts it, it settles again)
+
   const robots: [Robot, Robot] = [buildRobot(0xff3366), buildRobot(0x18b88a)];
   const GAP = 0.8;                                                                      // apart at rest; a punch steps in (LUNGE) to reach the other's chin
   const LUNGE = 0.42;
   /** Each robot is turned a little to the camera, so the faces show (a pure side view hides them). */
   const TURN = 0.28;
   /** Where each robot stands (along the ring) and which way it faces: eased, so a change of sides is a walk round. */
-  const stand = [{ x: -GAP, turn: -TURN }, { x: GAP, turn: Math.PI + TURN }];
+  const stand = [{ x: -GAP, turn: -TURN, from: -GAP, to: -GAP, at: 0 }, { x: GAP, turn: Math.PI + TURN, from: GAP, to: GAP, at: 0 }];
+  /** A change of sides: a beat first (the one on the floor gets up), then this long walking round. */
+  const SWAP_WAIT = 700, SWAP_MS = 1700;
   robots.forEach((r, i) => { r.root.position.x = stand[i].x; r.root.rotation.y = stand[i].turn; });
   scene.add(robots[0].root, robots[1].root);
   let tinted: [string, string] = ['', ''];
@@ -234,10 +240,18 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     const step = Math.max(0, r.reach.L, r.reach.R) * LUNGE - Math.max(0, -r.lean) * 0.3;        // in with a punch, back when hit
     // its side of the ring this round (they change over between rounds: it walks across, round the other one)
     const st = stand[i];
-    st.x = ease(st.x, side === 0 ? -GAP : GAP, dt, 4);
-    st.turn = ease(st.turn, side === 0 ? -TURN : Math.PI + TURN, dt, 5);
+    const want = side === 0 ? -GAP : GAP, facing = side === 0 ? -TURN : Math.PI + TURN, ms = t * 1000;
+    if (!primed) { st.x = st.from = st.to = want; st.turn = facing; }             // a screen opened mid-match: already in place
+    else if (st.to !== want) { st.from = st.x; st.to = want; st.at = ms + SWAP_WAIT; }
+    const k = st.to === st.from ? 1 : Math.max(0, Math.min(1, (ms - st.at) / SWAP_MS)), go = k * k * (3 - 2 * k);
+    st.x = st.from + (st.to - st.from) * go;
+    if (k >= 1) st.from = st.to;
+    const walking = k > 0 && k < 1;
+    if (k > 0.1) st.turn = ease(st.turn, facing, dt, 4);
     r.root.position.x = st.x + (side === 0 ? 1 : -1) * step;
     r.root.position.z = (i === 0 ? 0.75 : -0.75) * Math.max(0, 1 - (st.x / GAP) * (st.x / GAP));
+    r.root.position.y = walking ? Math.abs(Math.sin(t * 9 + i)) * 0.07 : 0;       // a waddle: it has no knees
+    r.root.rotation.z = walking ? Math.sin(t * 9 + i) * 0.07 : 0;
     r.root.rotation.y = st.turn;
     // a part that has been knocked loose rattles on the robot until the next blow takes it
     for (const [part, obj] of Object.entries(r.parts) as [Part, THREE.Object3D][]) {
@@ -294,6 +308,7 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
     if (primed) for (const e of view.events) {
       if (e.n <= seenEvent) continue;
       const hitSeat = e.by === 0 ? 1 : 0, hitSide = hitSeat === view.left ? 0 : 1, x = (hitSide === 0 ? -1 : 1) * (GAP - 0.42);
+      if (e.kind === 'hit' || e.kind === 'counter' || e.kind === 'smash') cheer = Math.max(cheer, e.kind === 'hit' ? 0.7 : 1);
       if (e.kind === 'hit') { burst(x, 1.75, 0xffe27a, 9, 3); shake = Math.max(shake, 0.12); }
       else if (e.kind === 'counter') { burst(x, 1.75, 0xff5a4a, 16, 4.2); shake = Math.max(shake, 0.25); }
       else if (e.kind === 'blocked') burst(x * 0.5, 1.6, 0xc9d2de, 6, 2);
@@ -331,6 +346,9 @@ export function createRobotScene(canvas: HTMLCanvasElement): RobotScene {
       ((s.obj as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 1 - age * age;
     }
     shake = Math.max(0, shake - dt * 1.4);
+    if (view.stage === 'ko' || view.stage === 'done') cheer = 1;          // a knockout: they are all on their feet
+    arena.tick(t, dt, cheer);
+    cheer = Math.max(0, cheer - dt * 0.9);
     camera.position.set(CAM.x + Math.sin(t * 0.35) * 0.18 + (Math.random() - 0.5) * shake * 0.35, CAM.y + (Math.random() - 0.5) * shake * 0.35, CAM.z);
     // the camera goes part of the way with the flying head, then comes back to the ring
     const want = slow && flyingHead ? LOOK.clone().lerp(flyingHead.position, 0.55) : LOOK;

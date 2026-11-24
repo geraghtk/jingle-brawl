@@ -1,6 +1,6 @@
 # Architecture
 
-Where Jingle Brawl (Yuel Duel) is today, where it is going, and why. Decided 2026-11-07; the
+Where YuleDuel (the repo: jingle-brawl) is today, where it is going, and why. Decided 2026-11-07; the
 mini-game spec is `yule_duel_agent_spec_updated.md`.
 
 ## Before (until 2026-11-07)
@@ -68,7 +68,7 @@ PC: node room server                 same server on Fly.io / Railway / Cloud Run
   local/LAN version.
 - Pass the Gremlin ships as an in-app duel game: 2 players direct duel; 3+ everyone plays and the
   two duelists are resolved (duelist-only sudden death if a bystander is doomed).
-- "Yuel Duel" is the brand (the logo says so), not a typo.
+- The product is "YuleDuel", one word (Kevin, 2026-11-23). The logo picture still says "Yuel Duel".
 
 ## Collision risks
 1. UI code builds plans itself at ~60 call sites; moving to intents can drift from `perform()`.

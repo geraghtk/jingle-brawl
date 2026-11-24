@@ -36,14 +36,14 @@ test('Elf Tower Wars: plan (a tower goes up, toys line up at the door), then the
     const one = pages[nameOf(A.members[0])], two = pages[nameOf(A.members[1])];
     await expect(one.getByTestId('tower-my-team')).toContainText('Team A');
     // it opens with a plan: round 1, the six cards and Done on every phone (the reactions are for the march)
-    await expect(tv.getByTestId('tower-round')).toHaveText('Round 1 of 5');
+    await expect(tv.getByTestId('tower-round')).toHaveText('Round 1');                 // (no "of 5": it goes on until a workshop falls)
     await expect(tv.getByTestId('tower-phase')).toHaveText('Plan');
     await expect(one.getByTestId('tower-phase')).toContainText('Plan');
     for (const page of [one, two]) for (const card of ['soldier', 'mouse', 'tank', 'snow', 'cannon', 'frost']) await expect(page.getByTestId(`tower-card-${card}`)).toBeVisible();   // the same hand for everyone
     await expect(one.getByTestId('tower-card-zap')).toHaveCount(0);
     await expect(one.getByTestId('tower-done')).toBeVisible();
     await expect(one.getByTestId('tower-hint')).toContainText('A snow tower stops it');     // a card is picked from the start: the hint says what it is for and what answers it
-    await expect(tv.getByTestId('tower-hp-A')).toContainText('16');
+    await expect(tv.getByTestId('tower-hp-A')).toContainText('20');
     for (const id of [...A.members, ...B.members]) await expect(tv.getByTestId(`tower-member-${id}`)).toBeVisible();   // everyone's own energy
 
     // (plenty of time to plan in this test)
@@ -66,11 +66,15 @@ test('Elf Tower Wars: plan (a tower goes up, toys line up at the door), then the
     await expect(tv.getByTestId('tower-spot-0-0-0').locator('img')).toHaveAttribute('src', /snow2-a\.webp/, { timeout: 8000 });
     await expect(one.getByTestId('tower-spot-btn-0-0').locator('img')).toHaveAttribute('src', /snow2-a\.webp/);
 
+    // every path starts at a gate at both workshops (the middle one's stands clear of the building: toys used to slide out from under the house)
+    for (const side of [0, 1]) for (const lane of [0, 1, 2]) await expect(tv.getByTestId(`tower-gate-${side}-${lane}`)).toBeVisible();
+
     // the other teammate lines a soldier up at the middle path: it waits at the door (on the TV too), it does not walk yet
     await tap(two, 'tower-lane-1');                                           // the soldier card is the one picked to begin with
     await H.waitForGame(r.roomCode, (g) => ((g.arena.state.queue || []).length === 1 ? g : false), { label: 'toy lined up' });
     await expect(tv.getByTestId('tower-queue-0-1')).toBeVisible();
-    await expect(two.getByTestId('tower-lane-info-1')).toContainText('1 lined up');
+    await expect(two.getByTestId('tower-lane-info-1')).toContainText('yours 1');
+    await expect(tv.getByTestId('tower-waiting')).toContainText('Planning');   // the TV says who the table is waiting for
     expect(((await arena(r.roomCode)).state.field.units || []).length).toBe(0);
     await shot(tv, 'tv-plan'); await shot(one, 'phone-plan');
 

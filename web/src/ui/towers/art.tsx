@@ -62,3 +62,34 @@ export function WorkshopArt({ color, health, flip, style }: { color: string; hea
       style={{ ...fit, ...style, transformOrigin: '50% 100%', transform: `${flip ? 'scaleX(-1) ' : ''}rotate(${hurt * -4}deg)`, filter: `brightness(${1 - hurt * 0.3}) saturate(${1 - hurt * 0.45})` }} />
   );
 }
+
+/** A lane's gate at a workshop: where that team's toys come out onto a path that does not start at the
+ *  workshop's own door (the top and the bottom one: toys used to appear out of the snow there). Drawn, not
+ *  painted, in the art's flat look: stone posts, a doorway, a roof in the team's colour under snow. */
+export function LaneGate({ color, style }: { color: string; style?: CSSProperties }) {
+  const ink = '#1d2a3a';
+  return (
+    <svg viewBox="0 0 100 112" style={{ display: 'block', overflow: 'visible', ...style }} aria-hidden>
+      <ellipse cx="50" cy="104" rx="50" ry="8" fill="rgba(40, 70, 110, .18)" />
+      {/* the doorway, dark inside, and its two doors standing open */}
+      <path d="M24,104 L24,58 Q50,30 76,58 L76,104 Z" fill="#2a2140" stroke={ink} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M24,104 L24,60 L33,66 L33,100 Z M76,104 L76,60 L67,66 L67,100 Z" fill="#a8683a" stroke={ink} strokeWidth="3" strokeLinejoin="round" />
+      {/* the posts: stone, a course or two marked */}
+      {[8, 74].map((x) => (
+        <g key={x}>
+          <rect x={x} y="46" width="18" height="60" rx="3" fill="#cfd4de" stroke={ink} strokeWidth="4" />
+          <path d={`M${x},66 h18 M${x},86 h18 M${x + 9},46 v20 M${x + 9},86 v20`} stroke="#9aa3b5" strokeWidth="2.5" fill="none" />
+        </g>
+      ))}
+      {/* the roof, in the team's colour, snow along its ridge */}
+      <path d="M-2,50 L50,10 L102,50 L92,56 L50,26 L8,56 Z" fill={color} stroke={ink} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M14,36 Q22,26 32,24 Q40,10 50,8 Q60,10 68,24 Q78,26 86,36 Q78,34 70,30 Q60,20 50,18 Q40,20 30,30 Q22,34 14,36 Z" fill="#fff" stroke={ink} strokeWidth="3" strokeLinejoin="round" />
+      {/* a pennant on top */}
+      <path d="M50,8 L50,-10" stroke={ink} strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M50,-10 L68,-5 L50,1 Z" fill={color} stroke={ink} strokeWidth="3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Does this lane start at the workshop's own door (the middle one), or does it need a gate of its own? */
+export const laneHasGate = (lane: number, lanes: number) => lanes > 1 && lane !== (lanes - 1) / 2;

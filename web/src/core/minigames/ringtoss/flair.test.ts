@@ -1,6 +1,6 @@
 // Ring Toss's show: runs of ringers, the leader, the last seconds, the one target a set still needs.
 import { describe, expect, it } from 'vitest';
-import { finalCount, lastNeeded, leaderOf, streakAt, streakCall, streakPitch } from './flair';
+import { callOf, CALL_HOLD_MS, finalCount, lastNeeded, leaderOf, streakAt, streakCall, streakPitch } from './flair';
 import { PEGS } from './ringtoss';
 
 const t = (n: number, pid: string, pegId: string | null, stage = 'throwing') => ({ n, pid, stage, pegId });
@@ -45,5 +45,24 @@ describe('Ring Toss flair', () => {
     expect(lastNeeded(PEGS, all.filter((id) => id !== 'golden'))).toBe('golden');
     expect(lastNeeded(PEGS, all.slice(0, 3))).toBeNull();
     expect(lastNeeded(PEGS, [])).toBeNull();
+  });
+});
+
+describe('Ring Toss: one call-out at a time on the TV', () => {
+  it('nothing landed: nothing to say', () => { expect(callOf([], 1000)).toBeNull(); });
+  it('the newest ringer has the words; two that land together: the later throw', () => {
+    expect(callOf([{ n: 1, at: 100, weight: 0 }, { n: 2, at: 400, weight: 0 }, { n: 3, at: 250, weight: 0 }], 500)).toBe(2);
+    expect(callOf([{ n: 7, at: 100, weight: 1 }, { n: 8, at: 100, weight: 1 }, { n: 6, at: 100, weight: 1 }], 500)).toBe(8);
+  });
+  it('a full set keeps the screen against an ordinary ringer that lands just after it, then gives way', () => {
+    const calls = [{ n: 1, at: 1000, weight: 2 }, { n: 2, at: 1300, weight: 0 }];
+    expect(callOf(calls, 1400)).toBe(1);
+    expect(callOf(calls, 1000 + CALL_HOLD_MS + 1)).toBe(2);
+    expect(callOf([...calls].reverse(), 1400)).toBe(1);                 // whatever order they come in
+    expect(callOf([...calls].reverse(), 1000 + CALL_HOLD_MS + 1)).toBe(2);
+  });
+  it('a run is called over an older full set, and a newer full set over a run', () => {
+    expect(callOf([{ n: 1, at: 1000, weight: 2 }, { n: 2, at: 2500, weight: 1 }], 2600)).toBe(2);
+    expect(callOf([{ n: 1, at: 1000, weight: 1 }, { n: 2, at: 1100, weight: 2 }], 1200)).toBe(2);
   });
 });

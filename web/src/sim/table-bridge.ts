@@ -1,5 +1,5 @@
 // The table over JSON lines (stdin → stdout), so a simulator in another language (showrunner's
-// Simulation Lab, Python) can seat its people at a game of Yule Duel. One request per line, one
+// Simulation Lab, Python) can seat its people at a game of YuleDuel. One request per line, one
 // reply per line. Two backends behind the same commands:
 //   engine  the real rules engine on a virtual clock (sim/table.ts): fast, seeded, replayable
 //   live    the real app in a browser against the room server (sim/live.ts): real screens, real time

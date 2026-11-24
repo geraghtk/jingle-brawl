@@ -2,8 +2,10 @@
 import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { Avatar, avatarColor } from '../ui/avatar';
+import { FitName } from '../ui/FittedName';
 import { observe as mascotsObserve } from '../ui/mascots';
 import { Recap } from '../ui/Recap';
+import { finaleDue } from '../ui/clock';
 import { BidPanel } from './BidPanel';
 import { DrawOffCard } from './DrawOffCard';
 import { GremlinCard } from './GremlinCard';
@@ -18,7 +20,7 @@ import { ReprisalCard } from './ReprisalCard';
 import { StatusCard } from './StatusCard';
 import { getDef } from '../core/minigames/registry';
 import { useServerNow } from '../net/hooks';
-import { Briefing, GoFlash, PracticeRibbon, useGo } from '../ui/Briefing';
+import { Briefing, GoFlash, OWN_OPENING, PracticeRibbon, useGo } from '../ui/Briefing';
 import { Ceremony } from '../ui/Ceremony';
 import { useWakeLock } from '../ui/wakeLock';
 import { buzz } from '../ui/sound';
@@ -47,6 +49,13 @@ function ArenaPractice() {
   const now = useServerNow(500);
   const av = game.arenaView;
   return av?.practice && av.lifecycle !== 'briefing' ? <PracticeRibbon endsAt={av.lifecycle === 'active' ? av.practice.endsAt : undefined} now={now} /> : null;
+}
+
+/** The night's finale, once the last duel's verdict has had its moment. */
+function Finale() {
+  const { game, me } = usePlayer();
+  const now = useServerNow(500);
+  return finaleDue(game, now) ? <Recap game={game} me={me} where="phone" /> : null;
 }
 
 /** Before a mini-game starts: how to play it and this phone's Ready button. */
@@ -88,11 +97,13 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
       <div className="header">
         <div className="player-info">
           <Avatar name={player.name} avatar={player.avatar} size={40} />
-          <div className="player-name" id="display-name">{player.name}</div>
+          <div className="player-name" id="display-name"><FitName name={player.name} chars={13} lines={2} min={0.6} /></div>
         </div>
         <div className="chip-count" aria-label={`${player.chips} chips`}><span className="jb-chip" /><span id="chip-display">{player.chips}</span></div>
       </div>
 
+      {/* the mascots' own place (ui/mascots.ts): in the page's flow, so a bubble never lies over a button */}
+      <div data-mascot-slot="phone" />
       {showStatus && <StatusCard />}
       {iBid && <BidPanel key={`${t!.phase}|${t!.giftId || t!.misfitId}`} />}
       {myReprisal && <ReprisalCard />}
@@ -102,7 +113,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
         : arena && (ArenaCard ? <ArenaCard />
         // a game this page doesn't know (the room is newer than the page)
         : <div className="card" role="status" data-testid="arena-unknown"><p>This game needs a newer app. Reload this page to play.</p></div>)}
-      {arena && go && <GoFlash />}
+      {arena && go && !OWN_OPENING.has(arenaGame || '') && !!game.arenaView?.participants.includes(me) && <GoFlash />}
       {arena && game.arenaView?.practice && <ArenaPractice />}
       {arena && game.arenaView?.result && <ArenaCeremony />}
 
@@ -139,7 +150,7 @@ export function GameScreen({ onLeave }: { onLeave: () => void }) {
 
       <button className="leave-link" onClick={onLeave}>Leave game</button>
       <VerdictModal />
-      {game.phase === 'ended' && <Recap game={game} me={me} where="phone" />}
+      <Finale />
     </div>
   );
 }

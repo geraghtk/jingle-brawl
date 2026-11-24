@@ -1,6 +1,6 @@
 /* Nutcracker Knockout: the ring on the TV / console, and the phone's controller. */
 .nk-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 78vh; border-radius: 18px; overflow: hidden;
-  background: linear-gradient(#7fa0cf 0%, #b9cbe6 34%, #f6d8dc 58%, #eaf1f8 59%, #dbe6f2 100%); }
+  background: linear-gradient(#1b2452 0%, #3b3f8c 30%, #8a5fa8 48%, #f3a6b0 60%, #ffd9b8 66%, #cfdcf0 67%, #cfdcf0 100%); }   /* dusk over the arena (ui/robots/arena3d.ts) */
 .arena-full .nk-stage { height: 100%; max-height: none; aspect-ratio: auto; border-radius: 14px; }
 .nk-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .nk-nogl { position: absolute; left: 0; right: 0; bottom: 18%; text-align: center; font-weight: 800; color: var(--ink, #0d1018); }
@@ -31,19 +31,13 @@
 @media (max-width: 760px) { .nk-name { font-size: 15px; } .nk-part { width: 15px; height: 10px; } .nk-part.head { width: 14px; height: 14px; } .nk-secs { font-size: 22px; } }
 
 /* a spectator's phone */
-.nk-watch { text-align: center; }
-.nk-watch-title { font: 900 22px/1.2 var(--f6-disp, system-ui); margin: 0 0 6px; }
-.nk-watch-score { font: 900 40px/1 var(--f6-disp, system-ui); margin: 10px 0 0; }
 
 /* a duelist's phone: the whole screen is the controller (under the host's tab bar, if they play too) */
-.nk-controller { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 18px; box-sizing: border-box;
-  background: linear-gradient(#f2f6fa, #dfe8f2); -webkit-user-select: none; user-select: none; touch-action: none; }
-#seat-panel-game .nk-controller { top: 64px; }
-.nk-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 800; }
+/* (the frame, the top bar and the word line are every game's: ui/arenaPhone.css) */
+.nk-controller { background: linear-gradient(#f2f6fa, #dfe8f2); color: #1d2a3a; touch-action: none; }
 .nk-mine { display: inline-flex; gap: 4px; }
 .nk-mine i { width: 16px; height: 16px; border-radius: 4px; background: var(--robot); border: 2px solid #1d2a3a; box-sizing: border-box; }
 .nk-mine i.lost { background: transparent; border-style: dashed; border-color: #9aa3b2; }
-.nk-word { min-height: 30px; text-align: center; font: 900 24px/1.2 var(--f6-disp, system-ui); }
 .nk-pads { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
 .nk-pad { position: relative; overflow: hidden; border: 0; border-radius: 22px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   touch-action: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 6px 0 rgba(13, 16, 24, .22); transition: transform .06s, box-shadow .06s, opacity .12s; }
@@ -74,4 +68,22 @@
 .nk-pads.on-left .nk-pad.block, .nk-pads.on-left .nk-pad.dodge { grid-column: 1; }
 .nk-pads.on-right .nk-pad.punch { grid-column: 1; }
 .nk-pads.on-right .nk-pad.block, .nk-pads.on-right .nk-pad.dodge { grid-column: 2; }
-.nk-side { padding: 4px 10px; border-radius: 999px; background: var(--robot); color: #fff; font: 800 12px/1.3 var(--f6-disp, system-ui); white-space: nowrap; }
+/* the phone's top bar on one line at any width; the word line keeps its height so the pads never move under a thumb */
+.nk-mine { flex: none; }
+.nk-word { min-height: 2.5em; display: grid; place-items: center; }
+.nk-pad-big { font-size: clamp(20px, 7.4vw, 30px); }
+.nk-pad-small { font-size: clamp(10px, 3.3vw, 14px); text-align: center; padding: 0 4px; }
+.nk-pad.block:not(.held) .nk-guard-meter { opacity: 0; }
+.nk-pads { animation: moPop .3s var(--mo-spring, ease-out) both; }
+/* health bars (2026-11-23): on the TV under each name, on the phone one for each robot on its side of the ring */
+.nk-health { height: 12px; border-radius: 999px; background: #1d2a3a; box-shadow: 0 0 0 2px #1d2a3a; overflow: hidden; min-width: 190px; }
+.nk-health i { display: block; height: 100%; border-radius: 999px; background: var(--robot); transition: width .25s cubic-bezier(.2, .9, .3, 1); }
+.nk-health i.low { animation: nkLow .5s ease-in-out infinite alternate; }
+.nk-corner.right .nk-health { transform: scaleX(-1); }
+@keyframes nkLow { to { filter: brightness(1.5); } }
+.arena-full .nk-health { height: 16px; min-width: 260px; }
+.nk-bars { flex: none; display: flex; gap: 10px; }
+.nk-bars.on-right { flex-direction: row-reverse; }
+.nk-bar { flex: 1; height: 10px; border-radius: 999px; background: rgba(13, 16, 24, .82); box-shadow: 0 0 0 2px rgba(13, 16, 24, .82); overflow: hidden; }
+.nk-bar i { display: block; height: 100%; border-radius: 999px; background: var(--robot); transition: width .25s cubic-bezier(.2, .9, .3, 1); }
+.nk-bars.on-left .nk-bar.theirs, .nk-bars.on-right .nk-bar.mine { transform: scaleX(-1); }

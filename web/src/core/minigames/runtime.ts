@@ -8,6 +8,7 @@ import type { Rng } from '../rng';
 import { refuse, Tx } from '../tx';
 import type { Game, Plan, PlayerId } from '../types';
 import type { Deadline, GameDefinition, GameResult, Lifecycle, MatchCtx, MatchMode, Transition } from './contracts';
+import { CEREMONY_DELAY_MS } from './ceremony';
 import { getDef } from './registry';
 
 export interface ArenaInstance {
@@ -49,7 +50,7 @@ export const REAL_COUNT_MS = 4000;
 export const PRACTICE_END_MS = 1500;
 
 /** A finished game's ending stays up this long before the duel takes over (the host can move on sooner). */
-export const RESULT_HOLD_MS = 6000;
+export const RESULT_HOLD_MS = 8000;
 
 /** What each screen is sent instead of the instance (projection.ts). */
 export interface ArenaView {
@@ -63,6 +64,8 @@ export interface ArenaView {
   briefing?: { ready: PlayerId[]; goAt?: number; real?: true };
   /** A practice round is on: nothing counts; it ends at `endsAt` and the game starts again for real. */
   practice?: { on: true; endsAt?: number };
+  /** The game named the duel's winner: what they take when it is handed off (core/stakes.ts, added by the projection). */
+  stakes?: import('../stakes').DuelStakes;
 }
 
 const RECENT = 64;
@@ -259,7 +262,7 @@ export function arenaStop(game: Game, status: 'cancelled' | 'no_contest', now: n
 }
 
 /** The game is over: back to the duel. Only a resolved result with a nominated winning duelist names a winner. */
-export function handoff(game: Game): Plan {
+export function handoff(game: Game, now?: number): Plan {
   const a = arenaOf(game);
   const t = game.currentTurn;
   if (!a?.result || !t) return refuse('The game is not over');
@@ -278,7 +281,12 @@ export function handoff(game: Game): Plan {
   if (t.phase !== 'minigame_arena') return tx.plan();                       // a standalone round: nothing to settle
   tx.set('currentTurn/phase', 'duel');
   const w = a.result.duel?.winningDuelistId;
-  if (a.result.status === 'resolved' && w && a.duelists?.includes(w)) tx.set('currentTurn/duelGameWinner', w);
+  if (a.result.status === 'resolved' && w && a.duelists?.includes(w)) {
+    tx.set('currentTurn/duelGameWinner', w);
+    // the ceremony has told every screen who won and what they take, so the duel is not announced again
+    // (not when the host moved on before it came up, or stopped the game: then the verdict says it)
+    if (a.endedAt != null && (now == null || now >= a.endedAt + CEREMONY_DELAY_MS)) tx.set('currentTurn/duelAnnounced', w);
+  }
   else tx.set('currentTurn/duelGameOutcome', { status: 'no_contest', reason: a.result.reason || 'the game could not decide' });
   return tx.plan();
 }
